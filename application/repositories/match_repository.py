@@ -533,6 +533,16 @@ class MatchRepository:
         )
 
     @staticmethod
+    async def get_for_player_cards(match_ids) -> List[Match]:
+        """The named matches with what the app's schedule rows show: stage, roster, race room."""
+        ids = list(match_ids)
+        if not ids:
+            return []
+        return await scoped(Match.filter(id__in=ids)).prefetch_related(
+            'tournament', 'stage', 'players', 'players__user', 'racetime_room',
+        )
+
+    @staticmethod
     async def get_by_ids_with_presets(match_ids) -> List[Match]:
         """The named matches with their tournament's two presets attached.
 

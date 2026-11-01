@@ -3264,6 +3264,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/matches/{match_id}/running-late": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Say you're running late
+         * @description Tells the match's staff and on-duty desk you're on your way, with how late you expect to be and an optional note. Saying it again with a new number updates it. Opens 30 minutes before the match (earlier for a stage match with a reminder). Fails with 400 when you don't play in it, you're already checked in, the window isn't open, or the match is raced online.
+         *
+         *     **Who can call this:** Any member who plays in the match.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **App scope:** `play`
+         */
+        post: operations["running_late_api_matches__match_id__running_late_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/matches/{match_id}/seat": {
         parameters: {
             query?: never;
@@ -3507,6 +3532,79 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/bookable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Matches waiting on you to pick a time
+         * @description Your bracket matchups with no time yet, whether the bracket runs in Wizzrobe, on Challonge or on start.gg. A best-of set lists one row per game still to book.
+         *
+         *     **Who can call this:** Any member.
+         *
+         *     **App scope:** `play`
+         */
+        get: operations["my_bookable_api_me_bookable_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/bookable/{source}/{key}/book": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pick a time for your match
+         * @description Books the matchup at `scheduled_at` and tells your opponent. A best-of set books its next game. Fails with 400 when the matchup isn't waiting on you, the time is outside the round's booking window or the tournament's hours, or someone booked it first.
+         *
+         *     **Who can call this:** A player in the matchup.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **App scope:** `play`
+         */
+        post: operations["book_api_me_bookable__source___key__book_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/bookable/{source}/{key}/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check a time before booking it
+         * @description Says whether booking this matchup at `at` would be refused (outside the round's booking window) and lists anything that might make the time a bad one: a player already busy, a full room, past closing. Books nothing. Fails with 400 when the matchup isn't yours to book.
+         *
+         *     **Who can call this:** A player in the matchup.
+         *
+         *     **App scope:** `play`
+         */
+        get: operations["check_time_api_me_bookable__source___key__check_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me/communities": {
         parameters: {
             query?: never;
@@ -3523,6 +3621,54 @@ export interface paths {
          *     **Apps:** can't call this; it needs a personal API token.
          */
         get: operations["my_communities_api_me_communities_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/home": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your Home tab
+         * @description Your next match, what's waiting on you (times to pick, an opponent's request to move a match, matches to acknowledge) and the rest of today.
+         *
+         *     **Who can call this:** Any member.
+         *
+         *     **App scope:** `play`
+         */
+        get: operations["my_home_api_me_home_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your Schedule tab
+         * @description Your matches, crew slots and volunteer shifts in this event. Upcoming ones soonest first, or with `past=true` the ones that have ended, latest first.
+         *
+         *     **Who can call this:** Any member.
+         *
+         *     **App scope:** `play`
+         */
+        get: operations["my_schedule_api_me_schedule_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -9506,6 +9652,72 @@ export interface components {
             /** @default available */
             status: components["schemas"]["VolunteerAvailabilityStatus"];
         };
+        /** BookRequest */
+        BookRequest: {
+            /**
+             * Scheduled At
+             * Format: date-time
+             * @description When to play, as an ISO 8601 instant with an offset.
+             */
+            scheduled_at: string;
+        };
+        /** BookableResponse */
+        BookableResponse: {
+            /**
+             * Best Of
+             * @default 1
+             */
+            best_of: number;
+            /**
+             * Blocked
+             * @description Why it can't be booked yet, when it can't.
+             */
+            blocked?: string | null;
+            /**
+             * If Needed
+             * @description A set game that's only played if the set gets that far.
+             * @default false
+             */
+            if_needed: boolean;
+            /**
+             * Key
+             * @description The matchup's id within its source.
+             */
+            key: number;
+            /** Opponent */
+            opponent: string;
+            /** Round Label */
+            round_label: string;
+            /**
+             * Source
+             * @description `bracket` (run in Wizzrobe), `challonge` or `startgg`.
+             */
+            source: string;
+            /**
+             * Source Label
+             * @description The bracket site's name, when it isn't Wizzrobe.
+             */
+            source_label?: string | null;
+            /** Tournament */
+            tournament: string;
+            /** Tournament Id */
+            tournament_id: number;
+            /**
+             * Window Text
+             * @description When this round may be booked, ready to print.
+             */
+            window_text?: string | null;
+        };
+        /** BookedResponse */
+        BookedResponse: {
+            /** Match Id */
+            match_id: number;
+            /**
+             * Scheduled At
+             * Format: date-time
+             */
+            scheduled_at: string;
+        };
         /**
          * BotStatus
          * @description Health of a racetime bot's websocket connection.
@@ -12260,6 +12472,23 @@ export interface components {
              */
             status: string;
         };
+        /** HomeResponse */
+        HomeResponse: {
+            /** Needs You */
+            needs_you: components["schemas"]["NeedResponse"][];
+            /** @description Your next match that hasn't finished. */
+            next_up?: components["schemas"]["ScheduleEntryResponse"] | null;
+            /**
+             * Today
+             * @description The rest of today, without `next_up`.
+             */
+            today: components["schemas"]["ScheduleEntryResponse"][];
+            /**
+             * Zone
+             * @description The timezone to show times in. Null means use the device's own.
+             */
+            zone?: string | null;
+        };
         /** JoinRequestResponse */
         JoinRequestResponse: {
             /**
@@ -13359,6 +13588,39 @@ export interface components {
             started_at?: string | null;
             /** @description Run status: `pending` (created ahead of a live race, not yet started), `in_progress`, `finished`, `forfeit` or `disqualified`. */
             status: components["schemas"]["AsyncQualifierRunStatus"];
+        };
+        /** NeedResponse */
+        NeedResponse: {
+            /**
+             * Agreed
+             * @description For `agree`: you already agreed and staff haven't decided yet.
+             * @default false
+             */
+            agreed: boolean;
+            /** @description The matchup, for `book`. */
+            bookable?: components["schemas"]["BookableResponse"] | null;
+            /** Detail */
+            detail: string;
+            /**
+             * Kind
+             * @description `book` (pick a time), `agree` (your opponent asked to move or call off a match) or `acknowledge` (confirm you've seen a match's time).
+             */
+            kind: string;
+            /** Match Id */
+            match_id?: number | null;
+            /** Original At */
+            original_at?: string | null;
+            /** Proposed At */
+            proposed_at?: string | null;
+            /** Reason */
+            reason?: string | null;
+            /**
+             * Request Id
+             * @description The reschedule request, for `agree`.
+             */
+            request_id?: number | null;
+            /** Title */
+            title: string;
         };
         /** NoticeInfo */
         NoticeInfo: {
@@ -15054,6 +15316,99 @@ export interface components {
              */
             total: number;
         };
+        /** RunningLateRequest */
+        RunningLateRequest: {
+            /**
+             * Minutes
+             * @description How late you expect to be: 10, 20 or 30 minutes.
+             */
+            minutes: number;
+            /** Note */
+            note?: string | null;
+        };
+        /** ScheduleEntryResponse */
+        ScheduleEntryResponse: {
+            /**
+             * Approved
+             * @description For a crew slot: whether staff approved it.
+             */
+            approved?: boolean | null;
+            /**
+             * Assignment Id
+             * @description The volunteer assignment, for a shift.
+             */
+            assignment_id?: number | null;
+            /**
+             * Can Report Late
+             * @description Whether `POST /matches/{match_id}/running-late` would take a heads-up now.
+             * @default false
+             */
+            can_report_late: boolean;
+            /**
+             * Checked In
+             * @description For a shift: whether you've checked in.
+             * @default false
+             */
+            checked_in: boolean;
+            /**
+             * Detail
+             * @description Tournament, matchup or shift label, ready to print.
+             */
+            detail: string;
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+            /**
+             * Kind
+             * @description `match` (you play), `crew` (you commentate, track or broadcast) or `shift` (volunteer).
+             */
+            kind: string;
+            /**
+             * Late Minutes
+             * @description How late you said you'd be.
+             */
+            late_minutes?: number | null;
+            /** Match Id */
+            match_id?: number | null;
+            /**
+             * Needs Acknowledgment
+             * @description You still need to confirm you've seen this match's time.
+             * @default false
+             */
+            needs_acknowledgment: boolean;
+            /**
+             * Room Url
+             * @description The open racetime.gg room, if the match has one.
+             */
+            room_url?: string | null;
+            /**
+             * Stage
+             * @description The stage the match runs on, if any.
+             */
+            stage?: string | null;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /**
+             * Station
+             * @description Your station, once assigned.
+             */
+            station?: string | null;
+            /**
+             * Status
+             * @description For a match: `scheduled`, `checked_in`, `live` or `finished`.
+             */
+            status?: string | null;
+            /**
+             * Title
+             * @description `vs <opponent>` for a match, the crew role, or the shift's position.
+             */
+            title: string;
+        };
         /**
          * ScheduleGameRequest
          * @description Schedule the next game of a series. The game number is server-assigned.
@@ -15079,6 +15434,16 @@ export interface components {
              * @description Stage to run the match on. Only Staff and admins of this tournament may set it.
              */
             stage_id?: number | null;
+        };
+        /** ScheduleResponse */
+        ScheduleResponse: {
+            /** Items */
+            items: components["schemas"]["ScheduleEntryResponse"][];
+            /**
+             * Zone
+             * @description The timezone to show times in. Null means use the device's own.
+             */
+            zone?: string | null;
         };
         /** SectionRequest */
         SectionRequest: {
@@ -16535,6 +16900,19 @@ export interface components {
              * @description Distinct signed-in people seen in the window.
              */
             unique_users: number;
+        };
+        /** TimeCheckResponse */
+        TimeCheckResponse: {
+            /**
+             * Clashes
+             * @description Reasons the time might not work. Booking anyway is allowed.
+             */
+            clashes: string[];
+            /**
+             * Refusal
+             * @description Why booking at this time would be refused, if it would.
+             */
+            refusal?: string | null;
         };
         /** TopApiCallRow */
         TopApiCallRow: {
@@ -29903,6 +30281,89 @@ export interface operations {
             };
         };
     };
+    running_late_api_matches__match_id__running_late_post: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                match_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RunningLateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     seat_match_api_matches__match_id__seat_post: {
         parameters: {
             query?: {
@@ -30780,6 +31241,214 @@ export interface operations {
             };
         };
     };
+    my_bookable_api_me_bookable_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookableResponse"][];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    book_api_me_bookable__source___key__book_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                source: "bracket" | "challonge" | "startgg";
+                key: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookedResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    check_time_api_me_bookable__source___key__check_get: {
+        parameters: {
+            query: {
+                /** @description The time to check, as an ISO 8601 instant with an offset. */
+                at: string;
+            };
+            header?: never;
+            path: {
+                source: "bracket" | "challonge" | "startgg";
+                key: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimeCheckResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     my_communities_api_me_communities_get: {
         parameters: {
             query?: never;
@@ -30823,6 +31492,130 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    my_home_api_me_home_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HomeResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    my_schedule_api_me_schedule_get: {
+        parameters: {
+            query?: {
+                /** @description Show what has ended instead of what's coming. */
+                past?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduleResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
             /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */

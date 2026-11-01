@@ -1212,6 +1212,127 @@
         "title": "AvailabilityWindowInput",
         "type": "object"
       },
+      "BookRequest": {
+        "properties": {
+          "scheduled_at": {
+            "description": "When to play, as an ISO 8601 instant with an offset.",
+            "format": "date-time",
+            "title": "Scheduled At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scheduled_at"
+        ],
+        "title": "BookRequest",
+        "type": "object"
+      },
+      "BookableResponse": {
+        "properties": {
+          "best_of": {
+            "default": 1,
+            "title": "Best Of",
+            "type": "integer"
+          },
+          "blocked": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why it can't be booked yet, when it can't.",
+            "title": "Blocked"
+          },
+          "if_needed": {
+            "default": false,
+            "description": "A set game that's only played if the set gets that far.",
+            "title": "If Needed",
+            "type": "boolean"
+          },
+          "key": {
+            "description": "The matchup's id within its source.",
+            "title": "Key",
+            "type": "integer"
+          },
+          "opponent": {
+            "title": "Opponent",
+            "type": "string"
+          },
+          "round_label": {
+            "title": "Round Label",
+            "type": "string"
+          },
+          "source": {
+            "description": "`bracket` (run in Wizzrobe), `challonge` or `startgg`.",
+            "title": "Source",
+            "type": "string"
+          },
+          "source_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The bracket site's name, when it isn't Wizzrobe.",
+            "title": "Source Label"
+          },
+          "tournament": {
+            "title": "Tournament",
+            "type": "string"
+          },
+          "tournament_id": {
+            "title": "Tournament Id",
+            "type": "integer"
+          },
+          "window_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When this round may be booked, ready to print.",
+            "title": "Window Text"
+          }
+        },
+        "required": [
+          "source",
+          "key",
+          "tournament_id",
+          "tournament",
+          "opponent",
+          "round_label"
+        ],
+        "title": "BookableResponse",
+        "type": "object"
+      },
+      "BookedResponse": {
+        "properties": {
+          "match_id": {
+            "title": "Match Id",
+            "type": "integer"
+          },
+          "scheduled_at": {
+            "format": "date-time",
+            "title": "Scheduled At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "match_id",
+          "scheduled_at"
+        ],
+        "title": "BookedResponse",
+        "type": "object"
+      },
       "BotStatus": {
         "description": "Health of a racetime bot's websocket connection.\n\nThe values are *written* by the PR 4 runtime (heartbeat/connect/error) and\nread by the platform health surface; in this PR the column exists but stays\nat its ``UNKNOWN`` default.",
         "enum": [
@@ -6071,6 +6192,54 @@
         "title": "HealthResponse",
         "type": "object"
       },
+      "HomeResponse": {
+        "properties": {
+          "needs_you": {
+            "items": {
+              "$ref": "#/components/schemas/NeedResponse"
+            },
+            "title": "Needs You",
+            "type": "array"
+          },
+          "next_up": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScheduleEntryResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Your next match that hasn't finished."
+          },
+          "today": {
+            "description": "The rest of today, without `next_up`.",
+            "items": {
+              "$ref": "#/components/schemas/ScheduleEntryResponse"
+            },
+            "title": "Today",
+            "type": "array"
+          },
+          "zone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The timezone to show times in. Null means use the device's own.",
+            "title": "Zone"
+          }
+        },
+        "required": [
+          "needs_you",
+          "today"
+        ],
+        "title": "HomeResponse",
+        "type": "object"
+      },
       "JoinRequestResponse": {
         "properties": {
           "created_at": {
@@ -8198,6 +8367,105 @@
           "reattempt_was_granted"
         ],
         "title": "MyQualifierRunResponse",
+        "type": "object"
+      },
+      "NeedResponse": {
+        "properties": {
+          "agreed": {
+            "default": false,
+            "description": "For `agree`: you already agreed and staff haven't decided yet.",
+            "title": "Agreed",
+            "type": "boolean"
+          },
+          "bookable": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BookableResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The matchup, for `book`."
+          },
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "kind": {
+            "description": "`book` (pick a time), `agree` (your opponent asked to move or call off a match) or `acknowledge` (confirm you've seen a match's time).",
+            "title": "Kind",
+            "type": "string"
+          },
+          "match_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Match Id"
+          },
+          "original_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original At"
+          },
+          "proposed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proposed At"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "request_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The reschedule request, for `agree`.",
+            "title": "Request Id"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "title",
+          "detail"
+        ],
+        "title": "NeedResponse",
         "type": "object"
       },
       "NoticeInfo": {
@@ -11255,6 +11523,183 @@
         "title": "RoundScheduleStageResponse",
         "type": "object"
       },
+      "RunningLateRequest": {
+        "properties": {
+          "minutes": {
+            "description": "How late you expect to be: 10, 20 or 30 minutes.",
+            "title": "Minutes",
+            "type": "integer"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 280,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "required": [
+          "minutes"
+        ],
+        "title": "RunningLateRequest",
+        "type": "object"
+      },
+      "ScheduleEntryResponse": {
+        "properties": {
+          "approved": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "For a crew slot: whether staff approved it.",
+            "title": "Approved"
+          },
+          "assignment_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The volunteer assignment, for a shift.",
+            "title": "Assignment Id"
+          },
+          "can_report_late": {
+            "default": false,
+            "description": "Whether `POST /matches/{match_id}/running-late` would take a heads-up now.",
+            "title": "Can Report Late",
+            "type": "boolean"
+          },
+          "checked_in": {
+            "default": false,
+            "description": "For a shift: whether you've checked in.",
+            "title": "Checked In",
+            "type": "boolean"
+          },
+          "detail": {
+            "description": "Tournament, matchup or shift label, ready to print.",
+            "title": "Detail",
+            "type": "string"
+          },
+          "ends_at": {
+            "format": "date-time",
+            "title": "Ends At",
+            "type": "string"
+          },
+          "kind": {
+            "description": "`match` (you play), `crew` (you commentate, track or broadcast) or `shift` (volunteer).",
+            "title": "Kind",
+            "type": "string"
+          },
+          "late_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How late you said you'd be.",
+            "title": "Late Minutes"
+          },
+          "match_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Match Id"
+          },
+          "needs_acknowledgment": {
+            "default": false,
+            "description": "You still need to confirm you've seen this match's time.",
+            "title": "Needs Acknowledgment",
+            "type": "boolean"
+          },
+          "room_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The open racetime.gg room, if the match has one.",
+            "title": "Room Url"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The stage the match runs on, if any.",
+            "title": "Stage"
+          },
+          "starts_at": {
+            "format": "date-time",
+            "title": "Starts At",
+            "type": "string"
+          },
+          "station": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Your station, once assigned.",
+            "title": "Station"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "For a match: `scheduled`, `checked_in`, `live` or `finished`.",
+            "title": "Status"
+          },
+          "title": {
+            "description": "`vs <opponent>` for a match, the crew role, or the shift's position.",
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "starts_at",
+          "ends_at",
+          "title",
+          "detail"
+        ],
+        "title": "ScheduleEntryResponse",
+        "type": "object"
+      },
       "ScheduleGameRequest": {
         "description": "Schedule the next game of a series. The game number is server-assigned.",
         "properties": {
@@ -11298,6 +11743,34 @@
           "scheduled_time"
         ],
         "title": "ScheduleGameRequest",
+        "type": "object"
+      },
+      "ScheduleResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ScheduleEntryResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "zone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The timezone to show times in. Null means use the device's own.",
+            "title": "Zone"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "ScheduleResponse",
         "type": "object"
       },
       "SectionRequest": {
@@ -13864,6 +14337,35 @@
           "graphql_users"
         ],
         "title": "TelemetrySummaryResponse",
+        "type": "object"
+      },
+      "TimeCheckResponse": {
+        "properties": {
+          "clashes": {
+            "description": "Reasons the time might not work. Booking anyway is allowed.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Clashes",
+            "type": "array"
+          },
+          "refusal": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why booking at this time would be refused, if it would.",
+            "title": "Refusal"
+          }
+        },
+        "required": [
+          "clashes"
+        ],
+        "title": "TimeCheckResponse",
         "type": "object"
       },
       "TopApiCallRow": {
@@ -35169,6 +35671,137 @@
         ]
       }
     },
+    "/api/matches/{match_id}/running-late": {
+      "post": {
+        "description": "Tells the match's staff and on-duty desk you're on your way, with how late you expect to be and an optional note. Saying it again with a new number updates it. Opens 30 minutes before the match (earlier for a stage match with a reminder). Fails with 400 when you don't play in it, you're already checked in, the window isn't open, or the match is raced online.\n\n**Who can call this:** Any member who plays in the match.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `play`",
+        "operationId": "running_late_api_matches__match_id__running_late_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "match_id",
+            "required": true,
+            "schema": {
+              "title": "Match Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunningLateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "play"
+            ]
+          }
+        ],
+        "summary": "Say you're running late",
+        "tags": [
+          "Matches"
+        ]
+      }
+    },
     "/api/matches/{match_id}/seat": {
       "post": {
         "description": "Marks the players as checked in. Players, approved crew and watchers are DMed. Fails with 400 when the tournament races on racetime.gg, the match has no players, it's already checked in, or someone else changed it first.\n\n**Who can call this:** Staff, Proctor, Broadcast tech (matches on a stage) or Admins of this tournament.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `staff:write`",
@@ -36512,6 +37145,328 @@
         ]
       }
     },
+    "/api/me/bookable": {
+      "get": {
+        "description": "Your bracket matchups with no time yet, whether the bracket runs in Wizzrobe, on Challonge or on start.gg. A best-of set lists one row per game still to book.\n\n**Who can call this:** Any member.\n\n**App scope:** `play`",
+        "operationId": "my_bookable_api_me_bookable_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/BookableResponse"
+                  },
+                  "title": "Response My Bookable Api Me Bookable Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "play"
+            ]
+          }
+        ],
+        "summary": "Matches waiting on you to pick a time",
+        "tags": [
+          "My schedule"
+        ]
+      }
+    },
+    "/api/me/bookable/{source}/{key}/book": {
+      "post": {
+        "description": "Books the matchup at `scheduled_at` and tells your opponent. A best-of set books its next game. Fails with 400 when the matchup isn't waiting on you, the time is outside the round's booking window or the tournament's hours, or someone booked it first.\n\n**Who can call this:** A player in the matchup.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `play`",
+        "operationId": "book_api_me_bookable__source___key__book_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source",
+            "required": true,
+            "schema": {
+              "enum": [
+                "bracket",
+                "challonge",
+                "startgg"
+              ],
+              "title": "Source",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BookRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "play"
+            ]
+          }
+        ],
+        "summary": "Pick a time for your match",
+        "tags": [
+          "My schedule"
+        ]
+      }
+    },
+    "/api/me/bookable/{source}/{key}/check": {
+      "get": {
+        "description": "Says whether booking this matchup at `at` would be refused (outside the round's booking window) and lists anything that might make the time a bad one: a player already busy, a full room, past closing. Books nothing. Fails with 400 when the matchup isn't yours to book.\n\n**Who can call this:** A player in the matchup.\n\n**App scope:** `play`",
+        "operationId": "check_time_api_me_bookable__source___key__check_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source",
+            "required": true,
+            "schema": {
+              "enum": [
+                "bracket",
+                "challonge",
+                "startgg"
+              ],
+              "title": "Source",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The time to check, as an ISO 8601 instant with an offset.",
+            "in": "query",
+            "name": "at",
+            "required": true,
+            "schema": {
+              "description": "The time to check, as an ISO 8601 instant with an offset.",
+              "format": "date-time",
+              "title": "At",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimeCheckResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "play"
+            ]
+          }
+        ],
+        "summary": "Check a time before booking it",
+        "tags": [
+          "My schedule"
+        ]
+      }
+    },
     "/api/me/communities": {
       "get": {
         "description": "The active communities you belong to, with your roles and the events you can open in each. A platform admin gets every active community. Needs no community header.\n\n**Who can call this:** Any signed-in person, with Wizzrobe's own app or a personal token.\n\n**Apps:** can't call this; it needs a personal API token.",
@@ -36580,6 +37535,174 @@
         "summary": "List my communities",
         "tags": [
           "Users"
+        ]
+      }
+    },
+    "/api/me/home": {
+      "get": {
+        "description": "Your next match, what's waiting on you (times to pick, an opponent's request to move a match, matches to acknowledge) and the rest of today.\n\n**Who can call this:** Any member.\n\n**App scope:** `play`",
+        "operationId": "my_home_api_me_home_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "play"
+            ]
+          }
+        ],
+        "summary": "Your Home tab",
+        "tags": [
+          "My schedule"
+        ]
+      }
+    },
+    "/api/me/schedule": {
+      "get": {
+        "description": "Your matches, crew slots and volunteer shifts in this event. Upcoming ones soonest first, or with `past=true` the ones that have ended, latest first.\n\n**Who can call this:** Any member.\n\n**App scope:** `play`",
+        "operationId": "my_schedule_api_me_schedule_get",
+        "parameters": [
+          {
+            "description": "Show what has ended instead of what's coming.",
+            "in": "query",
+            "name": "past",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Show what has ended instead of what's coming.",
+              "title": "Past",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduleResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "play"
+            ]
+          }
+        ],
+        "summary": "Your Schedule tab",
+        "tags": [
+          "My schedule"
         ]
       }
     },
@@ -58154,6 +59277,10 @@
   },
   "tags": [
     {
+      "description": "A player's own Home and Schedule: next match, what's waiting on them, and picking a time.",
+      "name": "My schedule"
+    },
+    {
       "description": "The schedule, and running a match from seating to a confirmed result.",
       "name": "Matches"
     },
@@ -59944,6 +61071,7 @@
     {
       "name": "Event day",
       "tags": [
+        "My schedule",
         "Matches",
         "Crew",
         "Reschedule requests",
