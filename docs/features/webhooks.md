@@ -87,12 +87,23 @@ sends. Reject requests whose timestamp is too old to defend against replay.
 ## Delivery, retries, logging
 
 - Runs on the event dispatch worker (off the request path). `deliver_event`
-  picks the tenant's active webhooks and enqueues each POST as its own dispatch
-  item, re-wrapped in the webhook's `tenant_scope`. Each POST uses
-  `httpx.AsyncClient` with a 10s timeout and `follow_redirects=False`.
+  picks the tenant's active webhooks, writes a **pending** `WebhookDelivery`
+  row for each (the outbox: body, event type and a fixed delivery UUID), then
+  enqueues the send as its own `webhook_queue` item, re-wrapped in the
+  webhook's `tenant_scope`. Each POST uses `httpx.AsyncClient` with a 10s
+  timeout and `follow_redirects=False`.
+- A send first **claims** the row (`claimed_until`, `CLAIM_SECONDS` = 120, long
+  enough for every attempt and backoff), so two senders never post the same row
+  at once, and finishes it in place.
+- `webhook_outbox_worker` (every minute, `webhook_outbox` in `WORKERS`) sends
+  rows still pending after 2 minutes with no live claim: the process that
+  queued them stopped, or a send died mid-way. A resend keeps the original
+  `X-Wizzrobe-Delivery`, so delivery is at least once and a receiver can drop
+  a repeat by that header. A row whose webhook was paused, or that is still
+  unsent after a day, is closed as failed rather than sent late.
 - Bounded retry: up to `MAX_ATTEMPTS` (3) with exponential backoff (`2**attempt`
   seconds) on any non-2xx or transport error.
-- Every delivery writes one `WebhookDelivery` row (final status, attempt count,
+- Every delivery ends as one finished `WebhookDelivery` row (final status, attempt count,
   success, error, `delivered_at`) for observability — visible in the admin tab's
   "Recent deliveries" view. The webhook list also shows a per-row health chip
   ("N of M failed" / "M delivered") from the last 24 hours (`recent_health`).

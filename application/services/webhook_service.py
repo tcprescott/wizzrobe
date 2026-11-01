@@ -41,9 +41,9 @@ logger = logging.getLogger(__name__)
 async def _deliver_scoped(coro, tenant_id) -> None:
     """Await a deferred delivery coroutine with its webhook's tenant bound.
 
-    ``deliver_event`` re-enqueues each ``_deliver_one`` as its own dispatch-queue
-    item, which runs after the subscriber's tenant scope has exited; this rebinds
-    the tenant so the ``WebhookDelivery`` insert lands under the right tenant.
+    ``deliver_event`` enqueues each outbox row's send as its own queue item,
+    which runs after the subscriber's tenant scope has exited; this rebinds the
+    tenant so the claim and the finished row land under the right tenant.
     """
     with tenant_scope(tenant_id):
         await coro
@@ -55,6 +55,8 @@ class WebhookService:
     MAX_ATTEMPTS = 3
     DELIVERY_TIMEOUT = 10.0
     RETRY_BACKOFF_BASE = 2
+    # Long enough for every attempt, its timeout and the backoff between them, so a live send is never taken over.
+    CLAIM_SECONDS = 120
 
     @staticmethod
     def build_delivery_headers(
@@ -260,15 +262,14 @@ class WebhookService:
         return summary
 
     async def deliver_event(self, event: Event) -> None:
-        """Event-bus subscriber: enqueue a POST to every webhook that wants this event.
+        """Event-bus subscriber: write an outbox row for every webhook that wants this event, then queue its send.
 
         Runs under ``tenant_scope(event.tenant_id)`` (the bus wraps async
         subscribers), so ``list_active()`` returns only this tenant's webhooks. A
         platform-level event (``tenant_id`` None) reaches no webhook — they are
         all tenant-scoped — so short-circuit rather than trip the required-tenant
-        guard in ``list_active``. Each delivery is re-enqueued as its own queue
-        item, so it is re-wrapped in the webhook's tenant scope to survive the
-        deferral.
+        guard in ``list_active``. The row is the durable part: if this process
+        dies before the queued send runs, ``webhook_outbox_worker`` sends it.
         """
         if event.tenant_id is None:
             return
@@ -282,9 +283,10 @@ class WebhookService:
                 continue
             if webhook.event_ids is not None and event.event_id not in (None, *webhook.event_ids):
                 continue
-            webhook_queue.enqueue(
-                _deliver_scoped(self._deliver_one(webhook, event, event_ref), webhook.tenant_id)
+            delivery = await self._queue_row(
+                webhook, event.event_type, self._body(event, event_ref), str(uuid.uuid4()),
             )
+            webhook_queue.enqueue(_deliver_scoped(self.attempt(webhook, delivery), webhook.tenant_id))
 
     @staticmethod
     async def event_ref(event: Event) -> Optional[Dict[str, Any]]:
@@ -304,17 +306,57 @@ class WebhookService:
             'name': event.payload.get('name'),
         }
 
+    @staticmethod
+    def _body(event: Event, event_ref: Optional[Dict[str, Any]]) -> str:
+        return json.dumps(event.to_wire(event_ref), default=str, sort_keys=True)
+
+    async def _queue_row(
+        self, webhook: Webhook, event_type: str, body: str, delivery_uuid: str,
+        claimed_until: Optional[datetime] = None,
+    ) -> WebhookDelivery:
+        return await self.delivery_repository.create(
+            webhook=webhook, event_type=event_type, payload=body,
+            pending=True, claimed_until=claimed_until, delivery_uuid=delivery_uuid,
+        )
+
     async def _deliver_one(
         self, webhook: Webhook, event: Event, event_ref: Optional[Dict[str, Any]] = None,
     ) -> None:
-        body = json.dumps(event.to_wire(event_ref), default=str, sort_keys=True)
+        """Write the outbox row already claimed by this sender, then send it now."""
+        body, delivery_uuid = self._body(event, event_ref), str(uuid.uuid4())
+        claimed_until = datetime.now(timezone.utc) + timedelta(seconds=self.CLAIM_SECONDS)
+        delivery = await self._queue_row(webhook, event.event_type, body, delivery_uuid, claimed_until)
+        await self._send(webhook, delivery, body=body, event_type=event.event_type, delivery_uuid=delivery_uuid)
+
+    async def attempt(self, webhook: Webhook, delivery: WebhookDelivery) -> bool:
+        """Send a pending outbox row unless another sender holds it; True when this call sent it."""
+        now = datetime.now(timezone.utc)
+        if not await self.delivery_repository.claim(
+            delivery, now, now + timedelta(seconds=self.CLAIM_SECONDS),
+        ):
+            return False
+        await self._send(
+            webhook, delivery, body=delivery.payload, event_type=delivery.event_type,
+            delivery_uuid=delivery.delivery_uuid or str(uuid.uuid4()),
+            prior_attempts=delivery.attempt_count,
+        )
+        return True
+
+    async def give_up(self, delivery: WebhookDelivery, reason: str) -> None:
+        """Close a pending outbox row that will never be sent."""
+        await self.delivery_repository.finish(delivery, success=False, error=reason)
+
+    async def _send(
+        self, webhook: Webhook, delivery: Optional[WebhookDelivery], *, body: str, event_type: str,
+        delivery_uuid: str, prior_attempts: int = 0,
+    ) -> None:
         timestamp = str(int(datetime.now(timezone.utc).timestamp()))
         signature = hmac.new(
             webhook.secret.encode(), f"{timestamp}.{body}".encode(), hashlib.sha256
         ).hexdigest()
         headers = self.build_delivery_headers(
-            event_type=event.event_type,
-            delivery_id=str(uuid.uuid4()),
+            event_type=event_type,
+            delivery_id=delivery_uuid,
             timestamp=timestamp,
             signature=signature,
         )
@@ -336,12 +378,10 @@ class WebhookService:
                         )
                     except ValueError as exc:
                         logger.warning('Webhook %s delivery blocked by SSRF check: %s', webhook.id, exc)
-                        await self.delivery_repository.create(
-                            webhook=webhook,
-                            event_type=event.event_type,
-                            payload=body,
+                        await self.delivery_repository.finish(
+                            delivery,
                             response_status=None,
-                            attempt_count=attempts,
+                            attempt_count=prior_attempts + attempts,
                             success=False,
                             error=f"Blocked by SSRF check: {exc}",
                             delivered_at=None,
@@ -367,14 +407,12 @@ class WebhookService:
             # Warning, not error: a community's own endpoint failing isn't a Sentry event.
             logger.warning(
                 'Webhook %s gave up on %s after %d attempt(s): %s',
-                webhook.id, event.event_type, attempts, error,
+                webhook.id, event_type, attempts, error,
             )
-        await self.delivery_repository.create(
-            webhook=webhook,
-            event_type=event.event_type,
-            payload=body,
+        await self.delivery_repository.finish(
+            delivery,
             response_status=status,
-            attempt_count=attempts,
+            attempt_count=prior_attempts + attempts,
             success=success,
             error=None if success else error,
             delivered_at=datetime.now(timezone.utc) if success else None,

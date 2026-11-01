@@ -34,6 +34,10 @@ class WebhookDelivery(Model):
     error = fields.TextField(null=True)
     created_at = fields.DatetimeField(auto_now_add=True, index=True)
     delivered_at = fields.DatetimeField(null=True)
+    # Outbox: a row is written pending before the first POST, so a delivery outlives the process that queued it.
+    pending = fields.BooleanField(default=False, index=True)
+    claimed_until = fields.DatetimeField(null=True)
+    delivery_uuid = fields.CharField(max_length=36, null=True)
 
     class Meta:
         table = 'webhookdelivery'

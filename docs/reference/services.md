@@ -649,6 +649,8 @@ Collaborators: `CheckInEventRepository`, `CheckInEntrantRepository`, `CheckInUse
 
 **sglive_pool_worker.py** — every 15 min, reads the sglive.speedgaming.org data feed once (only when some tournament has a `sglive_slug`) and hands it to `PayoutService.apply_sglive_games` per tenant as the system user, skipping tenants with `PAYOUTS` off. A failed read keeps every pool; first failure ERROR, repeats WARNING. No env switch. One tick by hand: `scripts/run_worker_tick.py sglive_pool`.
 
+**webhook_outbox_worker.py** — every minute, finds the communities with pending `WebhookDelivery` rows and, per community, resends rows still pending after 2 minutes with no live claim (`WebhookService.attempt`), closing as failed a row whose webhook was paused or that is a day old (`give_up`). No env switch. See [webhooks.md](../features/webhooks.md#delivery-retries-logging).
+
 **check_in_sync_worker.py** — the roster poll (peer of `speedgaming_sync_worker`). Every 60 s it loads every open event with a bounty (cross-tenant, unscoped), then per event, inside `tenant_scope` via `for_each_tenant_scoped` and as the system user, skips one not yet due on its `sync_interval_minutes` or whose tenant has `EVENT_CHECK_IN` off, and otherwise runs `sync_event(..., audit=False)`. After a failure it backs off from the failure time rather than retrying every tick. No environment switch: it only touches events staff have opened. Started/stopped in `main.py`; one tick by hand with `scripts/run_worker_tick.py check_in_sync`.
 
 ### help_service.py — HelpService

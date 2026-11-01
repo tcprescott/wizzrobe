@@ -1498,7 +1498,7 @@ Staff-managed outbound webhook. When a published event matches `event_types`, th
 
 #### `WebhookDelivery`
 
-Per-attempt delivery log for observability. See [webhooks.md](../features/webhooks.md).
+Delivery log and webhook outbox: a row is written `pending` before the first POST and finished in place, so a delivery survives the process that queued it. See [webhooks.md](../features/webhooks.md#delivery-retries-logging).
 
 | Field | Type | Null / default | Notes |
 |---|---|---|---|
@@ -1511,6 +1511,9 @@ Per-attempt delivery log for observability. See [webhooks.md](../features/webhoo
 | `error` | `TextField` | null | Last error (non-2xx / transport) when unsuccessful |
 | `created_at` | `DatetimeField` | `auto_now_add`, indexed | |
 | `delivered_at` | `DatetimeField` | null | Set on success |
+| `pending` | `BooleanField` | default `False`, indexed | True until a send finishes the row; the log, health chip and prune skip pending rows |
+| `claimed_until` | `DatetimeField` | null | A sender's hold on a pending row; another sender (the outbox sweeper) takes it only once this has passed |
+| `delivery_uuid` | `CharField(36)` | null | Sent as `X-Wizzrobe-Delivery`; stays the same when the sweeper resends, so receivers can drop a repeat |
 
 #### `StreamLayout`, `StreamLayoutArt`, `StageOverlay`
 
@@ -2650,7 +2653,7 @@ Consult the source for full signatures.
 | `StreamLayoutRepository` | [`stream_layout_repository.py`](../../application/repositories/stream_layout_repository.py) | `StreamLayout`, `StreamLayoutArt`, `StageOverlay` | `list_for_event`, `get_in_event`, `name_taken`, `set_art`, `get_art`, `overlays`, `overlay_for_stage`, `create_overlay`, `overlay_by_token`, `match_for_overlay`, `stage_matches_between` |
 | `PersonalWebhookRepository` | [`personal_webhook_repository.py`](../../application/repositories/personal_webhook_repository.py) | `PersonalWebhook` | `list_for_user`, `count_for_user`, `get_for_user`, `list_active`, `record_success`, `record_failure`, `pause` |
 | `WebhookRepository` | [`webhook_repository.py`](../../application/repositories/webhook_repository.py) | `Webhook` | `get_by_id`, `list_all`, `list_active`, `create`, `update`, `delete` |
-| `WebhookDeliveryRepository` | [`webhook_delivery_repository.py`](../../application/repositories/webhook_delivery_repository.py) | `WebhookDelivery` | `create`, `list_for_webhook`, `outcome_counts_since`, `prune_older_than` |
+| `WebhookDeliveryRepository` | [`webhook_delivery_repository.py`](../../application/repositories/webhook_delivery_repository.py) | `WebhookDelivery` | `create`, `get`, `claim`, `finish`, `list_stale_pending`, `tenants_with_pending` (global worker scan), `list_for_webhook`, `outcome_counts_since`, `prune_older_than` |
 | `PresetRepository` | [`preset_repository.py`](../../application/repositories/preset_repository.py) | `Preset` | `get_by_id`, `get_by_natural_key`, `list_all`, `list_by_randomizer`, `create`, `update`, `delete` |
 | `MatcherinoLoginRepository` | [`matcherino_login_repository.py`](../../application/repositories/matcherino_login_repository.py) | `MatcherinoLogin` | `get_current` (the tenant's one row, `updated_by`/`alert_user` prefetched), `upsert` (also re-arms the alert), `delete_current`, `set_alert_user`, `claim_alert(now)` (one conditional `UPDATE`; the login only for the caller that won), `clear_alert` |
 | `RandomizerCredentialRepository` | [`randomizer_credential_repository.py`](../../application/repositories/randomizer_credential_repository.py) | `RandomizerCredential` | `list_all`, `get_by_natural_key`, `upsert`, `delete_by_natural_key`, `configured_pairs` |
