@@ -71,6 +71,10 @@ The outside-facing guide is the help article `application/help/content/building-
 
 Audit: `oauth_app.created/updated/secret_rotated/deleted/disabled/enabled/blocked/unblocked`, `oauth_grant.created/revoked/refresh_reused`. Events: `oauth_grant.created` and `oauth_grant.revoked` (tenant-scoped, payload names the app and scope). App registration is global and stays audit-only.
 
+## First-party app
+
+Wizzrobe's own app (`web/`) is an `OAuthApp` with `first_party=True`: no consent screen, a grant with no community, and a community named per call in `X-Wizzrobe-Community`. Not offered on any page; `scripts/register_first_party_app.py` creates or updates it. Detail: [REST API § first-party](../reference/rest-api.md#wizzrobes-own-app-first-party).
+
 ## Dev seed
 
 [`scripts/seed_oauth_apps.py`](../../scripts/seed_oauth_apps.py): a confidential `Dev Schedule Bot` and a public `Dev Desktop Client`, a `Dev Blocked App` blocked in every community (so Connected apps shows the Blocked state), all owned by `staff_user`, and per community a read-only grant whose bearer is `wizzrobe_app_devseed_<slug>_local_only_do_not_use`.

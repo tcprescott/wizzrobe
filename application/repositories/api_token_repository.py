@@ -106,7 +106,7 @@ class ApiTokenRepository:
     async def create_app_grant(
         user: User,
         app: OAuthApp,
-        tenant_id: int,
+        tenant_id: Optional[int],
         token_hash: str,
         token_prefix: str,
         expires_at: datetime,

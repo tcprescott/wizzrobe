@@ -236,6 +236,43 @@ class OAuthAppService:
         )
         return app, secret
 
+    async def register_first_party(
+        self, actor: User, *, client_id: str, redirect_uris: Iterable[str], name: str = 'Wizzrobe',
+    ) -> OAuthApp:
+        """Create or update Wizzrobe's own app (``web/``) under ``client_id``.
+
+        Platform admins only, and only from ``scripts/register_first_party_app.py``:
+        a first-party app skips the consent screen and acts in every community
+        its user belongs to, so no page offers this. A public client (PKCE, no
+        secret) holding every scope.
+        """
+        await AuthService.ensure(await AuthService.is_super_admin(actor), 'Only a platform admin can do this.')
+        uris = _redirect_uris(redirect_uris, OAuthClientType.PUBLIC)
+        scopes = _scopes([scope.value for scope in ApiScope])
+        app = await self.repository.get_by_client_id(client_id)
+        if app is None:
+            app = await self.repository.create_app(
+                owner=actor,
+                name=name,
+                description="Wizzrobe's own app.",
+                homepage_url=None,
+                client_type=OAuthClientType.PUBLIC,
+                client_id=client_id,
+                redirect_uris=uris,
+                allowed_scopes=scopes,
+                first_party=True,
+            )
+            action = AuditActions.OAUTH_APP_CREATED
+        else:
+            if app.client_type != OAuthClientType.PUBLIC:
+                raise ValueError('That client id belongs to a confidential app; pick another.')
+            app = await self.repository.make_first_party(app, uris, scopes)
+            action = AuditActions.OAUTH_APP_UPDATED
+        await self.audit_service.write_log(
+            actor, action, {'app_id': app.id, 'name': app.name, 'first_party': True, 'redirect_uris': uris},
+        )
+        return app
+
     async def browser_origins(self) -> FrozenSet[str]:
         """Web origins allowed to call ``/api`` and ``/oauth/token`` from a browser.
 

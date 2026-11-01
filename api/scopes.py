@@ -350,6 +350,7 @@ _ROUTES: Dict[RouteScope, tuple[str, ...]] = {
         'POST /volunteers/shifts/{shift_id}/call-off',
     ),
     PAT_ONLY: (
+        'GET /me/communities',
         'GET /events/{slug}/settings',
         'PUT /events/{slug}/settings/{key}',
         'GET /tokens',

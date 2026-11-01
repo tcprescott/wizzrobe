@@ -44,6 +44,7 @@ This file is the lean, always-loaded guide: the behavioral rules to follow on ev
 | Event check-in (Matcherino roster sync, account matching, the desk) | [docs/features/event-check-in.md](docs/features/event-check-in.md) |
 | Post-event surveys (targeted parts, conditions, anonymity, send/remind) | [docs/features/surveys.md](docs/features/surveys.md) |
 | Single-worker constraint and the way out of it | [docs/scaling-roadmap.md](docs/scaling-roadmap.md) |
+| Background workers: registry, `WORKER_MODE`, Cloud Scheduler ticks | [docs/features/scheduled-workers.md](docs/features/scheduled-workers.md) |
 | Remaining per-feature docs | [docs/features/](docs/features/) |
 | **Specs** — when one's needed, lite/full templates, sign-off, acceptance check | [docs/specs/README.md](docs/specs/README.md) |
 
@@ -123,7 +124,7 @@ Use bare `event_bus.publish(Event.create(EventType.X, {...}, actor))` (`from app
 
 | Adding… | Also update | Caught by |
 |---|---|---|
-| a background worker (`run_worker_loop`) | `main.py` start **and** stop; `WORKERS` in `scripts/run_worker_tick.py` | tick script: `test_registry_drift.py`. `main.py`: nothing yet |
+| a background worker (`run_worker_loop`) | `WORKERS` in `application/worker_registry.py` (placement, env gate); `main.py`, the tick script and the Cloud Scheduler endpoint all read it | `test_registry_drift.py` |
 | a Discord button or DM view | `discordbot/__init__.py` (`register_interaction_handler` / `register_view_factory`) | `test_registry_drift.py` |
 | an MCP tool *module* | `register_all` in `mcpserver/tools/__init__.py` | `test_registry_drift.py` |
 | an `EventType` | `EventType.ALL` | `check_event_types.py` |
@@ -132,7 +133,7 @@ Use bare `event_bus.publish(Event.create(EventType.X, {...}, actor))` (`from app
 | a page | `scripts/ui_a11y_ci.json` | nothing yet |
 | an outside-service client | a probe in `_PROBES` (`service_health_service.py`) | nothing yet |
 
-Converting the workers, randomizers, a11y pages and health probes to self-registration is planned for after SG Live.
+Converting the randomizers, a11y pages and health probes to self-registration is planned for after SG Live.
 
 ## Writing user-facing text
 

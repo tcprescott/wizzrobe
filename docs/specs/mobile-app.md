@@ -1,6 +1,6 @@
 # Wizzrobe as a mobile app on a serverless backend
 
-Status: Building · Size: full · PRs: #760, #763 · Requested: 2026-10-31, Thomas
+Status: Building · Size: full · PRs: #760 (spec), #761 (step 3), #763 (step 2a), #764 (step 6) · Requested: 2026-10-31, Thomas
 
 ## Problem
 
@@ -94,8 +94,8 @@ Images: `/mnt/project-files/mobile-app/mockups/{A,B,C}-{phone,desktop}-{light,da
   - Live updates: `match_live` / `check_in_live` publish via `NOTIFY`; a
     `GET /api/live` SSE endpoint fans out per community/event.
   - Workers: each `run_worker_loop` worker becomes a Cloud Scheduler-triggered tick
-    (the `WORKERS` registry in `scripts/run_worker_tick.py` already runs one tick
-    on its own).
+    (`application/worker_registry.py`, `POST /internal/workers/<key>/tick`,
+    switched on by `WORKER_MODE=scheduled`; see `docs/features/scheduled-workers.md`).
   - Discord: buttons move to the HTTP interactions endpoint (signed POSTs, no
     gateway). DMs already go over Discord's REST API. Member update/remove events
     (inbound role sync) need the gateway, so they stay on the bot service.
@@ -192,5 +192,8 @@ in TypeScript.
   rebuild runs; new features are built once, in the new app.
 - 2026-10-31 — Thomas picked shell A: five tabs on phone, left rail on desktop.
 - 2026-10-31 — Thomas picked no feature flag.
+- 2026-10-31 — Thomas picked one sign-in for every community: the app's grant names
+  no community and each REST call names one (`X-Wizzrobe-Community`), checked for
+  membership and roles as now.
 - 2026-10-31 — Screen inventory found far more missing REST than assumed (48
   services, ~470 calls); PR plan steps 6 to 11 updated to carry it.

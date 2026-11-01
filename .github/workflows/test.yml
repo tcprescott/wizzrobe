@@ -121,6 +121,8 @@ jobs:
       swiss: ${{ steps.diff.outputs.swiss }}
       postgres: ${{ steps.diff.outputs.postgres }}
       a11y: ${{ steps.diff.outputs.a11y }}
+      web: ${{ steps.diff.outputs.web }}
+      api_schema: ${{ steps.diff.outputs.api_schema }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -132,7 +134,7 @@ jobs:
         # a broken `changes` job can never turn a skipped check into a green one.
         run: |
           run_all() {
-            for job in swiss postgres a11y; do echo "$job=true" >> "$GITHUB_OUTPUT"; done
+            for job in swiss postgres a11y web api_schema; do echo "$job=true" >> "$GITHUB_OUTPUT"; done
             exit 0
           }
           [ "${{ github.event_name }}" = "pull_request" ] || run_all
@@ -150,7 +152,7 @@ jobs:
             # The tenancy suite reaches services, the API, MCP and middleware, so
             # PostgreSQL skips only when nothing but UI, help and event-info
             # content, docs, change notes or UI tests moved. pytest still runs the same tests on SQLite either way.
-            if [ "$(only '^(pages/|theme/|static/|docs/|\.claude/|application/(changelog|help|event_info)/|tests/(theme|pages)/|scripts/(ui_[^/]*|help_screenshots/.*)$|[^/]+\.md$)')" = true ]; then
+            if [ "$(only '^(web/|pages/|theme/|static/|docs/|\.claude/|application/(changelog|help|event_info)/|tests/(theme|pages)/|scripts/(ui_[^/]*|help_screenshots/.*)$|[^/]+\.md$)')" = true ]; then
               echo "postgres=false"
             else
               echo "postgres=true"
@@ -160,7 +162,106 @@ jobs:
             # render; a backend-only PR changes neither. Change notes are left
             # out because nearly every PR adds one.
             echo "a11y=$(touches '^(pages/|theme/|static/|application/(help|content|about|event_info)/|scripts/ui_|scripts/seed_dev\.py$|main\.py$|middleware/|poetry\.lock$|pyproject\.toml$|\.github/)')"
+
+            # The new app (web/). Its typed client is generated from the REST
+            # schema, so anything that can change a route or a response model
+            # re-checks the committed copy.
+            echo "web=$(touches '^(web/|\.github/)')"
+            echo "api_schema=$(touches '^(api/|application/|models/|web/|scripts/export_openapi\.py$|poetry\.lock$|pyproject\.toml$|\.github/)')"
           } >> "$GITHUB_OUTPUT"
+
+  web:
+    # The new app in web/ (docs/specs/mobile-app.md): typecheck, unit tests,
+    # build, then axe + contrast + phone overflow on every screen in light and
+    # dark against stubbed API fixtures, so no backend is booted.
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Accessibility and contrast (light and dark, phone and desktop)
+        env:
+          A11Y_WIDTHS: ${{ github.event_name == 'pull_request' && '360' || '360,393,412,440' }}
+        run: npm run a11y
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-a11y-screenshots
+          path: web/a11y-report/
+          if-no-files-found: warn
+
+  web-api-client:
+    # web/src/api/schema.d.ts is generated from the REST schema. A route or
+    # response model change without `npm run gen:api` fails here.
+    needs: changes
+    if: needs.changes.outputs.api_schema == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Install Poetry
+        run: pipx install poetry==${{ env.POETRY_VERSION }}
+
+      - name: Cache Poetry virtualenv
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pypoetry/virtualenvs
+          key: poetry-full-3.12-${{ hashFiles('poetry.lock') }}
+
+      - name: Install dependencies
+        run: poetry install --no-interaction
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Regenerate the schema and the client
+        run: |
+          poetry run python scripts/export_openapi.py web/openapi.json
+          cd web && npm ci && npm run gen:api
+
+      - name: Committed copy matches
+        run: |
+          if ! git diff --exit-code -- web/openapi.json web/src/api/schema.d.ts; then
+            echo "::error::The REST schema changed. Run: poetry run python scripts/export_openapi.py && (cd web && npm run gen:api), and commit both files."
+            exit 1
+          fi
 
   swiss-crossvalidation:
     # Cross-validate our Swiss engine against bbpPairings (a real FIDE-grade

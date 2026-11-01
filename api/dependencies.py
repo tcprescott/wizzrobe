@@ -123,6 +123,45 @@ async def _ensure_app_grant_usable(token: ApiToken) -> None:
         ) from exc
 
 
+COMMUNITY_HEADER = 'X-Wizzrobe-Community'
+
+
+def _is_first_party(token: ApiToken) -> bool:
+    """Wizzrobe's own app: an app grant with no community, from a first-party app."""
+    app = getattr(token, 'oauth_app', None)
+    return (
+        token.origin == ApiTokenOrigin.APP.value
+        and token.tenant_id is None
+        and app is not None
+        and bool(app.first_party)
+    )
+
+
+async def _first_party_tenant(request: Request, token: ApiToken):
+    """The community a first-party call names in its header.
+
+    Its grant carries every scope its owner could use, so the scope table and
+    the third-party flag don't apply; membership is checked by the caller as
+    for any token.
+    """
+    if token.oauth_app is None or token.oauth_app.disabled_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="This app has been disabled",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    slug = (request.headers.get(COMMUNITY_HEADER) or '').strip()
+    if not slug:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Name the community in the {COMMUNITY_HEADER} header",
+        )
+    tenant = await TenantService.get_by_slug(slug)
+    if tenant is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Community not found")
+    return tenant
+
+
 async def resolve_token(
     request: Request,
     creds: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
@@ -159,8 +198,12 @@ async def resolve_token(
             detail="This token is for the MCP server and cannot be used with the REST API",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    _require_scope(request, token)
-    tenant = await TenantService.get_by_id(token.tenant_id)
+    first_party = _is_first_party(token)
+    if first_party:
+        tenant = await _first_party_tenant(request, token)
+    else:
+        _require_scope(request, token)
+        tenant = await TenantService.get_by_id(token.tenant_id)
     if tenant is None or not tenant.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -173,7 +216,7 @@ async def resolve_token(
             detail="You are not a member of this community",
         )
     set_tenant_id(tenant.id)
-    if token.origin == ApiTokenOrigin.APP.value:
+    if token.origin == ApiTokenOrigin.APP.value and not first_party:
         await _ensure_app_grant_usable(token)
         if token.oauth_app_id is not None:
             await enforce_app_limit(token.oauth_app_id)
@@ -181,6 +224,48 @@ async def resolve_token(
     request.state.api_actor = (user, token)
     set_timezone_name(await TimezoneService.tenant_timezone_name(tenant.id))
     return user, token
+
+
+async def require_identity(
+    creds: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
+) -> User:
+    """Who a token belongs to, without binding a community.
+
+    For the few calls that span communities (``GET /api/me/communities``).
+    Wizzrobe's own app and personal tokens may make them; a third-party app's
+    grant is held to the one community it was given, and an MCP token belongs
+    at ``/mcp``.
+    """
+    if creds is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="API token required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    try:
+        result = await ApiTokenService().resolve_actor(creds.credentials)
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    if result is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired API token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    user, token = result
+    if token.origin == ApiTokenOrigin.PAT.value or _is_first_party(token):
+        app = token.oauth_app
+        if app is not None and app.disabled_at is not None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="This app has been disabled",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        return user
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="This token is limited to one community and can't list others",
+    )
 
 
 EVENT_QUERY_HELP = (

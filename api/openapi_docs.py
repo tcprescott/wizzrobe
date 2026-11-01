@@ -19,6 +19,7 @@ from fastapi.routing import APIRoute, RouteContext, iter_route_contexts
 from pydantic import BaseModel, Field
 
 from api.dependencies import (
+    require_identity,
     require_staff_write,
     require_super_admin_write,
     require_write_actor,
@@ -260,7 +261,7 @@ def _scope(route: RouteContext, method: str):
 def _access_notes(route: RouteContext, method: str) -> tuple[List[str], bool]:
     """Notes derived from the route's dependencies, and whether it authenticates."""
     calls = list(_calls(route.dependant))
-    authenticated = resolve_token in calls
+    authenticated = resolve_token in calls or require_identity in calls
     notes: List[str] = []
     if not authenticated:
         notes.append('**Token:** not needed.')
