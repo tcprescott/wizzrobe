@@ -133,6 +133,9 @@ async def test_delivered_body_is_signed_over_timestamp_dot_body(monkeypatch):
     class _Deliveries:
         async def create(self, **_kwargs):
             return None
+
+        async def finish(self, *_args, **_kwargs):
+            return None
     svc.delivery_repository = _Deliveries()
 
     webhook = type('W', (), {'id': 1, 'url': 'http://localhost/hook', 'secret': 'shh', 'tenant_id': 1})()

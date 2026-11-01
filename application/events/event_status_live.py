@@ -16,6 +16,8 @@ import itertools
 import logging
 from typing import Callable, Dict
 
+from application.events import live_relay
+
 logger = logging.getLogger(__name__)
 
 Subscriber = Callable[[int], None]
@@ -36,10 +38,19 @@ def unsubscribe(token: int) -> None:
     _subscribers.pop(token, None)
 
 
-def publish(event_id: int) -> None:
-    """Tell every open page that ``event_id`` changed status. Never raises."""
+def _deliver(event_id: int) -> None:
+    """Call this process's subscribers. Never raises."""
     for callback in list(_subscribers.values()):
         try:
             callback(event_id)
         except Exception:  # pragma: no cover - defensive
             logger.exception('event_status_live subscriber error for event %s', event_id)
+
+
+def publish(event_id: int) -> None:
+    """Tell every open view, in this process and (with ``MULTI_INSTANCE``) the others. Never raises."""
+    _deliver(event_id)
+    live_relay.forward('event_status', event_id)
+
+
+live_relay.register('event_status', _deliver)

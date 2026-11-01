@@ -19,6 +19,7 @@ from . import (
     check_in_sales,
     check_in_sync_worker,
     community_event_reminder,
+    dm_outbox_worker,
     event_retention,
     event_setup_copy,
     item_tracker_catalog,
@@ -42,6 +43,7 @@ from . import (
     stream_layout_starters,
     telegram_bot_worker,
     telemetry_retention,
+    webhook_outbox_worker,
 )
 from .accommodation_service import AccommodationService
 from .ai_provider_service import AiProviderService
@@ -141,6 +143,7 @@ from .racetime_bot_service import RacetimeBotService
 from .racetime_room_service import RacetimeRoomService
 from .racetime_service import RacetimeService
 from .randomizer_credential_service import RandomizerCredentialService
+from .rate_limit_service import RateLimitService, shared_counters_enabled
 from .reports_service import ReportsService
 from .room_token_service import RoomTokenService
 from .round_schedule_service import RoundScheduleService, RoundWindowError, ScheduleStage
@@ -304,6 +307,7 @@ __all__ = [
     'RacetimeRoomService',
     'RacetimeService',
     'RandomizerCredentialService',
+    'RateLimitService',
     'ReportsService',
     'RespondentView',
     'RoleScope',
@@ -382,6 +386,7 @@ __all__ = [
     'discord_event_worker',
     'discord_queue',
     'discord_role_sync_worker',
+    'dm_outbox_worker',
     'event_retention',
     'event_setup_copy',
     'get_user_from_discord_id',
@@ -400,6 +405,7 @@ __all__ = [
     'seed_roll_worker',
     'service_health_worker',
     'sglive_pool_worker',
+    'shared_counters_enabled',
     'speedgaming_sync_worker',
     'staff_request_dms',
     'startgg_sync_worker',
@@ -414,4 +420,5 @@ __all__ = [
     'validate_tournament_config',
     'validate_window',
     'volunteer_reminder',
+    'webhook_outbox_worker',
 ]

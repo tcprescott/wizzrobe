@@ -9,13 +9,13 @@ itself, the async task-queue handoff, the seed DMs it fire-and-forgets, and the
 Challonge push that follows a confirm.
 """
 
-import asyncio
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from application.services import MatchHardPresetService
+from application.utils.shared_lock import shared_lock
 from models import (
     AuditLog,
     GeneratedSeeds,
@@ -371,13 +371,8 @@ class TestGenerateSeed:
         staff = await make_staff()
         t = await Tournament.create(name="T", seed_generator="alttpr")
         m = await Match.create(tournament=t)
-        lock = asyncio.Lock()
-        await lock.acquire()
-        service._seed_locks[m.id] = lock
-        try:
+        async with shared_lock('match.seed_roll', m.id):
             ok, message, url = await service.generate_seed(m.id, staff)
-        finally:
-            lock.release()
 
         assert ok is False
         assert "already in progress" in message

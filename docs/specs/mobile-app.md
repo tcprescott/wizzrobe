@@ -1,6 +1,6 @@
 # Wizzrobe as a mobile app on a serverless backend
 
-Status: Building · Size: full · PRs: #760 (spec), app skeleton (step 6) · Requested: 2026-10-31, Thomas
+Status: Building · Size: full · PRs: #760 (spec), #761 (step 3), #762 (step 4), #763 (step 2), #764 (step 6) · Requested: 2026-10-31, Thomas
 
 ## Problem
 
@@ -76,8 +76,9 @@ Images: `/mnt/project-files/mobile-app/mockups/{A,B,C}-{phone,desktop}-{light,da
 - **Feature flag:** no. The new app runs on staging until switch-over, then
   replaces the old one for every community at once.
 - **Models:** no domain model changes. New tables for state that lives in process
-  memory today: `outbox` (durable queue for DMs, webhooks and event-bus fan-out, so
-  nothing is lost when Cloud Run throttles CPU after a response), `oauth_handoff`
+  memory today: an outbox for DMs and webhooks (outbox columns on `SentMessage` and
+  `WebhookDelivery`, plus `PersonalWebhookOutbox`), so a send isn't lost when an
+  instance stops mid-way; working out who gets what stays in process, `oauth_handoff`
   (replaces the in-memory nonce store), and a shared rate-limit counter. The
   per-match seed lock becomes a Postgres advisory lock. A `device_push_token`
   table for APNs/FCM tokens beside the existing web-push subscriptions.
@@ -115,8 +116,10 @@ All PRs are drafts until mergeable. The current app stays in production until th
 switch-over, so nothing here may break it.
 
 1. **Spec** committed to `docs/specs/mobile-app.md`.
-2. **Backend: stateless state.** Outbox, handoff table, shared rate limiter,
-   advisory seed lock, NOTIFY-backed live bus. NiceGUI keeps working on top.
+2. **Backend: stateless state.** (a, #763) handoff table, shared rate limiter,
+   advisory locks, NOTIFY-backed live relay; (b, #763) outbox for staff and
+   personal webhooks and for Discord DMs, with sweeper workers that resend.
+   NiceGUI keeps working on top.
 3. **Backend: workers as ticks.** HTTP tick endpoint guarded by Cloud Scheduler's
    OIDC token; leader-only fallback for the current single process.
 4. **Backend: Discord interactions over HTTP + Telegram webhook**, bot service
@@ -125,6 +128,18 @@ switch-over, so nothing here may break it.
    staging environment against a copy of prod data.
 6. **App skeleton** in `web/`: Vite, routing, Studio tokens and base components,
    sign-in via PKCE, generated client, shell (picked option), a11y + contrast CI.
+   Plus the shared reads every screen needs (from the screen inventory): one
+   "who am I here" context read (roles, flags, theme, clock, events, badge
+   counts), `GET /api/live` SSE, per-viewer table layouts, batched telemetry,
+   audited table CSV export, help snippets, and a staff "send a DM" endpoint.
+Steps 7 to 11 each carry the REST they need. The screen inventory
+(`/mnt/project-files/mobile-app/screen-inventory.md`) counts 79 screens and 157
+dialogs, 48 services with no REST router at all, and about 470 service calls
+with no endpoint, so the REST work is the larger half of these steps. Where a
+screen renders a Python view-model (run sheets, signup cards, My Timeline, the
+volunteer grids), port one read per view-model rather than rebuilding the joins
+in TypeScript.
+
 7. **Player screens** (Home, My Schedule, pick a time, check-in, availability,
    profile, notifications) with the REST they need.
 8. **Event and public screens** (event info, brackets, Watch, help, changelog).
@@ -182,3 +197,10 @@ switch-over, so nothing here may break it.
 - 2026-10-31 — Thomas picked one sign-in for every community: the app's grant names
   no community and each REST call names one (`X-Wizzrobe-Community`), checked for
   membership and roles as now.
+- 2026-10-31 — Screen inventory found far more missing REST than assumed (48
+  services, ~470 calls); PR plan steps 6 to 11 updated to carry it.
+- 2026-11-01 — Thomas picked "durable sends, fan-out in process" for the outbox:
+  each webhook and each finished DM is saved and retried, but working out who
+  gets what still runs in memory just after the change. A DM still queued for
+  fan-out when an instance dies is lost; the acceptance line on killing an
+  instance mid-request covers the send itself.

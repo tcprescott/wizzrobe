@@ -12,7 +12,7 @@ resolution shared by both halves lives in ``_match_recipients``.
 import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import Callable, ClassVar, Dict, Optional, Tuple
+from typing import Callable, Optional, Tuple
 
 from application.errors import MissingCredentialError
 from application.events import EventType, match_live
@@ -67,6 +67,7 @@ from application.utils.discord_messages import (
 )
 from application.utils.match_labels import match_model_label
 from application.utils.seed_provider import SeedProviderError
+from application.utils.shared_lock import LockBusy, shared_lock
 from models import GeneratedSeeds, Match, User
 
 logger = logging.getLogger(__name__)
@@ -172,8 +173,6 @@ def _state_notification(
 
 class MatchScheduleService(MatchNotificationMixin):
     """Service for match scheduling operations."""
-
-    _seed_locks: ClassVar[Dict[int, asyncio.Lock]] = {}
 
     def __init__(self) -> None:
         self.match_repository = MatchRepository()
@@ -496,82 +495,82 @@ class MatchScheduleService(MatchNotificationMixin):
     async def _roll_seed(
         self, match_id: int, actor: Optional[User], *, players_release: bool,
     ) -> Tuple[bool, str, Optional[str]]:
-        lock = self._seed_locks.get(match_id)
-        if lock is None:
-            lock = asyncio.Lock()
-            self._seed_locks[match_id] = lock
-
-        if lock.locked():
+        try:
+            async with shared_lock('match.seed_roll', match_id, wait=False):
+                return await self._roll_seed_locked(match_id, actor, players_release=players_release)
+        except LockBusy:
             return False, "Seed generation already in progress for this match", None
 
-        async with lock:
-            try:
-                match = await Match.get(id=match_id, tenant_id=require_tenant_id()).prefetch_related(
-                    'tournament', 'tournament__preset', 'tournament__hard_preset',
-                    'players', 'players__user', 'stage',
-                )
+    async def _roll_seed_locked(
+        self, match_id: int, actor: Optional[User], *, players_release: bool,
+    ) -> Tuple[bool, str, Optional[str]]:
+        try:
+            match = await Match.get(id=match_id, tenant_id=require_tenant_id()).prefetch_related(
+                'tournament', 'tournament__preset', 'tournament__hard_preset',
+                'players', 'players__user', 'stage',
+            )
 
-                if players_release:
-                    if not players_may_release(match, actor):
-                        return False, "The seed can't be released by the players right now", None
-                elif not await AuthService.can_run_match(actor, match):
-                    return False, "You do not have permission to roll a seed for this match", None
+            if players_release:
+                if not players_may_release(match, actor):
+                    return False, "The seed can't be released by the players right now", None
+            elif not await AuthService.can_run_match(actor, match):
+                return False, "You do not have permission to roll a seed for this match", None
 
-                if match.generated_seed:
-                    return False, "A seed has already been generated for this match", None
+            if match.generated_seed:
+                return False, "A seed has already been generated for this match", None
 
-                # The only place the hard-preset question is asked; resolving it closes the opt-in window.
-                preset = await self.hard_preset_service.resolve_preset(match)
-                randomizer = preset.randomizer if preset is not None else match.tournament.seed_generator
+            # The only place the hard-preset question is asked; resolving it closes the opt-in window.
+            preset = await self.hard_preset_service.resolve_preset(match)
+            randomizer = preset.randomizer if preset is not None else match.tournament.seed_generator
 
-                if not randomizer:
-                    return False, "No seed generator configured for this tournament", None
+            if not randomizer:
+                return False, "No seed generator configured for this tournament", None
 
-                if randomizer not in self.seedgen_service.AVAILABLE_RANDOMIZERS:
-                    return False, f"Seed generator '{randomizer}' not found", None
+            if randomizer not in self.seedgen_service.AVAILABLE_RANDOMIZERS:
+                return False, f"Seed generator '{randomizer}' not found", None
 
-                # Not only the button's check: REST and MCP reach this, and a seed rolled before players exist is lost.
-                if not match.players:
-                    return False, (
-                        "This match has no players yet — a seed can only be rolled "
-                        "once, and its DM would reach nobody"
-                    ), None
+            # Not only the button's check: REST and MCP reach this, and a seed rolled before players exist is lost.
+            if not match.players:
+                return False, (
+                    "This match has no players yet — a seed can only be rolled "
+                    "once, and its DM would reach nobody"
+                ), None
 
-                if randomizer in self.seedgen_service.ASYNC_RANDOMIZERS:
-                    return await self._queue_async_seed(match, randomizer, preset, actor)
+            if randomizer in self.seedgen_service.ASYNC_RANDOMIZERS:
+                return await self._queue_async_seed(match, randomizer, preset, actor)
 
-                triforce_text = None
-                if self.seedgen_service.supports_triforce_texts(randomizer):
-                    triforce_text = await TriforceTextService().get_balanced_text(match.tournament)
+            triforce_text = None
+            if self.seedgen_service.supports_triforce_texts(randomizer):
+                triforce_text = await TriforceTextService().get_balanced_text(match.tournament)
 
-                call = await self.seedgen_service.generate_seed_call(
-                    randomizer, preset, surface='match', triforce_text=triforce_text,
-                )
-                seed_url = call.value.url
+            call = await self.seedgen_service.generate_seed_call(
+                randomizer, preset, surface='match', triforce_text=triforce_text,
+            )
+            seed_url = call.value.url
 
-                await self.complete_seed_roll(
-                    match, randomizer, preset, actor,
-                    seed_url=seed_url,
-                    settings=call.value.settings,
-                    provider_meta=call.as_meta(),
-                    seed_code=call.value.code,
-                )
+            await self.complete_seed_roll(
+                match, randomizer, preset, actor,
+                seed_url=seed_url,
+                settings=call.value.settings,
+                provider_meta=call.as_meta(),
+                seed_code=call.value.code,
+            )
 
-                message = f"Seed rolled for {match_model_label(match, with_context=False)}."
-                return True, message, seed_url
+            message = f"Seed rolled for {match_model_label(match, with_context=False)}."
+            return True, message, seed_url
 
-            except MissingCredentialError as e:
-                return False, str(e), None
-            except SeedProviderError as e:
-                logger.error(
-                    'Seed generation for match %s failed after %d attempt(s): %s',
-                    match_id, e.attempts, e,
-                )
-                return False, str(e), None
-            except Exception:
-                # Never return the raw exception text: it reaches users and the REST 400 detail.
-                logger.exception("Seed generation failed for match %s", match_id)
-                return False, "Seed generation failed. Please check the server logs.", None
+        except MissingCredentialError as e:
+            return False, str(e), None
+        except SeedProviderError as e:
+            logger.error(
+                'Seed generation for match %s failed after %d attempt(s): %s',
+                match_id, e.attempts, e,
+            )
+            return False, str(e), None
+        except Exception:
+            # Never return the raw exception text: it reaches users and the REST 400 detail.
+            logger.exception("Seed generation failed for match %s", match_id)
+            return False, "Seed generation failed. Please check the server logs.", None
 
     async def _queue_async_seed(
         self, match: Match, randomizer: str, preset, actor: Optional[User],

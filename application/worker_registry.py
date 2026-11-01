@@ -119,6 +119,8 @@ WORKERS: Dict[str, WorkerSpec] = {s.key: s for s in (
     _spec('startgg_sync', 'application.services.startgg_sync_worker'),
     _spec('challonge_sync', 'application.services.challonge_sync_worker'),
     _spec('data_export', 'application.services.exports.data_export_worker'),
+    _spec('webhook_outbox', 'application.services.webhook_outbox_worker'),
+    _spec('dm_outbox', 'application.services.dm_outbox_worker'),
     _spec('discord_role_sync', 'application.services.discord.discord_role_sync_worker', boot='subscribe'),
     _spec('telegram_bot', 'application.services.telegram_bot_worker', placement=Placement.BOT, enabled=_telegram),
     _spec('volunteer_reminder', 'application.services.volunteer.volunteer_reminder'),

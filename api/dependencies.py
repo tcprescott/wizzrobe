@@ -219,7 +219,7 @@ async def resolve_token(
     if token.origin == ApiTokenOrigin.APP.value and not first_party:
         await _ensure_app_grant_usable(token)
         if token.oauth_app_id is not None:
-            enforce_app_limit(token.oauth_app_id)
+            await enforce_app_limit(token.oauth_app_id)
     set_event_id(await EventService.default_event_id(tenant.id), tenant.id)
     request.state.api_actor = (user, token)
     set_timezone_name(await TimezoneService.tenant_timezone_name(tenant.id))

@@ -323,7 +323,7 @@ async def handle_link_handoff_callback(url: str) -> bool:
         logger.exception('%s link handoff exchange failed', provider.label)
         ui.navigate.to(_link_handback_url(host, provider_key, _HANDBACK_FAILED, next_path))
         return True
-    token = handoff_service.mint_data(
+    token = await handoff_service.mint_data(
         data={'key': provider_key, **data},
         target_host=host,
         next_path=next_path,
@@ -404,7 +404,7 @@ def register_link_handoff_pages() -> None:
             ), color='warning')
             ui.navigate.to(handed_back)
             return None
-        payload = handoff_service.claim(token, request_host) if request_host else None
+        payload = await handoff_service.claim(token, request_host) if request_host else None
         if payload is None:
             stash_notice('Link session expired or already used. Please try again.', color='warning')
             ui.navigate.to(handed_back)

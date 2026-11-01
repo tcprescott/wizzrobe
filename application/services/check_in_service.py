@@ -71,6 +71,7 @@ from application.utils.clients.matcherino_client import (
     VenueSales,
     get_matcherino_client,
 )
+from application.utils.shared_lock import shared_lock
 from models import (
     CheckInEntrant,
     CheckInEntrantSource,
@@ -100,14 +101,6 @@ class VenuePreview:
 
     venue: MatcherinoVenue
     tiers: List[MatcherinoTier]
-
-
-# An in-process lock is enough only while the app runs as a single process.
-_sync_locks: Dict[int, asyncio.Lock] = {}
-
-
-def _sync_lock(event_id: int) -> asyncio.Lock:
-    return _sync_locks.setdefault(event_id, asyncio.Lock())
 
 
 class CheckInService:
@@ -300,7 +293,7 @@ class CheckInService:
         the domain event, but writes no audit row every few minutes.
         """
         await AuthService.ensure(await AuthService.can_run_check_in_desk(actor), _DESK_DENIED)
-        async with _sync_lock(event_id):
+        async with shared_lock('check_in.sync', event_id):
             event = await ensure_desk_sees(actor, require_found(await self.events.get_by_id(event_id), 'Check-in event'))
             if event.matcherino_venue_id is None and not has_comp_rules(event):
                 raise ValueError(

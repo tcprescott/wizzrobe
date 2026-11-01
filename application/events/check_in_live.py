@@ -17,6 +17,8 @@ import itertools
 import logging
 from typing import Callable, Dict, Optional
 
+from application.events import live_relay
+
 logger = logging.getLogger(__name__)
 
 CHANGED = 'changed'
@@ -42,10 +44,19 @@ def unsubscribe(token: int) -> None:
     _subscribers.pop(token, None)
 
 
-def publish(event_id: int, entrant_id: Optional[int] = None, change_type: str = CHANGED) -> None:
-    """Tell every open desk that ``entrant_id`` on ``event_id`` changed. Never raises."""
+def _deliver(event_id: int, entrant_id: Optional[int] = None, change_type: str = CHANGED) -> None:
+    """Call this process's subscribers. Never raises."""
     for callback in list(_subscribers.values()):
         try:
             callback(event_id, entrant_id, change_type)
         except Exception:  # pragma: no cover - defensive
             logger.exception('check_in_live subscriber error for event %s', event_id)
+
+
+def publish(event_id: int, entrant_id: Optional[int] = None, change_type: str = CHANGED) -> None:
+    """Tell every open view, in this process and (with ``MULTI_INSTANCE``) the others. Never raises."""
+    _deliver(event_id, entrant_id, change_type)
+    live_relay.forward('check_in', event_id, entrant_id, change_type)
+
+
+live_relay.register('check_in', _deliver)

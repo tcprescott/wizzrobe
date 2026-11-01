@@ -1424,6 +1424,17 @@ Constraint: `unique_together (('pattern', 'match'),)`.
 | `updated_by` | FK → `User` | null, `SET_NULL` | Who last set it; the audit row keeps the history |
 | `created_at` / `updated_at` | `DatetimeField` | auto | |
 
+#### `OAuthHandoff`
+
+**Global** (no `tenant` FK). One pending cross-host login handoff (`oauth_handoff_service`): the platform host mints it after Discord OAuth, the custom domain claims it. In the database rather than process memory so the claim can reach a different instance from the mint. Claiming deletes the row (single-use); each mint prunes expired rows.
+
+| Field | Type | Null / default | Notes |
+|---|---|---|---|
+| `nonce` | `CharField(64)` | **primary key** | Random; the signed token carries it with the host |
+| `host` | `CharField(255)` | not null | Normalized target host |
+| `payload` | `JSONField` | not null | Identity or link data, `host`, `next`, `bind_commit` |
+| `expires_at` | `DatetimeField` | not null, indexed | Mint time + 30 s |
+
 #### `SystemConfiguration`
 
 Key-value application settings. Accessed directly by `SystemConfigService` (typed get/set; no repository) — see [services.md](services.md).
@@ -1487,7 +1498,7 @@ Staff-managed outbound webhook. When a published event matches `event_types`, th
 
 #### `WebhookDelivery`
 
-Per-attempt delivery log for observability. See [webhooks.md](../features/webhooks.md).
+Delivery log and webhook outbox: a row is written `pending` before the first POST and finished in place, so a delivery survives the process that queued it. See [webhooks.md](../features/webhooks.md#delivery-retries-logging).
 
 | Field | Type | Null / default | Notes |
 |---|---|---|---|
@@ -1500,6 +1511,9 @@ Per-attempt delivery log for observability. See [webhooks.md](../features/webhoo
 | `error` | `TextField` | null | Last error (non-2xx / transport) when unsuccessful |
 | `created_at` | `DatetimeField` | `auto_now_add`, indexed | |
 | `delivered_at` | `DatetimeField` | null | Set on success |
+| `pending` | `BooleanField` | default `False`, indexed | True until a send finishes the row; the log, health chip and prune skip pending rows |
+| `claimed_until` | `DatetimeField` | null | A sender's hold on a pending row; another sender (the outbox sweeper) takes it only once this has passed |
+| `delivery_uuid` | `CharField(36)` | null | Sent as `X-Wizzrobe-Delivery`; stays the same when the sweeper resends, so receivers can drop a repeat |
 
 #### `StreamLayout`, `StreamLayoutArt`, `StageOverlay`
 
@@ -1521,6 +1535,20 @@ A member's own outbound webhook (Profile → Webhooks, `FeatureFlag.PERSONAL_WEB
 | `is_active` / `paused_reason` | `BooleanField` / `CharField(255)` | `True` / null | Auto-paused after 20 failures in a row or a Discord 401/404 |
 | `consecutive_failures`, `delivered_count`, `failed_count` | `IntField` | `0` | |
 | `last_delivery_at`, `last_status`, `last_error` | | null | Last attempt, for the card |
+
+#### `PersonalWebhookOutbox`
+
+A personal webhook message waiting to be sent, written when an event fans out and deleted once the send settles. See [webhooks.md](../features/webhooks.md#personal-webhooks-members).
+
+| Field | Type | Null / default | Notes |
+|---|---|---|---|
+| `webhook` | FK → `PersonalWebhook` | not null, `CASCADE` | `related_name='outbox'` |
+| `event_type` | `CharField(100)` | not null | |
+| `view` | `JSONField` | not null | What the owner may be told, built at fan-out (`_View` as a dict) |
+| `occurred_at` | `DatetimeField` | not null | When the event happened |
+| `delivery_uuid` | `CharField(36)` | not null | Sent as `X-Wizzrobe-Delivery`, the same on a resend |
+| `claimed_until` | `DatetimeField` | null | A sender's hold on the row |
+| `created_at` | `DatetimeField` | `auto_now_add`, indexed | |
 
 #### `WebPushSubscription`
 
@@ -2195,8 +2223,11 @@ outside any community isn't logged.
 | `push_devices` | `IntField` | null | Devices the web-push copy reached (null = none) |
 | `email_sent` / `telegram_sent` | `BooleanField` | null | Null when that copy wasn't due |
 | `created_at` | | auto | |
+| `outbox` | `JSONField` | null | The Discord message as sent (content, embed, buttons, link, silent) while it may need resending; cleared once the row settles. See [discord.md](../features/discord.md#retrying-a-dm-discord-didnt-take-the-dm-outbox) |
+| `attempts` | `IntField` | `0` | Discord sends that failed in a way worth retrying |
+| `claimed_until` | `DatetimeField` | null | A sender's hold on an outbox row |
 
-Indexes on `(tenant, created_at)` and `(tenant, recipient)`. Staff only: a DM can
+Indexes on `(tenant, created_at)`, `(tenant, recipient)` and `(status, created_at)` (the outbox sweep). Staff only: a DM can
 carry a staff-private note.
 
 #### `DataExport`
@@ -2638,8 +2669,9 @@ Consult the source for full signatures.
 | `TablePreferenceRepository` | [`table_preference_repository.py`](../../application/repositories/table_preference_repository.py) | `UserTablePreference` | **Global — never tenant-scoped** (the model has no tenant column). `all_for_user` (one query; the only read a page build makes), `get`, `upsert`, `delete`, `delete_all_for_user` |
 | `StreamLayoutRepository` | [`stream_layout_repository.py`](../../application/repositories/stream_layout_repository.py) | `StreamLayout`, `StreamLayoutArt`, `StageOverlay` | `list_for_event`, `get_in_event`, `name_taken`, `set_art`, `get_art`, `overlays`, `overlay_for_stage`, `create_overlay`, `overlay_by_token`, `match_for_overlay`, `stage_matches_between` |
 | `PersonalWebhookRepository` | [`personal_webhook_repository.py`](../../application/repositories/personal_webhook_repository.py) | `PersonalWebhook` | `list_for_user`, `count_for_user`, `get_for_user`, `list_active`, `record_success`, `record_failure`, `pause` |
+| `PersonalWebhookOutboxRepository` | [`personal_webhook_outbox_repository.py`](../../application/repositories/personal_webhook_outbox_repository.py) | `PersonalWebhookOutbox` | `create`, `claim`, `delete`, `list_stale`, `tenants_with_rows` (global worker scan) |
 | `WebhookRepository` | [`webhook_repository.py`](../../application/repositories/webhook_repository.py) | `Webhook` | `get_by_id`, `list_all`, `list_active`, `create`, `update`, `delete` |
-| `WebhookDeliveryRepository` | [`webhook_delivery_repository.py`](../../application/repositories/webhook_delivery_repository.py) | `WebhookDelivery` | `create`, `list_for_webhook`, `outcome_counts_since`, `prune_older_than` |
+| `WebhookDeliveryRepository` | [`webhook_delivery_repository.py`](../../application/repositories/webhook_delivery_repository.py) | `WebhookDelivery` | `create`, `get`, `claim`, `finish`, `list_stale_pending`, `tenants_with_pending` (global worker scan), `list_for_webhook`, `outcome_counts_since`, `prune_older_than` |
 | `PresetRepository` | [`preset_repository.py`](../../application/repositories/preset_repository.py) | `Preset` | `get_by_id`, `get_by_natural_key`, `list_all`, `list_by_randomizer`, `create`, `update`, `delete` |
 | `MatcherinoLoginRepository` | [`matcherino_login_repository.py`](../../application/repositories/matcherino_login_repository.py) | `MatcherinoLogin` | `get_current` (the tenant's one row, `updated_by`/`alert_user` prefetched), `upsert` (also re-arms the alert), `delete_current`, `set_alert_user`, `claim_alert(now)` (one conditional `UPDATE`; the login only for the caller that won), `clear_alert` |
 | `RandomizerCredentialRepository` | [`randomizer_credential_repository.py`](../../application/repositories/randomizer_credential_repository.py) | `RandomizerCredential` | `list_all`, `get_by_natural_key`, `upsert`, `delete_by_natural_key`, `configured_pairs` |
@@ -2652,7 +2684,7 @@ Consult the source for full signatures.
 | `SpeedGamingEventLinkRepository` | [`speedgaming_event_link_repository.py`](../../application/repositories/speedgaming_event_link_repository.py) | `SpeedGamingEventLink` | Scoped CRUD `list_all`, `get_by_id`, `get_by_natural_key`, `create`, `update`, `delete`; **unscoped** `list_active_all` (cross-tenant due-for-sync worker scan) |
 | `SpeedGamingEpisodeRepository` | [`speedgaming_episode_repository.py`](../../application/repositories/speedgaming_episode_repository.py) | `SpeedGamingEpisode` | ETL staging. `get_by_sg_id`, `get_by_id`, `list_for_link`, `list_all`, `create`, `update` (upsert keyed on unique `(tenant, sg_episode_id)`) |
 | `MemberDetailsRepository` | [`member_details_repository.py`](../../application/repositories/member_details_repository.py) | several | One member's footprint here for the member sheet: `membership`, admin/coordinated/entered tournament names, `upcoming_matches`, `upcoming_shifts`, `open_loans`, `check_in_entries`, `recent_messages`, `last_delivered_at`, `push_device_count` (unscoped: devices belong to the account) |
-| `SentMessageRepository` | [`sent_message_repository.py`](../../application/repositories/sent_message_repository.py) | `SentMessage` | `create`, `update(id, tenant_id, **fields)`, `list`/`count` (window, statuses, search, recipient), `get`, `totals` |
+| `SentMessageRepository` | [`sent_message_repository.py`](../../application/repositories/sent_message_repository.py) | `SentMessage` | `create`, `update(id, tenant_id, **fields)`, `claim`, `count_attempt`, `list_waiting`, `tenants_with_waiting` (global outbox scan), `list`/`count` (window, statuses, search, recipient), `get`, `totals` |
 | `DataExportRepository` | [`data_export_repository.py`](../../application/repositories/data_export_repository.py) | `DataExport` | Scoped `create_queued`, `create_ready`, `summary` (no blobs), `list_for_requester`, the throttle counts, `set_progress`, `finish`; **unscoped** worker methods `next_queued_all`, `claim`, `fail_interrupted_all`, `prune_all` |
 | `TournamentExportRepository` | [`tournament_export_repository.py`](../../application/repositories/tournament_export_repository.py) | several | Scoped reads for one tournament's export: enrolment, native bracket entries and matches, Challonge and start.gg mirrors, scheduled matches with players |
 | `StaffRequestDMRepository` | [`staff_request_dm_repository.py`](../../application/repositories/staff_request_dm_repository.py) | `StaffRequestDM` | `record`, `list_for(kind, object_id)`, `forget(kind, object_id)` |

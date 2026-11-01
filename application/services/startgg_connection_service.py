@@ -9,7 +9,6 @@ refreshed shortly before they lapse. A community with no sign-in falls back to
 the platform's ``STARTGG_API_TOKEN``.
 """
 
-import asyncio
 import logging
 import os
 from dataclasses import dataclass
@@ -33,6 +32,7 @@ from application.utils.clients.startgg_client import (
     tournament_slug,
 )
 from application.utils.mocks.mock_startgg import MockStartggClient, is_mock_startgg
+from application.utils.shared_lock import shared_lock
 from models import FeatureFlag, StartggConnection, User
 
 logger = logging.getLogger(__name__)
@@ -40,7 +40,6 @@ logger = logging.getLogger(__name__)
 _REFRESH_BUFFER = timedelta(days=1)
 
 # One refresh per community: start.gg may rotate the refresh token, and a racing loser sends a spent one.
-_refresh_locks: Dict[int, asyncio.Lock] = {}
 
 
 @dataclass(frozen=True)
@@ -185,8 +184,7 @@ class StartggConnectionService:
     async def _fresh_access_token(self, connection: StartggConnection) -> str:
         if not self._expiring(connection) or not connection.refresh_token:
             return connection.access_token
-        lock = _refresh_locks.setdefault(connection.tenant_id, asyncio.Lock())
-        async with lock:
+        async with shared_lock('startgg.token_refresh', connection.tenant_id):
             await connection.refresh_from_db()
             if not self._expiring(connection) or not connection.refresh_token:
                 return connection.access_token

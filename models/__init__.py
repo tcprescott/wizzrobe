@@ -148,6 +148,8 @@ from .system import (
     BrowserErrorIgnoreRule,
     BrowserMonitoringSettings,
     LogLevelOverride,
+    OAuthHandoff,
+    RateLimitWindow,
     RoomToken,
     SystemConfiguration,
 )
@@ -189,7 +191,7 @@ from .volunteer import (
     VolunteerRoleMapping,
     VolunteerShift,
 )
-from .webhook import PersonalWebhook, Webhook, WebhookDelivery
+from .webhook import PersonalWebhook, PersonalWebhookOutbox, Webhook, WebhookDelivery
 
 # Must stay last: it walks this module's namespace for every model.
 install_column_guards(globals())
@@ -302,7 +304,9 @@ __all__ = [
     'OAuthAppBlock',
     'OAuthAppCode',
     'OAuthClientType',
+    'OAuthHandoff',
     'PersonalWebhook',
+    'PersonalWebhookOutbox',
     'PlayerAvailability',
     'Preset',
     'PresetOverride',
@@ -316,6 +320,7 @@ __all__ = [
     'RacetimeBotTenant',
     'RacetimeRoom',
     'RandomizerCredential',
+    'RateLimitWindow',
     'RescheduleRequestKind',
     'RescheduleRequestStatus',
     'Role',

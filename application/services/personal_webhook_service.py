@@ -30,8 +30,8 @@ import secrets
 import time
 import uuid
 from collections import defaultdict, deque
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timedelta, timezone
 from typing import Any, Deque, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
@@ -45,6 +45,7 @@ from application.repositories import (
     AsyncQualifierRunRepository,
     BracketRepository,
     MatchRepository,
+    PersonalWebhookOutboxRepository,
     PersonalWebhookRepository,
     RacetimeRoomRepository,
     TenantMembershipRepository,
@@ -65,7 +66,7 @@ from application.utils.app_links import (
 from application.utils.environment import is_production
 from application.utils.ssrf import ensure_public_host, pin_public_url
 from application.utils.tenant_urls import event_path, tenant_url
-from models import FeatureFlag, PersonalWebhook, User
+from models import FeatureFlag, PersonalWebhook, PersonalWebhookOutbox, User
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +75,8 @@ NAME_MAX = 80
 MAX_ATTEMPTS = 2
 PAUSE_AFTER_FAILURES = 20
 DELIVERIES_PER_MINUTE = 60
+# Long enough for every attempt and the pause between them, so a send in flight is never taken over.
+CLAIM_SECONDS = 60
 SAVES_PER_HOUR = 20
 TESTS_PER_WINDOW = 3
 TEST_WINDOW_SECONDS = 600
@@ -226,6 +229,7 @@ class PersonalWebhookService:
 
     def __init__(self) -> None:
         self.repository = PersonalWebhookRepository()
+        self.outbox = PersonalWebhookOutboxRepository()
         self.audit_service = AuditService()
 
     @staticmethod
@@ -363,9 +367,12 @@ class PersonalWebhookService:
                 continue
             if view is None:
                 continue
-            webhook_queue.enqueue(
-                self._deliver_scoped(webhook, event.event_type, view, event.occurred_at, event.tenant_id),
+            row = await self.outbox.create(
+                webhook_id=webhook.id, event_type=event.event_type,
+                view=json.loads(json.dumps(asdict(view), default=str)),
+                occurred_at=event.occurred_at, delivery_uuid=str(uuid.uuid4()),
             )
+            webhook_queue.enqueue(self._attempt_scoped(webhook, row, event.tenant_id))
 
     # feature-gate: exempt — called only by deliver_event, after its flag check.
     async def view_for(self, webhook: PersonalWebhook, event: Event) -> Optional[_View]:
@@ -390,21 +397,37 @@ class PersonalWebhookService:
         view.title = f'{spec.label} · {view.title}' if view.title else spec.label
         return view
 
-    async def _deliver_scoped(
-        self, webhook: PersonalWebhook, event_type: str, view: _View, occurred_at: datetime,
-        tenant_id: int,
-    ) -> None:
+    async def _attempt_scoped(self, webhook: PersonalWebhook, row: PersonalWebhookOutbox, tenant_id: int) -> None:
         # Queued items run after the subscriber's tenant scope has exited.
         with tenant_scope(tenant_id):
-            await self._deliver(webhook, event_type, view, occurred_at)
+            await self.attempt(webhook, row)
 
-    async def _deliver(self, webhook: PersonalWebhook, event_type: str, view: _View, occurred_at: datetime) -> None:
+    # feature-gate: exempt — reached from deliver_event after its flag check, or the outbox worker after its own.
+    async def attempt(self, webhook: PersonalWebhook, row: PersonalWebhookOutbox) -> bool:
+        """Send a waiting message unless another sender holds it; True when this call sent it."""
+        now = datetime.now(timezone.utc)
+        if not await self.outbox.claim(row.id, now, now + timedelta(seconds=CLAIM_SECONDS)):
+            return False
+        await self._deliver(
+            webhook, row.event_type, _View(**row.view), row.occurred_at, delivery_id=row.delivery_uuid,
+        )
+        await self.outbox.delete(row.id)
+        return True
+
+    # feature-gate: exempt — the outbox worker drops what will never be sent.
+    async def drop(self, row: PersonalWebhookOutbox) -> None:
+        await self.outbox.delete(row.id)
+
+    async def _deliver(
+        self, webhook: PersonalWebhook, event_type: str, view: _View, occurred_at: datetime,
+        delivery_id: Optional[str] = None,
+    ) -> None:
         if not _take_slot('deliver', webhook.id, DELIVERIES_PER_MINUTE, 60):
             await self.repository.record_failure(
                 webhook.id, None, 'Skipped: more than 60 messages in a minute', datetime.now(timezone.utc),
             )
             return
-        ok, status, error = await self._post(webhook, event_type, view, occurred_at)
+        ok, status, error = await self._post(webhook, event_type, view, occurred_at, delivery_id)
         now = datetime.now(timezone.utc)
         if ok:
             await self.repository.record_success(webhook.id, status, now)
@@ -419,6 +442,7 @@ class PersonalWebhookService:
 
     async def _post(
         self, webhook: PersonalWebhook, event_type: str, view: _View, occurred_at: datetime,
+        delivery_id: Optional[str] = None,
     ) -> Tuple[bool, Optional[int], Optional[str]]:
         discord = is_discord_url(webhook.url)
         if discord:
@@ -431,7 +455,7 @@ class PersonalWebhookService:
                 webhook.secret.encode(), f'{timestamp}.{body}'.encode(), hashlib.sha256,
             ).hexdigest()
             headers = WebhookService.build_delivery_headers(
-                event_type=event_type, delivery_id=str(uuid.uuid4()),
+                event_type=event_type, delivery_id=delivery_id or str(uuid.uuid4()),
                 timestamp=timestamp, signature=signature,
             )
         status: Optional[int] = None

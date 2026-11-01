@@ -64,6 +64,8 @@ from .notification_channel_repository import NotificationChannelRepository
 from .notification_preference_repository import NotificationPreferenceRepository
 from .notification_setting_repository import NotificationSettingRepository
 from .oauth_app_repository import OAuthAppRepository
+from .oauth_handoff_repository import OAuthHandoffRepository
+from .personal_webhook_outbox_repository import PersonalWebhookOutboxRepository
 from .personal_webhook_repository import PersonalWebhookRepository
 from .player_availability_repository import PlayerAvailabilityRepository
 from .preset_repository import PresetRepository
@@ -73,6 +75,7 @@ from .race_room_profile_repository import RaceRoomProfileRepository
 from .racetime_bot_repository import RacetimeBotRepository
 from .racetime_room_repository import RacetimeRoomRepository
 from .randomizer_credential_repository import RandomizerCredentialRepository
+from .rate_limit_repository import RateLimitRepository
 from .reschedule_request_repository import RescheduleRequestRepository
 from .room_token_repository import RoomTokenRepository
 from .sent_message_repository import SentMessageRepository
@@ -162,6 +165,8 @@ __all__ = [
     'NotificationPreferenceRepository',
     'NotificationSettingRepository',
     'OAuthAppRepository',
+    'OAuthHandoffRepository',
+    'PersonalWebhookOutboxRepository',
     'PersonalWebhookRepository',
     'PlayedPermalinks',
     'PlayerAvailabilityRepository',
@@ -172,6 +177,7 @@ __all__ = [
     'RacetimeBotRepository',
     'RacetimeRoomRepository',
     'RandomizerCredentialRepository',
+    'RateLimitRepository',
     'RescheduleRequestRepository',
     'RoomTokenRepository',
     'SentMessageRepository',

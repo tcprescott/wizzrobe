@@ -18,44 +18,41 @@ from application.utils.tenant_urls import safe_next
 
 
 @pytest.fixture(autouse=True)
-def _secret_and_reset(monkeypatch):
+def _secret(monkeypatch):
     monkeypatch.setenv('STORAGE_SECRET', 'x' * 40)
-    h.reset()
-    yield
-    h.reset()
 
 
-def test_mint_data_roundtrips_arbitrary_payload():
-    token = h.mint_data(
+async def test_mint_data_roundtrips_arbitrary_payload(db):
+    token = await h.mint_data(
         data={'key': 'racetime', 'user_id': 'rt-1', 'name': 'Speedy'},
         target_host='foo.gg', next_path='/home/profile', bind_commit='c' * 64,
     )
-    payload = h.claim(token, 'foo.gg')
+    payload = await h.claim(token, 'foo.gg')
     assert payload is not None
     assert payload['data'] == {'key': 'racetime', 'user_id': 'rt-1', 'name': 'Speedy'}
     assert payload['next'] == '/home/profile'
     assert payload['bind_commit'] == 'c' * 64
 
 
-def test_mint_data_is_single_use():
-    token = h.mint_data(data={'key': 'twitch'}, target_host='foo.gg', next_path='/')
-    assert h.claim(token, 'foo.gg') is not None
-    assert h.claim(token, 'foo.gg') is None
+async def test_mint_data_is_single_use(db):
+    token = await h.mint_data(data={'key': 'twitch'}, target_host='foo.gg', next_path='/')
+    assert await h.claim(token, 'foo.gg') is not None
+    assert await h.claim(token, 'foo.gg') is None
 
 
-def test_mint_data_is_host_bound():
-    token = h.mint_data(data={'key': 'twitch'}, target_host='foo.gg', next_path='/')
-    assert h.claim(token, 'bar.gg') is None
-    assert h.claim(token, 'foo.gg') is None
+async def test_mint_data_is_host_bound(db):
+    token = await h.mint_data(data={'key': 'twitch'}, target_host='foo.gg', next_path='/')
+    assert await h.claim(token, 'bar.gg') is None
+    assert await h.claim(token, 'foo.gg') is None
 
 
-def test_mint_data_rejects_unnormalizable_host():
-    assert h.mint_data(data={'key': 'x'}, target_host='not a host', next_path='/') is None
+async def test_mint_data_rejects_unnormalizable_host(db):
+    assert await h.mint_data(data={'key': 'x'}, target_host='not a host', next_path='/') is None
 
 
-def test_login_mint_keeps_flat_identity_shape():
-    token = h.mint(discord_id=1, username='u', avatar=None, target_host='foo.gg', next_path='/')
-    payload = h.claim(token, 'foo.gg')
+async def test_login_mint_keeps_flat_identity_shape(db):
+    token = await h.mint(discord_id=1, username='u', avatar=None, target_host='foo.gg', next_path='/')
+    payload = await h.claim(token, 'foo.gg')
     assert payload['discord_id'] == 1
     assert 'data' not in payload
 
@@ -138,13 +135,13 @@ def test_link_start_never_self_redirects_in_production(monkeypatch):
             is_mock()
 
 
-async def test_maybe_start_link_handoff_is_none_in_path_mode(link, monkeypatch):
+async def test_maybe_start_link_handoff_is_none_in_path_mode(db, link, monkeypatch):
     monkeypatch.setenv('HOST_OAUTH_MODE', 'handoff')
     monkeypatch.setattr(link, 'is_host_mode', lambda: False)
     assert await link.maybe_start_link_handoff('racetime', '/home/profile') is None
 
 
-async def test_maybe_start_link_handoff_is_none_with_handoff_off(link, monkeypatch):
+async def test_maybe_start_link_handoff_is_none_with_handoff_off(db, link, monkeypatch):
     monkeypatch.delenv('HOST_OAUTH_MODE', raising=False)
     monkeypatch.setattr(link, 'is_host_mode', lambda: True)
     assert await link.maybe_start_link_handoff('racetime', '/home/profile') is None
@@ -266,7 +263,7 @@ def test_safe_next_guards_cross_host_return(raw, expected):
     assert safe_next(raw) == expected
 
 
-async def test_handoff_exchange_runs_in_the_target_tenant(link, monkeypatch):
+async def test_handoff_exchange_runs_in_the_target_tenant(db, link, monkeypatch):
     from nicegui import app
 
     from application.tenant_context import get_current_tenant_id, tenant_scope

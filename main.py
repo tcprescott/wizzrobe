@@ -28,6 +28,7 @@ from api import inbound_webhooks, oauth_server, worker_ticks
 from api.openapi_docs import api_description, warm_openapi
 from api.openapi_docs import install as install_openapi_docs
 from application import bot_runtime, worker_registry
+from application.events import live_relay
 from application.utils import element_cycles, gc_monitor, memory_census, metrics_sampler, worker_watchdog
 from application.utils.easter_eggs import random_fact
 from application.utils.environment import discord_gateway_enabled, env_flag, loop_watchdog_enabled
@@ -122,6 +123,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info('startup: module imports took %.2fs', lifespan_started - _IMPORT_STARTED)
     with _startup_step('database'):
         await init_db()
+    with _startup_step('live relay'):
+        await live_relay.start(DB_URL)
     with _startup_step('stored log levels'):
         await _apply_stored_log_levels()
         await _load_browser_monitoring()
@@ -160,6 +163,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await pending_actions.flush_all()
         await worker_registry.stop_all()
         await close_racetime_bot()
+        await live_relay.stop()
         await bot_runtime.stop_delivery()
         await bot_runtime.close_discord()
         await close_db()

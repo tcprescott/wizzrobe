@@ -9,7 +9,7 @@ Logging must never cost a DM: every write here swallows its own failure.
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, NamedTuple, Optional
 
 from application.repositories import SentMessageRepository, UserRepository
@@ -111,7 +111,33 @@ class SentMessageService:
     async def record_result(
         self, ref: Optional[SentMessageRef], status: SentMessageStatus, error: Optional[str] = None,
     ) -> None:
-        await self._update(ref, status=status, error=(error or None) and error[:_ERROR_MAX])
+        await self._update(
+            ref, status=status, error=(error or None) and error[:_ERROR_MAX], outbox=None, claimed_until=None,
+        )
+
+    async def hold(self, ref: Optional[SentMessageRef], outbox: Dict[str, Any], seconds: float) -> None:
+        """Keep the Discord message in the outbox, held by this sender for ``seconds``, until its result is recorded."""
+        until = datetime.now(timezone.utc) + timedelta(seconds=seconds)
+        await self._update(ref, outbox=outbox, claimed_until=until)
+
+    async def record_retry(self, ref: Optional[SentMessageRef], error: Optional[str]) -> None:
+        """A send that may work later: stays pending, in the outbox, for ``dm_outbox_worker``."""
+        if ref is None:
+            return
+        try:
+            await self.repository.count_attempt(ref.id, ref.tenant_id, (error or None) and error[:_ERROR_MAX])
+        except Exception:
+            logger.exception('Could not update sent message %s', ref.id)
+
+    async def claim(self, message: SentMessage, now: datetime, until: datetime) -> bool:
+        return await self.repository.claim(message.id, now, until)
+
+    async def list_waiting(self, now: datetime, limit: int = 100) -> List[SentMessage]:
+        return await self.repository.list_waiting(now, limit)
+
+    @staticmethod
+    async def tenants_with_waiting() -> List[int]:
+        return await SentMessageRepository.tenants_with_waiting()
 
     async def record_push(self, ref: Optional[SentMessageRef], devices: int) -> None:
         await self._update(ref, push_devices=devices)

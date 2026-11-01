@@ -27,9 +27,8 @@ row as OPEN and tells the players. A refused ``startrace`` leaves nothing behind
 
 from __future__ import annotations
 
-import asyncio
 import logging
-import weakref
+from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
@@ -50,6 +49,7 @@ from application.utils.clients import racetime_rooms_client
 from application.utils.clients.racetime_client import RacetimeAPIError
 from application.utils.clients.racetime_rooms_client import RaceRoomSettings
 from application.utils.racetime_entrants import is_scored_finish, unmatched_handle
+from application.utils.shared_lock import shared_lock
 from models import (
     FeatureFlag,
     Match,
@@ -84,17 +84,9 @@ class HeldResult:
     other_runners: List[str] = field(default_factory=list)
     fpa_calls: List[dict] = field(default_factory=list)
 
-# One opener per room key: the poll and the series push can both reach a match and open two rooms.
-_open_locks: "weakref.WeakValueDictionary[str, asyncio.Lock]" = weakref.WeakValueDictionary()
-
-
-def room_open_lock(key: str) -> asyncio.Lock:
-    """The lock serialising room creation for ``key`` (e.g. ``match:12``)."""
-    lock = _open_locks.get(key)
-    if lock is None:
-        lock = asyncio.Lock()
-        _open_locks[key] = lock
-    return lock
+def room_open_lock(key: str) -> AbstractAsyncContextManager[None]:
+    """One opener per room key (e.g. ``match:12``): the poll and the series push can both reach a match."""
+    return shared_lock('race_room.open', key)
 
 
 async def start_racetime_room(bot, settings: RaceRoomSettings) -> str:

@@ -47,11 +47,10 @@ point ``GeneratedSeeds.preset`` is the record of what was actually played, and a
 choice about settings that are already decided is not a choice.
 """
 
-import asyncio
 import logging
+from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set
-from weakref import WeakValueDictionary
 
 from application.errors import require_found
 from application.events import EventType
@@ -61,6 +60,7 @@ from application.repositories import (
 )
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
+from application.utils.shared_lock import shared_lock
 from models import Match, Preset, PresetOverride, User
 
 logger = logging.getLogger(__name__)
@@ -129,26 +129,14 @@ class HardPresetSnapshot:
     opted_in: Set[int] = field(default_factory=set)
 
 
-_agreement_locks: 'WeakValueDictionary[int, asyncio.Lock]' = WeakValueDictionary()
-
-
-def _agreement_lock(match_id: int) -> asyncio.Lock:
+def _agreement_lock(match_id: int) -> AbstractAsyncContextManager[None]:
     """Serialise one match's crossing of the unanimity line.
 
     Two players sending their last opt-in at the same moment would each read a
     set that is not yet complete, then each find it complete on the re-check,
-    and the agreement would be audited, published and DMed twice. The app runs
-    a single worker (docs/scaling-roadmap.md), so an in-process lock settles it;
-    a second process would need the transition to move into the database.
-
-    Weak values because the caller holds the lock for as long as it needs it,
-    which is exactly how long the registry should keep the entry.
+    and the agreement would be audited, published and DMed twice.
     """
-    lock = _agreement_locks.get(match_id)
-    if lock is None:
-        lock = asyncio.Lock()
-        _agreement_locks[match_id] = lock
-    return lock
+    return shared_lock('match.hard_preset_agreement', match_id)
 
 
 class MatchHardPresetService:
