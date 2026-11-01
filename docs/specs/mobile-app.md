@@ -94,8 +94,8 @@ Images: `/mnt/project-files/mobile-app/mockups/{A,B,C}-{phone,desktop}-{light,da
   - Live updates: `match_live` / `check_in_live` publish via `NOTIFY`; a
     `GET /api/live` SSE endpoint fans out per community/event.
   - Workers: each `run_worker_loop` worker becomes a Cloud Scheduler-triggered tick
-    (the `WORKERS` registry in `scripts/run_worker_tick.py` already runs one tick
-    on its own).
+    (`application/worker_registry.py`, `POST /internal/workers/<key>/tick`,
+    switched on by `WORKER_MODE=scheduled`; see `docs/features/scheduled-workers.md`).
   - Discord: buttons move to the HTTP interactions endpoint (signed POSTs, no
     gateway). DMs already go over Discord's REST API. Member update/remove events
     (inbound role sync) need the gateway, so they stay on the bot service.

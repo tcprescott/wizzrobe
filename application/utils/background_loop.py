@@ -129,45 +129,59 @@ class BackgroundLoop:
 
     async def _loop(self) -> None:
         while True:
-            with sentry_tags(worker=self.name):
-                self._last_started = time.time()
-                began = time.monotonic()
-                self._tick_began = began
-                ok = False
-                try:
-                    async with asyncio.timeout(self._tick_timeout):
-                        await self._run_tick()
-                    ok = True
-                except TimeoutError:
-                    self._record_failure()
-                    self._timeouts += 1
-                    report_worker_problem(
-                        self.name, '%s tick ran past %.0fs and was cancelled',
-                        self.name, self._tick_timeout, logger=self._logger)
-                except asyncio.CancelledError:
-                    if being_cancelled():
-                        raise
-                    self._record_failure()
-                    report_worker_problem(
-                        self.name, '%s tick was cancelled from inside; carrying on',
-                        self.name, logger=self._logger, exc_info=True)
-                except Exception as e:  # never let the loop die
-                    self._record_failure()
-                    self._logger.exception('%s tick failed: %s', self.name, e)
-                finally:
-                    elapsed = time.monotonic() - began
-                    self._tick_began = None
-                    self._last_finished = time.monotonic()
-                    self._ticks += 1
-                    self._last_seconds = elapsed
-                    self._max_seconds = max(self._max_seconds, elapsed)
-                    sentry_metrics.distribution(
-                        'worker.tick_duration', elapsed, unit='second', attributes={'worker': self.name})
-                if ok:
-                    self._consecutive_restarts = 0
-                if elapsed >= SLOW_TICK_SECONDS:
-                    self._logger.warning('%s tick took %.1fs', self.name, elapsed)
+            await self.run_once()
             await asyncio.sleep(self._interval)
+
+    @property
+    def interval(self) -> float:
+        return self._interval
+
+    async def run_once(self) -> bool:
+        """Run one tick with the loop's timeout, failure handling and metrics.
+
+        Returns whether the tick succeeded. The in-process loop calls this on
+        its beat; a scheduled tick (``WORKER_MODE=scheduled``) calls it from
+        the tick endpoint instead, so both report the same way.
+        """
+        with sentry_tags(worker=self.name):
+            self._last_started = time.time()
+            began = time.monotonic()
+            self._tick_began = began
+            ok = False
+            try:
+                async with asyncio.timeout(self._tick_timeout):
+                    await self._run_tick()
+                ok = True
+            except TimeoutError:
+                self._record_failure()
+                self._timeouts += 1
+                report_worker_problem(
+                    self.name, '%s tick ran past %.0fs and was cancelled',
+                    self.name, self._tick_timeout, logger=self._logger)
+            except asyncio.CancelledError:
+                if being_cancelled():
+                    raise
+                self._record_failure()
+                report_worker_problem(
+                    self.name, '%s tick was cancelled from inside; carrying on',
+                    self.name, logger=self._logger, exc_info=True)
+            except Exception as e:  # never let the loop die
+                self._record_failure()
+                self._logger.exception('%s tick failed: %s', self.name, e)
+            finally:
+                elapsed = time.monotonic() - began
+                self._tick_began = None
+                self._last_finished = time.monotonic()
+                self._ticks += 1
+                self._last_seconds = elapsed
+                self._max_seconds = max(self._max_seconds, elapsed)
+                sentry_metrics.distribution(
+                    'worker.tick_duration', elapsed, unit='second', attributes={'worker': self.name})
+            if ok:
+                self._consecutive_restarts = 0
+            if elapsed >= SLOW_TICK_SECONDS:
+                self._logger.warning('%s tick took %.1fs', self.name, elapsed)
+        return ok
 
     def _record_failure(self) -> None:
         self._failures += 1
