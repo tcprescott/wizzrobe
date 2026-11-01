@@ -48,6 +48,9 @@ const TARGETS = [
   { name: 'home', path: '/t/sgl/home' },
   { name: 'home-event', path: '/t/sgl/e/sgl26/home' },
   { name: 'schedule', path: '/t/sgl/schedule' },
+  { name: 'home-pick-time', path: '/t/sgl/home', act: (p) => p.getByRole('button', { name: 'Pick a time' }).click(), wait: 'role=dialog' },
+  { name: 'home-review', path: '/t/sgl/home', act: (p) => p.getByRole('button', { name: 'Review' }).click(), wait: 'role=dialog' },
+  { name: 'home-running-late', path: '/t/sgl/home', act: (p) => p.getByRole('button', { name: 'Running late' }).first().click(), wait: 'role=dialog' },
   { name: 'event', path: '/t/sgl/event' },
   { name: 'work', path: '/t/sgl/work' },
   { name: 'me', path: '/t/sgl/me' },
@@ -73,12 +76,24 @@ function startPreview() {
   })
 }
 
+// "{{now+42m}}" in a fixture becomes an instant that far from now, so countdowns and "Today" render.
+const UNITS = { m: 60e3, h: 3600e3, d: 86400e3 }
+function withTimes(value) {
+  if (typeof value === 'string') {
+    const m = /^\{\{now([+-]\d+)([mhd])\}\}$/.exec(value)
+    return m ? new Date(Date.now() + Number(m[1]) * UNITS[m[2]]).toISOString() : value
+  }
+  if (Array.isArray(value)) return value.map(withTimes)
+  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, withTimes(v)]))
+  return value
+}
+
 async function stubApi(context) {
   await context.route('**/api/**', (route) => {
     const path = new URL(route.request().url()).pathname
     const body = fixtures[path]
     if (body === undefined) return route.fulfill({ status: 404, json: { detail: 'Not in the a11y fixtures' } })
-    return route.fulfill({ status: 200, json: body })
+    return route.fulfill({ status: 200, json: withTimes(body) })
   })
 }
 

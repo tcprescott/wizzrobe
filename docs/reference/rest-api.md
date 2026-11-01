@@ -133,7 +133,7 @@ One module per group under [`api/routers/`](../../api/routers/), named after the
 - `POST /matches/{id}/stations/suggest` — draw a random seating (opposite sides, spread out) without applying it. Returns `{assignments, relaxations}`. Takes the **write** actor even though it writes nothing: it is a preview of `POST /stations`, and a read-only token has no business drawing seats it cannot then take.
 - Lifecycle: `POST /matches/{id}/seat` · `/start` · `/finish` · `/confirm` · `/result` · `/seed`. `/confirm` returns `400` unless the match is finished **and** a winner has been recorded.
 - `POST /matches/{id}/review` — `{needs_review}`. Raises or drops the dispute flag on a recorded result, returning the updated match. The two directions gate differently: flagging is `can_run_match` (the proctor's own call, and `400` unless the match is finished), clearing is `can_confirm_match` (`403` for a proctor). `/confirm` clears the flag on its own — see [match-participation.md](../features/match-participation.md#disputed-results).
-- Self-actions: `POST /matches/{id}/crew` (sign up) · `DELETE /matches/{id}/crew/{role}` · `POST /matches/{id}/acknowledge`.
+- Self-actions: `POST /matches/{id}/crew` (sign up) · `DELETE /matches/{id}/crew/{role}` · `POST /matches/{id}/acknowledge` · `POST /matches/{id}/running-late` (`minutes` 10/20/30 plus an optional note; same window and refusals as the website's Running late, via `PlayerLateService.report_late`).
 - Watching: `GET /matches/watching` (matches you watch) · `POST /matches/{id}/watch` · `DELETE /matches/{id}/watch`.
 - Stream offer: `POST /matches/{id}/stream-offer` · `DELETE /matches/{id}/stream-offer` — a player offers their own match for stream coverage, or takes it back. `400` for someone not in the match, or for an offer once it has started (withdrawing is allowed after). Stream managers see the offer; it does not set `is_stream_candidate`.
 
@@ -185,6 +185,12 @@ Behind `FeatureFlag.PAYOUTS` (the whole router 404s when the community lacks it)
 - `POST /users/{id}/membership` · `DELETE /users/{id}/membership` (Staff) — add someone to this community or take them out, as the Users tab does. Removing is `400` while they hold a role here or admin or coordinate a tournament.
 
 - `GET /me/communities` (`me.py`) — the caller's active communities with their roles and openable events, for the app's community picker. Spans communities, so it takes no community header; a third-party app's grant is refused (`403`).
+
+### My schedule (`/api/me/…`) · `my_schedule.py`
+Screen-shaped reads for the app's Home and Schedule tabs, built by `PlayerHomeService` (which merges `MyTimelineService`, the bracket sources, reschedule requests and acknowledgements). Event-bound (`?event=`), scope `play`.
+- `GET /me/home` — `next_up` (your next unfinished match), `needs_you` (`book`, `agree`, `acknowledge`) and the rest of `today`. `zone` is the clock to print times on: the community's pinned zone, else your saved one, else `null` for the device's.
+- `GET /me/schedule?past=` — your matches, crew slots and shifts in the event window, soonest first (or ended ones, latest first).
+- `GET /me/bookable` — matchups waiting on you to pick a time, from native brackets, Challonge and start.gg in one list (`source` + `key`). `GET /me/bookable/{source}/{key}/check?at=` returns the booking-window `refusal` and the "Check this time" `clashes` without booking; `POST /me/bookable/{source}/{key}/book` (`scheduled_at`, an instant) books the next game. Both refuse (`400`) a matchup that isn't in your own list.
 
 ### Player availability (`/api/users/me/availability`) · `player_availability.py`
 - `GET` (own windows) · `PUT` (replace all windows) · `DELETE` (clear). Self-service for any authenticated user; windows feed match-time suggestions. **Opt-out:** a player with no windows is available for the whole event, so a window is a time they cannot play (`unavailable`) or would rather (`preferred`) — an `available` window is accepted but states the default. Volunteer availability, on the same wire shape, is the opposite (opt-in).

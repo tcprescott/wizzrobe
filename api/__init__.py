@@ -28,6 +28,7 @@ from api.routers import (
     matches,
     me,
     memberships,
+    my_schedule,
     notification_settings,
     notifications,
     payouts,
@@ -74,6 +75,7 @@ router.include_router(tournament_actions.router)
 router.include_router(stages.router)
 router.include_router(stage_actions.router)
 router.include_router(me.router)
+router.include_router(my_schedule.router)
 router.include_router(users.router)
 router.include_router(memberships.router)
 # Include before /users/{user_id}/availability, or `me` hits the int param and 422s.
