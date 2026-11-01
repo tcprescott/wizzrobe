@@ -12,7 +12,7 @@ nicegui = "^3.12.1"
 fastapi = ">=0.136,<0.143"
 pyyaml = "^6.0.2"
 asyncpg = "^0.31.0"
-tortoise-orm = {extras = ["asyncpg"], version = ">=0.24,<0.26"}
+tortoise-orm = {extras = ["asyncpg"], version = ">=0.24,<1.2"}
 aerich = {extras = ["toml"], version = ">=0.8.1,<0.10.0"}
 cryptography = "^50.0.0"
 zenora = "^0.0.3.post1"
