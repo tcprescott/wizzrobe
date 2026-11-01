@@ -9,7 +9,7 @@ Logging must never cost a DM: every write here swallows its own failure.
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, NamedTuple, Optional
 
 from application.repositories import SentMessageRepository, UserRepository
@@ -115,9 +115,10 @@ class SentMessageService:
             ref, status=status, error=(error or None) and error[:_ERROR_MAX], outbox=None, claimed_until=None,
         )
 
-    async def hold(self, ref: Optional[SentMessageRef], outbox: Dict[str, Any], claimed_until: datetime) -> None:
-        """Keep the Discord message in the outbox, held by this sender, until its result is recorded."""
-        await self._update(ref, outbox=outbox, claimed_until=claimed_until)
+    async def hold(self, ref: Optional[SentMessageRef], outbox: Dict[str, Any], seconds: float) -> None:
+        """Keep the Discord message in the outbox, held by this sender for ``seconds``, until its result is recorded."""
+        until = datetime.now(timezone.utc) + timedelta(seconds=seconds)
+        await self._update(ref, outbox=outbox, claimed_until=until)
 
     async def record_retry(self, ref: Optional[SentMessageRef], error: Optional[str]) -> None:
         """A send that may work later: stays pending, in the outbox, for ``dm_outbox_worker``."""

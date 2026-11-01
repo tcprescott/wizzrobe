@@ -9,12 +9,8 @@ import pytest
 import discordbot  # noqa: F401  registers the button views
 from application.services import dm_outbox_worker
 from application.services.discord import discord_service as ds
-from application.services.discord.discord_service import (
-    DM_BOT_OFFLINE,
-    DM_DISCORD_TROUBLE,
-    DM_REFUSED,
-    VIEW_MATCH_ACK,
-)
+from application.services.discord.discord_service import DM_REFUSED, VIEW_MATCH_ACK
+from application.services.discord.dm_outbox import DM_BOT_OFFLINE, DM_DISCORD_TROUBLE
 from models import SentMessage, SentMessageStatus
 from tests.factories import make_user
 

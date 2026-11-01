@@ -23,6 +23,7 @@ from models import (
     Match,
     MatchPlayers,
     PersonalWebhook,
+    PersonalWebhookOutbox,
     TenantFeatureFlag,
     TenantMembership,
     User,
@@ -335,6 +336,42 @@ class TestDelivery:
         monkeypatch.setattr(pws.webhook_queue, 'enqueue', lambda coro: queued.append(coro.close()))
         await PersonalWebhookService().deliver_event(_event(EventType.MATCH_STARTED, match_id=match.id))
         assert len(queued) == 1
+
+
+class TestOutbox:
+    async def test_a_message_is_saved_before_it_is_sent_and_removed_after(self, db, fake_http, monkeypatch):
+        alice = await _member(1, 'alice')
+        match = await _match(alice)
+        await _hook(alice, [EventType.MATCH_STARTED])
+        queued = []
+        monkeypatch.setattr(pws.webhook_queue, 'enqueue', queued.append)
+        await PersonalWebhookService().deliver_event(_event(EventType.MATCH_STARTED, match_id=match.id))
+
+        row = await PersonalWebhookOutbox.get()
+        assert row.view['data']['match']['id'] == match.id and not fake_http.sent
+        await queued.pop()
+        assert fake_http.sent[0]['headers']['X-Wizzrobe-Delivery'] == row.delivery_uuid
+        assert not await PersonalWebhookOutbox.exists()
+
+    async def test_the_sweeper_sends_what_a_restart_left_and_drops_paused(self, db, fake_http, monkeypatch):
+        from datetime import datetime, timedelta, timezone
+
+        from application.services import webhook_outbox_worker
+
+        alice = await _member(1, 'alice')
+        match = await _match(alice)
+        live = await _hook(alice, [EventType.MATCH_STARTED])
+        paused = await _hook(alice, [EventType.MATCH_STARTED])
+        monkeypatch.setattr(pws.webhook_queue, 'enqueue', lambda coro: coro.close())
+        await PersonalWebhookService().deliver_event(_event(EventType.MATCH_STARTED, match_id=match.id))
+        await PersonalWebhook.filter(id=paused.id).update(is_active=False)
+        await PersonalWebhookOutbox.all().update(created_at=datetime.now(timezone.utc) - timedelta(minutes=5))
+
+        await webhook_outbox_worker._tick()
+
+        assert len(fake_http.sent) == 1
+        assert (await PersonalWebhook.get(id=live.id)).delivered_count == 1
+        assert not await PersonalWebhookOutbox.exists()
 
 
 def test_url_helpers():

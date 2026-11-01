@@ -191,7 +191,7 @@ from .volunteer import (
     VolunteerRoleMapping,
     VolunteerShift,
 )
-from .webhook import PersonalWebhook, Webhook, WebhookDelivery
+from .webhook import PersonalWebhook, PersonalWebhookOutbox, Webhook, WebhookDelivery
 
 # Must stay last: it walks this module's namespace for every model.
 install_column_guards(globals())
@@ -306,6 +306,7 @@ __all__ = [
     'OAuthClientType',
     'OAuthHandoff',
     'PersonalWebhook',
+    'PersonalWebhookOutbox',
     'PlayerAvailability',
     'Preset',
     'PresetOverride',

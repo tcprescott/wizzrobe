@@ -1536,6 +1536,20 @@ A member's own outbound webhook (Profile → Webhooks, `FeatureFlag.PERSONAL_WEB
 | `consecutive_failures`, `delivered_count`, `failed_count` | `IntField` | `0` | |
 | `last_delivery_at`, `last_status`, `last_error` | | null | Last attempt, for the card |
 
+#### `PersonalWebhookOutbox`
+
+A personal webhook message waiting to be sent, written when an event fans out and deleted once the send settles. See [webhooks.md](../features/webhooks.md#personal-webhooks-members).
+
+| Field | Type | Null / default | Notes |
+|---|---|---|---|
+| `webhook` | FK → `PersonalWebhook` | not null, `CASCADE` | `related_name='outbox'` |
+| `event_type` | `CharField(100)` | not null | |
+| `view` | `JSONField` | not null | What the owner may be told, built at fan-out (`_View` as a dict) |
+| `occurred_at` | `DatetimeField` | not null | When the event happened |
+| `delivery_uuid` | `CharField(36)` | not null | Sent as `X-Wizzrobe-Delivery`, the same on a resend |
+| `claimed_until` | `DatetimeField` | null | A sender's hold on the row |
+| `created_at` | `DatetimeField` | `auto_now_add`, indexed | |
+
 #### `WebPushSubscription`
 
 One browser/device push subscription for a user; every Discord DM is mirrored
@@ -2655,6 +2669,7 @@ Consult the source for full signatures.
 | `TablePreferenceRepository` | [`table_preference_repository.py`](../../application/repositories/table_preference_repository.py) | `UserTablePreference` | **Global — never tenant-scoped** (the model has no tenant column). `all_for_user` (one query; the only read a page build makes), `get`, `upsert`, `delete`, `delete_all_for_user` |
 | `StreamLayoutRepository` | [`stream_layout_repository.py`](../../application/repositories/stream_layout_repository.py) | `StreamLayout`, `StreamLayoutArt`, `StageOverlay` | `list_for_event`, `get_in_event`, `name_taken`, `set_art`, `get_art`, `overlays`, `overlay_for_stage`, `create_overlay`, `overlay_by_token`, `match_for_overlay`, `stage_matches_between` |
 | `PersonalWebhookRepository` | [`personal_webhook_repository.py`](../../application/repositories/personal_webhook_repository.py) | `PersonalWebhook` | `list_for_user`, `count_for_user`, `get_for_user`, `list_active`, `record_success`, `record_failure`, `pause` |
+| `PersonalWebhookOutboxRepository` | [`personal_webhook_outbox_repository.py`](../../application/repositories/personal_webhook_outbox_repository.py) | `PersonalWebhookOutbox` | `create`, `claim`, `delete`, `list_stale`, `tenants_with_rows` (global worker scan) |
 | `WebhookRepository` | [`webhook_repository.py`](../../application/repositories/webhook_repository.py) | `Webhook` | `get_by_id`, `list_all`, `list_active`, `create`, `update`, `delete` |
 | `WebhookDeliveryRepository` | [`webhook_delivery_repository.py`](../../application/repositories/webhook_delivery_repository.py) | `WebhookDelivery` | `create`, `get`, `claim`, `finish`, `list_stale_pending`, `tenants_with_pending` (global worker scan), `list_for_webhook`, `outcome_counts_since`, `prune_older_than` |
 | `PresetRepository` | [`preset_repository.py`](../../application/repositories/preset_repository.py) | `Preset` | `get_by_id`, `get_by_natural_key`, `list_all`, `list_by_randomizer`, `create`, `update`, `delete` |

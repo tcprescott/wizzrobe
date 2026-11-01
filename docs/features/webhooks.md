@@ -184,6 +184,13 @@ staff contract above is untouched.
   `occurred_at`, `community` (slug), `about_me`, `link`, `data`. Discord
   destinations (`discord.com/api/webhooks/…`) get an embed with
   `allowed_mentions: {parse: []}` and escaped markdown, times as `<t:…:F>`.
+- **Outbox.** `deliver_event` writes each message it decides to send to
+  `PersonalWebhookOutbox` (the built view, event type, time, a fixed delivery
+  UUID) before queueing the send, which claims the row, posts and deletes it.
+  `webhook_outbox_worker` sends rows a restart left behind (older than 2
+  minutes, no live claim) with the same `X-Wizzrobe-Delivery`, and drops rows
+  whose webhook was paused, that are a day old, or whose community turned the
+  feature off. There is no delivery log, so nothing records a dropped row.
 - **Limits.** https only and SSRF-checked at save and at send (production),
   no credentials in the URL, 20 saves/hour, 3 tests per 10 minutes, 60
   deliveries/minute per webhook, 2 attempts (4xx other than 429 not retried).

@@ -25,7 +25,8 @@ BATCH = 100
 
 
 async def _sweep_tenant(tenant_id: int) -> None:
-    from application.services.discord.discord_service import DM_CLAIM_SECONDS, DiscordService
+    from application.services.discord.discord_service import DiscordService
+    from application.services.discord.dm_outbox import DM_CLAIM_SECONDS, resend
     from application.services.sent_message_service import SentMessageRef, SentMessageService
     from models import SentMessageStatus
 
@@ -42,7 +43,7 @@ async def _sweep_tenant(tenant_id: int) -> None:
         if not await log.claim(row, now, now + timedelta(seconds=DM_CLAIM_SECONDS)):
             continue
         discord_service = discord_service or DiscordService()
-        await discord_service.resend(row)
+        await resend(discord_service, row)
 
 
 async def _tick() -> None:

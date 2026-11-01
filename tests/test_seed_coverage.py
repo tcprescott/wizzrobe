@@ -25,7 +25,10 @@ from scripts.seed_support import ALL_FIXTURE_USERNAMES, fixture_discord_id
 from tests.conftest import DEFAULT_TEST_TENANT_ID, _scoped_models
 
 # Keep empty unless a model genuinely cannot be seeded.
-EXEMPT: dict[str, str] = {}
+EXEMPT: dict[str, str] = {
+    'PersonalWebhookOutbox': 'a send queue: the outbox worker sends and deletes any row within minutes, '
+                             'so a seeded one would not survive to be looked at',
+}
 
 # An entry here claims seeding the missing values would be wrong, not merely inconvenient.
 ENUM_EXEMPT: dict[str, str] = {

@@ -47,3 +47,28 @@ async def test_webhooks_do_not_leak_across_tenants(two_tenants, monkeypatch):
     with tenant_scope(a.id):
         assert [w.name for w in await service.list_mine(member)] == ['A hook']
     assert await PersonalWebhook.filter(user=member).count() == 1
+
+
+async def test_the_outbox_is_read_per_community(two_tenants):
+    from datetime import datetime, timedelta, timezone
+
+    from application.repositories import PersonalWebhookOutboxRepository
+    from models import PersonalWebhookOutbox
+
+    a, b = two_tenants
+    owner = await make_user(discord_id=761, username='outbox-owner')
+    hook = await PersonalWebhook.create(
+        tenant=a, user=owner, name='A', url='https://a.example/hook', secret='s', event_types=['*'],
+    )
+    old = datetime.now(timezone.utc) - timedelta(hours=1)
+    row = await PersonalWebhookOutbox.create(
+        tenant=a, webhook=hook, event_type='match.started', view={}, occurred_at=old, delivery_uuid='u',
+    )
+    await PersonalWebhookOutbox.filter(id=row.id).update(created_at=old)
+    now = datetime.now(timezone.utc)
+
+    with tenant_scope(b.id):
+        assert await PersonalWebhookOutboxRepository.list_stale(now, now) == []
+        assert await PersonalWebhookOutboxRepository.claim(row.id, now, now) is False
+    with tenant_scope(a.id):
+        assert [r.id for r in await PersonalWebhookOutboxRepository.list_stale(now, now)] == [row.id]

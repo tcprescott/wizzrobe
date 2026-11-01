@@ -74,3 +74,26 @@ class PersonalWebhook(Model):
     class Meta:
         table = 'personalwebhook'
         indexes = (('tenant', 'user'),)
+
+
+class PersonalWebhookOutbox(Model):
+    """A personal webhook message waiting to be sent, so it outlives the process that queued it.
+
+    Written per webhook when an event fans out, deleted once the send settles.
+    ``view`` is what the owner may be told, worked out at fan-out time.
+    """
+
+    id = fields.IntField(pk=True)
+    tenant: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Tenant', related_name='personal_webhook_outbox', on_delete=fields.CASCADE)
+    webhook: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.PersonalWebhook', related_name='outbox', on_delete=fields.CASCADE)
+    event_type = fields.CharField(max_length=100)
+    view: dict = fields.JSONField()
+    occurred_at = fields.DatetimeField()
+    delivery_uuid = fields.CharField(max_length=36)
+    claimed_until = fields.DatetimeField(null=True)
+    created_at = fields.DatetimeField(auto_now_add=True, index=True)
+
+    class Meta:
+        table = 'personalwebhookoutbox'
