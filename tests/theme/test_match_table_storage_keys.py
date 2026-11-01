@@ -14,6 +14,7 @@ it with ``__new__`` and set only the attributes under test.
 
 import ast
 import inspect
+from datetime import time, timedelta
 from pathlib import Path
 
 from theme.tables.match import MatchTableView
@@ -163,10 +164,15 @@ def test_all_dates_is_the_default_and_narrows_nothing():
 
 
 def test_today_is_one_local_day_wide():
+    """Local midnight to local midnight, which is 23 or 25 hours on a DST change day."""
+    from application.utils.timezone import combine_local, today_local
     from theme.tables.match_filters import day_scope_window
 
     start, end = day_scope_window('Today')
-    assert (end - start) == 24 * 3600
+    today = today_local()
+    assert start == combine_local(today, time(0)).timestamp()
+    assert end == combine_local(today + timedelta(days=1), time(0)).timestamp()
+    assert (end - start) in (23 * 3600, 24 * 3600, 25 * 3600)
 
 
 def test_tomorrow_starts_where_today_ends():
