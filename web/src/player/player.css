@@ -1,0 +1,308 @@
+/* Home and Schedule. Phone is below 768px; one design, the columns fold. */
+
+.home-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  grid-template-areas: 'next side' 'today side';
+  grid-template-rows: auto 1fr;
+  gap: var(--space-3);
+  align-items: start;
+}
+.home-grid__next { grid-area: next; }
+.home-grid__today { grid-area: today; }
+.home-grid__side { grid-area: side; }
+.home-grid__next,
+.home-grid__today,
+.home-grid__side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.side-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-md);
+  margin: 0;
+}
+.side-empty {
+  margin: 0;
+  color: var(--fg-muted);
+}
+.home-more {
+  margin: 0;
+}
+.home-more a {
+  color: var(--link);
+  font-weight: 700;
+}
+
+/* Next up */
+.next-up {
+  background: var(--surface);
+  border: 1px solid var(--border-subtle);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) 18px;
+  box-shadow: var(--shadow-1);
+}
+.next-up__head {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+.next-up__who {
+  flex: 1;
+  min-width: 0;
+}
+.next-up__label {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--link);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.next-up__title {
+  margin: 4px 0 2px;
+  font-size: 1.25rem;
+  overflow-wrap: anywhere;
+}
+.next-up__sub {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-md);
+}
+.next-up__count {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+}
+.next-up__count-label {
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+}
+.next-up__count-value {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 1.75rem;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+.next-up__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  list-style: none;
+  padding: 0;
+  margin: var(--space-2) 0 0;
+  color: var(--fg-secondary);
+  font-size: var(--text-md);
+}
+.next-up__facts li {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.next-up__facts .icon {
+  color: var(--fg-muted);
+}
+.next-up__acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+/* Needs you */
+.need-card {
+  background: var(--surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 14px var(--space-3);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  box-shadow: var(--shadow-1);
+}
+.need-card__title {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-base);
+}
+.need-card__title .icon {
+  color: var(--link);
+  flex: none;
+  margin-top: 1px;
+}
+.need-card__sub {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+}
+.need-card__blocked {
+  margin: 0;
+  color: var(--fg-secondary);
+  font-size: var(--text-sm);
+}
+.need-card__acts {
+  margin-top: 4px;
+}
+
+/* Run sheet rows */
+.sched-row {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+  padding: 12px var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.sched-row:last-child {
+  border-bottom: 0;
+}
+.sched-row__time {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.sched-row__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+}
+.sched-row__title .icon {
+  color: var(--fg-muted);
+}
+.sched-row__sub {
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+.sched-day {
+  margin: 0;
+  padding: 10px var(--space-3) 6px;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: var(--surface-alt);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.panel > div:first-child > .sched-day {
+  border-top-left-radius: var(--radius-lg);
+  border-top-right-radius: var(--radius-lg);
+}
+
+.sched-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-3);
+}
+.filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.filter-chips input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.filter-chips label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--fg-secondary);
+  cursor: pointer;
+}
+.filter-chips input:checked + label {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--link);
+}
+.filter-chips input:focus-visible + label {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.filter-chips__n {
+  font-weight: 400;
+}
+
+/* Dialog bodies */
+.pick-time {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.pick-time__window {
+  margin: 0;
+  color: var(--fg-secondary);
+}
+.pick-time__clashes {
+  margin: 4px 0;
+  padding-left: 1.2em;
+}
+.pick-time__ok {
+  margin: 0;
+  color: var(--status-ok);
+  font-weight: 700;
+}
+.facts-list {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px var(--space-3);
+  margin: 0;
+}
+.facts-list dt {
+  font-weight: 700;
+  color: var(--fg-muted);
+}
+.facts-list dd {
+  margin: 0;
+}
+.facts-list__free {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 767.98px) {
+  .home-grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'next' 'side' 'today';
+    grid-template-rows: none;
+  }
+  .sched-row {
+    grid-template-columns: 64px minmax(0, 1fr);
+    gap: 6px var(--space-2);
+    padding: 12px;
+  }
+  .sched-row__time {
+    font-size: var(--text-sm);
+  }
+  .sched-row__acts {
+    grid-column: 2;
+  }
+  .next-up__count-value {
+    font-size: 1.5rem;
+  }
+  .field-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

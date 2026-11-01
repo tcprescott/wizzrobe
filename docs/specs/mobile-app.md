@@ -1,6 +1,6 @@
 # Wizzrobe as a mobile app on a serverless backend
 
-Status: Building · Size: full · PRs: #760 (spec), #761 (step 3), #762 (step 4), #763 (step 2), #764 (step 6) · Requested: 2026-10-31, Thomas
+Status: Building · Size: full · PRs: #760 (spec), #761 (step 3), #762 (step 4), #763 (step 2), #764 (step 6), step 7 Home + Schedule (this PR) · Requested: 2026-10-31, Thomas
 
 ## Problem
 
@@ -204,3 +204,9 @@ in TypeScript.
   gets what still runs in memory just after the change. A DM still queued for
   fan-out when an instance dies is lost; the acceptance line on killing an
   instance mid-request covers the send itself.
+- 2026-11-01 — Step 7 splits in two. Thomas picked Home + Schedule first (pick a
+  time, agree to an opponent's request, acknowledge, running late), then profile,
+  notifications, availability and check-in. Home layout B, "next up first": the
+  next match as a card with a countdown, to-dos as cards beside it, then the rest
+  of today; Schedule is one day-grouped list with Upcoming / Past and a type
+  filter. Mockups: `/mnt/project-files/mobile-app/player-mockups/`.
