@@ -12,7 +12,7 @@ import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager, contextmanager
-from typing import AsyncGenerator, Iterator, Optional
+from typing import AsyncGenerator, Iterator
 
 from aerich import Command
 from fastapi import FastAPI
@@ -24,24 +24,17 @@ import frontend
 
 # mcpserver must not build MCPServer at import: its logging.basicConfig would beat ours.
 import mcpserver
-from api import oauth_server, worker_ticks
+from api import inbound_webhooks, oauth_server, worker_ticks
 from api.openapi_docs import api_description, warm_openapi
 from api.openapi_docs import install as install_openapi_docs
-from application import worker_registry
-from application.events import dispatch_queue as event_dispatch_queue
-from application.events import event_bus, webhook_queue
-from application.services import PersonalWebhookService, TelemetryService, WebhookService, web_push_service
-from application.services.discord import discord_queue
-from application.services.discord.discord_service import get_discord_bot
-from application.services.personal_webhook_service import SUBSCRIBABLE_EVENT_TYPES
+from application import bot_runtime, worker_registry
 from application.utils import element_cycles, gc_monitor, memory_census, metrics_sampler, worker_watchdog
 from application.utils.easter_eggs import random_fact
-from application.utils.environment import env_flag, loop_watchdog_enabled
+from application.utils.environment import discord_gateway_enabled, env_flag, loop_watchdog_enabled
 from application.utils.http_headers import header_safe
 from application.utils.log_levels import default_root_level, register_trace_level
 from application.utils.loop_watchdog import watchdog as loop_watchdog
 from application.utils.migration_lock import migration_lock
-from application.utils.mocks.mock_discord import is_mock_discord
 from application.utils.sentry import flush_sentry, init_sentry
 from middleware.app_cors import AppCorsMiddleware
 from middleware.inflight_requests import InFlightRequestLogMiddleware
@@ -55,10 +48,6 @@ logging.basicConfig(
     format='%(asctime)s %(levelname)s %(name)s: %(message)s',
 )
 logger = logging.getLogger('wizzrobe.main')
-
-# Hold the reference: an unreferenced task can be garbage collected.
-_bot_task: Optional[asyncio.Task] = None
-
 
 @contextmanager
 def _startup_step(name: str) -> Iterator[None]:
@@ -99,76 +88,6 @@ async def close_db() -> None:
     """
     await Tortoise.close_connections()
 
-def _log_bot_task_result(task: asyncio.Task) -> None:
-    """Surface a bot startup/gateway failure immediately instead of letting it
-    sit unobserved in a GC-able task (bad token, intents, gateway crash)."""
-    if task.cancelled():
-        return
-    exc = task.exception()
-    if exc is not None:
-        logger.error('Discord bot task exited with an exception', exc_info=exc)
-
-
-_BOT_RETRY_SECONDS = 30
-
-
-async def _run_discord_bot(bot, token: str) -> None:
-    """Keep trying to bring the bot up until it connects.
-
-    discord.py reconnects on its own once logged in, but ``login()`` runs outside
-    that loop: one failed attempt (Discord down while the container restarts) left
-    the bot dead, and every DM and button with it, until the next restart.
-    """
-    import discord
-    while True:
-        try:
-            await bot.start(token)
-            return
-        except discord.LoginFailure:
-            raise
-        except Exception:
-            logger.warning('Discord bot could not connect; retrying in %ss',
-                           _BOT_RETRY_SECONDS, exc_info=True)
-        await bot.close()
-        bot.clear()
-        await asyncio.sleep(_BOT_RETRY_SECONDS)
-
-
-async def init_discord_bot() -> None:
-    """
-    Initialize the Discord bot.
-    """
-    global _bot_task
-    if is_mock_discord():
-        logger.info('MOCK_DISCORD enabled — skipping Discord bot start.')
-        return
-    token = os.environ.get('DISCORD_TOKEN')
-    bot = get_discord_bot()
-    if token:
-        _bot_task = asyncio.create_task(_run_discord_bot(bot, token))
-        _bot_task.add_done_callback(_log_bot_task_result)
-    else:
-        logger.warning('DISCORD_TOKEN not set. Discord features will not work.')
-
-async def close_discord_bot() -> None:
-    """
-    Close the Discord bot connection.
-    """
-    global _bot_task
-    if is_mock_discord():
-        return
-    bot = get_discord_bot()
-    await bot.close()
-    if _bot_task is not None:
-        _bot_task.cancel()
-        try:
-            await _bot_task
-        except asyncio.CancelledError:
-            pass
-        except Exception:
-            logger.exception('Discord bot task errored during shutdown')
-        _bot_task = None
-
 async def _apply_stored_log_levels() -> None:
     """Reapply the log levels a super-admin set on /platform before a restart.
 
@@ -208,23 +127,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await _load_browser_monitoring()
     with _startup_step('discord bot'):
         import discordbot  # noqa: F401
-        await init_discord_bot()
+        await bot_runtime.start_discord(gateway=discord_gateway_enabled())
     from racetimebot import close_racetime_bot, init_racetime_bot
     with _startup_step('racetime bot'):
         await init_racetime_bot()
     with _startup_step('background workers'):
         worker_registry.start_in_process()
-        discord_queue.start()
-        event_dispatch_queue.start()
-        webhook_queue.start()
-        event_bus.subscribe_async(WebhookService().deliver_event)
-        event_bus.subscribe_async(
-            PersonalWebhookService().deliver_event, event_types=SUBSCRIBABLE_EVENT_TYPES,
-        )
-        event_bus.subscribe_async(TelemetryService().record_event)
-        from application.events import EventType
-        from application.services.race_room_bot_service import on_seed_rolled_event
-        event_bus.subscribe_async(on_seed_rolled_event, event_types=[EventType.MATCH_SEED_ROLLED])
+        bot_runtime.start_delivery()
     # Started after boot so migrations and the first imports don't read as stalls.
     if loop_watchdog_enabled():
         gc_monitor.install()
@@ -251,11 +160,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await pending_actions.flush_all()
         await worker_registry.stop_all()
         await close_racetime_bot()
-        await event_dispatch_queue.stop()
-        await webhook_queue.stop()
-        await discord_queue.stop()
-        await web_push_service.aclose_http_client()
-        await close_discord_bot()
+        await bot_runtime.stop_delivery()
+        await bot_runtime.close_discord()
         await close_db()
     finally:
         await worker_watchdog.stop()
@@ -299,6 +205,7 @@ install_openapi_docs(app)
 # itself at '/' and would swallow /mcp, /oauth and /internal. Register those routes first.
 mcpserver.mount(app)
 oauth_server.mount(app)
+inbound_webhooks.mount(app)
 worker_ticks.mount(app)
 
 frontend.init(app)

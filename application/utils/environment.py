@@ -97,6 +97,16 @@ def racetime_bot_enabled() -> bool:
     return os.environ.get('RACETIME_BOT_ENABLED', '').strip().lower() in ('1', 'true', 'yes', 'on')
 
 
+def discord_gateway_enabled() -> bool:
+    """Whether this process opens the Discord gateway connection (default: on).
+
+    Off for the API service once the bot service holds the gateway: the API
+    then signs in for REST only (DMs, edits) and takes button presses as HTTP
+    interactions. Inbound member events and slash-command sync need the gateway.
+    """
+    return env_flag('DISCORD_GATEWAY', default=True)
+
+
 def loop_watchdog_enabled() -> bool:
     """Whether the event-loop watchdog thread runs (default: on).
 

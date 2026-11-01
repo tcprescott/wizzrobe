@@ -22,6 +22,7 @@ from typing import Awaitable, Callable, Optional, Tuple, Union
 import discord
 from discord.ext import commands
 
+from application.services.discord.bot_state import bot_ready
 from application.services.discord.discord_guild_ops import log_discord_failure
 from application.utils.mocks import mock_discord_data
 
@@ -69,7 +70,7 @@ class ScheduledEventsMixin:
         only ones the reconciler touches; Manage Events and Administrator imply it.
         """
         try:
-            if self._bot is None or not self._bot.is_ready():
+            if not bot_ready(self._bot):
                 return BOT_NOT_CONNECTED
             guild = await self._get_guild(guild_id)
             if guild is None:
@@ -103,7 +104,7 @@ class ScheduledEventsMixin:
         ``gerund``/``verb`` name the action for the error text (e.g. 'creating'/'create').
         """
         try:
-            if self._bot is None or not self._bot.is_ready():
+            if not bot_ready(self._bot):
                 return False, BOT_NOT_CONNECTED
             guild = await self._get_guild(guild_id)
             if guild is None:

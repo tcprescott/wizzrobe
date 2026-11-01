@@ -2044,7 +2044,7 @@ Transports: `application/utils/clients/sendgrid_client.py` and `telegram_client.
 
 ### telegram_bot_worker.py — Telegram bot worker
 
-A `BackgroundLoop` that long-polls Telegram's `getUpdates` (no webhook, so nothing to expose publicly). Handles private-chat commands only: `/start <token>` links, `/stop` turns notifications off, `/start` or `/help` alone replies with help. Started from `main.py` only when `TELEGRAM_BOT_TOKEN` is set and Discord isn't mocked.
+A `BackgroundLoop` that long-polls Telegram's `getUpdates`, clearing any leftover webhook first. With `TELEGRAM_WEBHOOK_SECRET` set, `start()` instead registers `<BASE_URL>/telegram/webhook` via `setWebhook` and doesn't poll; `api/inbound_webhooks.py` checks the echoed secret and passes each update to `handle_update`, the same function the poll uses. Handles private-chat commands only: `/start <token>` links, `/stop` turns notifications off, `/start` or `/help` alone replies with help. Started from `main.py` only when `TELEGRAM_BOT_TOKEN` is set and Discord isn't mocked.
 
 ### discord_email_service.py — DiscordEmailService
 
