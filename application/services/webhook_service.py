@@ -347,7 +347,7 @@ class WebhookService:
         await self.delivery_repository.finish(delivery, success=False, error=reason)
 
     async def _send(
-        self, webhook: Webhook, delivery: Optional[WebhookDelivery], *, body: str, event_type: str,
+        self, webhook: Webhook, delivery: WebhookDelivery, *, body: str, event_type: str,
         delivery_uuid: str, prior_attempts: int = 0,
     ) -> None:
         timestamp = str(int(datetime.now(timezone.utc).timestamp()))

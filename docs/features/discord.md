@@ -184,6 +184,24 @@ nobody. So `MatchService._cancel_match` resolves recipients and builds the messa
 whose Unwatch button would carry the id of a match that no longer exists. The card
 uses `COLOR_CANCELLED`, the palette's only negative colour.
 
+### Retrying a DM Discord didn't take (the DM outbox)
+
+`send_dm` keeps the Discord message it is about to send (content, embed,
+buttons as a `ViewSpec`, link, silent) on the `SentMessage` row's `outbox`
+column, held by the sender for `DM_CLAIM_SECONDS`. A failure that may clear up
+on its own (`DM_RETRYABLE`: bot not initialized or offline, a timeout, Discord
+5xx or 429) leaves the row `pending` with its attempt counted; any other answer
+settles the row and clears the outbox. `dm_outbox_worker` (every minute,
+`dm_outbox` in `WORKERS`) resends what is waiting, Discord only, since the
+device, email and Telegram copies went the first time. It also picks up a row
+whose sender died mid-send, once the claim runs out. After five tries, or
+15 minutes, the row is logged as failed with "Gave up after…".
+
+Buttons have to come from a registered view (`ViewSpec(VIEW_X, *args)`, which is
+what every `send_dm_with_*` helper passes). A DM built with an ad-hoc
+`view_factory` lambda is sent once and never queued. An `on_sent` hook doesn't
+survive a resend, so a resent approval DM isn't edited in place later.
+
 ## Notification settings and the catalogue
 
 [`application/services/notification_catalog.py`](../../application/services/notification_catalog.py)

@@ -48,7 +48,7 @@ class WebhookDeliveryRepository:
     @staticmethod
     async def tenants_with_pending() -> List[int]:
         """Cross-tenant worker scan (unscoped on purpose): the communities that have any pending delivery."""
-        return list(await WebhookDelivery.filter(pending=True).distinct().values_list('tenant_id', flat=True))
+        return list(await WebhookDelivery.filter(pending=True).distinct().values_list('tenant_id', flat=True))  # type: ignore[arg-type]
 
     async def list_for_webhook(
         self, webhook: Webhook, limit: int = 50, offset: int = 0

@@ -113,8 +113,12 @@ class SentMessage(Model):
     email_sent = fields.BooleanField(null=True)
     telegram_sent = fields.BooleanField(null=True)
     created_at = fields.DatetimeField(auto_now_add=True)
+    # Outbox: the Discord message exactly as sent, kept while it may need resending and cleared once it settles.
+    outbox = fields.JSONField(null=True)  # type: ignore[var-annotated]
+    attempts = fields.IntField(default=0)
+    claimed_until = fields.DatetimeField(null=True)
 
     class Meta:
         table = 'sent_message'
         table_description = 'Every DM sent in a community, for the staff Sent messages report.'
-        indexes = (('tenant', 'created_at'), ('tenant', 'recipient'))
+        indexes = (('tenant', 'created_at'), ('tenant', 'recipient'), ('status', 'created_at'))

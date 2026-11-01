@@ -2209,8 +2209,11 @@ outside any community isn't logged.
 | `push_devices` | `IntField` | null | Devices the web-push copy reached (null = none) |
 | `email_sent` / `telegram_sent` | `BooleanField` | null | Null when that copy wasn't due |
 | `created_at` | | auto | |
+| `outbox` | `JSONField` | null | The Discord message as sent (content, embed, buttons, link, silent) while it may need resending; cleared once the row settles. See [discord.md](../features/discord.md#retrying-a-dm-discord-didnt-take-the-dm-outbox) |
+| `attempts` | `IntField` | `0` | Discord sends that failed in a way worth retrying |
+| `claimed_until` | `DatetimeField` | null | A sender's hold on an outbox row |
 
-Indexes on `(tenant, created_at)` and `(tenant, recipient)`. Staff only: a DM can
+Indexes on `(tenant, created_at)`, `(tenant, recipient)` and `(status, created_at)` (the outbox sweep). Staff only: a DM can
 carry a staff-private note.
 
 #### `DataExport`
@@ -2666,7 +2669,7 @@ Consult the source for full signatures.
 | `SpeedGamingEventLinkRepository` | [`speedgaming_event_link_repository.py`](../../application/repositories/speedgaming_event_link_repository.py) | `SpeedGamingEventLink` | Scoped CRUD `list_all`, `get_by_id`, `get_by_natural_key`, `create`, `update`, `delete`; **unscoped** `list_active_all` (cross-tenant due-for-sync worker scan) |
 | `SpeedGamingEpisodeRepository` | [`speedgaming_episode_repository.py`](../../application/repositories/speedgaming_episode_repository.py) | `SpeedGamingEpisode` | ETL staging. `get_by_sg_id`, `get_by_id`, `list_for_link`, `list_all`, `create`, `update` (upsert keyed on unique `(tenant, sg_episode_id)`) |
 | `MemberDetailsRepository` | [`member_details_repository.py`](../../application/repositories/member_details_repository.py) | several | One member's footprint here for the member sheet: `membership`, admin/coordinated/entered tournament names, `upcoming_matches`, `upcoming_shifts`, `open_loans`, `check_in_entries`, `recent_messages`, `last_delivered_at`, `push_device_count` (unscoped: devices belong to the account) |
-| `SentMessageRepository` | [`sent_message_repository.py`](../../application/repositories/sent_message_repository.py) | `SentMessage` | `create`, `update(id, tenant_id, **fields)`, `list`/`count` (window, statuses, search, recipient), `get`, `totals` |
+| `SentMessageRepository` | [`sent_message_repository.py`](../../application/repositories/sent_message_repository.py) | `SentMessage` | `create`, `update(id, tenant_id, **fields)`, `claim`, `count_attempt`, `list_waiting`, `tenants_with_waiting` (global outbox scan), `list`/`count` (window, statuses, search, recipient), `get`, `totals` |
 | `DataExportRepository` | [`data_export_repository.py`](../../application/repositories/data_export_repository.py) | `DataExport` | Scoped `create_queued`, `create_ready`, `summary` (no blobs), `list_for_requester`, the throttle counts, `set_progress`, `finish`; **unscoped** worker methods `next_queued_all`, `claim`, `fail_interrupted_all`, `prune_all` |
 | `TournamentExportRepository` | [`tournament_export_repository.py`](../../application/repositories/tournament_export_repository.py) | several | Scoped reads for one tournament's export: enrolment, native bracket entries and matches, Challonge and start.gg mirrors, scheduled matches with players |
 | `StaffRequestDMRepository` | [`staff_request_dm_repository.py`](../../application/repositories/staff_request_dm_repository.py) | `StaffRequestDM` | `record`, `list_for(kind, object_id)`, `forget(kind, object_id)` |

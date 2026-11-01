@@ -7,7 +7,7 @@ each channel went. Backs the staff Sent messages report.
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from tortoise.expressions import Q
+from tortoise.expressions import F, Q
 from tortoise.functions import Count
 from tortoise.queryset import QuerySet
 
@@ -29,6 +29,37 @@ class SentMessageRepository:
     async def update(message_id: int, tenant_id: int, **fields: Any) -> int:
         # Explicit tenant: the web-push mirror reports back from outside any tenant scope.
         return await scoped(SentMessage.filter(id=message_id), tenant_id).update(**fields)
+
+    @staticmethod
+    async def claim(message_id: int, now: datetime, until: datetime) -> bool:
+        """Take a DM waiting in the outbox until ``until``; False when another sender holds it or it settled."""
+        taken = await scoped(SentMessage.filter(
+            id=message_id, status=SentMessageStatus.PENDING, outbox__not_isnull=True,
+        ).filter(Q(claimed_until=None) | Q(claimed_until__lt=now))).update(claimed_until=until)
+        return bool(taken)
+
+    @staticmethod
+    async def count_attempt(message_id: int, tenant_id: int, error: Optional[str]) -> None:
+        await scoped(SentMessage.filter(id=message_id), tenant_id).update(
+            attempts=F('attempts') + 1, error=error, claimed_until=None,
+        )
+
+    @staticmethod
+    async def list_waiting(now: datetime, limit: int = 100) -> List[SentMessage]:
+        """DMs in the outbox that nobody is sending: pending, unclaimed or past their claim."""
+        return await (
+            scoped(SentMessage.filter(status=SentMessageStatus.PENDING, outbox__not_isnull=True))
+            .filter(Q(claimed_until=None) | Q(claimed_until__lt=now))
+            .order_by('id')
+            .limit(limit)
+        )
+
+    @staticmethod
+    async def tenants_with_waiting() -> List[int]:
+        """Cross-tenant worker scan (unscoped on purpose): the communities with a DM in the outbox."""
+        return list(await SentMessage.filter(  # type: ignore[arg-type]
+            status=SentMessageStatus.PENDING, outbox__not_isnull=True,
+        ).distinct().values_list('tenant_id', flat=True))
 
     @staticmethod
     def _filtered(
