@@ -336,6 +336,35 @@ class OAuthGrantService:
         logger.info('App authorization approved: user=%s app=%s tenant=%s', user.id, app.id, tenant_id)
         return _with_query(pending.redirect_uri, {'code': raw_code, 'state': pending.state, 'iss': issuer()})
 
+    async def approve_first_party(self, txn_id: str, user: User) -> Optional[str]:
+        """Skip consent for Wizzrobe's own app and return the redirect back to it.
+
+        Returns None for any other app, which goes through the consent screen.
+        The code names no community: the app picks one on each call.
+        """
+        pending = self.get_pending(txn_id)
+        app = await self._usable_app(pending.app_id)
+        if not app.first_party:
+            return None
+        if not user.is_active:
+            raise PermissionError('This account is inactive.')
+        _pending.pop(txn_id, None)
+        now = datetime.now(timezone.utc)
+        await self.repository.purge_expired_codes(now)
+        raw_code = secrets.token_urlsafe(32)
+        await self.repository.create_code(
+            code_hash=_hash(raw_code),
+            app=app,
+            user=user,
+            tenant_id=None,
+            redirect_uri=pending.redirect_uri,
+            code_challenge=pending.code_challenge,
+            scope=format_scope(pending.requested_scopes),
+            expires_at=now + CODE_TTL,
+        )
+        logger.info('First-party sign-in: user=%s app=%s', user.id, app.id)
+        return _with_query(pending.redirect_uri, {'code': raw_code, 'state': pending.state, 'iss': issuer()})
+
     def deny(self, txn_id: str) -> str:
         """Drop the request and return the redirect telling the app it was refused."""
         pending = self.get_pending(txn_id)
@@ -423,6 +452,9 @@ class OAuthGrantService:
             raise OAuthError('invalid_grant', 'This authorization code has already been used.')
 
         user = record.user
+        if app.first_party:
+            return await self._first_party_grant(app, user, record, now)
+        assert record.tenant_id is not None
         with tenant_scope(record.tenant_id):
             await self._ensure_still_allowed(user, record.tenant_id, app.id)
             scopes = parse_scope(record.scope)
@@ -483,9 +515,13 @@ class OAuthGrantService:
             if not narrowed or not narrowed <= current:
                 raise OAuthError('invalid_scope', 'A refresh can only keep or narrow what was approved.')
 
-        assert grant.tenant_id is not None
-        with tenant_scope(grant.tenant_id):
-            await self._ensure_still_allowed(grant.user, grant.tenant_id, app.id)
+        if app.first_party:
+            if grant.tenant_id is not None or not grant.user.is_active:
+                raise OAuthError('invalid_grant', 'This account is inactive.')
+        else:
+            assert grant.tenant_id is not None
+            with tenant_scope(grant.tenant_id):
+                await self._ensure_still_allowed(grant.user, grant.tenant_id, app.id)
         access_raw, refresh_raw = self._new_pair()
         final = narrowed if narrowed is not None else current
         rotated = await self.token_repository.rotate_refresh(
@@ -589,6 +625,36 @@ class OAuthGrantService:
     @staticmethod
     def _new_pair() -> tuple[str, str]:
         return APP_TOKEN_PREFIX + secrets.token_urlsafe(32), APP_REFRESH_PREFIX + secrets.token_urlsafe(32)
+
+    async def _first_party_grant(self, app: OAuthApp, user: User, record, now: datetime) -> TokenResponse:
+        """A grant for Wizzrobe's own app: no community, nothing replaced.
+
+        Earlier grants stay live so signing in on a second device doesn't sign
+        the first one out. Each REST call names its community and is checked
+        for membership there.
+        """
+        if record.tenant_id is not None:
+            raise OAuthError('invalid_grant', 'Invalid authorization code.')
+        if not user.is_active:
+            raise OAuthError('invalid_grant', 'This account is inactive.')
+        access_raw, refresh_raw = self._new_pair()
+        grant = await self.token_repository.create_app_grant(
+            user=user,
+            app=app,
+            tenant_id=None,
+            token_hash=_hash(access_raw),
+            token_prefix=access_raw[:17],
+            expires_at=now + ACCESS_TOKEN_TTL,
+            refresh_token_hash=_hash(refresh_raw),
+            refresh_expires_at=now + REFRESH_TOKEN_TTL,
+            scope=record.scope,
+            read_only=False,
+        )
+        await self.repository.link_code_to_grant(record, grant)
+        await self.audit_service.write_log(
+            user, AuditActions.OAUTH_GRANT_CREATED, {'app_id': app.id, 'app': app.name, 'first_party': True},
+        )
+        return TokenResponse(access_raw, refresh_raw, int(ACCESS_TOKEN_TTL.total_seconds()), record.scope)
 
     async def _ensure_still_allowed(self, user: User, tenant_id: int, app_id: int) -> None:
         """Everything that may have changed since consent: the flag, the

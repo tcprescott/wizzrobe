@@ -53,6 +53,8 @@ from models import (
     NotificationPreset,
     NotificationRecipient,
     NotificationSetting,
+    OAuthApp,
+    OAuthClientType,
     PlayerAvailability,
     ProfileNudgeDismissal,
     RacetimeBot,
@@ -610,6 +612,32 @@ async def seed_mcp_oauth(users: dict[str, User]) -> None:
         print(f"  mcp oauth ok (global; {kind} dev bearer: {oauth_bearer})")
 
 
+FIRST_PARTY_CLIENT_ID = "wizzrobe-app"
+FIRST_PARTY_DEV_REDIRECTS = ["http://localhost:5173/auth/callback", "http://localhost:4173/auth/callback"]
+
+
+async def seed_first_party_app(users: dict[str, User]) -> None:
+    """Wizzrobe's own app (web/), so ``npm run dev`` can sign in against this backend.
+
+    Production registers it once with scripts/register_first_party_app.py;
+    here it points at the Vite dev and preview servers.
+    """
+    from application.api_scopes import ApiScope
+    app, _ = await OAuthApp.get_or_create(
+        client_id=FIRST_PARTY_CLIENT_ID,
+        defaults={
+            "owner": users["super_admin"],
+            "name": "Wizzrobe",
+            "description": "Wizzrobe's own app.",
+            "client_type": OAuthClientType.PUBLIC,
+            "redirect_uris": FIRST_PARTY_DEV_REDIRECTS,
+            "allowed_scopes": [scope.value for scope in ApiScope],
+            "first_party": True,
+        },
+    )
+    print(f"  first-party app ok (client_id {app.client_id})")
+
+
 # seed-exempt: McpAuthorizationCode — ephemeral single-use rows minted mid-flow
 # and consumed seconds later; a seeded one would always be stale/expired.
 
@@ -779,6 +807,7 @@ async def seed_all() -> None:
     await seed_table_preferences(users)
     await seed_friends(users)
     await seed_mcp_oauth(users)
+    await seed_first_party_app(users)
     await seed_push_devices(users)
     await seed_notification_channels(users)
     bots = await seed_racetime_bots()

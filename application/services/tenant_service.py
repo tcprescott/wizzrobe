@@ -241,6 +241,20 @@ class TenantService:
         return tenant
 
     @staticmethod
+    async def communities_for(user: User) -> List[Tenant]:
+        """The active communities ``user`` can open, by name.
+
+        Their memberships; a super admin gets every active community, since the
+        role bypasses the membership gate everywhere else. Nobody else sees a
+        community they don't belong to.
+        """
+        if await AuthService.is_super_admin(user):
+            tenants = await TenantRepository.list_all()
+        else:
+            tenants = [m.tenant for m in await TenantMembershipRepository.list_for_user(user)]
+        return sorted((t for t in tenants if t.is_active), key=lambda t: t.name.lower())
+
+    @staticmethod
     async def is_member(user_id: int, tenant_id: int) -> bool:
         return await TenantMembershipRepository.is_member(user_id, tenant_id)
 

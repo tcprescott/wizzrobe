@@ -3,7 +3,8 @@
 Separate from the MCP authorization server (:mod:`models.mcp`): an MCP grant is
 platform-wide and dynamically registered, while an app here is registered by a
 person, may hold a secret, and every grant it receives is bound to the one
-community the approving person picked. The grant itself is an
+community the approving person picked (except a first-party app's, which
+names none). The grant itself is an
 :class:`~models.ApiToken` with ``origin='app'``.
 """
 
@@ -44,6 +45,10 @@ class OAuthApp(Model):
     allowed_scopes = fields.JSONField(default=list)  # type: ignore[var-annotated]
     disabled_at = fields.DatetimeField(null=True)
     disabled_reason = fields.CharField(max_length=300, null=True)
+    # Wizzrobe's own app (web/): no consent screen, and its grant names no
+    # community, so each REST call picks one (X-Wizzrobe-Community). Set only
+    # by scripts/register_first_party_app.py, never from a page.
+    first_party = fields.BooleanField(default=False)
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
@@ -74,10 +79,11 @@ class OAuthAppCode(Model):
         'models.User', related_name='oauth_app_codes', on_delete=fields.CASCADE,
     )
     user_id: int
-    tenant: fields.ForeignKeyRelation = fields.ForeignKeyField(
-        'models.Tenant', related_name='oauth_app_codes', on_delete=fields.CASCADE,
+    # NULL for a first-party app's code: its grant isn't tied to a community.
+    tenant: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
+        'models.Tenant', related_name='oauth_app_codes', on_delete=fields.CASCADE, null=True,
     )
-    tenant_id: int
+    tenant_id: Optional[int]
     redirect_uri = fields.CharField(max_length=2048)
     code_challenge = fields.CharField(max_length=128)
     scope = fields.CharField(max_length=255)

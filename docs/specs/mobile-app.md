@@ -1,6 +1,6 @@
 # Wizzrobe as a mobile app on a serverless backend
 
-Status: Building · Size: full · PRs: — · Requested: 2026-10-31, Thomas
+Status: Building · Size: full · PRs: #760 (spec), app skeleton (step 6) · Requested: 2026-10-31, Thomas
 
 ## Problem
 
@@ -179,3 +179,6 @@ switch-over, so nothing here may break it.
   rebuild runs; new features are built once, in the new app.
 - 2026-10-31 — Thomas picked shell A: five tabs on phone, left rail on desktop.
 - 2026-10-31 — Thomas picked no feature flag.
+- 2026-10-31 — Thomas picked one sign-in for every community: the app's grant names
+  no community and each REST call names one (`X-Wizzrobe-Community`), checked for
+  membership and roles as now.

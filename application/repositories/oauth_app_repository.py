@@ -16,6 +16,7 @@ from datetime import datetime
 from typing import List, Optional
 
 from application.repositories._base import TenantScopedRepository
+from application.repositories._save import save_fields
 from application.repositories._tenant import current_tenant_id, scoped
 from models import ApiToken, OAuthApp, OAuthAppBlock, OAuthAppCode, OAuthClientType, User
 
@@ -37,6 +38,7 @@ class OAuthAppRepository(TenantScopedRepository[OAuthApp]):
         allowed_scopes: List[str],
         client_secret_hash: Optional[str] = None,
         secret_prefix: Optional[str] = None,
+        first_party: bool = False,
     ) -> OAuthApp:
         """Register an app. Global: an app belongs to its owner, not a community."""
         return await OAuthApp.create(
@@ -50,6 +52,7 @@ class OAuthAppRepository(TenantScopedRepository[OAuthApp]):
             allowed_scopes=allowed_scopes,
             client_secret_hash=client_secret_hash,
             secret_prefix=secret_prefix,
+            first_party=first_party,
         )
 
     @classmethod
@@ -83,11 +86,19 @@ class OAuthAppRepository(TenantScopedRepository[OAuthApp]):
         return await OAuthApp.all().order_by('name', 'id').prefetch_related('owner')
 
     @staticmethod
+    async def make_first_party(app: OAuthApp, redirect_uris: List[str], allowed_scopes: List[str]) -> OAuthApp:
+        app.first_party = True
+        app.redirect_uris = redirect_uris
+        app.allowed_scopes = allowed_scopes
+        await save_fields(app, 'first_party', 'redirect_uris', 'allowed_scopes')
+        return app
+
+    @staticmethod
     async def create_code(
         code_hash: str,
         app: OAuthApp,
         user: User,
-        tenant_id: int,
+        tenant_id: Optional[int],
         redirect_uri: str,
         code_challenge: str,
         scope: str,
