@@ -1,5 +1,9 @@
 """``POST /internal/workers/<key>/tick``: Cloud Scheduler runs a background worker.
 
+``POST /internal/tasks/<key>``: Cloud Tasks runs one step of a task-backed
+worker (:mod:`application.task_queue`) and this endpoint enqueues the next step
+when the worker asks for one. Same auth as the ticks.
+
 Live only with ``WORKER_MODE=scheduled``; in the default ``loop`` mode every
 path here is a 404 and the workers loop in-process as before. Each call must
 carry the Google-signed OIDC token Cloud Scheduler attaches for
@@ -21,7 +25,7 @@ from typing import Dict
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
-from application import worker_registry
+from application import task_queue, worker_registry
 from application.utils import google_oidc
 
 logger = logging.getLogger(__name__)
@@ -77,5 +81,28 @@ async def tick(key: str) -> JSONResponse:
     return JSONResponse(body, status_code=500 if result.failures else 200)
 
 
+tasks_router = APIRouter(
+    prefix=task_queue.TASK_PATH_PREFIX, dependencies=[Depends(require_scheduler)], include_in_schema=False,
+)
+
+
+@tasks_router.post('/{key}')
+async def run_task(key: str, request: Request) -> JSONResponse:
+    spec = worker_registry.task_backed(key)
+    if spec is None:
+        raise HTTPException(status_code=404)
+    try:
+        payload = await request.json()
+    except ValueError:
+        payload = {}
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400)
+    handler = getattr(spec.load(), spec.task_handler or '')
+    follow_up = await handler(payload)
+    queued = follow_up is not None and await task_queue.enqueue(key, payload, delay_seconds=follow_up)
+    return JSONResponse({'worker': key, 'follow_up': follow_up, 'queued': queued})
+
+
 def mount(app: FastAPI) -> None:
     app.include_router(router)
+    app.include_router(tasks_router)

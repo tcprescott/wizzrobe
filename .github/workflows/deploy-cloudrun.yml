@@ -1,0 +1,84 @@
+name: Deploy to Cloud Run
+
+# Manual only: the Run workflow button on the Actions tab. Today's production is
+# a git pull + restart on its own server and never uses this. Signs in to Google
+# through Workload Identity Federation (no key file); the one-time setup is in
+# deploy/cloudrun/README.md.
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Which deploy/cloudrun/<environment>.toml to deploy'
+        required: true
+        default: staging
+        type: choice
+        options: [staging]
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-cloudrun-${{ inputs.environment }}
+  cancel-in-progress: false
+
+env:
+  POETRY_VERSION: '2.3.3'
+  CONFIG: deploy/cloudrun/${{ inputs.environment }}.toml
+
+jobs:
+  test:
+    uses: ./.github/workflows/test.yml
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Install Poetry
+        run: pipx install poetry==${{ env.POETRY_VERSION }}
+
+      - name: Install dependencies
+        run: poetry install --only main --no-interaction
+
+      - name: Read config
+        id: cfg
+        run: |
+          python - <<'EOF' >> "$GITHUB_OUTPUT"
+          import tomllib
+          cfg = tomllib.load(open('${{ env.CONFIG }}', 'rb'))
+          print(f"image={cfg['image']}")
+          print(f"registry={cfg['image'].split('/')[0]}")
+          EOF
+          echo "date=$(git log -1 --format=%cI)" >> "$GITHUB_OUTPUT"
+
+      - name: Sign in to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Build and push the image
+        run: |
+          gcloud auth configure-docker "${{ steps.cfg.outputs.registry }}" --quiet
+          docker build \
+            --build-arg GIT_SHA=${{ github.sha }} \
+            --build-arg GIT_COMMIT_DATE=${{ steps.cfg.outputs.date }} \
+            -t "${{ steps.cfg.outputs.image }}:${{ github.sha }}" .
+          docker push "${{ steps.cfg.outputs.image }}:${{ github.sha }}"
+
+      - name: Deploy services, queues and Scheduler jobs
+        run: >-
+          poetry run python scripts/cloudrun.py apply "$CONFIG"
+          --image "${{ steps.cfg.outputs.image }}:${{ github.sha }}" --yes

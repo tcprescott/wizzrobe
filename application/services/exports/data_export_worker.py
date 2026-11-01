@@ -9,7 +9,7 @@ only ever sees one export's reads, spread out by the builder's pauses.
 
 import logging
 import time
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from application.utils.background_loop import for_each_tenant_scoped, run_worker_loop
 
@@ -30,7 +30,6 @@ async def _tick() -> None:
         INTERRUPTED_AFTER,
         INTERRUPTED_ERROR,
         RETENTION,
-        DataExportService,
     )
 
     interrupted = await DataExportRepository.fail_interrupted_all(INTERRUPTED_AFTER, INTERRUPTED_ERROR)
@@ -42,9 +41,17 @@ async def _tick() -> None:
         if pruned:
             logger.info('deleted %d export(s) past retention', pruned)
 
+    await _build_next()
+
+
+async def _build_next() -> bool:
+    """Claim and build the oldest queued export; ``False`` when there was none to claim."""
+    from application.repositories import DataExportRepository
+    from application.services.exports.data_export_service import DataExportService
+
     export = await DataExportRepository.next_queued_all()
     if export is None or not await DataExportRepository.claim(export.id):
-        return
+        return False
 
     await for_each_tenant_scoped(
         [export],
@@ -53,6 +60,16 @@ async def _tick() -> None:
         logger=logger,
         describe=lambda e: f'export {e.id}',
     )
+    return True
+
+
+async def handle_task(payload: Dict[str, Any]) -> Optional[float]:
+    """Cloud Tasks: build one export, then come straight back while any are left.
+
+    The queue dispatches one task at a time (``deploy/cloudrun``), which keeps
+    the one-export-at-a-time pacing the loop had.
+    """
+    return 0.0 if await _build_next() else None
 
 
 _loop = run_worker_loop(_tick, TICK_SECONDS, 'data exports', logger, tick_timeout=TICK_TIMEOUT_SECONDS)

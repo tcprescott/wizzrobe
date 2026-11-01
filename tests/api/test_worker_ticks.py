@@ -261,3 +261,116 @@ def test_role_sync_subscribes_in_either_mode():
 ])
 def test_cron_schedule(interval, cron):
     assert worker_registry.cron_schedule(interval) == cron
+
+
+def _task_worker(monkeypatch, key, *, handler, interval=5.0):
+    module = _fake_worker(monkeypatch, key, tick=_noop, interval=interval)
+    module.handle_task = handler
+    spec = WorkerSpec(key, module.__name__, task_handler='handle_task')
+    monkeypatch.setitem(worker_registry.WORKERS, key, spec)
+    return module
+
+
+@pytest.fixture
+def enqueued(monkeypatch):
+    from application.utils.clients import cloud_tasks_client
+    calls = []
+
+    async def fake_create(queue_path, body):
+        calls.append((queue_path, body))
+        return 'tasks/1'
+
+    monkeypatch.setattr(cloud_tasks_client, 'create_task', fake_create)
+    return calls
+
+
+@pytest.fixture
+def cloud_tasks(monkeypatch, scheduled):
+    monkeypatch.setenv('CLOUD_TASKS_LOCATION', 'projects/p/locations/us-east4')
+    monkeypatch.setenv('CLOUD_TASKS_QUEUE_PREFIX', 'wizzrobe-staging-')
+
+
+async def _post_task(key, payload, token):
+    async with _client() as client:
+        return await client.post(
+            f'/internal/tasks/{key}', json=payload, headers={'Authorization': f'Bearer {token}'},
+        )
+
+
+@pytest.mark.usefixtures('cloud_tasks')
+class TestCloudTasks:
+    async def test_runs_the_handler_and_queues_the_follow_up(self, monkeypatch, enqueued):
+        seen = []
+
+        async def handler(payload):
+            seen.append(payload)
+            return 5.0
+
+        _task_worker(monkeypatch, 'zz_task', handler=handler)
+        response = await _post_task('zz_task', {'task_id': 7}, _token())
+        assert response.status_code == 200
+        assert response.json() == {'worker': 'zz_task', 'follow_up': 5.0, 'queued': True}
+        assert seen == [{'task_id': 7}]
+        queue_path, body = enqueued[0]
+        assert queue_path == 'projects/p/locations/us-east4/queues/wizzrobe-staging-zz-task'
+        request = body['task']['httpRequest']
+        assert request['url'] == f'{AUDIENCE}/internal/tasks/zz_task'
+        assert request['oidcToken'] == {'serviceAccountEmail': ACCOUNT, 'audience': AUDIENCE}
+
+    async def test_done_means_no_follow_up(self, monkeypatch, enqueued):
+        async def handler(payload):
+            return None
+
+        _task_worker(monkeypatch, 'zz_task', handler=handler)
+        response = await _post_task('zz_task', {}, _token())
+        assert response.json()['queued'] is False
+        assert enqueued == []
+
+    async def test_needs_the_scheduler_token(self, monkeypatch, enqueued):
+        _task_worker(monkeypatch, 'zz_task', handler=lambda p: None)
+        async with _client() as client:
+            assert (await client.post('/internal/tasks/zz_task', json={})).status_code == 401
+
+    async def test_worker_without_a_handler_is_not_found(self, monkeypatch):
+        _fake_worker(monkeypatch, 'zz_plain', tick=_noop)
+        assert (await _post_task('zz_plain', {}, _token())).status_code == 404
+
+    async def test_task_backed_worker_ticks_once_as_a_safety_net(self, monkeypatch):
+        ticks = []
+
+        async def tick():
+            ticks.append(1)
+
+        module = _task_worker(monkeypatch, 'zz_task', handler=lambda p: None, interval=0.01)
+        module._loop = BackgroundLoop(tick, interval=0.01, name='zz task')
+        result = await worker_registry.run_scheduled(worker_registry.WORKERS['zz_task'], window=1.0)
+        assert result.ticks == 1 and ticks == [1]
+
+    async def test_enqueue_failure_is_swallowed(self, monkeypatch):
+        from application import task_queue
+        from application.utils.clients import cloud_tasks_client
+
+        async def broken(queue_path, body):
+            raise cloud_tasks_client.CloudTasksError('HTTP 503')
+
+        monkeypatch.setattr(cloud_tasks_client, 'create_task', broken)
+        assert await task_queue.enqueue('seed_roll', {'task_id': 1}) is False
+
+
+async def test_enqueue_is_a_no_op_without_cloud_tasks(monkeypatch, enqueued):
+    from application import task_queue
+    monkeypatch.setenv('WORKER_MODE', 'scheduled')
+    monkeypatch.delenv('CLOUD_TASKS_LOCATION', raising=False)
+    assert await task_queue.enqueue('seed_roll', {'task_id': 1}) is False
+    monkeypatch.setenv('CLOUD_TASKS_LOCATION', 'projects/p/locations/r')
+    monkeypatch.setenv('WORKER_MODE', 'loop')
+    assert await task_queue.enqueue('seed_roll', {'task_id': 1}) is False
+    assert enqueued == []
+
+
+def test_scheduler_cron_slows_task_backed_workers():
+    seed = worker_registry.WORKERS['seed_roll']
+    assert worker_registry.scheduler_cron(seed, cloud_tasks=False) == '* * * * *'
+    assert worker_registry.scheduler_cron(seed, cloud_tasks=True) == '*/5 * * * *'
+    reminder = worker_registry.WORKERS['stage_reminder']
+    assert worker_registry.scheduler_cron(reminder, cloud_tasks=True) == '* * * * *'

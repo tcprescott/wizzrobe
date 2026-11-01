@@ -60,24 +60,27 @@ def _sweep(now: float) -> None:
             del _hits[key]
 
 
-def _trust_forwarded_for() -> bool:
-    """Whether to derive the client IP from ``X-Forwarded-For``.
+def _forwarded_for_mode() -> str:
+    """Which ``X-Forwarded-For`` entry is the client: ``''`` (none), ``first`` or ``last``.
 
     Off by default: the header is client-controlled and trivially spoofable, so
     trusting it would let an attacker evade IP-based limiting by rotating it.
-    Enable only when the app sits behind a reverse proxy that overwrites the
-    header with the real client IP.
+    ``on`` takes the first entry, for a reverse proxy that overwrites the header.
+    ``last`` takes the last, for one that appends to whatever the client sent
+    (Cloud Run), so a forged prefix is ignored.
     """
-    return os.environ.get('TRUST_PROXY_FORWARDED_FOR', '').strip().lower() in (
-        '1', 'true', 'yes', 'on',
-    )
+    raw = os.environ.get('TRUST_PROXY_FORWARDED_FOR', '').strip().lower()
+    if raw == 'last':
+        return 'last'
+    return 'first' if raw in ('1', 'true', 'yes', 'on') else ''
 
 
 def _client_ip_key(request: Request) -> str:
-    if _trust_forwarded_for():
-        forwarded = request.headers.get('x-forwarded-for')
+    mode = _forwarded_for_mode()
+    if mode:
+        forwarded = [part.strip() for part in request.headers.get('x-forwarded-for', '').split(',') if part.strip()]
         if forwarded:
-            return f'ip:{forwarded.split(",")[0].strip()}'
+            return f'ip:{forwarded[-1] if mode == "last" else forwarded[0]}'
     return f'ip:{request.client.host if request.client else "unknown"}'
 
 
