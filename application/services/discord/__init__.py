@@ -19,6 +19,7 @@ from application.services.discord import (
     discord_queue,
     discord_role_sync_worker,
     discord_scheduled_events,
+    dm_outbox,
     seed_emojis,
 )
 from application.services.discord.discord_email_service import DiscordEmailService
@@ -56,5 +57,6 @@ __all__ = [
     'discord_queue',
     'discord_role_sync_worker',
     'discord_scheduled_events',
+    'dm_outbox',
     'seed_emojis',
 ]
