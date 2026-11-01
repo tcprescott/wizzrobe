@@ -79,6 +79,17 @@ class ProviderTaskRepository(TenantScopedRepository[ProviderTask]):
     # Poller-facing queries — deliberately cross-tenant
 
     @classmethod
+    async def pollable(cls, task_id: int) -> Optional[ProviderTask]:
+        """One task if it is still pollable, across tenants, loaded like :meth:`due_for_poll`.
+
+        Unscoped for the same reason: a Cloud Tasks call names the task and
+        re-enters its tenant before acting on it.
+        """
+        return await ProviderTask.filter(
+            id=task_id, status__in=_ACTIVE, provider_task_id__isnull=False,
+        ).prefetch_related('match', 'preset', 'requested_by').first()
+
+    @classmethod
     async def due_for_poll(cls, limit: int = 50) -> List[ProviderTask]:
         """Every **pollable** task across all tenants, oldest first.
 

@@ -11,8 +11,12 @@ crash and therefore only breaks after a crash.
 """
 
 import logging
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from application.utils.background_loop import for_each_tenant_scoped, run_worker_loop
+
+if TYPE_CHECKING:
+    from models import ProviderTask
 
 logger = logging.getLogger(__name__)
 
@@ -21,15 +25,18 @@ TICK_SECONDS = 5
 
 async def _tick() -> None:
     from application.services.provider_task_service import ProviderTaskService
-    from application.services.seed_roll_service import SeedRollService
 
     task_service = ProviderTaskService()
 
     await task_service.sweep_stale()
 
     tasks = await task_service.due_for_poll()
-    if not tasks:
-        return
+    if tasks:
+        await _poll_all(tasks)
+
+
+async def _poll_all(tasks: "List[ProviderTask]") -> None:
+    from application.services.seed_roll_service import SeedRollService
 
     seed_roll_service = SeedRollService()
 
@@ -51,6 +58,22 @@ async def _tick() -> None:
         logger=logger,
         describe=lambda task: f'provider task {task.id} ({task.provider})',
     )
+
+
+async def handle_task(payload: Dict[str, Any]) -> Optional[float]:
+    """Cloud Tasks: poll one provider task; check again in :data:`TICK_SECONDS` while it runs."""
+    from application.services.provider_task_service import ProviderTaskService
+
+    task_id = payload.get('task_id')
+    if not isinstance(task_id, int):
+        logger.warning('seed roll task with no task_id: %r', payload)
+        return None
+    task_service = ProviderTaskService()
+    task = await task_service.pollable(task_id)
+    if task is None:
+        return None
+    await _poll_all([task])
+    return TICK_SECONDS if await task_service.pollable(task_id) is not None else None
 
 
 _loop = run_worker_loop(_tick, TICK_SECONDS, 'seed roll polling', logger)

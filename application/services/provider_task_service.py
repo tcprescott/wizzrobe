@@ -14,6 +14,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
+from application import task_queue
 from application.repositories import ProviderTaskRepository
 from application.repositories._save import save_fields
 from models import ProviderTask, ProviderTaskStatus, User
@@ -23,6 +24,7 @@ logger = logging.getLogger(__name__)
 # Must exceed the DK64 generation budget (10 minutes) with room for a restart.
 TASK_MAX_AGE = timedelta(minutes=20)
 HANDLELESS_MAX_AGE = timedelta(minutes=5)
+POLL_SECONDS = 5
 
 
 class ProviderTaskService:
@@ -65,6 +67,7 @@ class ProviderTaskService:
         task.settings_snapshot = settings
         task.status = ProviderTaskStatus.RUNNING
         await save_fields(task, 'provider_task_id', 'provider_params', 'settings_snapshot', 'status')
+        await task_queue.enqueue('seed_roll', {'task_id': task.id}, delay_seconds=POLL_SECONDS)
         return task
 
     async def claim(self, task: ProviderTask, status: ProviderTaskStatus) -> bool:
@@ -95,6 +98,10 @@ class ProviderTaskService:
     async def due_for_poll(self, limit: int = 50) -> List[ProviderTask]:
         """The whole unfinished queue, across tenants. Worker-facing."""
         return await self.repository.due_for_poll(limit=limit)
+
+    async def pollable(self, task_id: int) -> Optional[ProviderTask]:
+        """One unfinished, submitted task across tenants, or ``None``. Worker-facing."""
+        return await self.repository.pollable(task_id)
 
     async def sweep_stale(self) -> int:
         """Abandon tasks that outlived their budget; return how many.
