@@ -31,12 +31,15 @@ export function SurveyTaker({
   actions,
   preview,
   zone,
+  query = '',
 }: {
   survey: Survey
   base: string
   actions: TakerActions | null
   preview?: ReactNode
   zone?: string | null
+  /** Kept on every link, e.g. the preview's `?as=`. */
+  query?: string
 }) {
   const { part: partParam } = useParams()
   const navigate = useNavigate()
@@ -55,7 +58,8 @@ export function SurveyTaker({
   const part = shown.find((p) => p.key === key) ?? null
   const index = part ? shown.indexOf(part) : -1
   const next = index >= 0 ? shown[index + 1] : undefined
-  const href = (p: Part) => `${base}/${encodeURIComponent(p.key)}`
+  const home = `${base}${query}`
+  const href = (p: Part) => `${base}/${encodeURIComponent(p.key)}${query}`
   const editable = survey.open && !survey.submitted
 
   useEffect(() => {
@@ -104,7 +108,7 @@ export function SurveyTaker({
     try {
       if (!(await flush(part))) return
       setSurvey(await actions.submit(anonymous))
-      navigate(base, { replace: true })
+      navigate(home, { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -124,7 +128,7 @@ export function SurveyTaker({
     return { qs: qs.length, done }
   }
 
-  const sendBlock = editable && (
+  const sendBlock = editable && actions && (
     <div className="sv-send">
       {survey.allow_anonymous && (
         <label className="sv-anon">
@@ -196,7 +200,7 @@ export function SurveyTaker({
         />
       ))}
       <footer className="sv-part__foot">
-        <Button variant="ghost" onClick={() => void go(base)}>
+        <Button variant="ghost" onClick={() => void go(home)}>
           Back to parts
         </Button>
         {next ? (
@@ -205,7 +209,7 @@ export function SurveyTaker({
           </Button>
         ) : (
           editable && (
-            <Button variant="primary" onClick={() => void go(base)}>
+            <Button variant="primary" onClick={() => void go(home)}>
               Done
             </Button>
           )
@@ -221,7 +225,7 @@ export function SurveyTaker({
   const closes = survey.closes_at ? formatDay(survey.closes_at, effectiveZone(zone)) : null
   return (
     <div className="sv">
-      {(!phone || !part) && (
+      {!preview && (!phone || !part) && (
         <PageHeader
           title={survey.title}
           lede={
@@ -232,7 +236,7 @@ export function SurveyTaker({
           }
         />
       )}
-      {phone && part && <h1 className="visually-hidden">{survey.title}</h1>}
+      {!preview && phone && part && <h1 className="visually-hidden">{survey.title}</h1>}
       {preview}
       {survey.intro && (!phone || !part) && <p className="sv-intro">{survey.intro}</p>}
       {error && (
@@ -250,7 +254,7 @@ export function SurveyTaker({
           <strong>This survey has closed.</strong> It isn't taking answers any more.
         </Banner>
       ) : (
-        <SideListLayout list={list} detail={detail} open={Boolean(key)} backTo={base} backLabel="Parts" />
+        <SideListLayout list={list} detail={detail} open={Boolean(key)} backTo={home} backLabel="Parts" />
       )}
       {survey.submitted && (
         <p>

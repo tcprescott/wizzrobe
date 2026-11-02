@@ -155,10 +155,26 @@ import PublicIcon from '@material-symbols/svg-400/outlined/public.svg?react'
 import PlayCircleIcon from '@material-symbols/svg-400/outlined/play_circle.svg?react'
 import StarIcon from '@material-symbols/svg-400/outlined/star.svg?react'
 import UnarchiveIcon from '@material-symbols/svg-400/outlined/unarchive.svg?react'
+import RadioButtonChecked from '@material-symbols/svg-400/outlined/radio_button_checked.svg?react'
+import ThumbUp from '@material-symbols/svg-400/outlined/thumb_up.svg?react'
+import CheckBox from '@material-symbols/svg-400/outlined/check_box.svg?react'
+import TableRows from '@material-symbols/svg-400/outlined/table_rows.svg?react'
+import Label from '@material-symbols/svg-400/outlined/label.svg?react'
+import MarkEmailRead from '@material-symbols/svg-400/outlined/mark_email_read.svg?react'
+import WandStars from '@material-symbols/svg-400/outlined/wand_stars.svg?react'
+import MarkEmailUnread from '@material-symbols/svg-400/outlined/mark_email_unread.svg?react'
 
 type Svg = FC<SVGProps<SVGSVGElement>>
 
 export const ICONS = {
+  wand_stars: WandStars,
+  radio_button_checked: RadioButtonChecked,
+  thumb_up: ThumbUp,
+  check_box: CheckBox,
+  table_rows: TableRows,
+  label: Label,
+  mark_email_read: MarkEmailRead,
+  mark_email_unread: MarkEmailUnread,
   home: Home,
   calendar_month: CalendarMonth,
   stadium: Stadium,

@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from application.services.survey.suggestions import pending_drafts
 from application.services.survey.survey_service import BuilderSummary
+from application.timezone_context import current_timezone_name
 from models import SurveySuggestionBatch
 
 
@@ -47,6 +48,7 @@ class BuilderResponse(BaseModel):
     suggestions: List[SuggestionBatchResponse] = Field(
         default_factory=list, description='Per section, its newest batch with drafts still waiting.',
     )
+    zone: str = Field('UTC', description='The clock this viewer reads times on (for picking a close time).')
 
 
 class PlaceRequest(BaseModel):
@@ -85,7 +87,7 @@ def builder_out(
         longest_questions=summary.longest_questions, longest_who=summary.longest_who,
         target_seconds=target, budget_seconds=budget, counts=summary.counts, answered=summary.answered,
         checks=[CheckFinding(**f.__dict__) for f in summary.checks], checks_passed=summary.checks_passed,
-        ai_provider=provider, suggestions=[batch_out(b) for b in batches],
+        ai_provider=provider, suggestions=[batch_out(b) for b in batches], zone=current_timezone_name(),
     )
 
 

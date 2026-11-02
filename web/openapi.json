@@ -4223,6 +4223,12 @@
             "description": "How long most people take: the median over everyone who took part.",
             "title": "Typical Seconds",
             "type": "integer"
+          },
+          "zone": {
+            "default": "UTC",
+            "description": "The clock this viewer reads times on (for picking a close time).",
+            "title": "Zone",
+            "type": "string"
           }
         },
         "required": [

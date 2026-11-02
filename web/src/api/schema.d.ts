@@ -14580,6 +14580,12 @@ export interface components {
              * @description How long most people take: the median over everyone who took part.
              */
             typical_seconds: number;
+            /**
+             * Zone
+             * @description The clock this viewer reads times on (for picking a close time).
+             * @default UTC
+             */
+            zone: string;
         };
         /**
          * CallOffRequest
