@@ -5,6 +5,7 @@ import react from '@vitejs/plugin-react'
 import { loadEnv, type Plugin } from 'vite'
 import { defineConfig } from 'vitest/config'
 import svgr from 'vite-plugin-svgr'
+import { DEFAULT_APP_ID } from './src/native/appId'
 
 // In dev the app and the API share an origin through this proxy, so sign-in and
 // API calls need no CORS. Point it at a running backend with WIZZROBE_API.
@@ -53,6 +54,9 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), 'VITE_')
   return {
     plugins: [react(), svgr(), serviceWorker(env.VITE_API_BASE ?? '')],
+    define: {
+      'import.meta.env.VITE_APP_ID': JSON.stringify(process.env.WIZZROBE_APP_ID || DEFAULT_APP_ID),
+    },
     server: {
       port: 5173,
       strictPort: true,
