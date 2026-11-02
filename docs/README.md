@@ -63,6 +63,7 @@ How each shipped subsystem behaves.
 | [features/telemetry.md](features/telemetry.md) | Page views, curated interactions, domain-event mirror, Staff-only report |
 | [features/observability.md](features/observability.md) | Sentry wiring (events, logs, traces, tenant/worker tags), which failures log at ERROR, runtime log levels on `/platform` |
 | [features/web-push.md](features/web-push.md) | Declarative Web Push device notifications mirroring Discord DMs |
+| [features/native-apps.md](features/native-apps.md) | The iOS/Android store apps: Capacitor shells, native push (APNs/FCM), app links, the app's service worker |
 | [features/notification-channels.md](features/notification-channels.md) | Email (SendGrid) and Telegram copies of Discord DMs, confirmation, tests |
 | [features/notification-settings.md](features/notification-settings.md) | Admin → Notifications: the catalogue of every DM, per-community off/silent/ping per recipient, on-shift staff alerts, `send_dm(notice=...)` |
 | [features/admin-reports.md](features/admin-reports.md) | Crew hours, match export, audit viewer, trended insights |

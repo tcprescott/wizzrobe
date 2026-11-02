@@ -53,7 +53,10 @@ class TestAboutPages:
         assert "'/about'" not in inspect.getsource(base)
 
     def test_says_claude_helped_build_it(self):
-        assert 'written with Claude' in inspect.getsource(about_page)
+        from application.about import BUILT_WITH_CLAUDE
+
+        assert 'written with Claude' in BUILT_WITH_CLAUDE
+        assert 'BUILT_WITH_CLAUDE' in inspect.getsource(about_page)
 
 
 class TestPrivacyPolicy:

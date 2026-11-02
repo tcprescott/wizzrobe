@@ -24,7 +24,7 @@ import frontend
 
 # mcpserver must not build MCPServer at import: its logging.basicConfig would beat ours.
 import mcpserver
-from api import inbound_webhooks, oauth_server, worker_ticks
+from api import app_association, inbound_webhooks, oauth_server, worker_ticks
 from api.openapi_docs import api_description, warm_openapi
 from api.openapi_docs import install as install_openapi_docs
 from application import bot_runtime, worker_registry
@@ -211,6 +211,7 @@ mcpserver.mount(app)
 oauth_server.mount(app)
 inbound_webhooks.mount(app)
 worker_ticks.mount(app)
+app_association.mount(app)
 
 frontend.init(app)
 
