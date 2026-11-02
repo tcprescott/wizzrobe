@@ -231,3 +231,14 @@ in TypeScript.
   three PRs: (1) board and match pane with the run actions, (2) Needs you,
   reschedule requests and comments, (3) Not booked yet and create/edit match. Part 1 is PR #780.
   Mockups: `/mnt/project-files/mobile-app/admin-schedule-mockups/`.
+- 2026-11-02 — People admin (Members, Check-in Roster, Equipment, Meetups):
+  Thomas first picked a table with a side sheet, then switched to the side list
+  ("in general I like the side list format", "we do want to keep a consistent
+  visual language"): the list sits beside the open item on desktop, and on a
+  phone each item is its own page with a back link, like Me. Built on the
+  shared `SideListLayout` / `Detail` kit in `web/src/admin/kit/SideList.tsx`.
+  Each screen reads one screen-shaped board (`/api/admin/members`,
+  `/api/admin/check-in`, `/api/admin/equipment`, `/api/admin/meetups`) that
+  carries the viewer's zone. Staff DMs from Members go out with no catalogue
+  notice, as the website's Send message does. The Matcherino check-in desk
+  itself is step 9. Mockups: `/mnt/project-files/mobile-app/people-mockups/`.
