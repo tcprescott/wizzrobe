@@ -249,3 +249,14 @@ class FeatureCatalogResponse(BaseModel):
     label: str = Field(..., description="Display name.")
     description: str = Field(..., description="What turning it on gives a community.")
     category: str = Field(..., description="Group it's listed under.")
+
+
+class PasswordAccountCreateRequest(BaseModel):
+    display_name: str = Field(..., max_length=150, description="Name shown everywhere.")
+    login_name: str = Field(..., description="Sign-in name: 3 to 64 letters, digits, dots, dashes and underscores.")
+    password: str = Field(..., description="At least 12 characters. Never returned.")
+
+
+class PasswordSetRequest(BaseModel):
+    login_name: str = Field(..., description="Sign-in name: 3 to 64 letters, digits, dots, dashes and underscores.")
+    password: str = Field(..., description="At least 12 characters. Never returned.")

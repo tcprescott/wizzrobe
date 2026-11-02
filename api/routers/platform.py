@@ -8,7 +8,9 @@ Every route depends on ``require_super_admin`` (reads) or
 ``require_super_admin_write`` (writes), and every service it calls checks the
 role again. A super admin's token is bound to one community like any other, but
 nothing here reads that binding: these routes name their community by id.
-Passwords and creating accounts are deliberately absent; they stay on the page.
+Passwords and password accounts are here for Wizzrobe's own app only
+(``require_app_super_admin_write``): a personal token or chat client is refused,
+so a password never travels through a transcript.
 """
 
 from enum import Enum
@@ -16,7 +18,12 @@ from typing import List, Optional, Union
 
 from fastapi import APIRouter, Depends, Query, status
 
-from api.dependencies import ServiceErrorRoute, require_super_admin, require_super_admin_write
+from api.dependencies import (
+    ServiceErrorRoute,
+    require_app_super_admin_write,
+    require_super_admin,
+    require_super_admin_write,
+)
 from api.schemas.platform import (
     AppDisableRequest,
     BrowserMonitoringSettingsRequest,
@@ -36,6 +43,8 @@ from api.schemas.platform import (
     IgnoreRuleResponse,
     LogLevelResponse,
     LogLevelSetRequest,
+    PasswordAccountCreateRequest,
+    PasswordSetRequest,
     PlatformAppResponse,
     PlatformUserResponse,
     SetupStepResponse,
@@ -50,8 +59,10 @@ from application.services import (
     FeatureFlagService,
     LogLevelService,
     OAuthAppService,
+    PasswordAuthService,
     PlatformAdminService,
     TenantService,
+    UserService,
 )
 from application.utils.browser_monitoring import SAMPLE_RATES
 from models import FeatureFlag, OAuthClientType, User
@@ -275,6 +286,68 @@ async def set_platform_user_active(
     return PlatformUserResponse.from_overview(
         await PlatformAdminService().set_account_active(actor, user_id, payload.is_active)
     )
+
+
+_APP_ONLY = "\n\n**Who can call this:** Super admins only (platform), signed in to Wizzrobe's own app."
+
+
+async def _account(actor: User, user_id: int) -> PlatformUserResponse:
+    return PlatformUserResponse.from_overview(await PlatformAdminService().get_account(actor, user_id))
+
+
+async def _target(user_id: int) -> User:
+    return require_found(await UserService().get_user_by_id(user_id), 'Account')
+
+
+@router.post(
+    "/users",
+    tags=_USERS,
+    response_model=PlatformUserResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a password account",
+    description=(
+        "A new account with no Discord link that signs in only by password, at the unpublished "
+        "password sign-in page. Fails with 400 for a taken or malformed sign-in name or a short "
+        "password. Personal tokens are refused." + _APP_ONLY
+    ),
+)
+async def create_password_account(
+    payload: PasswordAccountCreateRequest, actor: User = Depends(require_app_super_admin_write),
+):
+    user = await PasswordAuthService().create_account(actor, payload.display_name, payload.login_name, payload.password)
+    return await _account(actor, user.id)
+
+
+@router.put(
+    "/users/{user_id}/password",
+    tags=_USERS,
+    response_model=PlatformUserResponse,
+    summary="Set or change an account's password",
+    description=(
+        "Gives an account a sign-in name and password, or changes either. Super admins sign in with "
+        "Discord only, so theirs is refused with 400. Personal tokens are refused." + _APP_ONLY
+    ),
+)
+async def set_account_password(
+    user_id: int, payload: PasswordSetRequest, actor: User = Depends(require_app_super_admin_write),
+):
+    await PasswordAuthService().set_password(actor, await _target(user_id), payload.login_name, payload.password)
+    return await _account(actor, user_id)
+
+
+@router.delete(
+    "/users/{user_id}/password",
+    tags=_USERS,
+    response_model=PlatformUserResponse,
+    summary="Remove an account's password",
+    description=(
+        "Takes password sign-in away and ends every password session. Fails with 400 when the "
+        "account has no Discord, since the password is its only way in. Personal tokens are refused." + _APP_ONLY
+    ),
+)
+async def remove_account_password(user_id: int, actor: User = Depends(require_app_super_admin_write)):
+    await PasswordAuthService().remove_password(actor, await _target(user_id))
+    return await _account(actor, user_id)
 
 
 async def _group(actor: User, group_id: int) -> FeatureGroupResponse:

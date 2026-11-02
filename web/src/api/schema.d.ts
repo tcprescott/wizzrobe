@@ -5168,7 +5168,16 @@ export interface paths {
          */
         get: operations["list_platform_users_api_platform_users_get"];
         put?: never;
-        post?: never;
+        /**
+         * Create a password account
+         * @description A new account with no Discord link that signs in only by password, at the unpublished password sign-in page. Fails with 400 for a taken or malformed sign-in name or a short password. Personal tokens are refused.
+         *
+         *     **Who can call this:** Super admins only (platform), signed in to Wizzrobe's own app.
+         *
+         *     **Token:** not needed.
+         *     **Apps:** can't call this; it needs a personal API token.
+         */
+        post: operations["create_password_account_api_platform_users_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5219,6 +5228,40 @@ export interface paths {
         put: operations["set_platform_user_active_api_platform_users__user_id__active_put"];
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/users/{user_id}/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set or change an account's password
+         * @description Gives an account a sign-in name and password, or changes either. Super admins sign in with Discord only, so theirs is refused with 400. Personal tokens are refused.
+         *
+         *     **Who can call this:** Super admins only (platform), signed in to Wizzrobe's own app.
+         *
+         *     **Token:** not needed.
+         *     **Apps:** can't call this; it needs a personal API token.
+         */
+        put: operations["set_account_password_api_platform_users__user_id__password_put"];
+        post?: never;
+        /**
+         * Remove an account's password
+         * @description Takes password sign-in away and ends every password session. Fails with 400 when the account has no Discord, since the password is its only way in. Personal tokens are refused.
+         *
+         *     **Who can call this:** Super admins only (platform), signed in to Wizzrobe's own app.
+         *
+         *     **Token:** not needed.
+         *     **Apps:** can't call this; it needs a personal API token.
+         */
+        delete: operations["remove_account_password_api_platform_users__user_id__password_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -15315,6 +15358,37 @@ export interface components {
             name?: string | null;
             /** Redirect Uris */
             redirect_uris?: string[] | null;
+        };
+        /** PasswordAccountCreateRequest */
+        PasswordAccountCreateRequest: {
+            /**
+             * Display Name
+             * @description Name shown everywhere.
+             */
+            display_name: string;
+            /**
+             * Login Name
+             * @description Sign-in name: 3 to 64 letters, digits, dots, dashes and underscores.
+             */
+            login_name: string;
+            /**
+             * Password
+             * @description At least 12 characters. Never returned.
+             */
+            password: string;
+        };
+        /** PasswordSetRequest */
+        PasswordSetRequest: {
+            /**
+             * Login Name
+             * @description Sign-in name: 3 to 64 letters, digits, dots, dashes and underscores.
+             */
+            login_name: string;
+            /**
+             * Password
+             * @description At least 12 characters. Never returned.
+             */
+            password: string;
         };
         /** PayoutLineRequest */
         PayoutLineRequest: {
@@ -38487,6 +38561,66 @@ export interface operations {
             };
         };
     };
+    create_password_account_api_platform_users_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordAccountCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformUserResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     get_platform_user_api_platform_users__user_id__get: {
         parameters: {
             query?: never;
@@ -38568,6 +38702,126 @@ export interface operations {
                 "application/json": components["schemas"]["UserActivationRequest"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformUserResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    set_account_password_api_platform_users__user_id__password_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordSetRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformUserResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    remove_account_password_api_platform_users__user_id__password_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {

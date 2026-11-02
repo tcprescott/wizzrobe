@@ -11,6 +11,7 @@ from fastapi.routing import APIRoute, RouteContext, iter_route_contexts
 
 from api.dependencies import (
     require_admin,
+    require_app_super_admin_write,
     require_api_actor,
     require_identity,
     require_staff,
@@ -83,7 +84,7 @@ def test_public_entries_are_exactly_the_tokenless_routes():
 
 
 def test_platform_routes_are_never_open_to_apps():
-    platform_gates = {require_super_admin, require_super_admin_write}
+    platform_gates = {require_super_admin, require_super_admin_write, require_app_super_admin_write}
     leaked = [
         key for key, _, calls in _routes()
         if platform_gates & set(calls) and ROUTE_SCOPES[key] is not PAT_ONLY

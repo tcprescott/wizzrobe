@@ -412,6 +412,26 @@ async def require_super_admin_write(
     return user
 
 
+async def require_app_super_admin_write(
+    resolved: Tuple[User, ApiToken] = Depends(resolve_identity),
+) -> User:
+    """Super admin, signed in through Wizzrobe's own app, with a token that may write.
+
+    For the platform writes that carry a credential (a sign-in password): a
+    personal token or a chat client could put one in a transcript, so only the
+    first-party app may send them.
+    """
+    user, token = resolved
+    if not _is_first_party(token):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the Wizzrobe app can do this. Use the app's Platform screen.",
+        )
+    _reject_read_only(token)
+    await AuthService.ensure(await AuthService.is_super_admin(user), "Super admin access required")
+    return user
+
+
 def require_feature(flag: FeatureFlag):
     """Router dependency factory that 404s when the tenant lacks a feature flag.
 

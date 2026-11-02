@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { api, unwrap, type Schemas } from '../api/client'
-import { Chip, ConfirmDialog, PageHeader, SearchField, Spinner } from '../components'
+import { Button, Chip, ConfirmDialog, PageHeader, SearchField, Spinner, type MenuItem } from '../components'
 import { DataTable, type Column } from '../admin/kit'
 import { LoadError } from './LoadError'
 import { usePlatformAccess } from './access'
+import { NewAccountDialog, SetPasswordDialog } from './PasswordDialogs'
 import { Toolbar, useNotice, usePlatformQuery } from './parts'
 
 type Account = Schemas['PlatformUserResponse']
@@ -23,7 +24,10 @@ export function UsersSection() {
   const [term, setTerm] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
   const [deactivating, setDeactivating] = useState<Account | null>(null)
-  const { banner, run } = useNotice()
+  const [passwordFor, setPasswordFor] = useState<Account | null>(null)
+  const [removingPassword, setRemovingPassword] = useState<Account | null>(null)
+  const [creating, setCreating] = useState(false)
+  const { banner, run, setNotice } = useNotice()
 
   useEffect(() => {
     const t = setTimeout(() => setTerm(q.trim()), 250)
@@ -87,7 +91,15 @@ export function UsersSection() {
   const rows = data ?? []
   return (
     <>
-      <PageHeader title="Users" lede="Every account across Wizzrobe, in every community." />
+      <PageHeader
+        title="Users"
+        lede="Every account across Wizzrobe, in every community."
+        actions={
+          <Button icon="person_add" onClick={() => setCreating(true)}>
+            New account
+          </Button>
+        }
+      />
       {banner}
       <Toolbar>
         <SearchField value={q} onChange={setQ} label="Search by name, Discord or sign-in name" />
@@ -112,15 +124,63 @@ export function UsersSection() {
             rows={rows}
             rowKey={(a) => a.id}
             rowMenuLabel={(a) => `More for ${name(a, me)}`}
-            rowMenu={(a) =>
-              a.is_active
-                ? [{ label: 'Deactivate…', icon: 'person_off', destructive: true, disabled: a.id === me, onSelect: () => setDeactivating(a) }]
-                : [{ label: 'Reactivate', icon: 'how_to_reg', onSelect: () => void setActive(a, true) }]
-            }
+            rowMenu={(a) => {
+              const items: MenuItem[] = []
+              if (!a.is_super_admin) {
+                items.push({ label: a.login_name ? 'Change password…' : 'Set password…', icon: 'key', onSelect: () => setPasswordFor(a) })
+              }
+              if (!a.is_active) items.push({ label: 'Reactivate', icon: 'how_to_reg', onSelect: () => void setActive(a, true) })
+              if (a.login_name && a.discord_id != null) {
+                items.push({ label: 'Remove password…', icon: 'key_off', destructive: true, onSelect: () => setRemovingPassword(a) })
+              }
+              if (a.is_active && a.id !== me) {
+                items.push({ label: 'Deactivate…', icon: 'person_off', destructive: true, onSelect: () => setDeactivating(a) })
+              }
+              return items
+            }}
             empty={{ icon: 'person', title: term ? 'Nobody matches that' : 'No accounts here' }}
           />
           {rows.length >= LIMIT && <p className="pf-muted">Showing the first {LIMIT}. Search to narrow it down.</p>}
         </>
+      )}
+      {creating && (
+        <NewAccountDialog
+          onClose={() => setCreating(false)}
+          onSaved={(text) => {
+            setCreating(false)
+            setNotice({ tone: 'info', text })
+            reload()
+          }}
+        />
+      )}
+      {passwordFor && (
+        <SetPasswordDialog
+          account={passwordFor}
+          onClose={() => setPasswordFor(null)}
+          onSaved={(text) => {
+            setPasswordFor(null)
+            setNotice({ tone: 'info', text })
+            reload()
+          }}
+        />
+      )}
+      {removingPassword && (
+        <ConfirmDialog
+          open
+          onOpenChange={(open) => !open && setRemovingPassword(null)}
+          title={`Remove ${name(removingPassword, me)}'s password?`}
+          action="Remove password"
+          onConfirm={async () => {
+            const ok = await run(
+              () => api.DELETE('/api/platform/users/{user_id}/password', { params: { path: { user_id: removingPassword.id } } }).then(unwrap),
+              `${name(removingPassword, me)} signs in with Discord only now.`,
+            )
+            if (ok) reload()
+            return ok
+          }}
+        >
+          Every password session ends at once. They can still sign in with Discord.
+        </ConfirmDialog>
       )}
       {deactivating && (
         <ConfirmDialog

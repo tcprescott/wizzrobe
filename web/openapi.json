@@ -9819,6 +9819,53 @@
         "title": "OAuthAppUpdate",
         "type": "object"
       },
+      "PasswordAccountCreateRequest": {
+        "properties": {
+          "display_name": {
+            "description": "Name shown everywhere.",
+            "maxLength": 150,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "login_name": {
+            "description": "Sign-in name: 3 to 64 letters, digits, dots, dashes and underscores.",
+            "title": "Login Name",
+            "type": "string"
+          },
+          "password": {
+            "description": "At least 12 characters. Never returned.",
+            "title": "Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "display_name",
+          "login_name",
+          "password"
+        ],
+        "title": "PasswordAccountCreateRequest",
+        "type": "object"
+      },
+      "PasswordSetRequest": {
+        "properties": {
+          "login_name": {
+            "description": "Sign-in name: 3 to 64 letters, digits, dots, dashes and underscores.",
+            "title": "Login Name",
+            "type": "string"
+          },
+          "password": {
+            "description": "At least 12 characters. Never returned.",
+            "title": "Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "login_name",
+          "password"
+        ],
+        "title": "PasswordSetRequest",
+        "type": "object"
+      },
       "PayoutLineRequest": {
         "properties": {
           "amount": {
@@ -46490,6 +46537,81 @@
         "tags": [
           "Platform users"
         ]
+      },
+      "post": {
+        "description": "A new account with no Discord link that signs in only by password, at the unpublished password sign-in page. Fails with 400 for a taken or malformed sign-in name or a short password. Personal tokens are refused.\n\n**Who can call this:** Super admins only (platform), signed in to Wizzrobe's own app.\n\n**Token:** not needed.  \n**Apps:** can't call this; it needs a personal API token.",
+        "operationId": "create_password_account_api_platform_users_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordAccountCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformUserResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create a password account",
+        "tags": [
+          "Platform users"
+        ]
       }
     },
     "/api/platform/users/{user_id}": {
@@ -46663,6 +46785,170 @@
           }
         ],
         "summary": "Deactivate or reactivate an account",
+        "tags": [
+          "Platform users"
+        ]
+      }
+    },
+    "/api/platform/users/{user_id}/password": {
+      "delete": {
+        "description": "Takes password sign-in away and ends every password session. Fails with 400 when the account has no Discord, since the password is its only way in. Personal tokens are refused.\n\n**Who can call this:** Super admins only (platform), signed in to Wizzrobe's own app.\n\n**Token:** not needed.  \n**Apps:** can't call this; it needs a personal API token.",
+        "operationId": "remove_account_password_api_platform_users__user_id__password_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformUserResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Remove an account's password",
+        "tags": [
+          "Platform users"
+        ]
+      },
+      "put": {
+        "description": "Gives an account a sign-in name and password, or changes either. Super admins sign in with Discord only, so theirs is refused with 400. Personal tokens are refused.\n\n**Who can call this:** Super admins only (platform), signed in to Wizzrobe's own app.\n\n**Token:** not needed.  \n**Apps:** can't call this; it needs a personal API token.",
+        "operationId": "set_account_password_api_platform_users__user_id__password_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordSetRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformUserResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Set or change an account's password",
         "tags": [
           "Platform users"
         ]

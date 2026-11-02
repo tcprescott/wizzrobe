@@ -231,3 +231,6 @@ in TypeScript.
   Communities and people / Connections / Operations. Super-admin routes now bind no
   community, so the app calls them without the header. Mockups:
   `/mnt/project-files/mobile-app/platform-mockups/`.
+- 2026-11-02 — Thomas picked app-only endpoints for passwords and password accounts:
+  `require_app_super_admin_write` accepts only Wizzrobe's own app, so personal tokens
+  and MCP never carry a password. Platform ships as one PR (all eight sections).

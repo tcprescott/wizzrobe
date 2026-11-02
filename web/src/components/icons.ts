@@ -106,6 +106,9 @@ import BugReportIcon from '@material-symbols/svg-400/outlined/bug_report.svg?rea
 import SearchIcon from '@material-symbols/svg-400/outlined/search.svg?react'
 import RefreshIcon from '@material-symbols/svg-400/outlined/refresh.svg?react'
 import PersonOffIcon from '@material-symbols/svg-400/outlined/person_off.svg?react'
+import KeyOffIcon from '@material-symbols/svg-400/outlined/key_off.svg?react'
+import CasinoIcon from '@material-symbols/svg-400/outlined/casino.svg?react'
+import PersonAddIcon from '@material-symbols/svg-400/outlined/person_add.svg?react'
 
 type Svg = FC<SVGProps<SVGSVGElement>>
 
@@ -210,6 +213,9 @@ export const ICONS = {
   search: SearchIcon,
   refresh: RefreshIcon,
   person_off: PersonOffIcon,
+  key_off: KeyOffIcon,
+  casino: CasinoIcon,
+  person_add: PersonAddIcon,
 } satisfies Record<string, Svg>
 
 export const FILLED: Partial<Record<IconName, Svg>> = {

@@ -370,7 +370,7 @@ The `/platform` page's other tabs. Reads use `require_super_admin`, writes
 `require_super_admin_write`; communities are named by id and include switched-off
 ones. Composite reads come from `PlatformAdminService`; writes go through the
 owning service (`TenantService`, `FeatureFlagService`, `PasswordAuthService.set_active`,
-`LogLevelService`, `OAuthAppService`, `BrowserMonitoringService`). Passwords and account creation stay on the page.
+`LogLevelService`, `OAuthAppService`, `BrowserMonitoringService`, `PasswordAuthService`). Password writes take `require_app_super_admin_write`: Wizzrobe's own app only, so a personal token or chat client (which could leave the password in a transcript) is refused with `403`.
 Super-admin routes (these and racetime bots, service-health board) resolve the token with `resolve_identity`,
 so they bind no community: the app calls them with no `X-Wizzrobe-Community` header, a PAT bound to any
 community works, a third-party app's grant is refused, and audit rows land with `tenant=NULL`.
@@ -380,6 +380,7 @@ digit string, because a Discord id is larger than a JavaScript number holds exac
 - `POST /platform/communities/{id}/staff` (`{user_id}`) — first-admin grant (`TenantService.bootstrap_staff`).
 - `GET /platform/communities/{id}/features` · `PUT /{id}/feature-group` (`{group_id|null}`) · `PUT /{id}/features/{flag}` (`{available: true|false|null}`).
 - `GET /platform/users` (`q`, `has_password`, `is_active`, `limit`) · `/{id}` · `PUT /{id}/active` (`{is_active}`).
+- App only: `POST /platform/users` (`{display_name, login_name, password}`, a password-only account) · `PUT /{id}/password` (`{login_name, password}`) · `DELETE /{id}/password`.
 - `GET /platform/feature-groups`; `POST` · `PATCH /{id}` · `DELETE /{id}`.
 - `GET /platform/features` — every feature a group can make available (key, label, description, category).
 - `GET /platform/log-levels` · `PUT` (`{logger, level}`) · `DELETE ?logger=`.

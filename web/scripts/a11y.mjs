@@ -74,6 +74,8 @@ const TARGETS = [
   { name: 'platform-new-community', path: '/platform/communities', act: (p) => p.getByRole('button', { name: 'New community' }).click(), wait: 'role=dialog' },
   { name: 'platform-features', path: '/platform/communities', act: (p) => p.getByRole('button', { name: 'Features' }).first().click(), wait: 'role=dialog' },
   { name: 'platform-staff', path: '/platform/communities', act: async (p) => { await p.getByRole('button', { name: 'More for SpeedGaming Live' }).click(); await p.getByRole('menuitem', { name: 'Staff' }).click() }, wait: 'role=dialog' },
+  { name: 'platform-new-account', path: '/platform/users', act: (p) => p.getByRole('button', { name: 'New account' }).click(), wait: 'role=dialog' },
+  { name: 'platform-set-password', path: '/platform/users', act: async (p) => { await p.getByRole('button', { name: 'More for checkraise' }).click(); await p.getByRole('menuitem', { name: 'Change password…' }).click() }, wait: 'role=dialog' },
   { name: 'platform-group', path: '/platform/features', act: (p) => p.getByRole('button', { name: 'Edit Standard' }).click(), wait: 'role=dialog' },
   { name: 'platform-bot-grants', path: '/platform/bots', act: (p) => p.getByRole('button', { name: 'Communities for ALTTPR bot' }).click(), wait: 'role=dialog' },
   { name: 'platform-disable-app', path: '/platform/apps', act: (p) => p.getByRole('button', { name: 'Disable Stream Deck' }).click(), wait: 'role=dialog' },
