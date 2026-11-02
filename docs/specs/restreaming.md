@@ -40,6 +40,17 @@ In:
 - Stream key brokering: the channel owner connects the Twitch channel to
   Wizzrobe once; at go-live Wizzrobe fetches the key and the agent sets it in
   OBS, and clears it when the stream stops.
+- Twitch chat bot on the same channel connection (EventSub chat in, Helix
+  send out, on the bot service): a shared Wizzrobe bot account by default, a
+  community's own bot account optional later. Built-in commands read the
+  match on air: `!runners` (runners' Twitch links), `!comms`, `!tracker`,
+  `!match` (tournament, round, seed code), `!next`, `!bracket`. Staff add
+  custom text commands per community or event using the same template
+  fields.
+- Stream title from a template (stream layout fields, e.g.
+  `{tournament} {round}: {players} | {event_name}`), set automatically when a
+  match goes on air on the stage; a Broadcast Tech can override it for the
+  rest of that match.
 
 Out:
 - Wizzrobe encoding or compositing video itself.
@@ -89,7 +100,8 @@ stage's OBS beside it, tap-in on phone) before any screen is built.
 2. Scenes and feeds from stream layouts; Twitch runner feeds.
 3. Crop and audio, with per-runner profiles.
 4. Commentator stream (hosting picked from the spike numbers).
-5. Program control and run of show.
+5. Program control and run of show, stream key brokering.
+6. Twitch bot: title templates, built-in and custom chat commands.
 
 ## Acceptance
 
@@ -127,5 +139,8 @@ Later phases get their acceptance items with their mockups.
 - 2026-11-02 — Thomas picked Windows and Mac for the agent.
 - 2026-11-02 — Thomas picked "Connect Twitch, push key" for stream keys: the
   agent sets the key at go-live and clears it after.
+- 2026-11-02 — Thomas asked for a Twitch bot. Picked: shared Wizzrobe bot
+  with a community's own bot optional; fixed commands plus staff custom
+  commands; title set automatically on air, with an override.
 - 2026-11-02 — Thomas: the commentator stream must exclude commentary audio
   (a requirement, not a default).
