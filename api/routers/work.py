@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, Query
 
 from api.dependencies import ServiceErrorRoute, event_binding, require_api_actor, require_write_actor
 from api.schemas.work import (
+    GridColumnResponse,
     GridRoleResponse,
     ScheduleColumnsRequest,
     VolunteerScheduleResponse,
@@ -53,7 +54,7 @@ def _schedule_response(view, zone) -> VolunteerScheduleResponse:
         first_hour=grid.first_hour if grid else 0,
         last_hour=grid.last_hour if grid else 0,
         columns=[
-            {
+            GridColumnResponse.model_validate({
                 'position_id': column.position_id,
                 'position': column.position,
                 'shifts': [
@@ -74,7 +75,7 @@ def _schedule_response(view, zone) -> VolunteerScheduleResponse:
                     }
                     for shift in column.shifts
                 ],
-            }
+            })
             for column in (grid.columns if grid else ())
         ],
         roles=[GridRoleResponse.model_validate(r, from_attributes=True) for r in view.roles],
