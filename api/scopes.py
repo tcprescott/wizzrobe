@@ -178,6 +178,7 @@ _ROUTES: Dict[RouteScope, tuple[str, ...]] = {
         'GET /admin/tournaments/{tournament_id}/players/{user_id}/drop-plan',
         'GET /admin/tournaments/{tournament_id}/bracket/entrants',
         'GET /admin/tournaments/{tournament_id}/bracket/startgg',
+        'GET /admin/nav',
         'GET /surveys',
         'GET /surveys/conditions',
         'GET /surveys/{survey_id}',

@@ -46,6 +46,7 @@ from . import (
     webhook_outbox_worker,
 )
 from .accommodation_service import AccommodationService
+from .admin_nav_service import AdminAccess, AdminNav, AdminNavService
 from .admin_presets_service import AdminPresetsService
 from .admin_tournaments_service import AdminTournamentsService
 from .ai_provider_service import AiProviderService
@@ -214,6 +215,9 @@ from .webhook_service import WebhookService
 __all__ = [
     'AccommodationService',
     'AccountOverview',
+    'AdminAccess',
+    'AdminNav',
+    'AdminNavService',
     'AdminPresetsService',
     'AdminTournamentsService',
     'AiProviderService',
