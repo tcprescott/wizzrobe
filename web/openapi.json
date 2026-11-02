@@ -6628,6 +6628,35 @@
         "title": "EntrantUserRequest",
         "type": "object"
       },
+      "EquipmentBoardResponse": {
+        "properties": {
+          "assets": {
+            "description": "Every asset, by asset number, with who holds it now.",
+            "items": {
+              "$ref": "#/components/schemas/EquipmentResponse"
+            },
+            "title": "Assets",
+            "type": "array"
+          },
+          "zone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The zone to print times in; null means the device's own.",
+            "title": "Zone"
+          }
+        },
+        "required": [
+          "assets"
+        ],
+        "title": "EquipmentBoardResponse",
+        "type": "object"
+      },
       "EquipmentBulkCreateRequest": {
         "properties": {
           "count": {
@@ -8127,12 +8156,18 @@
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "qr": {
+            "description": "The asset's QR code as an SVG `data:` URI, linking to its page on the website.",
+            "title": "Qr",
+            "type": "string"
           }
         },
         "required": [
           "id",
           "asset_number",
-          "name"
+          "name",
+          "qr"
         ],
         "title": "LabelAssetResponse",
         "type": "object"
@@ -23815,6 +23850,78 @@
         "summary": "Look a Matcherino venue up",
         "tags": [
           "Admin: check-in"
+        ]
+      }
+    },
+    "/api/admin/equipment": {
+      "get": {
+        "description": "Every asset by asset number with who holds it now, as `GET /equipment` returns them, plus the zone to print loan times in.\n\n**Who can call this:** Staff or Equipment manager.\n\n**App scope:** `staff:read`  \n**Feature:** only works when the community has **Equipment Lending** turned on; otherwise every call answers `404`.",
+        "operationId": "board_api_admin_equipment_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EquipmentBoardResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "The equipment register",
+        "tags": [
+          "Admin: equipment"
         ]
       }
     },

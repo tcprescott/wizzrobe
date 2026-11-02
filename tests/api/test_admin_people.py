@@ -157,12 +157,15 @@ class TestEquipment:
         await make_user(discord_id=8302, username='stranger')
         asset = await Equipment.create(asset_number=1, name='Retron 5')
         async with client_for(app, raw) as c:
+            board = (await c.get('/api/admin/equipment')).json()
+            assert [a['name'] for a in board['assets']] == ['Retron 5']
             mine = {p['username'] for p in (await c.get('/api/admin/equipment/people')).json()}
             everyone = {p['username'] for p in (await c.get('/api/admin/equipment/people?everyone=true')).json()}
             sheet = (await c.get(f'/api/admin/equipment/labels?ids={asset.id}&ids=999999')).json()
         assert 'owner' in mine and 'stranger' not in mine
         assert 'stranger' in everyone
         assert [a['name'] for a in sheet['assets']] == ['Retron 5']
+        assert sheet['assets'][0]['qr'].startswith('data:image/svg+xml')
 
     async def test_players_are_refused(self, db, app):
         _, raw = await create_user_token(username='plain', roles=[])

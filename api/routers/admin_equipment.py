@@ -6,11 +6,35 @@ from typing import List
 from fastapi import APIRouter, Depends, Query
 
 from api.dependencies import ServiceErrorRoute, require_api_actor
-from api.schemas.admin_equipment import LabelAssetResponse, LabelSheetResponse, PersonPickResponse
+from api.routers.equipment import _serialize_asset
+from api.schemas.admin_equipment import (
+    EquipmentBoardResponse,
+    LabelAssetResponse,
+    LabelSheetResponse,
+    PersonPickResponse,
+)
 from application.services import EquipmentAdminService
 from models import User
 
 router = APIRouter(prefix='/admin/equipment', tags=['Admin: equipment'], route_class=ServiceErrorRoute)
+
+
+@router.get(
+    '',
+    response_model=EquipmentBoardResponse,
+    summary='The equipment register',
+    description=(
+        "Every asset by asset number with who holds it now, as `GET /equipment` returns them, "
+        "plus the zone to print loan times in.\n\n"
+        "**Who can call this:** Staff or Equipment manager."
+    ),
+)
+async def board(actor: User = Depends(require_api_actor)) -> EquipmentBoardResponse:
+    data = await EquipmentAdminService().board(actor)
+    return EquipmentBoardResponse(
+        assets=[_serialize_asset(a, can_manage=True, borrower=data.borrowers.get(a.id)) for a in data.assets],
+        zone=data.zone,
+    )
 
 
 @router.get(
@@ -53,5 +77,8 @@ async def labels(
     sheet = await EquipmentAdminService().labels(actor, ids, logo=logo)
     return LabelSheetResponse(
         community=sheet.community, qr_logo=sheet.qr_logo,
-        assets=[LabelAssetResponse(id=a.id, asset_number=a.asset_number, name=a.name) for a in sheet.assets],
+        assets=[
+            LabelAssetResponse(id=a.id, asset_number=a.asset_number, name=a.name, qr=sheet.codes[a.id])
+            for a in sheet.assets
+        ],
     )

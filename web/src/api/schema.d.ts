@@ -252,6 +252,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/equipment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The equipment register
+         * @description Every asset by asset number with who holds it now, as `GET /equipment` returns them, plus the zone to print loan times in.
+         *
+         *     **Who can call this:** Staff or Equipment manager.
+         *
+         *     **App scope:** `staff:read`
+         *     **Feature:** only works when the community has **Equipment Lending** turned on; otherwise every call answers `404`.
+         */
+        get: operations["board_api_admin_equipment_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/equipment/labels": {
         parameters: {
             query?: never;
@@ -14106,6 +14131,19 @@ export interface components {
              */
             user_id?: number | null;
         };
+        /** EquipmentBoardResponse */
+        EquipmentBoardResponse: {
+            /**
+             * Assets
+             * @description Every asset, by asset number, with who holds it now.
+             */
+            assets: components["schemas"]["EquipmentResponse"][];
+            /**
+             * Zone
+             * @description The zone to print times in; null means the device's own.
+             */
+            zone?: string | null;
+        };
         /** EquipmentBulkCreateRequest */
         EquipmentBulkCreateRequest: {
             /**
@@ -14881,6 +14919,11 @@ export interface components {
             id: number;
             /** Name */
             name: string;
+            /**
+             * Qr
+             * @description The asset's QR code as an SVG `data:` URI, linking to its page on the website.
+             */
+            qr: string;
         };
         /** LabelSheetResponse */
         LabelSheetResponse: {
@@ -23185,6 +23228,62 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    board_api_admin_equipment_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EquipmentBoardResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */

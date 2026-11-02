@@ -241,6 +241,7 @@ _ROUTES: Dict[RouteScope, tuple[str, ...]] = {
         'GET /admin/check-in/events/{event_id}/tiers',
         'GET /admin/check-in/venues/{venue_id}',
         'GET /admin/check-in/matcherino-login/alert-candidates',
+        'GET /admin/equipment',
         'GET /admin/equipment/people',
         'GET /admin/equipment/labels',
     ),
