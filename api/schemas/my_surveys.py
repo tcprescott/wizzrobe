@@ -6,7 +6,7 @@ moment its answer is picked without a round trip.
 """
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Mapping, Optional, Sequence
 
 from pydantic import BaseModel, Field
 
@@ -109,7 +109,7 @@ class PreviewPathResponse(BaseModel):
     hidden: List[str] = Field(default_factory=list, description='What they won\'t see, and why, one line each.')
 
 
-def _shows_if(entries: Optional[Sequence[Dict[str, Any]]]) -> List[ShowsIf]:
+def _shows_if(entries: Optional[Sequence[Mapping[str, Any]]]) -> List[ShowsIf]:
     return [
         ShowsIf(question_id=int(e.get('question_id') or 0), values=list(e.get('values') or []))
         for e in answer_entries(entries)
@@ -151,5 +151,5 @@ def preview_out(survey: Survey, parts: List[plan.Part]) -> RespondentSurvey:
         id=survey.id, title=survey.title, intro=survey.intro, closes_at=survey.closes_at,
         allow_anonymous=survey.allow_anonymous,
         after_send=(survey.after_send or '').strip() or plan.DEFAULT_AFTER_SEND,
-        open=False, submitted=False, seconds=plan.seconds(parts), parts=[_part(p, None) for p in parts],
+        open=False, submitted=False, anonymous=None, seconds=plan.seconds(parts), parts=[_part(p, None) for p in parts],
     )
