@@ -14,6 +14,7 @@ from api.schemas.volunteers import (
     CoverageRow,
     ReleaseAssignmentRequest,
     SetAvailabilityRequest,
+    ShiftLateRequest,
     VolunteerAssignmentResponse,
     VolunteerAvailabilityResponse,
     VolunteerHoursResponse,
@@ -26,6 +27,7 @@ from api.schemas.volunteers import (
 )
 from application.errors import require_found
 from application.services.auth_service import AuthService
+from application.services.volunteer.volunteer_arrival_service import VolunteerArrivalService
 from application.services.volunteer.volunteer_availability_service import VolunteerAvailabilityService
 from application.services.volunteer.volunteer_call_off_service import VolunteerCallOffService
 from application.services.volunteer.volunteer_hours import VolunteerHoursService
@@ -420,6 +422,52 @@ async def my_assignments(
     after = datetime.now(timezone.utc) if upcoming_only else None
     assignments = await VolunteerScheduleService().assignments_for_user(actor, upcoming_after=after)
     return [_assignment_resp(a) for a in assignments]
+
+
+@router.post(
+    "/me/assignments/{assignment_id}/arrival",
+    response_model=VolunteerAssignmentResponse,
+    summary="Say you're here for your shift",
+    description=(
+        "Checks you in for one of your shifts, from 30 minutes before it starts until it ends. "
+        "Doing it twice keeps the first time.\n\n"
+        "Fails with 400 when check-in isn't open yet, the shift was called off, or it isn't yours.\n\n"
+        "**Who can call this:** Yourself only."
+    ),
+)
+async def arrive(assignment_id: int, actor: User = Depends(require_write_actor)):
+    return _assignment_resp(await VolunteerArrivalService().check_in_self(assignment_id, actor))
+
+
+@router.delete(
+    "/me/assignments/{assignment_id}/arrival",
+    response_model=VolunteerAssignmentResponse,
+    summary="Take back your check-in",
+    description=(
+        "Undoes a check-in you made yourself, until the shift ends. A coordinator's check-in "
+        "stays.\n\n"
+        "**Who can call this:** Yourself only."
+    ),
+)
+async def undo_arrival(assignment_id: int, actor: User = Depends(require_write_actor)):
+    return _assignment_resp(await VolunteerArrivalService().undo_check_in(assignment_id, actor))
+
+
+@router.post(
+    "/me/assignments/{assignment_id}/running-late",
+    response_model=VolunteerAssignmentResponse,
+    summary="Tell the coordinators you're running late",
+    description=(
+        "Keeps the shift and DMs the volunteer coordinators how late you expect to be: 10, 20 "
+        "or 30 minutes.\n\n"
+        "Fails with 400 for another number, or once you're checked in or the shift is over.\n\n"
+        "**Who can call this:** Yourself only."
+    ),
+)
+async def running_late(
+    assignment_id: int, body: ShiftLateRequest, actor: User = Depends(require_write_actor),
+):
+    return _assignment_resp(await VolunteerArrivalService().report_late(assignment_id, actor, body.minutes))
 
 
 @router.delete(

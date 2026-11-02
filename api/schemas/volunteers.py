@@ -191,3 +191,7 @@ class VolunteerHoursResponse(BaseModel):
     tier_cleared: Optional[float] = Field(None, description="The highest comp tier reached, in hours; empty if none.")
     next_tier: Optional[float] = Field(None, description="The next comp tier, in hours; empty when every tier is cleared.")
     hours_to_next: Optional[float] = Field(None, description="Hours still needed to reach `next_tier`; empty when there is none.")
+
+
+class ShiftLateRequest(BaseModel):
+    minutes: int = Field(..., description="How late you expect to be: 10, 20 or 30.")

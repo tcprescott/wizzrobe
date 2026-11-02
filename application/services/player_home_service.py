@@ -23,6 +23,11 @@ from application.services.match_reschedule_service import MatchRescheduleService
 from application.services.my_timeline_service import CREW, MATCH, SHIFT, MyTimelineService, TimelineItem
 from application.services.round_schedule_service import RoundScheduleService, RoundWindowError
 from application.services.timezone_service import MODE_PINNED, TimezoneService
+from application.services.volunteer.volunteer_arrival_service import (
+    can_self_check_in,
+    can_undo_check_in,
+    check_in_open,
+)
 from application.timezone_context import is_valid_timezone
 from application.utils.game_order import remaining_slots
 from application.utils.match_labels import challonge_round_label, entrant_name
@@ -63,6 +68,10 @@ class ScheduleEntry:
     can_report_late: bool = False
     approved: Optional[bool] = None
     checked_in: bool = False
+    shift_action: Optional[str] = None
+    can_undo_check_in: bool = False
+    can_release: bool = False
+    called_off: bool = False
 
 
 @dataclass
@@ -377,9 +386,29 @@ class PlayerHomeService:
                 entry.assignment_id = assignment.id
                 entry.checked_in = assignment.checked_in_at is not None
                 entry.late_minutes = assignment.late_minutes
+                _shift_actions(entry, assignment, user, now)
             out.append(entry)
         return out
 
+
+
+def _shift_actions(entry: ScheduleEntry, assignment: Any, user: User, now: datetime) -> None:
+    """The shift row's buttons, mirroring what the arrival and schedule services accept.
+
+    "I'm here" wins once check-in opens, because by then acknowledging is moot.
+    """
+    done = assignment.shift.ends_at <= now or assignment.called_off_at is not None
+    entry.called_off = assignment.called_off_at is not None
+    if can_self_check_in(assignment, now):
+        entry.shift_action = 'arrive'
+    elif assignment.acknowledged_at is None and assignment.checked_in_at is None and not done:
+        entry.shift_action = 'ack'
+    entry.can_undo_check_in = can_undo_check_in(assignment, user, now)
+    entry.can_release = assignment.checked_in_at is None and not done
+    entry.can_report_late = (
+        assignment.checked_in_at is None and assignment.called_off_at is None
+        and check_in_open(assignment, now)
+    )
 
 
 __all__ = [

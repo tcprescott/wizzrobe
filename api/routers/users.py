@@ -24,13 +24,14 @@ from api.schemas.user_actions import (
 from api.schemas.users import UserDetailResponse, UserListItem
 from application.services import (
     EventService,
+    FeatureFlagService,
     MemberDetailsService,
     TenantMembershipService,
     TournamentService,
     UserService,
 )
 from application.services.auth_service import AuthService
-from models import Role, User
+from models import FeatureFlag, Role, User
 
 router = APIRouter(prefix="/users", tags=["Users"], route_class=ServiceErrorRoute)
 
@@ -155,6 +156,10 @@ async def update_me(body: UserSelfUpdate, actor: User = Depends(require_write_ac
         display_name=body.display_name,
         pronouns=body.pronouns,
         dm_notifications=body.dm_notifications,
+        matcherino_username=(
+            body.matcherino_username
+            if await FeatureFlagService().is_enabled(FeatureFlag.PAYOUTS) else None
+        ),
     )
     return await _to_detail(actor)
 

@@ -28,6 +28,9 @@ from api.routers import (
     matches,
     me,
     memberships,
+    my_developer,
+    my_notifications,
+    my_profile,
     my_schedule,
     notification_settings,
     notifications,
@@ -76,6 +79,10 @@ router.include_router(stages.router)
 router.include_router(stage_actions.router)
 router.include_router(me.router)
 router.include_router(my_schedule.router)
+router.include_router(my_profile.router)
+router.include_router(my_notifications.router)
+router.include_router(my_developer.apps_router)
+router.include_router(my_developer.webhooks_router)
 router.include_router(users.router)
 router.include_router(memberships.router)
 # Include before /users/{user_id}/availability, or `me` hits the int param and 422s.
