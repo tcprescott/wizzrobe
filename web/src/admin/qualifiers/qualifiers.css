@@ -1,0 +1,119 @@
+.q-queue-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.q-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+}
+.q-card__head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-areas: 'text verdict menu';
+  align-items: center;
+  column-gap: var(--space-2);
+}
+.q-card__text {
+  grid-area: text;
+}
+.q-card__verdict {
+  grid-area: verdict;
+  display: inline-flex;
+  gap: var(--space-2);
+}
+.q-card__menu {
+  grid-area: menu;
+}
+@media (max-width: 599px) {
+  .q-card__head {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: 'text menu' 'verdict verdict';
+    row-gap: var(--space-2);
+  }
+}
+.q-card__extra {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+}
+.q-time,
+.q-score {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.q-score {
+  flex: none;
+  font-weight: 600;
+}
+.q-note {
+  font-style: italic;
+}
+.q-rank {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: var(--radius-pill);
+  background: var(--surface-sunken);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--fg-secondary);
+}
+.q-link {
+  color: var(--link);
+  font-weight: 600;
+  font-size: var(--text-sm);
+}
+.q-url {
+  overflow-wrap: anywhere;
+  color: var(--link);
+}
+.q-setup {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.q-setup li + li {
+  border-top: 1px solid var(--border-subtle);
+}
+.q-setup__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 12px 16px;
+  color: var(--fg);
+  text-decoration: none;
+}
+.q-setup__row:hover {
+  background: var(--surface-alt);
+}
+.q-setup__row > .t-row__text {
+  flex: 1;
+}
+.q-setup__row > svg {
+  flex: none;
+  color: var(--fg-muted);
+}
+.q-sub {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.q-sub__back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  align-self: flex-start;
+  color: var(--link);
+  font-weight: 600;
+  text-decoration: none;
+}
+.q-sub__title {
+  margin: 0;
+  font-size: var(--text-lg);
+}
