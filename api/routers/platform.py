@@ -18,6 +18,12 @@ from fastapi import APIRouter, Depends, Query, status
 
 from api.dependencies import ServiceErrorRoute, require_super_admin, require_super_admin_write
 from api.schemas.platform import (
+    AppDisableRequest,
+    BrowserMonitoringSettingsRequest,
+    BrowserMonitoringSettingsResponse,
+    IgnoreRuleCreateRequest,
+    IgnoreRuleResponse,
+    PlatformAppResponse,
     CommunityCreateRequest,
     CommunityDetailResponse,
     CommunityFeatureResponse,
@@ -38,12 +44,15 @@ from api.schemas.platform import (
 )
 from application.errors import require_found
 from application.services import (
+    BrowserMonitoringService,
     FeatureFlagService,
     LogLevelService,
+    OAuthAppService,
     PlatformAdminService,
     TenantService,
 )
-from models import FeatureFlag, User
+from application.utils.browser_monitoring import SAMPLE_RATES
+from models import FeatureFlag, OAuthClientType, User
 
 router = APIRouter(prefix="/platform", route_class=ServiceErrorRoute)
 
@@ -52,6 +61,8 @@ _COMMUNITIES: List[Union[str, Enum]] = ["Communities"]
 _USERS: List[Union[str, Enum]] = ["Platform users"]
 _GROUPS: List[Union[str, Enum]] = ["Feature groups"]
 _LOGGING: List[Union[str, Enum]] = ["Log levels"]
+_APPS: List[Union[str, Enum]] = ["Platform apps"]
+_MONITORING: List[Union[str, Enum]] = ["Browser monitoring"]
 
 
 async def _detail(actor: User, tenant_id: int) -> CommunityDetailResponse:
@@ -374,3 +385,153 @@ async def reset_log_level(
     service = LogLevelService()
     await service.clear(actor, logger)
     return [LogLevelResponse.from_row(r) for r in await service.list_rows(actor)]
+
+
+async def _apps(actor: User) -> List[PlatformAppResponse]:
+    service = OAuthAppService()
+    apps = await service.list_all_apps(actor)
+    reach = await service.platform_reach(actor)
+    return [
+        PlatformAppResponse(
+            id=a.id,
+            name=a.name,
+            owner=a.owner.preferred_name,
+            kind='website' if a.client_type == OAuthClientType.CONFIDENTIAL else 'device',
+            first_party=bool(a.first_party),
+            people=reach.get(a.id, (0, 0))[0],
+            communities=reach.get(a.id, (0, 0))[1],
+            disabled=a.disabled_at is not None,
+            disabled_reason=a.disabled_reason if a.disabled_at else None,
+            disabled_at=a.disabled_at,
+        )
+        for a in apps
+    ]
+
+
+@router.get(
+    "/apps",
+    tags=_APPS,
+    response_model=List[PlatformAppResponse],
+    summary="List every registered app",
+    description="Every app people registered to sign in with Wizzrobe, with how many people and communities use it." + _WHO,
+)
+async def list_apps(actor: User = Depends(require_super_admin)):
+    return await _apps(actor)
+
+
+@router.post(
+    "/apps/{app_id}/disable",
+    tags=_APPS,
+    response_model=List[PlatformAppResponse],
+    summary="Disable an app everywhere",
+    description=(
+        "Stops the app in every community at once. Its connections are kept, so enabling it again "
+        "brings them back. The owner sees the reason. Returns every app afterwards." + _WHO
+    ),
+)
+async def disable_app(app_id: int, payload: AppDisableRequest, actor: User = Depends(require_super_admin_write)):
+    await OAuthAppService().disable_app(actor, app_id, payload.reason)
+    return await _apps(actor)
+
+
+@router.post(
+    "/apps/{app_id}/enable",
+    tags=_APPS,
+    response_model=List[PlatformAppResponse],
+    summary="Enable a disabled app",
+    description="Switches a disabled app back on; its people's connections work again. Returns every app afterwards." + _WHO,
+)
+async def enable_app(app_id: int, actor: User = Depends(require_super_admin_write)):
+    await OAuthAppService().enable_app(actor, app_id)
+    return await _apps(actor)
+
+
+async def _monitoring(actor: User) -> BrowserMonitoringSettingsResponse:
+    view = await BrowserMonitoringService().get_settings(actor)
+    return BrowserMonitoringSettingsResponse(
+        enabled=view.enabled,
+        replay_on_error=view.replay_on_error,
+        sample_rate=view.sample_rate,
+        sample_rates=list(SAMPLE_RATES),
+        updated_by=view.updated_by,
+        updated_at=view.updated_at,
+    )
+
+
+async def _rules(actor: User) -> List[IgnoreRuleResponse]:
+    return [
+        IgnoreRuleResponse(
+            id=r.id, pattern=r.pattern, match=r.match, builtin=r.builtin,
+            created_by=r.created_by, created_at=r.created_at,
+        )
+        for r in await BrowserMonitoringService().list_rules(actor)
+    ]
+
+
+@router.get(
+    "/browser-monitoring",
+    tags=_MONITORING,
+    response_model=BrowserMonitoringSettingsResponse,
+    summary="Browser error reporting settings",
+    description="Whether browsers report errors to Sentry, with replays, and what share is sent." + _WHO,
+)
+async def get_browser_monitoring(actor: User = Depends(require_super_admin)):
+    return await _monitoring(actor)
+
+
+@router.put(
+    "/browser-monitoring",
+    tags=_MONITORING,
+    response_model=BrowserMonitoringSettingsResponse,
+    summary="Change browser error reporting",
+    description=(
+        "Applies to pages opened from now on. Fails with 400 when the share isn't one of "
+        "`sample_rates`." + _WHO
+    ),
+)
+async def update_browser_monitoring(
+    payload: BrowserMonitoringSettingsRequest, actor: User = Depends(require_super_admin_write),
+):
+    await BrowserMonitoringService().update_settings(
+        actor, enabled=payload.enabled, replay_on_error=payload.replay_on_error, sample_rate=payload.sample_rate,
+    )
+    return await _monitoring(actor)
+
+
+@router.get(
+    "/browser-monitoring/rules",
+    tags=_MONITORING,
+    response_model=List[IgnoreRuleResponse],
+    summary="List browser error ignore rules",
+    description="Rules super admins added, oldest first, then the built-in ones." + _WHO,
+)
+async def list_ignore_rules(actor: User = Depends(require_super_admin)):
+    return await _rules(actor)
+
+
+@router.post(
+    "/browser-monitoring/rules",
+    tags=_MONITORING,
+    response_model=List[IgnoreRuleResponse],
+    status_code=status.HTTP_201_CREATED,
+    summary="Ignore a browser error",
+    description=(
+        "Drops browser errors whose message (or a script URL in their stack) contains the text. "
+        "Fails with 400 for too short or long a pattern, or one that already exists. Returns every rule." + _WHO
+    ),
+)
+async def add_ignore_rule(payload: IgnoreRuleCreateRequest, actor: User = Depends(require_super_admin_write)):
+    await BrowserMonitoringService().add_rule(actor, payload.pattern, payload.match)
+    return await _rules(actor)
+
+
+@router.delete(
+    "/browser-monitoring/rules/{rule_id}",
+    tags=_MONITORING,
+    response_model=List[IgnoreRuleResponse],
+    summary="Stop ignoring a browser error",
+    description="Removes an added rule; built-in rules can't be removed. Returns every rule afterwards." + _WHO,
+)
+async def remove_ignore_rule(rule_id: int, actor: User = Depends(require_super_admin_write)):
+    await BrowserMonitoringService().remove_rule(actor, rule_id)
+    return await _rules(actor)

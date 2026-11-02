@@ -13,6 +13,7 @@ from api.dependencies import (
     require_admin,
     require_api_actor,
     require_identity,
+    resolve_identity,
     require_staff,
     require_staff_write,
     require_super_admin,
@@ -76,7 +77,7 @@ def test_every_route_has_a_scope_decision():
 def test_public_entries_are_exactly_the_tokenless_routes():
     wrong = [
         key for key, _, calls in _routes()
-        if (ROUTE_SCOPES[key] is PUBLIC) != (resolve_token not in calls and require_identity not in calls)
+        if (ROUTE_SCOPES[key] is PUBLIC) != (resolve_token not in calls and require_identity not in calls and resolve_identity not in calls)
     ]
     assert not wrong, 'PUBLIC must list exactly the routes that take no token:\n' + '\n'.join(wrong)
 

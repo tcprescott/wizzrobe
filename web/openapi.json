@@ -409,6 +409,21 @@
         "title": "ApiTokenResponse",
         "type": "object"
       },
+      "AppDisableRequest": {
+        "properties": {
+          "reason": {
+            "description": "Why it's being switched off. Shown to the app's owner.",
+            "maxLength": 300,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "AppDisableRequest",
+        "type": "object"
+      },
       "AssignRequest": {
         "properties": {
           "user_id": {
@@ -2743,6 +2758,92 @@
           "approved"
         ],
         "title": "BroadcasterInfo",
+        "type": "object"
+      },
+      "BrowserMonitoringSettingsRequest": {
+        "properties": {
+          "enabled": {
+            "description": "Report browser errors to Sentry.",
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "replay_on_error": {
+            "description": "Attach a masked session replay to each error.",
+            "title": "Replay On Error",
+            "type": "boolean"
+          },
+          "sample_rate": {
+            "description": "Share of errors sent: 1.0, 0.5, 0.25 or 0.1.",
+            "title": "Sample Rate",
+            "type": "number"
+          }
+        },
+        "required": [
+          "enabled",
+          "replay_on_error",
+          "sample_rate"
+        ],
+        "title": "BrowserMonitoringSettingsRequest",
+        "type": "object"
+      },
+      "BrowserMonitoringSettingsResponse": {
+        "properties": {
+          "enabled": {
+            "description": "Whether people's browsers report errors to Sentry at all.",
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "replay_on_error": {
+            "description": "Whether an error carries a masked session replay.",
+            "title": "Replay On Error",
+            "type": "boolean"
+          },
+          "sample_rate": {
+            "description": "Share of browser errors sent, one of `sample_rates`.",
+            "title": "Sample Rate",
+            "type": "number"
+          },
+          "sample_rates": {
+            "description": "The shares that may be picked.",
+            "items": {
+              "type": "number"
+            },
+            "title": "Sample Rates",
+            "type": "array"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When (UTC). Null when never changed.",
+            "title": "Updated At"
+          },
+          "updated_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Who last changed these. Null when never changed.",
+            "title": "Updated By"
+          }
+        },
+        "required": [
+          "enabled",
+          "replay_on_error",
+          "sample_rate",
+          "sample_rates"
+        ],
+        "title": "BrowserMonitoringSettingsResponse",
         "type": "object"
       },
       "CallOffRequest": {
@@ -6732,6 +6833,90 @@
         "title": "HomeResponse",
         "type": "object"
       },
+      "IgnoreRuleCreateRequest": {
+        "properties": {
+          "match": {
+            "default": "message",
+            "description": "`message` or `url`.",
+            "title": "Match",
+            "type": "string"
+          },
+          "pattern": {
+            "description": "A distinctive part of the error, 3 to 200 characters.",
+            "maxLength": 200,
+            "title": "Pattern",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pattern"
+        ],
+        "title": "IgnoreRuleCreateRequest",
+        "type": "object"
+      },
+      "IgnoreRuleResponse": {
+        "properties": {
+          "builtin": {
+            "description": "Whether it ships with Wizzrobe.",
+            "title": "Builtin",
+            "type": "boolean"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When (UTC). Null for a built-in.",
+            "title": "Created At"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Who added it. Null for a built-in.",
+            "title": "Created By"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Rule id. Null for a built-in rule, which can't be removed.",
+            "title": "Id"
+          },
+          "match": {
+            "description": "Where to look: `message` (the error message) or `url` (a script URL in the stack).",
+            "title": "Match",
+            "type": "string"
+          },
+          "pattern": {
+            "description": "Text that, when found, drops the error.",
+            "title": "Pattern",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pattern",
+          "match",
+          "builtin"
+        ],
+        "title": "IgnoreRuleResponse",
+        "type": "object"
+      },
       "JoinRequestResponse": {
         "properties": {
           "created_at": {
@@ -10070,6 +10255,87 @@
           "max_webhooks"
         ],
         "title": "PersonalWebhooksResponse",
+        "type": "object"
+      },
+      "PlatformAppResponse": {
+        "properties": {
+          "communities": {
+            "description": "In how many communities.",
+            "title": "Communities",
+            "type": "integer"
+          },
+          "disabled": {
+            "description": "Whether it's switched off everywhere.",
+            "title": "Disabled",
+            "type": "boolean"
+          },
+          "disabled_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When it was disabled (UTC). Null when active.",
+            "title": "Disabled At"
+          },
+          "disabled_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why it was disabled; the owner sees this. Null when active.",
+            "title": "Disabled Reason"
+          },
+          "first_party": {
+            "description": "Whether this is Wizzrobe's own app.",
+            "title": "First Party",
+            "type": "boolean"
+          },
+          "id": {
+            "description": "App id.",
+            "title": "Id",
+            "type": "integer"
+          },
+          "kind": {
+            "description": "`website` (holds a client secret) or `device` (public client, PKCE only).",
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "description": "App name.",
+            "title": "Name",
+            "type": "string"
+          },
+          "owner": {
+            "description": "Name of the person who registered it.",
+            "title": "Owner",
+            "type": "string"
+          },
+          "people": {
+            "description": "How many people have connected it.",
+            "title": "People",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "owner",
+          "kind",
+          "first_party",
+          "people",
+          "communities",
+          "disabled"
+        ],
+        "title": "PlatformAppResponse",
         "type": "object"
       },
       "PlatformUserResponse": {
@@ -43776,6 +44042,625 @@
         ]
       }
     },
+    "/api/platform/apps": {
+      "get": {
+        "description": "Every app people registered to sign in with Wizzrobe, with how many people and communities use it.\n\n**Who can call this:** Super admins only (platform).\n\n**Apps:** can't call this; it needs a personal API token.",
+        "operationId": "list_apps_api_platform_apps_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PlatformAppResponse"
+                  },
+                  "title": "Response List Apps Api Platform Apps Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List every registered app",
+        "tags": [
+          "Platform apps"
+        ]
+      }
+    },
+    "/api/platform/apps/{app_id}/disable": {
+      "post": {
+        "description": "Stops the app in every community at once. Its connections are kept, so enabling it again brings them back. The owner sees the reason. Returns every app afterwards.\n\n**Who can call this:** Super admins only (platform).\n\n**Token:** not needed.  \n**Apps:** can't call this; it needs a personal API token.",
+        "operationId": "disable_app_api_platform_apps__app_id__disable_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "app_id",
+            "required": true,
+            "schema": {
+              "title": "App Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppDisableRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PlatformAppResponse"
+                  },
+                  "title": "Response Disable App Api Platform Apps  App Id  Disable Post",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Disable an app everywhere",
+        "tags": [
+          "Platform apps"
+        ]
+      }
+    },
+    "/api/platform/apps/{app_id}/enable": {
+      "post": {
+        "description": "Switches a disabled app back on; its people's connections work again. Returns every app afterwards.\n\n**Who can call this:** Super admins only (platform).\n\n**Token:** not needed.  \n**Apps:** can't call this; it needs a personal API token.",
+        "operationId": "enable_app_api_platform_apps__app_id__enable_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "app_id",
+            "required": true,
+            "schema": {
+              "title": "App Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PlatformAppResponse"
+                  },
+                  "title": "Response Enable App Api Platform Apps  App Id  Enable Post",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Enable a disabled app",
+        "tags": [
+          "Platform apps"
+        ]
+      }
+    },
+    "/api/platform/browser-monitoring": {
+      "get": {
+        "description": "Whether browsers report errors to Sentry, with replays, and what share is sent.\n\n**Who can call this:** Super admins only (platform).\n\n**Apps:** can't call this; it needs a personal API token.",
+        "operationId": "get_browser_monitoring_api_platform_browser_monitoring_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrowserMonitoringSettingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Browser error reporting settings",
+        "tags": [
+          "Browser monitoring"
+        ]
+      },
+      "put": {
+        "description": "Applies to pages opened from now on. Fails with 400 when the share isn't one of `sample_rates`.\n\n**Who can call this:** Super admins only (platform).\n\n**Token:** not needed.  \n**Apps:** can't call this; it needs a personal API token.",
+        "operationId": "update_browser_monitoring_api_platform_browser_monitoring_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BrowserMonitoringSettingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrowserMonitoringSettingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Change browser error reporting",
+        "tags": [
+          "Browser monitoring"
+        ]
+      }
+    },
+    "/api/platform/browser-monitoring/rules": {
+      "get": {
+        "description": "Rules super admins added, oldest first, then the built-in ones.\n\n**Who can call this:** Super admins only (platform).\n\n**Apps:** can't call this; it needs a personal API token.",
+        "operationId": "list_ignore_rules_api_platform_browser_monitoring_rules_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/IgnoreRuleResponse"
+                  },
+                  "title": "Response List Ignore Rules Api Platform Browser Monitoring Rules Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List browser error ignore rules",
+        "tags": [
+          "Browser monitoring"
+        ]
+      },
+      "post": {
+        "description": "Drops browser errors whose message (or a script URL in their stack) contains the text. Fails with 400 for too short or long a pattern, or one that already exists. Returns every rule.\n\n**Who can call this:** Super admins only (platform).\n\n**Token:** not needed.  \n**Apps:** can't call this; it needs a personal API token.",
+        "operationId": "add_ignore_rule_api_platform_browser_monitoring_rules_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IgnoreRuleCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/IgnoreRuleResponse"
+                  },
+                  "title": "Response Add Ignore Rule Api Platform Browser Monitoring Rules Post",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Ignore a browser error",
+        "tags": [
+          "Browser monitoring"
+        ]
+      }
+    },
+    "/api/platform/browser-monitoring/rules/{rule_id}": {
+      "delete": {
+        "description": "Removes an added rule; built-in rules can't be removed. Returns every rule afterwards.\n\n**Who can call this:** Super admins only (platform).\n\n**Token:** not needed.  \n**Apps:** can't call this; it needs a personal API token.",
+        "operationId": "remove_ignore_rule_api_platform_browser_monitoring_rules__rule_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rule_id",
+            "required": true,
+            "schema": {
+              "title": "Rule Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/IgnoreRuleResponse"
+                  },
+                  "title": "Response Remove Ignore Rule Api Platform Browser Monitoring Rules  Rule Id  Delete",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Stop ignoring a browser error",
+        "tags": [
+          "Browser monitoring"
+        ]
+      }
+    },
     "/api/platform/communities": {
       "get": {
         "description": "Every community on the platform, switched off ones included, with its feature group and setup readiness.\n\n**Who can call this:** Super admins only (platform).\n\n**Apps:** can't call this; it needs a personal API token.",
@@ -43847,7 +44732,7 @@
         ]
       },
       "post": {
-        "description": "Creates a switched-on community with no Staff; grant its first with `POST /platform/communities/{tenant_id}/staff`. Fails with 400 when the name is blank, the slug is malformed, reserved or taken, or the domain is malformed, the platform's own host or taken.\n\n**Who can call this:** Super admins only (platform).\n\n**Token:** needs a token that isn't read-only.  \n**Apps:** can't call this; it needs a personal API token.",
+        "description": "Creates a switched-on community with no Staff; grant its first with `POST /platform/communities/{tenant_id}/staff`. Fails with 400 when the name is blank, the slug is malformed, reserved or taken, or the domain is malformed, the platform's own host or taken.\n\n**Who can call this:** Super admins only (platform).\n\n**Token:** not needed.  \n**Apps:** can't call this; it needs a personal API token.",
         "operationId": "create_community_api_platform_communities_post",
         "requestBody": {
           "content": {
@@ -43879,26 +44764,6 @@
               }
             },
             "description": "A rule refused the request. `detail` says which."
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "No token, or the token is unknown, expired or revoked."
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
           },
           "404": {
             "content": {
@@ -44030,7 +44895,7 @@
         ]
       },
       "patch": {
-        "description": "Edits a community; omitted fields keep their value and `null` clears the domain or Discord server. Setting `is_active` to false hides the community from everyone, its own Staff included. Fails with 400 on the same checks as creating one.\n\n**Who can call this:** Super admins only (platform).\n\n**Token:** needs a token that isn't read-only.  \n**Apps:** can't call this; it needs a personal API token.",
+        "description": "Edits a community; omitted fields keep their value and `null` clears the domain or Discord server. Setting `is_active` to false hides the community from everyone, its own Staff included. Fails with 400 on the same checks as creating one.\n\n**Who can call this:** Super admins only (platform).\n\n**Token:** not needed.  \n**Apps:** can't call this; it needs a personal API token.",
         "operationId": "update_community_api_platform_communities__tenant_id__patch",
         "parameters": [
           {
@@ -44073,26 +44938,6 @@
               }
             },
             "description": "A rule refused the request. `detail` says which."
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "No token, or the token is unknown, expired or revoked."
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
           },
           "404": {
             "content": {
@@ -44138,7 +44983,7 @@
     },
     "/api/platform/communities/{tenant_id}/feature-group": {
       "put": {
-        "description": "Sets the community's feature group (tier), or puts it back on the default group with `null`. Features can switch on or off for it straight away. Returns its features afterwards.\n\n**Who can call this:** Super admins only (platform).\n\n**Token:** needs a token that isn't read-only.  \n**Apps:** can't call this; it needs a personal API token.",
+        "description": "Sets the community's feature group (tier), or puts it back on the default group with `null`. Features can switch on or off for it straight away. Returns its features afterwards.\n\n**Who can call this:** Super admins only (platform).\n\n**Token:** not needed.  \n**Apps:** can't call this; it needs a personal API token.",
         "operationId": "assign_feature_group_api_platform_communities__tenant_id__feature_group_put",
         "parameters": [
           {
@@ -44185,26 +45030,6 @@
               }
             },
             "description": "A rule refused the request. `detail` says which."
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "No token, or the token is unknown, expired or revoked."
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
           },
           "404": {
             "content": {
@@ -44342,7 +45167,7 @@
     },
     "/api/platform/communities/{tenant_id}/features/{flag}": {
       "put": {
-        "description": "Forces one feature available (`true`) or off (`false`) for this community whatever its group says, or follows the group again (`null`). The community's own on/off choice is left alone. Fails with 400 for an unknown feature key. Returns its features afterwards.\n\n**Who can call this:** Super admins only (platform).\n\n**Token:** needs a token that isn't read-only.  \n**Apps:** can't call this; it needs a personal API token.",
+        "description": "Forces one feature available (`true`) or off (`false`) for this community whatever its group says, or follows the group again (`null`). The community's own on/off choice is left alone. Fails with 400 for an unknown feature key. Returns its features afterwards.\n\n**Who can call this:** Super admins only (platform).\n\n**Token:** not needed.  \n**Apps:** can't call this; it needs a personal API token.",
         "operationId": "override_feature_api_platform_communities__tenant_id__features__flag__put",
         "parameters": [
           {
@@ -44399,26 +45224,6 @@
             },
             "description": "A rule refused the request. `detail` says which."
           },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "No token, or the token is unknown, expired or revoked."
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
-          },
           "404": {
             "content": {
               "application/json": {
@@ -44463,7 +45268,7 @@
     },
     "/api/platform/communities/{tenant_id}/staff": {
       "post": {
-        "description": "Makes the account a member and Staff of the community, the way a community gets its first admin. Returns the community's Staff afterwards. Doing it twice changes nothing.\n\n**Who can call this:** Super admins only (platform).\n\n**Token:** needs a token that isn't read-only.  \n**Apps:** can't call this; it needs a personal API token.",
+        "description": "Makes the account a member and Staff of the community, the way a community gets its first admin. Returns the community's Staff afterwards. Doing it twice changes nothing.\n\n**Who can call this:** Super admins only (platform).\n\n**Token:** not needed.  \n**Apps:** can't call this; it needs a personal API token.",
         "operationId": "grant_staff_api_platform_communities__tenant_id__staff_post",
         "parameters": [
           {
@@ -44510,26 +45315,6 @@
               }
             },
             "description": "A rule refused the request. `detail` says which."
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "No token, or the token is unknown, expired or revoked."
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
           },
           "404": {
             "content": {
@@ -44644,7 +45429,7 @@
         ]
       },
       "post": {
-        "description": "Creates a feature group. Fails with 400 when the name is blank or taken.\n\n**Who can call this:** Super admins only (platform).\n\n**Token:** needs a token that isn't read-only.  \n**Apps:** can't call this; it needs a personal API token.",
+        "description": "Creates a feature group. Fails with 400 when the name is blank or taken.\n\n**Who can call this:** Super admins only (platform).\n\n**Token:** not needed.  \n**Apps:** can't call this; it needs a personal API token.",
         "operationId": "create_feature_group_api_platform_feature_groups_post",
         "requestBody": {
           "content": {
@@ -44676,26 +45461,6 @@
               }
             },
             "description": "A rule refused the request. `detail` says which."
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "No token, or the token is unknown, expired or revoked."
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
           },
           "404": {
             "content": {
@@ -44741,7 +45506,7 @@
     },
     "/api/platform/feature-groups/{group_id}": {
       "delete": {
-        "description": "Deletes a group. Its communities fall back to the default group straight away, which can switch features off for them. Fails with 400 for the only default group.\n\n**Who can call this:** Super admins only (platform).\n\n**Token:** needs a token that isn't read-only.  \n**Apps:** can't call this; it needs a personal API token.",
+        "description": "Deletes a group. Its communities fall back to the default group straight away, which can switch features off for them. Fails with 400 for the only default group.\n\n**Who can call this:** Super admins only (platform).\n\n**Token:** not needed.  \n**Apps:** can't call this; it needs a personal API token.",
         "operationId": "delete_feature_group_api_platform_feature_groups__group_id__delete",
         "parameters": [
           {
@@ -44767,26 +45532,6 @@
               }
             },
             "description": "A rule refused the request. `detail` says which."
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "No token, or the token is unknown, expired or revoked."
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
           },
           "404": {
             "content": {
@@ -44830,7 +45575,7 @@
         ]
       },
       "patch": {
-        "description": "Edits a group; omitted fields keep their value. Communities on it gain or lose features straight away. Fails with 400 when the name is blank or taken, or when it would leave the platform with no default group.\n\n**Who can call this:** Super admins only (platform).\n\n**Token:** needs a token that isn't read-only.  \n**Apps:** can't call this; it needs a personal API token.",
+        "description": "Edits a group; omitted fields keep their value. Communities on it gain or lose features straight away. Fails with 400 when the name is blank or taken, or when it would leave the platform with no default group.\n\n**Who can call this:** Super admins only (platform).\n\n**Token:** not needed.  \n**Apps:** can't call this; it needs a personal API token.",
         "operationId": "update_feature_group_api_platform_feature_groups__group_id__patch",
         "parameters": [
           {
@@ -44873,26 +45618,6 @@
               }
             },
             "description": "A rule refused the request. `detail` says which."
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "No token, or the token is unknown, expired or revoked."
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
           },
           "404": {
             "content": {
@@ -44938,7 +45663,7 @@
     },
     "/api/platform/log-levels": {
       "delete": {
-        "description": "Drops the level set on one logger so it inherits its parent's again. Does nothing when none was set. Returns every logger afterwards.\n\n**Who can call this:** Super admins only (platform).\n\n**Token:** needs a token that isn't read-only.  \n**Apps:** can't call this; it needs a personal API token.",
+        "description": "Drops the level set on one logger so it inherits its parent's again. Does nothing when none was set. Returns every logger afterwards.\n\n**Who can call this:** Super admins only (platform).\n\n**Token:** not needed.  \n**Apps:** can't call this; it needs a personal API token.",
         "operationId": "reset_log_level_api_platform_log_levels_delete",
         "parameters": [
           {
@@ -44977,26 +45702,6 @@
               }
             },
             "description": "A rule refused the request. `detail` says which."
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "No token, or the token is unknown, expired or revoked."
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
           },
           "404": {
             "content": {
@@ -45109,7 +45814,7 @@
         ]
       },
       "put": {
-        "description": "Changes how much one logger writes to the container log, straight away and across restarts until reset. Sentry still gets INFO and up whatever you pick. Fails with 400 for a malformed logger name or unknown level. Returns every logger afterwards.\n\n**Who can call this:** Super admins only (platform).\n\n**Token:** needs a token that isn't read-only.  \n**Apps:** can't call this; it needs a personal API token.",
+        "description": "Changes how much one logger writes to the container log, straight away and across restarts until reset. Sentry still gets INFO and up whatever you pick. Fails with 400 for a malformed logger name or unknown level. Returns every logger afterwards.\n\n**Who can call this:** Super admins only (platform).\n\n**Token:** not needed.  \n**Apps:** can't call this; it needs a personal API token.",
         "operationId": "set_log_level_api_platform_log_levels_put",
         "requestBody": {
           "content": {
@@ -45145,26 +45850,6 @@
               }
             },
             "description": "A rule refused the request. `detail` says which."
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "No token, or the token is unknown, expired or revoked."
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
           },
           "404": {
             "content": {
@@ -45449,7 +46134,7 @@
     },
     "/api/platform/users/{user_id}/active": {
       "put": {
-        "description": "Deactivating signs the account out everywhere and stops it signing in to any community until it's reactivated. Fails with 400 for your own account.\n\n**Who can call this:** Super admins only (platform).\n\n**Token:** needs a token that isn't read-only.  \n**Apps:** can't call this; it needs a personal API token.",
+        "description": "Deactivating signs the account out everywhere and stops it signing in to any community until it's reactivated. Fails with 400 for your own account.\n\n**Who can call this:** Super admins only (platform).\n\n**Token:** not needed.  \n**Apps:** can't call this; it needs a personal API token.",
         "operationId": "set_platform_user_active_api_platform_users__user_id__active_put",
         "parameters": [
           {
@@ -45492,26 +46177,6 @@
               }
             },
             "description": "A rule refused the request. `detail` says which."
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "No token, or the token is unknown, expired or revoked."
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
           },
           "404": {
             "content": {
@@ -47443,7 +48108,7 @@
         ]
       },
       "post": {
-        "description": "Registers a bot for a racetime.gg category. Communities can't use it until they're granted access. Fails with 400 when the category, name, client id or client secret is missing, or the category already has a bot.\n\n**Who can call this:** Super admins only (platform).\n\n**Token:** needs a token that isn't read-only.  \n**Apps:** can't call this; it needs a personal API token.",
+        "description": "Registers a bot for a racetime.gg category. Communities can't use it until they're granted access. Fails with 400 when the category, name, client id or client secret is missing, or the category already has a bot.\n\n**Who can call this:** Super admins only (platform).\n\n**Token:** not needed.  \n**Apps:** can't call this; it needs a personal API token.",
         "operationId": "create_bot_api_racetime_bots_post",
         "requestBody": {
           "content": {
@@ -47475,26 +48140,6 @@
               }
             },
             "description": "A rule refused the request. `detail` says which."
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "No token, or the token is unknown, expired or revoked."
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
           },
           "404": {
             "content": {
@@ -47611,7 +48256,7 @@
     },
     "/api/racetime-bots/{bot_id}": {
       "delete": {
-        "description": "Removes a bot. Rooms it opened keep their history; tournaments that used it are left without a bot and can't open rooms until another is set.\n\n**Who can call this:** Super admins only (platform).\n\n**Token:** needs a token that isn't read-only.  \n**Apps:** can't call this; it needs a personal API token.",
+        "description": "Removes a bot. Rooms it opened keep their history; tournaments that used it are left without a bot and can't open rooms until another is set.\n\n**Who can call this:** Super admins only (platform).\n\n**Token:** not needed.  \n**Apps:** can't call this; it needs a personal API token.",
         "operationId": "delete_bot_api_racetime_bots__bot_id__delete",
         "parameters": [
           {
@@ -47637,26 +48282,6 @@
               }
             },
             "description": "A rule refused the request. `detail` says which."
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "No token, or the token is unknown, expired or revoked."
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
           },
           "404": {
             "content": {
@@ -47786,7 +48411,7 @@
         ]
       },
       "patch": {
-        "description": "Edits a bot; omitted fields keep their value, and the stored secret is replaced only when you send a new one. Fails with 400 when the category, name or client id is set to empty, or the category belongs to another bot.\n\n**Who can call this:** Super admins only (platform).\n\n**Token:** needs a token that isn't read-only.  \n**Apps:** can't call this; it needs a personal API token.",
+        "description": "Edits a bot; omitted fields keep their value, and the stored secret is replaced only when you send a new one. Fails with 400 when the category, name or client id is set to empty, or the category belongs to another bot.\n\n**Who can call this:** Super admins only (platform).\n\n**Token:** not needed.  \n**Apps:** can't call this; it needs a personal API token.",
         "operationId": "update_bot_api_racetime_bots__bot_id__patch",
         "parameters": [
           {
@@ -47829,26 +48454,6 @@
               }
             },
             "description": "A rule refused the request. `detail` says which."
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "No token, or the token is unknown, expired or revoked."
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
           },
           "404": {
             "content": {
@@ -47984,7 +48589,7 @@
         ]
       },
       "post": {
-        "description": "Lets a community use this bot for its tournaments' race rooms. Granting again re-activates a suspended grant instead of adding a second one.\n\n**Who can call this:** Super admins only (platform).\n\n**Token:** needs a token that isn't read-only.  \n**Apps:** can't call this; it needs a personal API token.",
+        "description": "Lets a community use this bot for its tournaments' race rooms. Granting again re-activates a suspended grant instead of adding a second one.\n\n**Who can call this:** Super admins only (platform).\n\n**Token:** not needed.  \n**Apps:** can't call this; it needs a personal API token.",
         "operationId": "grant_tenant_api_racetime_bots__bot_id__grants_post",
         "parameters": [
           {
@@ -48027,26 +48632,6 @@
               }
             },
             "description": "A rule refused the request. `detail` says which."
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "No token, or the token is unknown, expired or revoked."
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
           },
           "404": {
             "content": {
@@ -48092,7 +48677,7 @@
     },
     "/api/racetime-bots/{bot_id}/grants/{tenant_id}": {
       "delete": {
-        "description": "Stops a community using this bot. Does nothing if the community had no grant.\n\n**Who can call this:** Super admins only (platform).\n\n**Token:** needs a token that isn't read-only.  \n**Apps:** can't call this; it needs a personal API token.",
+        "description": "Stops a community using this bot. Does nothing if the community had no grant.\n\n**Who can call this:** Super admins only (platform).\n\n**Token:** not needed.  \n**Apps:** can't call this; it needs a personal API token.",
         "operationId": "revoke_tenant_api_racetime_bots__bot_id__grants__tenant_id__delete",
         "parameters": [
           {
@@ -48127,26 +48712,6 @@
               }
             },
             "description": "A rule refused the request. `detail` says which."
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "No token, or the token is unknown, expired or revoked."
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
           },
           "404": {
             "content": {
@@ -48192,7 +48757,7 @@
     },
     "/api/racetime-bots/{bot_id}/restart": {
       "post": {
-        "description": "Drops the bot's racetime.gg connection and reconnects it, for every community using it. An inactive bot is disconnected and stays off. Fails with 400 when the racetime bot runtime is switched off on this server.\n\n**Who can call this:** Super admins only (platform).\n\n**Token:** needs a token that isn't read-only.  \n**Apps:** can't call this; it needs a personal API token.",
+        "description": "Drops the bot's racetime.gg connection and reconnects it, for every community using it. An inactive bot is disconnected and stays off. Fails with 400 when the racetime bot runtime is switched off on this server.\n\n**Who can call this:** Super admins only (platform).\n\n**Token:** not needed.  \n**Apps:** can't call this; it needs a personal API token.",
         "operationId": "restart_bot_api_racetime_bots__bot_id__restart_post",
         "parameters": [
           {
@@ -48225,26 +48790,6 @@
               }
             },
             "description": "A rule refused the request. `detail` says which."
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "No token, or the token is unknown, expired or revoked."
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
           },
           "404": {
             "content": {
@@ -51099,7 +51644,7 @@
     },
     "/api/service-health/refresh": {
       "post": {
-        "description": "Re-checks every service now and returns the fresh results. Unlike the scheduled check, it sends no alerts.\n\n**Who can call this:** Super admins only (platform).\n\n**Token:** needs a token that isn't read-only.  \n**Apps:** can't call this; it needs a personal API token.",
+        "description": "Re-checks every service now and returns the fresh results. Unlike the scheduled check, it sends no alerts.\n\n**Who can call this:** Super admins only (platform).\n\n**Token:** not needed.  \n**Apps:** can't call this; it needs a personal API token.",
         "operationId": "refresh_health_api_service_health_refresh_post",
         "responses": {
           "200": {
@@ -51125,26 +51670,6 @@
               }
             },
             "description": "A rule refused the request. `detail` says which."
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "No token, or the token is unknown, expired or revoked."
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
           },
           "404": {
             "content": {
@@ -64945,6 +65470,14 @@
       "name": "Log levels"
     },
     {
+      "description": "Every app people registered to sign in with Wizzrobe, and switching one off.",
+      "name": "Platform apps"
+    },
+    {
+      "description": "Whether browsers report errors to Sentry, and the errors to ignore.",
+      "name": "Browser monitoring"
+    },
+    {
       "description": "racetime.gg bot accounts shared across communities.",
       "name": "Racetime bots"
     },
@@ -66644,6 +67177,8 @@
         "Platform users",
         "Feature groups",
         "Log levels",
+        "Platform apps",
+        "Browser monitoring",
         "Racetime bots",
         "Service health",
         "Health",

@@ -159,3 +159,17 @@ async def test_my_communities_refuses_a_third_party_grant():
     async with client(tokens['access_token']) as http:
         resp = await http.get('/api/me/communities')
     assert resp.status_code == 403
+
+
+async def test_platform_routes_need_no_community_and_stay_super_admin_only():
+    app = await _first_party_app()
+    root = await User.get(username='platform')
+    member = await create_community_member(username='member')
+    root_tokens = await _sign_in(root, app)
+    member_tokens = await _sign_in(member, app)
+    async with client(root_tokens['access_token']) as http:
+        resp = await http.get('/api/platform/communities')
+        assert resp.status_code == 200, resp.text
+        assert (await http.get('/api/platform/apps')).status_code == 200
+    async with client(member_tokens['access_token']) as http:
+        assert (await http.get('/api/platform/communities')).status_code == 403
