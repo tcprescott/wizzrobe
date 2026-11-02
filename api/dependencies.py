@@ -276,7 +276,7 @@ async def require_identity(
 async def _reader_tenant(request: Request, token: Optional[ApiToken]):
     """The community a reading call is about: the token's own, else the header's."""
     if token is not None and not _is_first_party(token):
-        return await TenantService.get_by_id(token.tenant_id)
+        return await TenantService.get_by_id(token.tenant_id) if token.tenant_id is not None else None
     slug = (request.headers.get(COMMUNITY_HEADER) or '').strip()
     if not slug:
         raise HTTPException(
