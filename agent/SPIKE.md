@@ -80,8 +80,10 @@ in-process agent.
    container `mpegts`, video encoder x264 (or NVENC) with
    `tune=zerolatency bf=0`, keyframe interval 1–2 s, audio encoder
    **libopus** (browsers' WebRTC can't play AAC and MediaMTX doesn't
-   transcode). Pick the audio track that leaves out commentary, so
-   commentators don't hear themselves late.
+   transcode). Use audio track 2 for this output. In Edit → Advanced Audio
+   Properties, untick track 2 on every commentary input (Discord, mics) and
+   leave game audio on it, so commentators never hear commentary back. The
+   agent can set this itself with `SetInputAudioTracks`, which is allowlisted.
 3. Add `clock.html` as a Browser source in the program scene.
 4. Start it from the console's **Start record** (that's the point: Wizzrobe
    starts it remotely).

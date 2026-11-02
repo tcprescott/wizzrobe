@@ -32,7 +32,9 @@ In:
 - Audio: volume, mute, meters, follow-the-runner.
 - Commentator stream: a second output from the broadcaster's OBS to a media
   server, played in the browser over WebRTC, for that match's approved
-  commentators, staff, Broadcast Techs and the broadcaster.
+  commentators, staff, Broadcast Techs and the broadcaster. Its audio never
+  includes commentary: the agent puts commentary inputs on the Twitch track
+  only and game/runner audio on the commentator track too.
 - Program control: scene switching, run of show, start/stop stream, Twitch
   title.
 
@@ -90,6 +92,8 @@ Phase 0 (spike):
       non-https browser source (unit tests).
 - [ ] The agent reconnects to the relay after the relay drops it, and to OBS
       after OBS restarts.
+- [ ] The commentator stream carries game audio and no commentary audio
+      (agent sets input audio tracks; checked by ear on the real-OBS run).
 - [ ] Commentator stream delay from OBS to a browser is measured through
       MediaMTX (and a managed service if tried), with numbers in SPIKE.md.
 
@@ -112,3 +116,5 @@ Later phases get their acceptance items with their mockups.
 - 2026-11-02 — Thomas picked "Spike now, build later": build phases 1 to 5
   after the app rebuild's admin screens land.
 - 2026-11-02 — Thomas picked Windows and Mac for the agent.
+- 2026-11-02 — Thomas: the commentator stream must exclude commentary audio
+  (a requirement, not a default).
