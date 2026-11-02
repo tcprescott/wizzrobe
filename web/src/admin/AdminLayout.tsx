@@ -24,7 +24,11 @@ function groupsFor(nav: AdminNav, adminBase: string): SectionGroup[] {
       label: area.label,
       icon: iconFor(area.icon),
       to: `${adminBase}/${area.slug}`,
-      sub: !AREA_ROUTES.has(area.slug) ? 'Not in the app yet' : left ? `${left} ${left === 1 ? 'step' : 'steps'} left` : undefined,
+      sub: !AREA_ROUTES.has(area.slug)
+        ? 'Not in the app yet'
+        : left
+          ? `${left} ${left === 1 ? 'step' : 'steps'} left`
+          : undefined,
       count: left,
     })
   }
@@ -34,7 +38,8 @@ function groupsFor(nav: AdminNav, adminBase: string): SectionGroup[] {
 /**
  * Admin, layout A: a grouped list of every area you may open. A phone opens
  * an area as its own screen with a back link; a desktop keeps the list as a
- * column beside the open area.
+ * column beside the open area. Deeper than an area's own screen (a pane, a
+ * match), the area draws its own back link to that screen instead.
  */
 export function AdminLayout() {
   const { base } = useCommunity()
@@ -89,10 +94,12 @@ export function AdminLayout() {
       <AdminContext.Provider value={context}>
         {slug ? (
           <>
-            <NavLink to={adminBase} end className="admin-back">
-              <Icon name="chevron_left" size={20} />
-              Admin
-            </NavLink>
+            {tail.filter(Boolean).length === 0 && (
+              <NavLink to={adminBase} end className="admin-back">
+                <Icon name="chevron_left" size={20} />
+                Admin
+              </NavLink>
+            )}
             <Outlet />
           </>
         ) : (

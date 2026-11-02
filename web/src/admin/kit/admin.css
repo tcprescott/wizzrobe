@@ -105,6 +105,10 @@
 }
 
 /* DataTable */
+.data-table__wrap:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 .data-table__wrap {
   background: var(--surface);
   border: 1px solid var(--border-subtle);

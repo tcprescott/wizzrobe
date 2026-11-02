@@ -133,6 +133,7 @@ TAG_GROUPS: List[tuple[str, List[tuple[str, str]]]] = [
     ('Event day', [
         ('My schedule', "A player's own Home and Schedule: next match, what's waiting on them, and picking a time."),
         ('Admin shell', "Which admin areas and settings panes the caller may open, for the app's admin menu."),
+        ('Community settings', "A community's own settings, one group per pane of Admin → Settings: colours and logo, clock, joining, profile reminders, Watch page, volunteers, meetups, features and connected apps."),
         ('Matches', 'The schedule, and running a match from seating to a confirmed result.'),
         ('Admin: Match Schedule', "The staff run sheet as the app's admin Match Schedule draws it: grouped rows and one match's pane."),
         ('Crew', 'Commentator, tracker and broadcaster signups, approval and acknowledgement.'),
@@ -150,6 +151,7 @@ TAG_GROUPS: List[tuple[str, List[tuple[str, str]]]] = [
         ('Users', 'People in this community, their profiles and roles.'),
         ('Membership', 'Requests to join the community, and answering them.'),
         ('Player availability', 'When players say they can and can\'t play.'),
+        ('Work', 'The app\'s Work tab for people who run the event: your areas and the volunteer schedule grid.'),
         ('My profile', 'Your own profile as the app\'s Me screen shows it: clock, connected accounts, staff alerts, accommodation and emergency contact.'),
         ('My notifications', 'Where your notifications reach you: Discord DMs, devices, email and Telegram.'),
         ('My surveys', 'Surveys sent to you: open one, save each part, and send your answers.'),
