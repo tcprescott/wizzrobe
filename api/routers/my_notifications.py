@@ -135,10 +135,12 @@ async def remove_device(device_id: int, actor: User = Depends(require_write_acto
 async def add_native_device(
     body: NativeDeviceRegisterRequest, actor: User = Depends(require_write_actor),
 ) -> ChannelsResponse:
-    await NativePushService().register(
+    row = await NativePushService().register(
         actor, platform=body.platform, token=body.token, device_name=body.device_name,
     )
-    return await _channels(actor)
+    channels = await _channels(actor)
+    channels.registered_device_id = row.id
+    return channels
 
 
 @router.delete(

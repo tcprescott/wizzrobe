@@ -11501,12 +11501,12 @@ export interface components {
              * Native Devices
              * @description Store-app installs getting notifications.
              */
-            native_devices?: components["schemas"]["NativeDeviceResponse"][];
+            native_devices: components["schemas"]["NativeDeviceResponse"][];
             /**
              * Native Push Platforms
              * @description Phone platforms (`ios`, `android`) the store apps can get notifications on from this server.
              */
-            native_push_platforms?: string[];
+            native_push_platforms: string[];
             /**
              * Push Configured
              * @description This server can send device notifications.
@@ -11517,6 +11517,11 @@ export interface components {
              * @description The VAPID key a browser subscribes with.
              */
             push_public_key?: string | null;
+            /**
+             * Registered Device Id
+             * @description Set only when registering a phone: the id of the row that call saved.
+             */
+            registered_device_id?: number | null;
             /** Telegram Available */
             telegram_available: boolean;
             /** Telegram Connected */

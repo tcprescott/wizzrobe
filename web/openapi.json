@@ -3052,6 +3052,18 @@
             "description": "The VAPID key a browser subscribes with.",
             "title": "Push Public Key"
           },
+          "registered_device_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set only when registering a phone: the id of the row that call saved.",
+            "title": "Registered Device Id"
+          },
           "telegram_available": {
             "title": "Telegram Available",
             "type": "boolean"
@@ -3081,6 +3093,8 @@
           "dm_notifications",
           "push_configured",
           "devices",
+          "native_push_platforms",
+          "native_devices",
           "channels_enabled",
           "email_available",
           "email_notifications",

@@ -45,6 +45,7 @@ class TestNativeDevices:
             assert r.status_code == 200, r.text
             devices = r.json()['native_devices']
             assert [(d['platform'], d['device_name']) for d in devices] == [('android', 'Pixel 9')]
+            assert r.json()['registered_device_id'] == devices[0]['id']
 
             r = await c.delete(f"/api/me/channels/native-devices/{devices[0]['id']}")
             assert r.status_code == 200

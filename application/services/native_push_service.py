@@ -38,6 +38,7 @@ import jwt
 from application.errors import NotFoundError
 from application.repositories import DevicePushTokenRepository
 from application.services.audit_service import AuditActions, AuditService
+from application.utils.environment import env_flag
 from models import DevicePushToken, User
 
 logger = logging.getLogger(__name__)
@@ -79,7 +80,7 @@ class _FcmConfig:
 
 
 @lru_cache(maxsize=4)
-def _parse_apns(key: str, key_id: str, team_id: str, topic: str, sandbox: str) -> Optional[_ApnsConfig]:
+def _parse_apns(key: str, key_id: str, team_id: str, topic: str, sandbox: bool) -> Optional[_ApnsConfig]:
     if not (key and key_id and team_id and topic):
         return None
     pem = key.replace('\\n', '\n')
@@ -88,12 +89,12 @@ def _parse_apns(key: str, key_id: str, team_id: str, topic: str, sandbox: str) -
     except Exception:
         logger.error('APNS_KEY is not a usable .p8 key; iOS push is off')
         return None
-    return _ApnsConfig(pem, key_id, team_id, topic, sandbox.lower() in ('1', 'true', 'yes'))
+    return _ApnsConfig(pem, key_id, team_id, topic, sandbox)
 
 
 def _apns_config() -> Optional[_ApnsConfig]:
     return _parse_apns(
-        _env('APNS_KEY'), _env('APNS_KEY_ID'), _env('APNS_TEAM_ID'), _env('APNS_TOPIC'), _env('APNS_SANDBOX'),
+        _env('APNS_KEY'), _env('APNS_KEY_ID'), _env('APNS_TEAM_ID'), _env('APNS_TOPIC'), env_flag('APNS_SANDBOX'),
     )
 
 

@@ -118,11 +118,11 @@ class ChannelsResponse(BaseModel):
     push_public_key: Optional[str] = Field(None, description="The VAPID key a browser subscribes with.")
     devices: List['PushDeviceResponse']
     native_push_platforms: List[str] = Field(
-        default_factory=list,
-        description="Phone platforms (`ios`, `android`) the store apps can get notifications on from this server.",
+        ..., description="Phone platforms (`ios`, `android`) the store apps can get notifications on from this server.",
     )
-    native_devices: List['NativeDeviceResponse'] = Field(
-        default_factory=list, description="Store-app installs getting notifications.",
+    native_devices: List['NativeDeviceResponse'] = Field(..., description="Store-app installs getting notifications.")
+    registered_device_id: Optional[int] = Field(
+        None, description="Set only when registering a phone: the id of the row that call saved.",
     )
     channels_enabled: bool = Field(..., description="The community offers email and Telegram.")
     email_available: bool
