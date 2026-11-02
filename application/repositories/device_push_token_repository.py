@@ -38,7 +38,7 @@ class DevicePushTokenRepository:
                     raise
         row.user = user
         row.platform = platform
-        row.device_name = device_name
+        row.device_name = device_name  # type: ignore[assignment]
         await save_fields(row, 'user', 'platform', 'device_name')
         return row
 

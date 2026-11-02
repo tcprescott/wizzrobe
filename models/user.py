@@ -273,9 +273,10 @@ class DevicePushToken(Model):
     """
 
     id = fields.IntField(pk=True)
-    user = fields.ForeignKeyField(
+    user: fields.ForeignKeyRelation = fields.ForeignKeyField(
         'models.User', related_name='device_push_tokens', on_delete=fields.CASCADE
     )
+    user_id: int
     platform = fields.CharField(max_length=10, description='ios or android')
     token = fields.CharField(max_length=512, unique=True)
     device_name = fields.CharField(max_length=100, null=True)

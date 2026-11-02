@@ -268,11 +268,11 @@ class NativePushService:
         return sum(1 for delivered in results if delivered)
 
     async def _deliver_one(self, row: DevicePushToken, message: _Message) -> bool:
-        apns = _apns_config()
+        apns, fcm = _apns_config(), _fcm_config()
         if row.platform == 'ios' and apns is not None:
             outcome = await self._send_apns(row.token, message, apns)
-        elif _fcm_config() is not None:
-            outcome = await self._send_fcm(row.token, row.platform, message, _fcm_config())
+        elif fcm is not None:
+            outcome = await self._send_fcm(row.token, row.platform, message, fcm)
         else:
             return False
         if outcome == 'gone':

@@ -122,7 +122,7 @@ class ChannelsResponse(BaseModel):
     )
     native_devices: List['NativeDeviceResponse'] = Field(..., description="Store-app installs getting notifications.")
     registered_device_id: Optional[int] = Field(
-        None, description="Set only when registering a phone: the id of the row that call saved.",
+        default=None, description="Set only when registering a phone: the id of the row that call saved.",
     )
     channels_enabled: bool = Field(..., description="The community offers email and Telegram.")
     email_available: bool
