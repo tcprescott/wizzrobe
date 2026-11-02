@@ -1,1119 +1,1683 @@
 {
- "/api/me/communities": [
-  {
-   "slug": "sgl",
-   "name": "SpeedGaming Live",
-   "roles": [
-    "proctor",
-    "staff"
-   ],
-   "events": [
+  "/api/me/communities": [
     {
-     "slug": "sgl27",
-     "name": "SGL 2027",
-     "status": "live",
-     "is_default": true,
-     "starts_on": "2027-10-21",
-     "ends_on": "2027-10-24"
+      "slug": "sgl",
+      "name": "SpeedGaming Live",
+      "roles": [
+        "proctor",
+        "staff"
+      ],
+      "events": [
+        {
+          "slug": "sgl27",
+          "name": "SGL 2027",
+          "status": "live",
+          "is_default": true,
+          "starts_on": "2027-10-21",
+          "ends_on": "2027-10-24"
+        },
+        {
+          "slug": "sgl26",
+          "name": "SGL 2026",
+          "status": "archived",
+          "is_default": false,
+          "starts_on": "2026-10-22",
+          "ends_on": "2026-10-25"
+        }
+      ]
     },
     {
-     "slug": "sgl26",
-     "name": "SGL 2026",
-     "status": "archived",
-     "is_default": false,
-     "starts_on": "2026-10-22",
-     "ends_on": "2026-10-25"
+      "slug": "second",
+      "name": "Second Community",
+      "roles": [],
+      "events": [
+        {
+          "slug": "season-1",
+          "name": "Season 1",
+          "status": "live",
+          "is_default": true,
+          "starts_on": null,
+          "ends_on": null
+        }
+      ]
     }
-   ]
-  },
-  {
-   "slug": "second",
-   "name": "Second Community",
-   "roles": [],
-   "events": [
-    {
-     "slug": "season-1",
-     "name": "Season 1",
-     "status": "live",
-     "is_default": true,
-     "starts_on": null,
-     "ends_on": null
-    }
-   ]
-  }
- ],
- "/api/users/me": {
-  "id": 1,
-  "username": "thomas",
-  "display_name": "Thomas",
-  "pronouns": null,
-  "discord_id": null,
-  "dm_notifications": true,
-  "is_active": true,
-  "created_at": "2026-01-01T00:00:00Z",
-  "updated_at": "2026-01-01T00:00:00Z",
-  "roles": [
-   "staff",
-   "proctor"
-  ]
- },
- "/api/me/home": {
-  "zone": "America/New_York",
-  "next_up": {
-   "assignment_id": null,
-   "status": "scheduled",
-   "stage": "Stage 2",
-   "station": "14",
-   "room_url": "https://racetime.gg/smz3/clever-link-1234",
-   "needs_acknowledgment": false,
-   "late_minutes": null,
-   "can_report_late": true,
-   "approved": null,
-   "checked_in": false,
-   "match_id": 101,
-   "kind": "match",
-   "starts_at": "{{now+20m}}",
-   "ends_at": "{{now+80m}}",
-   "title": "vs Kaizo",
-   "detail": "SMZ3 · Round 2"
-  },
-  "today": [
-   {
-    "assignment_id": null,
-    "status": "scheduled",
-    "stage": "Stage 1",
-    "station": null,
-    "room_url": null,
-    "needs_acknowledgment": false,
-    "late_minutes": null,
-    "can_report_late": false,
-    "approved": false,
-    "checked_in": false,
-    "match_id": 102,
-    "kind": "crew",
-    "starts_at": "{{now+3h}}",
-    "ends_at": "{{now+4h}}",
-    "title": "Commentary",
-    "detail": "Ellie vs Marth · OoTR Top 8"
-   },
-   {
-    "assignment_id": 7,
-    "status": null,
-    "stage": null,
-    "station": null,
-    "room_url": null,
-    "needs_acknowledgment": false,
-    "late_minutes": null,
-    "can_report_late": false,
-    "approved": null,
-    "checked_in": false,
-    "match_id": null,
-    "kind": "shift",
-    "starts_at": "{{now+5h}}",
-    "ends_at": "{{now+7h}}",
-    "title": "Check-in desk",
-    "detail": "Front desk"
-   }
   ],
-  "needs_you": [
-   {
-    "kind": "book",
-    "title": "Pick a time vs Pidge",
-    "detail": "ALTTPR Open · Round 3 · Book by Sat 6:00 PM",
-    "match_id": null,
-    "request_id": null,
-    "bookable": {
-     "source": "bracket",
-     "key": 11,
-     "tournament_id": 3,
-     "tournament": "ALTTPR Open",
-     "source_label": null,
-     "opponent": "Pidge",
-     "round_label": "Round 3",
-     "window_text": "Book by Sat 6:00 PM",
-     "blocked": null,
-     "if_needed": false,
-     "best_of": 1
-    },
-    "proposed_at": null,
-    "original_at": null,
-    "reason": null,
-    "agreed": false
-   },
-   {
-    "kind": "agree",
-    "title": "Kaizo asked to move your match",
-    "detail": "SMZ3",
-    "match_id": 104,
-    "request_id": 5,
-    "bookable": null,
-    "proposed_at": "{{now+2d}}",
-    "original_at": "{{now+30h}}",
-    "reason": "My flight lands late on Saturday.",
-    "agreed": false
-   },
-   {
-    "kind": "acknowledge",
-    "title": "Confirm you can play vs Marth",
-    "detail": "ALTTPR Open · Round 2",
-    "match_id": 103,
-    "request_id": null,
-    "bookable": null,
-    "proposed_at": null,
-    "original_at": null,
-    "reason": null,
-    "agreed": false
-   }
-  ]
- },
- "/api/me/schedule": {
-  "zone": "America/New_York",
-  "items": [
-   {
-    "assignment_id": null,
-    "status": "scheduled",
-    "stage": "Stage 2",
-    "station": "14",
-    "room_url": "https://racetime.gg/smz3/clever-link-1234",
-    "needs_acknowledgment": false,
-    "late_minutes": null,
-    "can_report_late": true,
-    "approved": null,
-    "checked_in": false,
-    "match_id": 101,
-    "kind": "match",
-    "starts_at": "{{now+20m}}",
-    "ends_at": "{{now+80m}}",
-    "title": "vs Kaizo",
-    "detail": "SMZ3 · Round 2"
-   },
-   {
-    "assignment_id": null,
-    "status": "scheduled",
-    "stage": "Stage 1",
-    "station": null,
-    "room_url": null,
-    "needs_acknowledgment": false,
-    "late_minutes": null,
-    "can_report_late": false,
-    "approved": false,
-    "checked_in": false,
-    "match_id": 102,
-    "kind": "crew",
-    "starts_at": "{{now+3h}}",
-    "ends_at": "{{now+4h}}",
-    "title": "Commentary",
-    "detail": "Ellie vs Marth · OoTR Top 8"
-   },
-   {
-    "assignment_id": 7,
-    "status": null,
-    "stage": null,
-    "station": null,
-    "room_url": null,
-    "needs_acknowledgment": false,
-    "late_minutes": null,
-    "can_report_late": true,
-    "approved": null,
-    "checked_in": false,
-    "match_id": null,
-    "kind": "shift",
-    "starts_at": "{{now+20m}}",
-    "ends_at": "{{now+140m}}",
-    "title": "Check-in desk",
-    "detail": "Front desk",
-    "shift_action": "arrive",
-    "can_release": true,
-    "can_undo_check_in": false,
-    "called_off": false
-   },
-   {
-    "assignment_id": null,
-    "status": "scheduled",
-    "stage": null,
-    "station": null,
-    "room_url": null,
-    "needs_acknowledgment": true,
-    "late_minutes": null,
-    "can_report_late": false,
-    "approved": null,
-    "checked_in": false,
-    "match_id": 103,
-    "kind": "match",
-    "starts_at": "{{now+1d}}",
-    "ends_at": "{{now+25h}}",
-    "title": "vs Marth",
-    "detail": "ALTTPR Open · Round 2"
-   },
-   {
-    "assignment_id": 8,
-    "status": null,
-    "stage": null,
-    "station": null,
-    "room_url": null,
-    "needs_acknowledgment": false,
-    "late_minutes": null,
-    "can_report_late": false,
-    "approved": null,
-    "checked_in": false,
-    "match_id": null,
-    "kind": "shift",
-    "starts_at": "{{now+2d}}",
-    "ends_at": "{{now+50h}}",
-    "title": "Proctor",
-    "detail": "Proctor Station",
-    "shift_action": "ack",
-    "can_release": true,
-    "can_undo_check_in": false,
-    "called_off": false
-   }
-  ]
- },
- "/api/me/bookable/bracket/11/check": {
-  "refusal": null,
-  "clashes": [
-   "Kaizo is playing SMZ3 then."
-  ]
- },
- "/api/me/profile": {
-  "display_name": "Sam Ruiz",
-  "preferred_name": "Sam Ruiz",
-  "pronouns": "they/them",
-  "discord_username": "samruns",
-  "avatar_url": null,
-  "timezone": "America/Chicago",
-  "hour_cycle": "12",
-  "community_zone": "America/New_York",
-  "zone_pinned": true,
-  "matcherino_username": "samruns#123456",
-  "payouts": true,
-  "dm_notifications": true,
-  "sections": [
-   {
-    "key": "about",
-    "title": "About you",
-    "summary": "Sam Ruiz"
-   },
-   {
-    "key": "notifications",
-    "title": "Notifications",
-    "summary": "Discord DMs, 2 devices"
-   },
-   {
-    "key": "availability",
-    "title": "Availability",
-    "summary": "3 blocked times"
-   },
-   {
-    "key": "accounts",
-    "title": "Connected accounts",
-    "summary": "Challonge, racetime.gg"
-   },
-   {
-    "key": "staff-alerts",
-    "title": "Staff alerts",
-    "summary": "On duty now: Admin Desk"
-   },
-   {
-    "key": "equipment",
-    "title": "Equipment",
-    "summary": "1 checked out"
-   },
-   {
-    "key": "accommodation",
-    "title": "Accommodations",
-    "summary": "Arranged"
-   },
-   {
-    "key": "emergency-contact",
-    "title": "Emergency contact",
-    "summary": "Jordan Ruiz"
-   },
-   {
-    "key": "feedback",
-    "title": "My feedback",
-    "summary": "2 notes sent"
-   },
-   {
-    "key": "webhooks",
-    "title": "Webhooks",
-    "summary": "1 webhook"
-   },
-   {
-    "key": "apps",
-    "title": "Developer apps",
-    "summary": "1 app"
-   },
-   {
-    "key": "tokens",
-    "title": "API tokens",
-    "summary": "1 token"
-   }
-  ]
- },
- "/api/me/channels": {
-  "discord": true,
-  "dm_notifications": true,
-  "push_configured": true,
-  "push_public_key": "BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U",
-  "devices": [
-   {
+  "/api/users/me": {
     "id": 1,
-    "user_agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Safari/604.1",
-    "created_at": "{{now-3d}}",
-    "last_used_at": "{{now-1h}}",
-    "endpoint_host": "web.push.apple.com"
-   },
-   {
-    "id": 2,
-    "user_agent": "Mozilla/5.0 (Windows NT 10.0) Chrome/130.0 Safari/537.36",
-    "created_at": "{{now-10d}}",
-    "last_used_at": null,
-    "endpoint_host": "fcm.googleapis.com"
-   }
-  ],
-  "native_push_platforms": [
-   "ios",
-   "android"
-  ],
-  "native_devices": [
-   {
-    "id": 7,
-    "platform": "ios",
-    "device_name": "iPhone 16",
-    "created_at": "{{now-2d}}",
-    "last_used_at": "{{now-2h}}"
-   }
-  ],
-  "registered_device_id": null,
-  "channels_enabled": true,
-  "email_available": true,
-  "email": "sam@example.com",
-  "email_notifications": false,
-  "telegram_available": true,
-  "telegram_username": null,
-  "telegram_connected": false,
-  "telegram_notifications": false
- },
- "/api/notifications/messages": {
-  "preset": "needs_me",
-  "changed": 1,
-  "messages": [
-   {
-    "notice": "match_scheduled",
-    "recipient": "players",
-    "section": "Your matches",
-    "title": "Match booked or moved",
-    "when": "When a time is set or changes",
-    "community": "ping",
-    "preset": "ping",
-    "override": null,
-    "mode": "ping",
-    "changed": false,
-    "opt_in": false
-   },
-   {
-    "notice": "match_reminder",
-    "recipient": "players",
-    "section": "Your matches",
-    "title": "Match about to start",
-    "when": "30 minutes before",
-    "community": "ping",
-    "preset": "ping",
-    "override": null,
-    "mode": "ping",
-    "changed": false,
-    "opt_in": false
-   },
-   {
-    "notice": "watch_update",
-    "recipient": "watchers",
-    "section": "Following",
-    "title": "Matches you watch",
-    "when": "When a watched match changes",
-    "community": "silent",
-    "preset": "silent",
-    "override": "off",
-    "mode": "off",
-    "changed": true,
-    "opt_in": false
-   }
-  ]
- },
- "/api/me/followable-tournaments": [
-  {
-   "id": 1,
-   "name": "ALTTPR Open",
-   "playing": true,
-   "level": "all"
-  },
-  {
-   "id": 2,
-   "name": "SMZ3",
-   "playing": false,
-   "level": "none"
-  }
- ],
- "/api/users/me/availability": [
-  {
-   "id": 1,
-   "starts_at": "{{now+1h}}",
-   "ends_at": "{{now+4h}}",
-   "status": "unavailable",
-   "note": "Flight in"
-  },
-  {
-   "id": 2,
-   "starts_at": "{{now+28h}}",
-   "ends_at": "{{now+30h}}",
-   "status": "unavailable",
-   "note": "Dinner with the team"
-  },
-  {
-   "id": 3,
-   "starts_at": "{{now+50h}}",
-   "ends_at": "{{now+53h}}",
-   "status": "preferred",
-   "note": null
-  }
- ],
- "/api/me/accounts": [
-  {
-   "key": "challonge",
-   "title": "Challonge",
-   "description": "Link your Challonge account so we can find your bracket matches for scheduling.",
-   "linked": true,
-   "username": "samruns",
-   "linked_at": "{{now-30d}}",
-   "link_path": "/challonge/link",
-   "sign_in_first_url": "https://challonge.com/user_session/new",
-   "unlink_warning": "We'll stop matching you to Challonge bracket matches until you link again."
-  },
-  {
-   "key": "twitch",
-   "title": "Twitch",
-   "description": "Link your Twitch account so restreams and overlays can show your channel.",
-   "linked": false,
-   "username": null,
-   "linked_at": null,
-   "link_path": "/twitch/link",
-   "sign_in_first_url": null,
-   "unlink_warning": null
-  },
-  {
-   "key": "racetime",
-   "title": "racetime.gg",
-   "description": "Link your racetime.gg account so we can attribute your race results.",
-   "linked": true,
-   "username": "Sam#1234",
-   "linked_at": "{{now-60d}}",
-   "link_path": "/racetime/link",
-   "sign_in_first_url": null,
-   "unlink_warning": null
-  }
- ],
- "/api/me/staff-alerts": {
-  "duty_position": "Admin Desk",
-  "on_duty_now": true,
-  "next_duty_start": null,
-  "tournaments": [
-   {
-    "id": 1,
-    "name": "ALTTPR Open",
-    "on": true
-   },
-   {
-    "id": 2,
-    "name": "SMZ3",
-    "on": false
-   }
-  ]
- },
- "/api/equipment/me/checkouts": [
-  {
-   "loan_id": 1,
-   "equipment_id": 4,
-   "asset_number": 14,
-   "name": "Wireless controller",
-   "checked_out_at": "{{now-2h}}"
-  }
- ],
- "/api/me/accommodation": {
-  "requested": true,
-  "details": "A chair at the station, please.",
-  "status": "arranged",
-  "changed_since_arranged": false,
-  "max_length": 2000
- },
- "/api/me/emergency-contact": {
-  "name": "Jordan Ruiz",
-  "relationship": "Sibling",
-  "phone": "+1 312 555 0142",
-  "last_viewed_at": "{{now-1d}}",
-  "last_viewed_by": "Ellie"
- },
- "/api/feedback/mine": [
-  {
-   "id": 1,
-   "category": "suggestion",
-   "status": "reviewed",
-   "message": "Could the schedule show my stage too?",
-   "page_url": null,
-   "submitted_by_id": 1,
-   "submitted_by_name": "Sam Ruiz",
-   "created_at": "{{now-5d}}"
-  },
-  {
-   "id": 2,
-   "category": "bug",
-   "status": "new",
-   "message": "The map wouldn't load.",
-   "page_url": null,
-   "submitted_by_id": 1,
-   "submitted_by_name": "Sam Ruiz",
-   "created_at": "{{now-1d}}"
-  }
- ],
- "/api/me/webhooks": {
-  "areas": [
-   {
-    "key": "matches",
-    "label": "Matches",
-    "hint": "Booked, moved, started, finished"
-   },
-   {
-    "key": "crew",
-    "label": "Crew",
-    "hint": "Your signups and approvals"
-   }
-  ],
-  "events": [
-   {
-    "event_type": "match.created",
-    "area": "matches",
-    "label": "Booked",
-    "mine_only": false
-   },
-   {
-    "event_type": "match.rescheduled",
-    "area": "matches",
-    "label": "Moved",
-    "mine_only": false
-   },
-   {
-    "event_type": "crew.signup_created",
-    "area": "crew",
-    "label": "Signed up",
-    "mine_only": true
-   }
-  ],
-  "webhooks": [
-   {
-    "id": 1,
-    "name": "Team channel",
-    "url_masked": "discord.com/api/webhooks/123456…/••••",
-    "discord": true,
-    "event_types": [
-     "match.created",
-     "match.rescheduled"
-    ],
-    "only_mine": true,
+    "username": "thomas",
+    "display_name": "Thomas",
+    "pronouns": null,
+    "discord_id": null,
+    "dm_notifications": true,
     "is_active": true,
-    "paused_reason": null,
-    "last_delivery_at": "{{now-3h}}",
-    "last_status": 204,
-    "last_error": null,
-    "delivered_count": 12,
-    "failed_count": 0
-   }
-  ],
-  "max_webhooks": 3
- },
- "/api/me/apps": [
-  {
-   "id": 1,
-   "name": "Stream overlay",
-   "description": "",
-   "homepage_url": null,
-   "client_type": "confidential",
-   "client_id": "wz_app_Q2xpZW50SWQxMjM0",
-   "secret_prefix": "wzs_abc123",
-   "redirect_uris": [
-    "https://overlay.example.com/callback"
-   ],
-   "allowed_scopes": [
-    "profile",
-    "schedule:read"
-   ],
-   "disabled_reason": null,
-   "created_at": "{{now-20d}}"
-  }
- ],
- "/api/tokens": [
-  {
-   "id": 1,
-   "name": "OBS overlay",
-   "token_prefix": "wz_ab12",
-   "read_only": true,
-   "last_used_at": "{{now-2d}}",
-   "expires_at": null,
-   "created_at": "{{now-40d}}"
-  }
- ],
- "/api/admin/nav": {
-  "areas": [
-   {
-    "slug": "setup",
-    "label": "Setup",
-    "icon": "checklist",
-    "group": "Run the event",
-    "half": "event",
-    "aliases": []
-   },
-   {
-    "slug": "match-schedule",
-    "label": "Match Schedule",
-    "icon": "view_timeline",
-    "group": "Run the event",
-    "half": "event",
-    "aliases": [
-     "schedule"
+    "created_at": "2026-01-01T00:00:00Z",
+    "updated_at": "2026-01-01T00:00:00Z",
+    "roles": [
+      "staff",
+      "proctor"
     ]
-   },
-   {
-    "slug": "tournaments",
-    "label": "Tournaments",
-    "icon": "trophy",
-    "group": "Run the event",
-    "half": "event",
-    "aliases": []
-   },
-   {
-    "slug": "event-settings",
-    "label": "Event settings",
-    "icon": "event",
-    "group": "Run the event",
-    "half": "event",
-    "aliases": []
-   },
-   {
-    "slug": "volunteers",
-    "label": "Volunteers",
-    "icon": "groups",
-    "group": "People",
-    "half": "event",
-    "aliases": [
-     "vol-roster"
-    ]
-   },
-   {
-    "slug": "members",
-    "label": "Members",
-    "icon": "manage_accounts",
-    "group": "Community",
-    "half": "community",
-    "aliases": [
-     "users"
-    ]
-   },
-   {
-    "slug": "events",
-    "label": "Events",
-    "icon": "calendar_month",
-    "group": "Configuration",
-    "half": "community",
-    "aliases": []
-   },
-   {
-    "slug": "settings",
-    "label": "Settings",
-    "icon": "settings",
-    "group": "Configuration",
-    "half": "community",
-    "aliases": []
-   },
-   {
-    "slug": "service-health",
-    "label": "Service Health",
-    "icon": "monitor_heart",
-    "group": "System",
-    "half": "community",
-    "aliases": []
-   }
-  ],
-  "settings_panes": [
-   {
-    "slug": "general",
-    "label": "General",
-    "icon": "tune",
-    "summary": "How the community looks, and the clock it tells time by."
-   }
-  ],
-  "event_settings_panes": [
-   {
-    "slug": "dates",
-    "label": "Dates & hours",
-    "icon": "date_range",
-    "summary": "When the event runs, and the hours matches can start each day."
-   }
-  ],
-  "setup": [
-   {
-    "key": "staff",
-    "label": "Give the community a staff member",
-    "done": true,
-    "hint": "",
-    "tab": "Members",
-    "required": true
-   },
-   {
-    "key": "tournament",
-    "label": "Add a tournament",
-    "done": false,
-    "hint": "Players need something to sign up for.",
-    "tab": "Tournaments",
-    "required": true
-   },
-   {
-    "key": "dates",
-    "label": "Set the event dates",
-    "done": false,
-    "hint": "Schedules and reminders use them.",
-    "tab": "Event settings",
-    "required": false
-   }
-  ],
-  "setup_ready": false
- },
- "/api/me/platform": {
-  "user_id": 1,
-  "super_admin": true
- },
- "/api/platform/communities": [
-  {
-   "id": 1,
-   "name": "SpeedGaming Live",
-   "slug": "sgl",
-   "domain": null,
-   "discord_guild_id": null,
-   "discord_guild_id_str": "123456789012345678",
-   "is_active": true,
-   "feature_group_id": 1,
-   "feature_group": "Standard",
-   "setup_ready": true,
-   "setup_missing": [],
-   "created_at": "2025-01-01T00:00:00Z"
   },
-  {
-   "id": 2,
-   "name": "ALTTPR Leagues",
-   "slug": "alttpr",
-   "domain": null,
-   "discord_guild_id": null,
-   "discord_guild_id_str": null,
-   "is_active": true,
-   "feature_group_id": null,
-   "feature_group": null,
-   "setup_ready": true,
-   "setup_missing": [],
-   "created_at": "2025-01-01T00:00:00Z"
+  "/api/me/home": {
+    "zone": "America/New_York",
+    "next_up": {
+      "assignment_id": null,
+      "status": "scheduled",
+      "stage": "Stage 2",
+      "station": "14",
+      "room_url": "https://racetime.gg/smz3/clever-link-1234",
+      "needs_acknowledgment": false,
+      "late_minutes": null,
+      "can_report_late": true,
+      "approved": null,
+      "checked_in": false,
+      "match_id": 101,
+      "kind": "match",
+      "starts_at": "{{now+20m}}",
+      "ends_at": "{{now+80m}}",
+      "title": "vs Kaizo",
+      "detail": "SMZ3 · Round 2"
+    },
+    "today": [
+      {
+        "assignment_id": null,
+        "status": "scheduled",
+        "stage": "Stage 1",
+        "station": null,
+        "room_url": null,
+        "needs_acknowledgment": false,
+        "late_minutes": null,
+        "can_report_late": false,
+        "approved": false,
+        "checked_in": false,
+        "match_id": 102,
+        "kind": "crew",
+        "starts_at": "{{now+3h}}",
+        "ends_at": "{{now+4h}}",
+        "title": "Commentary",
+        "detail": "Ellie vs Marth · OoTR Top 8"
+      },
+      {
+        "assignment_id": 7,
+        "status": null,
+        "stage": null,
+        "station": null,
+        "room_url": null,
+        "needs_acknowledgment": false,
+        "late_minutes": null,
+        "can_report_late": false,
+        "approved": null,
+        "checked_in": false,
+        "match_id": null,
+        "kind": "shift",
+        "starts_at": "{{now+5h}}",
+        "ends_at": "{{now+7h}}",
+        "title": "Check-in desk",
+        "detail": "Front desk"
+      }
+    ],
+    "needs_you": [
+      {
+        "kind": "book",
+        "title": "Pick a time vs Pidge",
+        "detail": "ALTTPR Open · Round 3 · Book by Sat 6:00 PM",
+        "match_id": null,
+        "request_id": null,
+        "bookable": {
+          "source": "bracket",
+          "key": 11,
+          "tournament_id": 3,
+          "tournament": "ALTTPR Open",
+          "source_label": null,
+          "opponent": "Pidge",
+          "round_label": "Round 3",
+          "window_text": "Book by Sat 6:00 PM",
+          "blocked": null,
+          "if_needed": false,
+          "best_of": 1
+        },
+        "proposed_at": null,
+        "original_at": null,
+        "reason": null,
+        "agreed": false
+      },
+      {
+        "kind": "agree",
+        "title": "Kaizo asked to move your match",
+        "detail": "SMZ3",
+        "match_id": 104,
+        "request_id": 5,
+        "bookable": null,
+        "proposed_at": "{{now+2d}}",
+        "original_at": "{{now+30h}}",
+        "reason": "My flight lands late on Saturday.",
+        "agreed": false
+      },
+      {
+        "kind": "acknowledge",
+        "title": "Confirm you can play vs Marth",
+        "detail": "ALTTPR Open · Round 2",
+        "match_id": 103,
+        "request_id": null,
+        "bookable": null,
+        "proposed_at": null,
+        "original_at": null,
+        "reason": null,
+        "agreed": false
+      }
+    ]
   },
-  {
-   "id": 3,
-   "name": "NMG Weekly",
-   "slug": "nmg",
-   "domain": null,
-   "discord_guild_id": null,
-   "discord_guild_id_str": null,
-   "is_active": false,
-   "feature_group_id": null,
-   "feature_group": null,
-   "setup_ready": false,
-   "setup_missing": [
-    "Add a staff member",
-    "Create a tournament"
-   ],
-   "created_at": "2025-01-01T00:00:00Z"
-  }
- ],
- "/api/platform/communities/1": {
-  "id": 1,
-  "name": "SpeedGaming Live",
-  "slug": "sgl",
-  "domain": null,
-  "discord_guild_id": null,
-  "discord_guild_id_str": "123456789012345678",
-  "is_active": true,
-  "feature_group_id": 1,
-  "feature_group": "Standard",
-  "setup_ready": true,
-  "setup_missing": [],
-  "created_at": "2025-01-01T00:00:00Z",
-  "setup": [],
-  "staff": [
-   {
+  "/api/me/schedule": {
+    "zone": "America/New_York",
+    "items": [
+      {
+        "assignment_id": null,
+        "status": "scheduled",
+        "stage": "Stage 2",
+        "station": "14",
+        "room_url": "https://racetime.gg/smz3/clever-link-1234",
+        "needs_acknowledgment": false,
+        "late_minutes": null,
+        "can_report_late": true,
+        "approved": null,
+        "checked_in": false,
+        "match_id": 101,
+        "kind": "match",
+        "starts_at": "{{now+20m}}",
+        "ends_at": "{{now+80m}}",
+        "title": "vs Kaizo",
+        "detail": "SMZ3 · Round 2"
+      },
+      {
+        "assignment_id": null,
+        "status": "scheduled",
+        "stage": "Stage 1",
+        "station": null,
+        "room_url": null,
+        "needs_acknowledgment": false,
+        "late_minutes": null,
+        "can_report_late": false,
+        "approved": false,
+        "checked_in": false,
+        "match_id": 102,
+        "kind": "crew",
+        "starts_at": "{{now+3h}}",
+        "ends_at": "{{now+4h}}",
+        "title": "Commentary",
+        "detail": "Ellie vs Marth · OoTR Top 8"
+      },
+      {
+        "assignment_id": 7,
+        "status": null,
+        "stage": null,
+        "station": null,
+        "room_url": null,
+        "needs_acknowledgment": false,
+        "late_minutes": null,
+        "can_report_late": true,
+        "approved": null,
+        "checked_in": false,
+        "match_id": null,
+        "kind": "shift",
+        "starts_at": "{{now+20m}}",
+        "ends_at": "{{now+140m}}",
+        "title": "Check-in desk",
+        "detail": "Front desk",
+        "shift_action": "arrive",
+        "can_release": true,
+        "can_undo_check_in": false,
+        "called_off": false
+      },
+      {
+        "assignment_id": null,
+        "status": "scheduled",
+        "stage": null,
+        "station": null,
+        "room_url": null,
+        "needs_acknowledgment": true,
+        "late_minutes": null,
+        "can_report_late": false,
+        "approved": null,
+        "checked_in": false,
+        "match_id": 103,
+        "kind": "match",
+        "starts_at": "{{now+1d}}",
+        "ends_at": "{{now+25h}}",
+        "title": "vs Marth",
+        "detail": "ALTTPR Open · Round 2"
+      },
+      {
+        "assignment_id": 8,
+        "status": null,
+        "stage": null,
+        "station": null,
+        "room_url": null,
+        "needs_acknowledgment": false,
+        "late_minutes": null,
+        "can_report_late": false,
+        "approved": null,
+        "checked_in": false,
+        "match_id": null,
+        "kind": "shift",
+        "starts_at": "{{now+2d}}",
+        "ends_at": "{{now+50h}}",
+        "title": "Proctor",
+        "detail": "Proctor Station",
+        "shift_action": "ack",
+        "can_release": true,
+        "can_undo_check_in": false,
+        "called_off": false
+      }
+    ]
+  },
+  "/api/me/bookable/bracket/11/check": {
+    "refusal": null,
+    "clashes": [
+      "Kaizo is playing SMZ3 then."
+    ]
+  },
+  "/api/me/profile": {
+    "display_name": "Sam Ruiz",
+    "preferred_name": "Sam Ruiz",
+    "pronouns": "they/them",
+    "discord_username": "samruns",
+    "avatar_url": null,
+    "timezone": "America/Chicago",
+    "hour_cycle": "12",
+    "community_zone": "America/New_York",
+    "zone_pinned": true,
+    "matcherino_username": "samruns#123456",
+    "payouts": true,
+    "dm_notifications": true,
+    "sections": [
+      {
+        "key": "about",
+        "title": "About you",
+        "summary": "Sam Ruiz"
+      },
+      {
+        "key": "notifications",
+        "title": "Notifications",
+        "summary": "Discord DMs, 2 devices"
+      },
+      {
+        "key": "availability",
+        "title": "Availability",
+        "summary": "3 blocked times"
+      },
+      {
+        "key": "accounts",
+        "title": "Connected accounts",
+        "summary": "Challonge, racetime.gg"
+      },
+      {
+        "key": "staff-alerts",
+        "title": "Staff alerts",
+        "summary": "On duty now: Admin Desk"
+      },
+      {
+        "key": "equipment",
+        "title": "Equipment",
+        "summary": "1 checked out"
+      },
+      {
+        "key": "accommodation",
+        "title": "Accommodations",
+        "summary": "Arranged"
+      },
+      {
+        "key": "emergency-contact",
+        "title": "Emergency contact",
+        "summary": "Jordan Ruiz"
+      },
+      {
+        "key": "feedback",
+        "title": "My feedback",
+        "summary": "2 notes sent"
+      },
+      {
+        "key": "webhooks",
+        "title": "Webhooks",
+        "summary": "1 webhook"
+      },
+      {
+        "key": "apps",
+        "title": "Developer apps",
+        "summary": "1 app"
+      },
+      {
+        "key": "tokens",
+        "title": "API tokens",
+        "summary": "1 token"
+      }
+    ]
+  },
+  "/api/me/channels": {
+    "discord": true,
+    "dm_notifications": true,
+    "push_configured": true,
+    "push_public_key": "BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U",
+    "devices": [
+      {
+        "id": 1,
+        "user_agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Safari/604.1",
+        "created_at": "{{now-3d}}",
+        "last_used_at": "{{now-1h}}",
+        "endpoint_host": "web.push.apple.com"
+      },
+      {
+        "id": 2,
+        "user_agent": "Mozilla/5.0 (Windows NT 10.0) Chrome/130.0 Safari/537.36",
+        "created_at": "{{now-10d}}",
+        "last_used_at": null,
+        "endpoint_host": "fcm.googleapis.com"
+      }
+    ],
+    "native_push_platforms": [
+      "ios",
+      "android"
+    ],
+    "native_devices": [
+      {
+        "id": 7,
+        "platform": "ios",
+        "device_name": "iPhone 16",
+        "created_at": "{{now-2d}}",
+        "last_used_at": "{{now-2h}}"
+      }
+    ],
+    "registered_device_id": null,
+    "channels_enabled": true,
+    "email_available": true,
+    "email": "sam@example.com",
+    "email_notifications": false,
+    "telegram_available": true,
+    "telegram_username": null,
+    "telegram_connected": false,
+    "telegram_notifications": false
+  },
+  "/api/notifications/messages": {
+    "preset": "needs_me",
+    "changed": 1,
+    "messages": [
+      {
+        "notice": "match_scheduled",
+        "recipient": "players",
+        "section": "Your matches",
+        "title": "Match booked or moved",
+        "when": "When a time is set or changes",
+        "community": "ping",
+        "preset": "ping",
+        "override": null,
+        "mode": "ping",
+        "changed": false,
+        "opt_in": false
+      },
+      {
+        "notice": "match_reminder",
+        "recipient": "players",
+        "section": "Your matches",
+        "title": "Match about to start",
+        "when": "30 minutes before",
+        "community": "ping",
+        "preset": "ping",
+        "override": null,
+        "mode": "ping",
+        "changed": false,
+        "opt_in": false
+      },
+      {
+        "notice": "watch_update",
+        "recipient": "watchers",
+        "section": "Following",
+        "title": "Matches you watch",
+        "when": "When a watched match changes",
+        "community": "silent",
+        "preset": "silent",
+        "override": "off",
+        "mode": "off",
+        "changed": true,
+        "opt_in": false
+      }
+    ]
+  },
+  "/api/me/followable-tournaments": [
+    {
+      "id": 1,
+      "name": "ALTTPR Open",
+      "playing": true,
+      "level": "all"
+    },
+    {
+      "id": 2,
+      "name": "SMZ3",
+      "playing": false,
+      "level": "none"
+    }
+  ],
+  "/api/users/me/availability": [
+    {
+      "id": 1,
+      "starts_at": "{{now+1h}}",
+      "ends_at": "{{now+4h}}",
+      "status": "unavailable",
+      "note": "Flight in"
+    },
+    {
+      "id": 2,
+      "starts_at": "{{now+28h}}",
+      "ends_at": "{{now+30h}}",
+      "status": "unavailable",
+      "note": "Dinner with the team"
+    },
+    {
+      "id": 3,
+      "starts_at": "{{now+50h}}",
+      "ends_at": "{{now+53h}}",
+      "status": "preferred",
+      "note": null
+    }
+  ],
+  "/api/me/accounts": [
+    {
+      "key": "challonge",
+      "title": "Challonge",
+      "description": "Link your Challonge account so we can find your bracket matches for scheduling.",
+      "linked": true,
+      "username": "samruns",
+      "linked_at": "{{now-30d}}",
+      "link_path": "/challonge/link",
+      "sign_in_first_url": "https://challonge.com/user_session/new",
+      "unlink_warning": "We'll stop matching you to Challonge bracket matches until you link again."
+    },
+    {
+      "key": "twitch",
+      "title": "Twitch",
+      "description": "Link your Twitch account so restreams and overlays can show your channel.",
+      "linked": false,
+      "username": null,
+      "linked_at": null,
+      "link_path": "/twitch/link",
+      "sign_in_first_url": null,
+      "unlink_warning": null
+    },
+    {
+      "key": "racetime",
+      "title": "racetime.gg",
+      "description": "Link your racetime.gg account so we can attribute your race results.",
+      "linked": true,
+      "username": "Sam#1234",
+      "linked_at": "{{now-60d}}",
+      "link_path": "/racetime/link",
+      "sign_in_first_url": null,
+      "unlink_warning": null
+    }
+  ],
+  "/api/me/staff-alerts": {
+    "duty_position": "Admin Desk",
+    "on_duty_now": true,
+    "next_duty_start": null,
+    "tournaments": [
+      {
+        "id": 1,
+        "name": "ALTTPR Open",
+        "on": true
+      },
+      {
+        "id": 2,
+        "name": "SMZ3",
+        "on": false
+      }
+    ]
+  },
+  "/api/equipment/me/checkouts": [
+    {
+      "loan_id": 1,
+      "equipment_id": 4,
+      "asset_number": 14,
+      "name": "Wireless controller",
+      "checked_out_at": "{{now-2h}}"
+    }
+  ],
+  "/api/me/accommodation": {
+    "requested": true,
+    "details": "A chair at the station, please.",
+    "status": "arranged",
+    "changed_since_arranged": false,
+    "max_length": 2000
+  },
+  "/api/me/emergency-contact": {
+    "name": "Jordan Ruiz",
+    "relationship": "Sibling",
+    "phone": "+1 312 555 0142",
+    "last_viewed_at": "{{now-1d}}",
+    "last_viewed_by": "Ellie"
+  },
+  "/api/feedback/mine": [
+    {
+      "id": 1,
+      "category": "suggestion",
+      "status": "reviewed",
+      "message": "Could the schedule show my stage too?",
+      "page_url": null,
+      "submitted_by_id": 1,
+      "submitted_by_name": "Sam Ruiz",
+      "created_at": "{{now-5d}}"
+    },
+    {
+      "id": 2,
+      "category": "bug",
+      "status": "new",
+      "message": "The map wouldn't load.",
+      "page_url": null,
+      "submitted_by_id": 1,
+      "submitted_by_name": "Sam Ruiz",
+      "created_at": "{{now-1d}}"
+    }
+  ],
+  "/api/me/webhooks": {
+    "areas": [
+      {
+        "key": "matches",
+        "label": "Matches",
+        "hint": "Booked, moved, started, finished"
+      },
+      {
+        "key": "crew",
+        "label": "Crew",
+        "hint": "Your signups and approvals"
+      }
+    ],
+    "events": [
+      {
+        "event_type": "match.created",
+        "area": "matches",
+        "label": "Booked",
+        "mine_only": false
+      },
+      {
+        "event_type": "match.rescheduled",
+        "area": "matches",
+        "label": "Moved",
+        "mine_only": false
+      },
+      {
+        "event_type": "crew.signup_created",
+        "area": "crew",
+        "label": "Signed up",
+        "mine_only": true
+      }
+    ],
+    "webhooks": [
+      {
+        "id": 1,
+        "name": "Team channel",
+        "url_masked": "discord.com/api/webhooks/123456…/••••",
+        "discord": true,
+        "event_types": [
+          "match.created",
+          "match.rescheduled"
+        ],
+        "only_mine": true,
+        "is_active": true,
+        "paused_reason": null,
+        "last_delivery_at": "{{now-3h}}",
+        "last_status": 204,
+        "last_error": null,
+        "delivered_count": 12,
+        "failed_count": 0
+      }
+    ],
+    "max_webhooks": 3
+  },
+  "/api/me/apps": [
+    {
+      "id": 1,
+      "name": "Stream overlay",
+      "description": "",
+      "homepage_url": null,
+      "client_type": "confidential",
+      "client_id": "wz_app_Q2xpZW50SWQxMjM0",
+      "secret_prefix": "wzs_abc123",
+      "redirect_uris": [
+        "https://overlay.example.com/callback"
+      ],
+      "allowed_scopes": [
+        "profile",
+        "schedule:read"
+      ],
+      "disabled_reason": null,
+      "created_at": "{{now-20d}}"
+    }
+  ],
+  "/api/tokens": [
+    {
+      "id": 1,
+      "name": "OBS overlay",
+      "token_prefix": "wz_ab12",
+      "read_only": true,
+      "last_used_at": "{{now-2d}}",
+      "expires_at": null,
+      "created_at": "{{now-40d}}"
+    }
+  ],
+  "/api/admin/nav": {
+    "areas": [
+      {
+        "slug": "setup",
+        "label": "Setup",
+        "icon": "checklist",
+        "group": "Run the event",
+        "half": "event",
+        "aliases": []
+      },
+      {
+        "slug": "match-schedule",
+        "label": "Match Schedule",
+        "icon": "view_timeline",
+        "group": "Run the event",
+        "half": "event",
+        "aliases": [
+          "schedule"
+        ]
+      },
+      {
+        "slug": "tournaments",
+        "label": "Tournaments",
+        "icon": "trophy",
+        "group": "Run the event",
+        "half": "event",
+        "aliases": []
+      },
+      {
+        "slug": "event-settings",
+        "label": "Event settings",
+        "icon": "event",
+        "group": "Run the event",
+        "half": "event",
+        "aliases": []
+      },
+      {
+        "slug": "volunteers",
+        "label": "Volunteers",
+        "icon": "groups",
+        "group": "People",
+        "half": "event",
+        "aliases": [
+          "vol-roster"
+        ]
+      },
+      {
+        "slug": "members",
+        "label": "Members",
+        "icon": "manage_accounts",
+        "group": "Community",
+        "half": "community",
+        "aliases": [
+          "users"
+        ]
+      },
+      {
+        "slug": "events",
+        "label": "Events",
+        "icon": "calendar_month",
+        "group": "Configuration",
+        "half": "community",
+        "aliases": []
+      },
+      {
+        "slug": "settings",
+        "label": "Settings",
+        "icon": "settings",
+        "group": "Configuration",
+        "half": "community",
+        "aliases": []
+      },
+      {
+        "slug": "service-health",
+        "label": "Service Health",
+        "icon": "monitor_heart",
+        "group": "System",
+        "half": "community",
+        "aliases": []
+      }
+    ],
+    "settings_panes": [
+      {
+        "slug": "general",
+        "label": "General",
+        "icon": "tune",
+        "summary": "How the community looks, and the clock it tells time by."
+      }
+    ],
+    "event_settings_panes": [
+      {
+        "slug": "dates",
+        "label": "Dates & hours",
+        "icon": "date_range",
+        "summary": "When the event runs, and the hours matches can start each day."
+      }
+    ],
+    "setup": [
+      {
+        "key": "staff",
+        "label": "Give the community a staff member",
+        "done": true,
+        "hint": "",
+        "tab": "Members",
+        "required": true
+      },
+      {
+        "key": "tournament",
+        "label": "Add a tournament",
+        "done": false,
+        "hint": "Players need something to sign up for.",
+        "tab": "Tournaments",
+        "required": true
+      },
+      {
+        "key": "dates",
+        "label": "Set the event dates",
+        "done": false,
+        "hint": "Schedules and reminders use them.",
+        "tab": "Event settings",
+        "required": false
+      }
+    ],
+    "setup_ready": false
+  },
+  "/api/me/platform": {
+    "user_id": 1,
+    "super_admin": true
+  },
+  "/api/platform/communities": [
+    {
+      "id": 1,
+      "name": "SpeedGaming Live",
+      "slug": "sgl",
+      "domain": null,
+      "discord_guild_id": null,
+      "discord_guild_id_str": "123456789012345678",
+      "is_active": true,
+      "feature_group_id": 1,
+      "feature_group": "Standard",
+      "setup_ready": true,
+      "setup_missing": [],
+      "created_at": "2025-01-01T00:00:00Z"
+    },
+    {
+      "id": 2,
+      "name": "ALTTPR Leagues",
+      "slug": "alttpr",
+      "domain": null,
+      "discord_guild_id": null,
+      "discord_guild_id_str": null,
+      "is_active": true,
+      "feature_group_id": null,
+      "feature_group": null,
+      "setup_ready": true,
+      "setup_missing": [],
+      "created_at": "2025-01-01T00:00:00Z"
+    },
+    {
+      "id": 3,
+      "name": "NMG Weekly",
+      "slug": "nmg",
+      "domain": null,
+      "discord_guild_id": null,
+      "discord_guild_id_str": null,
+      "is_active": false,
+      "feature_group_id": null,
+      "feature_group": null,
+      "setup_ready": false,
+      "setup_missing": [
+        "Add a staff member",
+        "Create a tournament"
+      ],
+      "created_at": "2025-01-01T00:00:00Z"
+    }
+  ],
+  "/api/platform/communities/1": {
     "id": 1,
-    "username": "tcprescott",
-    "display_name": "Thomas"
-   },
-   {
-    "id": 5,
-    "username": "checkraise",
-    "display_name": null
-   }
-  ]
- },
- "/api/platform/communities/1/features": [
-  {
-   "flag": "async_qualifiers",
-   "label": "Async qualifiers",
-   "description": "Run qualifier races people play on their own time.",
-   "category": "Online",
-   "available": true,
-   "enabled": true,
-   "live": true,
-   "group_available": true,
-   "override": null
+    "name": "SpeedGaming Live",
+    "slug": "sgl",
+    "domain": null,
+    "discord_guild_id": null,
+    "discord_guild_id_str": "123456789012345678",
+    "is_active": true,
+    "feature_group_id": 1,
+    "feature_group": "Standard",
+    "setup_ready": true,
+    "setup_missing": [],
+    "created_at": "2025-01-01T00:00:00Z",
+    "setup": [],
+    "staff": [
+      {
+        "id": 1,
+        "username": "tcprescott",
+        "display_name": "Thomas"
+      },
+      {
+        "id": 5,
+        "username": "checkraise",
+        "display_name": null
+      }
+    ]
   },
-  {
-   "flag": "startgg",
-   "label": "start.gg brackets",
-   "description": "Mirror and book start.gg brackets.",
-   "category": "Brackets",
-   "available": true,
-   "enabled": false,
-   "live": false,
-   "group_available": false,
-   "override": true
-  },
-  {
-   "flag": "surveys",
-   "label": "Surveys",
-   "description": "Post-event surveys.",
-   "category": "Community",
-   "available": false,
-   "enabled": false,
-   "live": false,
-   "group_available": false,
-   "override": null
-  }
- ],
- "/api/platform/feature-groups": [
-  {
-   "id": 1,
-   "name": "Standard",
-   "description": "Most communities",
-   "flags": [
-    "async_qualifiers"
-   ],
-   "is_default": true,
-   "community_count": 2
-  },
-  {
-   "id": 2,
-   "name": "Event",
-   "description": "",
-   "flags": [
-    "async_qualifiers",
-    "startgg",
-    "surveys"
-   ],
-   "is_default": false,
-   "community_count": 1
-  }
- ],
- "/api/platform/features": [
-  {
-   "flag": "async_qualifiers",
-   "label": "Async qualifiers",
-   "description": "Run qualifier races people play on their own time.",
-   "category": "Online"
-  },
-  {
-   "flag": "startgg",
-   "label": "start.gg brackets",
-   "description": "Mirror and book start.gg brackets.",
-   "category": "Brackets"
-  },
-  {
-   "flag": "surveys",
-   "label": "Surveys",
-   "description": "Post-event surveys.",
-   "category": "Community"
-  }
- ],
- "/api/platform/users": [
-  {
-   "id": 1,
-   "username": "tcprescott",
-   "display_name": "Thomas",
-   "discord_id": 1,
-   "login_name": null,
-   "is_active": true,
-   "is_super_admin": true,
-   "communities": [
-    "SpeedGaming Live",
-    "ALTTPR Leagues"
-   ]
-  },
-  {
-   "id": 5,
-   "username": "checkraise",
-   "display_name": null,
-   "discord_id": 2,
-   "login_name": "checkraise",
-   "is_active": true,
-   "is_super_admin": false,
-   "communities": [
-    "SpeedGaming Live"
-   ]
-  },
-  {
-   "id": 9,
-   "username": "spammer",
-   "display_name": "Spam Bot",
-   "discord_id": 3,
-   "login_name": null,
-   "is_active": false,
-   "is_super_admin": false,
-   "communities": []
-  }
- ],
- "/api/racetime-bots": [
-  {
-   "id": 1,
-   "name": "ALTTPR bot",
-   "category": "alttpr",
-   "client_id": "abc",
-   "description": "",
-   "handler_class": "",
-   "is_active": true,
-   "status": "connected",
-   "status_message": ""
-  },
-  {
-   "id": 2,
-   "name": "SMR bot",
-   "category": "smr",
-   "client_id": "def",
-   "description": "",
-   "handler_class": "",
-   "is_active": true,
-   "status": "error",
-   "status_message": "Token rejected by racetime.gg"
-  }
- ],
- "/api/racetime-bots/1/grants": [
-  {
-   "id": 1,
-   "bot_id": 1,
-   "tenant_id": 1,
-   "created_at": "2025-01-01T00:00:00Z"
-  }
- ],
- "/api/platform/apps": [
-  {
-   "id": 1,
-   "name": "Wizzrobe",
-   "owner": "Thomas",
-   "kind": "device",
-   "first_party": true,
-   "people": 120,
-   "communities": 3,
-   "disabled": false,
-   "disabled_reason": null,
-   "disabled_at": null
-  },
-  {
-   "id": 2,
-   "name": "Seed Helper",
-   "owner": "checkraise",
-   "kind": "website",
-   "first_party": false,
-   "people": 4,
-   "communities": 1,
-   "disabled": true,
-   "disabled_reason": "Phishing",
-   "disabled_at": "2025-06-01T00:00:00Z"
-  },
-  {
-   "id": 3,
-   "name": "Stream Deck",
-   "owner": "checkraise",
-   "kind": "device",
-   "first_party": false,
-   "people": 2,
-   "communities": 1,
-   "disabled": false,
-   "disabled_reason": null,
-   "disabled_at": null
-  }
- ],
- "/api/platform/log-levels": [
-  {
-   "logger": "",
-   "description": "Everything not set below",
-   "effective": "INFO",
-   "override": null,
-   "updated_by": null,
-   "updated_at": null
-  },
-  {
-   "logger": "discordbot",
-   "description": "Discord bot and DMs",
-   "effective": "DEBUG",
-   "override": "DEBUG",
-   "updated_by": "tcprescott",
-   "updated_at": "2025-06-01T00:00:00Z"
-  }
- ],
- "/api/platform/browser-monitoring": {
-  "enabled": true,
-  "replay_on_error": true,
-  "sample_rate": 1.0,
-  "sample_rates": [
-   1.0,
-   0.5,
-   0.25,
-   0.1
+  "/api/platform/communities/1/features": [
+    {
+      "flag": "async_qualifiers",
+      "label": "Async qualifiers",
+      "description": "Run qualifier races people play on their own time.",
+      "category": "Online",
+      "available": true,
+      "enabled": true,
+      "live": true,
+      "group_available": true,
+      "override": null
+    },
+    {
+      "flag": "startgg",
+      "label": "start.gg brackets",
+      "description": "Mirror and book start.gg brackets.",
+      "category": "Brackets",
+      "available": true,
+      "enabled": false,
+      "live": false,
+      "group_available": false,
+      "override": true
+    },
+    {
+      "flag": "surveys",
+      "label": "Surveys",
+      "description": "Post-event surveys.",
+      "category": "Community",
+      "available": false,
+      "enabled": false,
+      "live": false,
+      "group_available": false,
+      "override": null
+    }
   ],
-  "updated_by": "tcprescott",
-  "updated_at": "2025-06-01T00:00:00Z"
- },
- "/api/platform/browser-monitoring/rules": [
-  {
-   "id": 4,
-   "pattern": "ResizeObserver loop",
-   "match": "message",
-   "builtin": false,
-   "created_by": "tcprescott",
-   "created_at": "2025-06-01T00:00:00Z"
+  "/api/platform/feature-groups": [
+    {
+      "id": 1,
+      "name": "Standard",
+      "description": "Most communities",
+      "flags": [
+        "async_qualifiers"
+      ],
+      "is_default": true,
+      "community_count": 2
+    },
+    {
+      "id": 2,
+      "name": "Event",
+      "description": "",
+      "flags": [
+        "async_qualifiers",
+        "startgg",
+        "surveys"
+      ],
+      "is_default": false,
+      "community_count": 1
+    }
+  ],
+  "/api/platform/features": [
+    {
+      "flag": "async_qualifiers",
+      "label": "Async qualifiers",
+      "description": "Run qualifier races people play on their own time.",
+      "category": "Online"
+    },
+    {
+      "flag": "startgg",
+      "label": "start.gg brackets",
+      "description": "Mirror and book start.gg brackets.",
+      "category": "Brackets"
+    },
+    {
+      "flag": "surveys",
+      "label": "Surveys",
+      "description": "Post-event surveys.",
+      "category": "Community"
+    }
+  ],
+  "/api/platform/users": [
+    {
+      "id": 1,
+      "username": "tcprescott",
+      "display_name": "Thomas",
+      "discord_id": 1,
+      "login_name": null,
+      "is_active": true,
+      "is_super_admin": true,
+      "communities": [
+        "SpeedGaming Live",
+        "ALTTPR Leagues"
+      ]
+    },
+    {
+      "id": 5,
+      "username": "checkraise",
+      "display_name": null,
+      "discord_id": 2,
+      "login_name": "checkraise",
+      "is_active": true,
+      "is_super_admin": false,
+      "communities": [
+        "SpeedGaming Live"
+      ]
+    },
+    {
+      "id": 9,
+      "username": "spammer",
+      "display_name": "Spam Bot",
+      "discord_id": 3,
+      "login_name": null,
+      "is_active": false,
+      "is_super_admin": false,
+      "communities": []
+    }
+  ],
+  "/api/racetime-bots": [
+    {
+      "id": 1,
+      "name": "ALTTPR bot",
+      "category": "alttpr",
+      "client_id": "abc",
+      "description": "",
+      "handler_class": "",
+      "is_active": true,
+      "status": "connected",
+      "status_message": ""
+    },
+    {
+      "id": 2,
+      "name": "SMR bot",
+      "category": "smr",
+      "client_id": "def",
+      "description": "",
+      "handler_class": "",
+      "is_active": true,
+      "status": "error",
+      "status_message": "Token rejected by racetime.gg"
+    }
+  ],
+  "/api/racetime-bots/1/grants": [
+    {
+      "id": 1,
+      "bot_id": 1,
+      "tenant_id": 1,
+      "created_at": "2025-01-01T00:00:00Z"
+    }
+  ],
+  "/api/platform/apps": [
+    {
+      "id": 1,
+      "name": "Wizzrobe",
+      "owner": "Thomas",
+      "kind": "device",
+      "first_party": true,
+      "people": 120,
+      "communities": 3,
+      "disabled": false,
+      "disabled_reason": null,
+      "disabled_at": null
+    },
+    {
+      "id": 2,
+      "name": "Seed Helper",
+      "owner": "checkraise",
+      "kind": "website",
+      "first_party": false,
+      "people": 4,
+      "communities": 1,
+      "disabled": true,
+      "disabled_reason": "Phishing",
+      "disabled_at": "2025-06-01T00:00:00Z"
+    },
+    {
+      "id": 3,
+      "name": "Stream Deck",
+      "owner": "checkraise",
+      "kind": "device",
+      "first_party": false,
+      "people": 2,
+      "communities": 1,
+      "disabled": false,
+      "disabled_reason": null,
+      "disabled_at": null
+    }
+  ],
+  "/api/platform/log-levels": [
+    {
+      "logger": "",
+      "description": "Everything not set below",
+      "effective": "INFO",
+      "override": null,
+      "updated_by": null,
+      "updated_at": null
+    },
+    {
+      "logger": "discordbot",
+      "description": "Discord bot and DMs",
+      "effective": "DEBUG",
+      "override": "DEBUG",
+      "updated_by": "tcprescott",
+      "updated_at": "2025-06-01T00:00:00Z"
+    }
+  ],
+  "/api/platform/browser-monitoring": {
+    "enabled": true,
+    "replay_on_error": true,
+    "sample_rate": 1.0,
+    "sample_rates": [
+      1.0,
+      0.5,
+      0.25,
+      0.1
+    ],
+    "updated_by": "tcprescott",
+    "updated_at": "2025-06-01T00:00:00Z"
   },
-  {
-   "id": null,
-   "pattern": "chrome-extension://",
-   "match": "url",
-   "builtin": true,
-   "created_by": null,
-   "created_at": null
-  }
- ],
- "/api/service-health/board": [
-  {
-   "key": "discord",
-   "label": "Discord bot",
-   "category": "discord",
-   "status": "healthy",
-   "message": "Connected to 3 servers.",
-   "checked_at": "{{now-2m}}"
+  "/api/platform/browser-monitoring/rules": [
+    {
+      "id": 4,
+      "pattern": "ResizeObserver loop",
+      "match": "message",
+      "builtin": false,
+      "created_by": "tcprescott",
+      "created_at": "2025-06-01T00:00:00Z"
+    },
+    {
+      "id": null,
+      "pattern": "chrome-extension://",
+      "match": "url",
+      "builtin": true,
+      "created_by": null,
+      "created_at": null
+    }
+  ],
+  "/api/service-health/board": [
+    {
+      "key": "discord",
+      "label": "Discord bot",
+      "category": "discord",
+      "status": "healthy",
+      "message": "Connected to 3 servers.",
+      "checked_at": "{{now-2m}}"
+    },
+    {
+      "key": "matcherino",
+      "label": "Matcherino",
+      "category": "integrations",
+      "status": "down",
+      "message": "Token rejected 12 minutes ago.",
+      "checked_at": "{{now-2m}}"
+    }
+  ],
+  "/api/admin/match-schedule": {
+    "zone": "America/New_York",
+    "days": [
+      "2026-10-22",
+      "2026-10-23",
+      "2026-10-24",
+      "2026-10-25"
+    ],
+    "tournaments": [
+      {
+        "id": 1,
+        "name": "ALTTPR Open"
+      },
+      {
+        "id": 2,
+        "name": "SMZ3"
+      }
+    ],
+    "stages": [
+      {
+        "id": 1,
+        "name": "Stage 1"
+      },
+      {
+        "id": 2,
+        "name": "Stage 2"
+      },
+      {
+        "id": 3,
+        "name": "Stage 3"
+      }
+    ],
+    "scoped_tournaments": null,
+    "can_create": true,
+    "groups": [
+      {
+        "label": "Needs a decision",
+        "folded_by_default": false,
+        "rows": [
+          {
+            "id": 300,
+            "tournament_id": 1,
+            "tournament": "Super Metroid",
+            "tournament_name": "Super Metroid",
+            "bracket": "Round 1",
+            "game": null,
+            "best_of": null,
+            "set_label": null,
+            "scheduled_at": "2026-10-24T17:30:00Z",
+            "started_at": null,
+            "until_at": null,
+            "until_estimated": false,
+            "overrun": false,
+            "state": "Finished",
+            "status": "Played on Challonge",
+            "tone": "pending",
+            "group": "Needs a decision",
+            "players": [
+              {
+                "id": 3001,
+                "user_id": 3001,
+                "name": "Kai",
+                "station": null,
+                "ada": false
+              },
+              {
+                "id": 3002,
+                "user_id": 3002,
+                "name": "Morgan Wu",
+                "station": null,
+                "ada": false
+              }
+            ],
+            "placeholders": [],
+            "stage_id": 2,
+            "stage": "Stage 2",
+            "stream_candidate": false,
+            "seat_line": null,
+            "crew": [],
+            "late": [],
+            "comments": {},
+            "winners": [],
+            "pending_result": null,
+            "next_step": null,
+            "seed_url": null,
+            "seed_code": null,
+            "seed_rolling": false,
+            "seed_error": null,
+            "is_racetime": false,
+            "played_on_site": {
+              "site": "Challonge",
+              "winner": "Kai",
+              "winner_user_id": 3001,
+              "no_winner": false
+            },
+            "racetime_held": null,
+            "needs_review": false,
+            "can": {
+              "edit": true,
+              "run": true,
+              "confirm": true,
+              "stage": true,
+              "crew": true
+            }
+          }
+        ]
+      },
+      {
+        "label": "Live now",
+        "folded_by_default": false,
+        "rows": [
+          {
+            "id": 302,
+            "tournament_id": 1,
+            "tournament": "ALTTPR Open",
+            "tournament_name": "ALTTPR Open",
+            "bracket": "Quarterfinal",
+            "game": null,
+            "best_of": null,
+            "set_label": null,
+            "scheduled_at": "2026-10-24T18:00:00Z",
+            "started_at": "2026-10-24T18:02:00Z",
+            "until_at": null,
+            "until_estimated": false,
+            "overrun": false,
+            "state": "Started",
+            "status": "Live",
+            "tone": "live",
+            "group": "Live now",
+            "players": [
+              {
+                "id": 3021,
+                "user_id": 3021,
+                "name": "Sam Ruiz",
+                "station": null,
+                "ada": false
+              },
+              {
+                "id": 3022,
+                "user_id": 3022,
+                "name": "Alex Chen",
+                "station": null,
+                "ada": false
+              }
+            ],
+            "placeholders": [],
+            "stage_id": 1,
+            "stage": "Stage 1",
+            "stream_candidate": false,
+            "seat_line": null,
+            "crew": [],
+            "late": [],
+            "comments": {},
+            "winners": [
+              {
+                "id": 3021,
+                "name": "Sam Ruiz"
+              },
+              {
+                "id": 3022,
+                "name": "Alex Chen"
+              }
+            ],
+            "pending_result": null,
+            "next_step": null,
+            "seed_url": null,
+            "seed_code": null,
+            "seed_rolling": false,
+            "seed_error": null,
+            "is_racetime": false,
+            "played_on_site": null,
+            "racetime_held": null,
+            "needs_review": false,
+            "can": {
+              "edit": true,
+              "run": true,
+              "confirm": true,
+              "stage": true,
+              "crew": true
+            }
+          }
+        ]
+      },
+      {
+        "label": "Up next",
+        "folded_by_default": false,
+        "rows": [
+          {
+            "id": 301,
+            "tournament_id": 1,
+            "tournament": "SMZ3",
+            "tournament_name": "SMZ3",
+            "bracket": "Round 2",
+            "game": null,
+            "best_of": null,
+            "set_label": null,
+            "scheduled_at": "2026-10-24T18:30:00Z",
+            "started_at": null,
+            "until_at": null,
+            "until_estimated": false,
+            "overrun": false,
+            "state": "Checked In",
+            "status": "Checked in",
+            "tone": "info",
+            "group": "Up next",
+            "players": [
+              {
+                "id": 3011,
+                "user_id": 3011,
+                "name": "Priya N.",
+                "station": null,
+                "ada": false
+              },
+              {
+                "id": 3012,
+                "user_id": 3012,
+                "name": "Jordan Lee",
+                "station": null,
+                "ada": true
+              }
+            ],
+            "placeholders": [],
+            "stage_id": 3,
+            "stage": "Stage 3",
+            "stream_candidate": false,
+            "seat_line": null,
+            "crew": [
+              {
+                "key": "commentators",
+                "label": "Commentary",
+                "count": "1/2",
+                "short": true,
+                "unapproved": false,
+                "approvable": true,
+                "people": [
+                  {
+                    "id": 71,
+                    "name": "Casey M.",
+                    "approved": true,
+                    "with": null
+                  },
+                  {
+                    "id": 72,
+                    "name": "Rin T.",
+                    "approved": false,
+                    "with": null
+                  }
+                ]
+              }
+            ],
+            "late": [
+              {
+                "label": "Jordan Lee ~10 min late · said 1:22 PM",
+                "note": "Bus"
+              }
+            ],
+            "comments": {
+              "player": 1,
+              "staff": 1
+            },
+            "winners": [],
+            "pending_result": null,
+            "next_step": {
+              "event": "start",
+              "label": "Start",
+              "primary": true,
+              "rolling": false
+            },
+            "seed_url": null,
+            "seed_code": null,
+            "seed_rolling": false,
+            "seed_error": null,
+            "is_racetime": false,
+            "played_on_site": null,
+            "racetime_held": null,
+            "needs_review": false,
+            "can": {
+              "edit": true,
+              "run": true,
+              "confirm": true,
+              "stage": true,
+              "crew": true
+            }
+          },
+          {
+            "id": 303,
+            "tournament_id": 1,
+            "tournament": "FF Randomizer",
+            "tournament_name": "FF Randomizer",
+            "bracket": null,
+            "game": null,
+            "best_of": null,
+            "set_label": null,
+            "scheduled_at": "2026-10-24T19:00:00Z",
+            "started_at": null,
+            "until_at": null,
+            "until_estimated": false,
+            "overrun": false,
+            "state": "Scheduled",
+            "status": "Scheduled",
+            "tone": "neutral",
+            "group": "Up next",
+            "players": [
+              {
+                "id": 3031,
+                "user_id": 3031,
+                "name": "Lee",
+                "station": null,
+                "ada": false
+              },
+              {
+                "id": 3032,
+                "user_id": 3032,
+                "name": "Marco P.",
+                "station": null,
+                "ada": false
+              }
+            ],
+            "placeholders": [],
+            "stage_id": null,
+            "stage": null,
+            "stream_candidate": false,
+            "seat_line": "No stations yet",
+            "crew": [],
+            "late": [],
+            "comments": {},
+            "winners": [],
+            "pending_result": null,
+            "next_step": {
+              "event": "seat",
+              "label": "Check in",
+              "primary": false,
+              "rolling": false
+            },
+            "seed_url": null,
+            "seed_code": null,
+            "seed_rolling": false,
+            "seed_error": null,
+            "is_racetime": false,
+            "played_on_site": null,
+            "racetime_held": null,
+            "needs_review": false,
+            "can": {
+              "edit": true,
+              "run": true,
+              "confirm": true,
+              "stage": true,
+              "crew": true
+            }
+          }
+        ]
+      },
+      {
+        "label": "Confirmed",
+        "folded_by_default": true,
+        "rows": [
+          {
+            "id": 304,
+            "tournament_id": 1,
+            "tournament": "OoTR",
+            "tournament_name": "OoTR",
+            "bracket": null,
+            "game": null,
+            "best_of": null,
+            "set_label": null,
+            "scheduled_at": "2026-10-24T16:00:00Z",
+            "started_at": null,
+            "until_at": null,
+            "until_estimated": false,
+            "overrun": false,
+            "state": "Confirmed",
+            "status": "Confirmed",
+            "tone": "ok",
+            "group": "Confirmed",
+            "players": [
+              {
+                "id": 3041,
+                "user_id": 3041,
+                "name": "Riley",
+                "station": null,
+                "ada": false
+              },
+              {
+                "id": 3042,
+                "user_id": 3042,
+                "name": "Dana Ortiz",
+                "station": null,
+                "ada": false
+              }
+            ],
+            "placeholders": [],
+            "stage_id": null,
+            "stage": null,
+            "stream_candidate": false,
+            "seat_line": null,
+            "crew": [],
+            "late": [],
+            "comments": {},
+            "winners": [],
+            "pending_result": null,
+            "next_step": null,
+            "seed_url": null,
+            "seed_code": null,
+            "seed_rolling": false,
+            "seed_error": null,
+            "is_racetime": false,
+            "played_on_site": null,
+            "racetime_held": null,
+            "needs_review": false,
+            "can": {
+              "edit": true,
+              "run": true,
+              "confirm": true,
+              "stage": true,
+              "crew": true
+            }
+          }
+        ]
+      }
+    ]
   },
-  {
-   "key": "matcherino",
-   "label": "Matcherino",
-   "category": "integrations",
-   "status": "down",
-   "message": "Token rejected 12 minutes ago.",
-   "checked_at": "{{now-2m}}"
+  "/api/admin/match-schedule/matches/301": {
+    "id": 301,
+    "tournament_id": 1,
+    "tournament": "SMZ3",
+    "tournament_name": "SMZ3",
+    "bracket": "Round 2",
+    "game": null,
+    "best_of": null,
+    "set_label": null,
+    "scheduled_at": "2026-10-24T18:30:00Z",
+    "started_at": null,
+    "until_at": null,
+    "until_estimated": false,
+    "overrun": false,
+    "state": "Checked In",
+    "status": "Checked in",
+    "tone": "info",
+    "group": "Up next",
+    "players": [
+      {
+        "id": 3011,
+        "user_id": 3011,
+        "name": "Priya N.",
+        "station": null,
+        "ada": false
+      },
+      {
+        "id": 3012,
+        "user_id": 3012,
+        "name": "Jordan Lee",
+        "station": null,
+        "ada": true
+      }
+    ],
+    "placeholders": [],
+    "stage_id": 3,
+    "stage": "Stage 3",
+    "stream_candidate": false,
+    "seat_line": null,
+    "crew": [
+      {
+        "key": "commentators",
+        "label": "Commentary",
+        "count": "1/2",
+        "short": true,
+        "unapproved": false,
+        "approvable": true,
+        "people": [
+          {
+            "id": 71,
+            "name": "Casey M.",
+            "approved": true,
+            "with": null
+          },
+          {
+            "id": 72,
+            "name": "Rin T.",
+            "approved": false,
+            "with": null
+          }
+        ]
+      }
+    ],
+    "late": [
+      {
+        "label": "Jordan Lee ~10 min late · said 1:22 PM",
+        "note": "Bus"
+      }
+    ],
+    "comments": {
+      "player": 1,
+      "staff": 1
+    },
+    "winners": [],
+    "pending_result": null,
+    "next_step": {
+      "event": "roll",
+      "label": "Roll seed",
+      "primary": true,
+      "rolling": false
+    },
+    "seed_url": null,
+    "seed_code": null,
+    "seed_rolling": false,
+    "seed_error": null,
+    "is_racetime": false,
+    "played_on_site": null,
+    "racetime_held": null,
+    "needs_review": false,
+    "can": {
+      "edit": true,
+      "run": true,
+      "confirm": true,
+      "stage": true,
+      "crew": true
+    },
+    "zone": "America/New_York",
+    "description": null,
+    "state_since": "2026-10-24T18:20:00Z",
+    "checklist": [
+      {
+        "key": "players",
+        "label": "Players confirmed",
+        "ready": true,
+        "detail": "Everyone has confirmed"
+      },
+      {
+        "key": "stations",
+        "label": "Stations",
+        "ready": null,
+        "detail": "Priya N. 4"
+      },
+      {
+        "key": "stage",
+        "label": "Stage",
+        "ready": true,
+        "detail": "Stage 3"
+      },
+      {
+        "key": "seed",
+        "label": "Seed",
+        "ready": false,
+        "detail": "Not rolled"
+      },
+      {
+        "key": "crew",
+        "label": "Crew",
+        "ready": false,
+        "detail": "1 more needed, 1 waiting for approval below"
+      }
+    ],
+    "rewind_to": [
+      {
+        "step": "scheduled",
+        "explanation": "Clears the check-in."
+      }
+    ],
+    "seed_dm_blocked": [],
+    "stage_url": null,
+    "ada_notes": {
+      "3012": "Needs a seat near the aisle."
+    }
   }
- ]
 }

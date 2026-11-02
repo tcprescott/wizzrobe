@@ -103,12 +103,13 @@ import PodcastsIcon from '@material-symbols/svg-400/outlined/podcasts.svg?react'
 import MilitaryTechIcon from '@material-symbols/svg-400/outlined/military_tech.svg?react'
 import SmartToyIcon from '@material-symbols/svg-400/outlined/smart_toy.svg?react'
 import BugReportIcon from '@material-symbols/svg-400/outlined/bug_report.svg?react'
-import SearchIcon from '@material-symbols/svg-400/outlined/search.svg?react'
 import RefreshIcon from '@material-symbols/svg-400/outlined/refresh.svg?react'
 import PersonOffIcon from '@material-symbols/svg-400/outlined/person_off.svg?react'
 import KeyOffIcon from '@material-symbols/svg-400/outlined/key_off.svg?react'
-import CasinoIcon from '@material-symbols/svg-400/outlined/casino.svg?react'
 import PersonAddIcon from '@material-symbols/svg-400/outlined/person_add.svg?react'
+import Search from '@material-symbols/svg-400/outlined/search.svg?react'
+import Videocam from '@material-symbols/svg-400/outlined/videocam.svg?react'
+import Casino from '@material-symbols/svg-400/outlined/casino.svg?react'
 
 type Svg = FC<SVGProps<SVGSVGElement>>
 
@@ -140,6 +141,9 @@ export const ICONS = {
   event_available: EventAvailable,
   swap_horiz: SwapHoriz,
   schedule: Schedule,
+  search: Search,
+  videocam: Videocam,
+  casino: Casino,
   tv: Tv,
   open_in_new: OpenInNew,
   sports_esports: SportsEsports,
@@ -210,11 +214,9 @@ export const ICONS = {
   military_tech: MilitaryTechIcon,
   smart_toy: SmartToyIcon,
   bug_report: BugReportIcon,
-  search: SearchIcon,
   refresh: RefreshIcon,
   person_off: PersonOffIcon,
   key_off: KeyOffIcon,
-  casino: CasinoIcon,
   person_add: PersonAddIcon,
 } satisfies Record<string, Svg>
 
