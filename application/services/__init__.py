@@ -46,6 +46,7 @@ from . import (
     webhook_outbox_worker,
 )
 from .accommodation_service import AccommodationService
+from .admin_nav_service import AdminAccess, AdminNav, AdminNavService
 from .ai_provider_service import AiProviderService
 from .analytics_service import AnalyticsService
 from .api_token_service import ApiTokenService
@@ -211,6 +212,9 @@ from .webhook_service import WebhookService
 
 __all__ = [
     'AccommodationService',
+    'AdminAccess',
+    'AdminNav',
+    'AdminNavService',
     'AccountOverview',
     'AiProviderService',
     'AnalyticsService',

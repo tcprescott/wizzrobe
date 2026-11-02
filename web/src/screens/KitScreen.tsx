@@ -13,10 +13,16 @@ import {
   PanelRow,
   RowMenu,
 } from '../components'
+import { DataTable } from '../admin/kit/DataTable'
 import { useTheme } from '../theme/ThemeProvider'
 import './screens.css'
 
 const noop = () => undefined
+
+const EVENTS = [
+  { slug: 'sgl26', name: 'SGL26', status: 'Live', dates: 'Oct 22 – 25' },
+  { slug: 'sgl25', name: 'SGL25', status: 'Archived', dates: 'Oct 17 – 20, 2025' },
+]
 
 /**
  * Every base component in every state, on one page. Not linked from the app;
@@ -89,6 +95,26 @@ export function KitScreen() {
         <EmptyState icon="info" title="An empty state">
           Explains what will show here and how to get it.
         </EmptyState>
+      </Panel>
+      <Panel title="Data table">
+        <DataTable
+          label="Events"
+          rows={EVENTS}
+          rowKey={(e) => e.slug}
+          selectedKey="sgl26"
+          onOpen={noop}
+          openLabel={(e) => `Open ${e.name}`}
+          columns={[
+            { key: 'name', header: 'Event', primary: true, cell: (e) => e.name },
+            { key: 'status', header: 'Status', cell: (e) => <Chip tone={e.status === 'Live' ? 'live' : 'neutral'}>{e.status}</Chip> },
+            { key: 'dates', header: 'Dates', cell: (e) => e.dates },
+          ]}
+          rowMenu={() => [
+            { label: 'Rename…', icon: 'edit', onSelect: noop },
+            { label: 'Delete…', destructive: true, onSelect: noop },
+          ]}
+          rowMenuLabel={(e) => `More for ${e.name}`}
+        />
       </Panel>
       <FormDialog
         open={open}

@@ -218,3 +218,10 @@ in TypeScript.
   accounts and "Use my Discord email" still open the website's sign-in pages in
   a tab, and device push waits for the service worker (step 12). Mockups:
   `/mnt/project-files/mobile-app/profile-mockups/`.
+- 2026-11-02 — Thomas started steps 10 and 11 early, in parallel, split across
+  threads: the admin shell plus Settings, Event settings and Events; Match
+  Schedule; tournaments and brackets; people and volunteers; comms and reports;
+  Platform. Admin keeps the website's `/admin/<slug>` URLs and sits under Work.
+  Each area registers itself from `web/src/admin/<area>/routes.tsx`; which areas
+  a viewer may open comes from `GET /api/admin/nav`, whose gates
+  `tests/test_admin_nav_drift.py` holds to the website's admin drawer.

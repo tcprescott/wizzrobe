@@ -168,6 +168,7 @@ _ROUTES: Dict[RouteScope, tuple[str, ...]] = {
         'POST /volunteers/assignments/{assignment_id}/acknowledge',
     ),
     ApiScope.STAFF_READ: (
+        'GET /admin/nav',
         'GET /surveys',
         'GET /surveys/conditions',
         'GET /surveys/{survey_id}',
