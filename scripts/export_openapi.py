@@ -1,9 +1,9 @@
 """Write the REST API's OpenAPI schema to a file, without booting the app.
 
 The new app in ``web/`` generates its typed client from this file
-(``npm run gen:api``), and CI fails when the committed copy drifts from the
-routers. Builds the same document ``/api/openapi.json`` serves, minus the
-server's base URL.
+(``npm run gen:api``, which runs this first). The file is not committed;
+CI generates it before typechecking the app. Builds the same document
+``/api/openapi.json`` serves, minus the server's base URL.
 
 Usage: poetry run python scripts/export_openapi.py [web/openapi.json]
 """

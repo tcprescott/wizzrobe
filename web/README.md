@@ -23,16 +23,16 @@ dev seed registers this app as the first-party client `wizzrobe-app` with
 | `npm run typecheck` | `tsc` over everything |
 | `npm test` | Vitest unit tests (`src/**/*.test.ts`) |
 | `npm run build` | Typecheck, then a production build in `dist/` |
-| `npm run gen:api` | Regenerate `src/api/schema.d.ts` from `openapi.json` |
-| `npm run a11y` | After `build`: axe + contrast + phone overflow on every screen, light and dark, with the API stubbed from `scripts/a11y-fixtures.json` |
+| `npm run gen:api` | Write `openapi.json` from the backend's routers, then `src/api/schema.d.ts` from it (needs `poetry install` at the repo root). Run it once after cloning and again after pulling a route change |
+| `npm run a11y` | After `build`: axe + contrast + phone overflow on every screen, light and dark, with the API stubbed from `scripts/a11y/*.mjs` |
 
 ## The REST client
 
-`openapi.json` is the backend's schema, written by
-`poetry run python scripts/export_openapi.py` (from the repo root), and
-`src/api/schema.d.ts` is generated from it. CI regenerates both and fails if the
-committed copies differ, so **change a route or response model → run both
-commands and commit both files**.
+`openapi.json` is the backend's schema and `src/api/schema.d.ts` is generated
+from it. Neither is committed: `npm run gen:api` builds both from the routers,
+and CI does the same before it typechecks, so a route or response model change
+that breaks the app fails the `web` job. Don't commit them (they're
+gitignored); committed copies put every open PR into conflict on each merge.
 
 ```ts
 import { api, unwrap } from '../api/client'
@@ -86,3 +86,11 @@ push). Native push, sign-in through the system browser, app links and the build
 steps are in [docs/features/native-apps.md](../docs/features/native-apps.md).
 Code that only runs in the store apps lives in `src/native/` and checks
 `isNative()` from `src/lib/platform.ts` first.
+
+## Accessibility checks
+
+`npm run a11y` reads every file in `scripts/a11y/`. Each one covers a screen
+and exports `targets` (the pages and states to check) and `fixtures` (the stub
+API response for each path those pages call). A new screen gets a new file
+rather than an edit to a shared list, so parallel PRs don't collide. A target
+name or fixture path defined in two files stops the run.
