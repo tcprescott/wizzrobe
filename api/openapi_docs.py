@@ -132,6 +132,7 @@ def api_description() -> str:
 TAG_GROUPS: List[tuple[str, List[tuple[str, str]]]] = [
     ('Event day', [
         ('My schedule', "A player's own Home and Schedule: next match, what's waiting on them, and picking a time."),
+        ('Admin shell', "Which admin areas and settings panes the caller may open, for the app's admin menu."),
         ('Matches', 'The schedule, and running a match from seating to a confirmed result.'),
         ('Crew', 'Commentator, tracker and broadcaster signups, approval and acknowledgement.'),
         ('Reschedule requests', 'Players asking to move or call off a match, and staff answering.'),

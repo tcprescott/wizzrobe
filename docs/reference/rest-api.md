@@ -192,6 +192,10 @@ Screen-shaped reads for the app's Home and Schedule tabs, built by `PlayerHomeSe
 - `GET /me/schedule?past=` — your matches, crew slots and shifts in the event window, soonest first (or ended ones, latest first).
 - `GET /me/bookable` — matchups waiting on you to pick a time, from native brackets, Challonge and start.gg in one list (`source` + `key`). `GET /me/bookable/{source}/{key}/check?at=` returns the booking-window `refusal` and the "Check this time" `clashes` without booking; `POST /me/bookable/{source}/{key}/book` (`scheduled_at`, an instant) books the next game. Both refuse (`400`) a matchup that isn't in your own list.
 
+### Admin shell (`/api/admin/…`) · `admin_nav.py`
+What the app's admin menu draws, built by `AdminNavService`. Scope `staff:read`.
+- `GET /admin/nav` — every admin area the caller may open here (`slug`, `label`, `icon`, `group`, `half`, older `aliases`), in menu order, plus the Settings and Event settings panes and the setup checklist. A member with no admin access gets empty lists, not `403`. The gates mirror the website's admin drawer; `tests/test_admin_nav_drift.py` fails when they disagree.
+
 ### My profile (`/api/me/…`) · `my_profile.py`, `my_notifications.py`, `my_developer.py`
 What the app's Me screen reads and edits, built by `MyProfileService` beside the existing self-service routes (`PATCH /users/me`, availability, equipment, feedback, notification settings). Event-bound; reads take scope `profile`, writes `profile:write`.
 - `GET /me/profile` — the section list (key, title, summary), flag-gated per community, plus the clock fields. `PATCH /me/clock` sets `timezone` and the 12/24-hour clock; only the fields sent change. `PATCH /users/me` also takes `matcherino_username` when Payouts is on.

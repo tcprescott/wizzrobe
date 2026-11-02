@@ -645,5 +645,130 @@
    "expires_at": null,
    "created_at": "{{now-40d}}"
   }
- ]
+ ],
+ "/api/admin/nav": {
+  "areas": [
+   {
+    "slug": "setup",
+    "label": "Setup",
+    "icon": "checklist",
+    "group": "Run the event",
+    "half": "event",
+    "aliases": []
+   },
+   {
+    "slug": "match-schedule",
+    "label": "Match Schedule",
+    "icon": "view_timeline",
+    "group": "Run the event",
+    "half": "event",
+    "aliases": [
+     "schedule"
+    ]
+   },
+   {
+    "slug": "tournaments",
+    "label": "Tournaments",
+    "icon": "trophy",
+    "group": "Run the event",
+    "half": "event",
+    "aliases": []
+   },
+   {
+    "slug": "event-settings",
+    "label": "Event settings",
+    "icon": "event",
+    "group": "Run the event",
+    "half": "event",
+    "aliases": []
+   },
+   {
+    "slug": "volunteers",
+    "label": "Volunteers",
+    "icon": "groups",
+    "group": "People",
+    "half": "event",
+    "aliases": [
+     "vol-roster"
+    ]
+   },
+   {
+    "slug": "members",
+    "label": "Members",
+    "icon": "manage_accounts",
+    "group": "Community",
+    "half": "community",
+    "aliases": [
+     "users"
+    ]
+   },
+   {
+    "slug": "events",
+    "label": "Events",
+    "icon": "calendar_month",
+    "group": "Configuration",
+    "half": "community",
+    "aliases": []
+   },
+   {
+    "slug": "settings",
+    "label": "Settings",
+    "icon": "settings",
+    "group": "Configuration",
+    "half": "community",
+    "aliases": []
+   },
+   {
+    "slug": "service-health",
+    "label": "Service Health",
+    "icon": "monitor_heart",
+    "group": "System",
+    "half": "community",
+    "aliases": []
+   }
+  ],
+  "settings_panes": [
+   {
+    "slug": "general",
+    "label": "General",
+    "icon": "tune",
+    "summary": "How the community looks, and the clock it tells time by."
+   }
+  ],
+  "event_settings_panes": [
+   {
+    "slug": "dates",
+    "label": "Dates & hours",
+    "icon": "date_range",
+    "summary": "When the event runs, and the hours matches can start each day."
+   }
+  ],
+  "setup": [
+   {
+    "key": "staff",
+    "label": "Give the community a staff member",
+    "done": true,
+    "hint": "",
+    "tab": "Members",
+    "required": true
+   },
+   {
+    "key": "tournament",
+    "label": "Add a tournament",
+    "done": false,
+    "hint": "Players need something to sign up for.",
+    "tab": "Tournaments",
+    "required": true
+   },
+   {
+    "key": "dates",
+    "label": "Set the event dates",
+    "done": false,
+    "hint": "Schedules and reminders use them.",
+    "tab": "Event settings",
+    "required": false
+   }
+  ],
+  "setup_ready": false
+ }
 }

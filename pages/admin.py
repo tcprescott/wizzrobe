@@ -1,6 +1,6 @@
 """Admin Dashboard Page"""
 
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from typing import Optional
 
 from fastapi import Request
@@ -8,17 +8,17 @@ from nicegui import app, ui
 from starlette.responses import RedirectResponse
 
 from application.services import (
-    AuthService,
+    AdminAccess,
+    AdminNavService,
     FeatureFlagService,
     SetupStep,
     TenantService,
     TenantSetupService,
     get_user_from_session,
 )
-from application.tenant_context import get_current_tenant_id
 from middleware.auth import protected_page, protected_tab_page
 from middleware.event_routing import default_event_redirect
-from models import FeatureFlag, Role, User
+from models import FeatureFlag, User
 from pages.admin_tabs.admin_brackets import admin_brackets_page
 from pages.admin_tabs.admin_check_in import admin_check_in_page
 from pages.admin_tabs.admin_community_events import admin_community_events_page
@@ -66,32 +66,6 @@ MEETUPS_TAB_LABEL = 'Meetups'
 
 ADMIN_GROUP_ORDER = [RUN_THE_EVENT, ONLINE_PLAY, PEOPLE, COMMUNITY, CONFIGURATION, SYSTEM]
 EVENT_GROUPS = frozenset({RUN_THE_EVENT, ONLINE_PLAY, PEOPLE})
-
-
-@dataclass(frozen=True)
-class AdminAccess:
-    """What the viewer may reach in this tenant, resolved once per page load."""
-
-    is_staff: bool = False
-    is_stream_manager: bool = False
-    is_volunteer_coordinator: bool = False
-    is_equipment_manager: bool = False
-    is_preset_manager: bool = False
-    is_sync_admin: bool = False
-    is_qualifier_admin: bool = False
-    is_tournament_admin: bool = False
-    is_crew_coordinator: bool = False
-    is_qualifier_owner: bool = False
-    # Not part of any(): derived from the booleans above, not an access grant of its own.
-    operated_tournament_ids: frozenset[int] = frozenset()
-    # None means unknown: the board then scopes nothing per row.
-    admin_tournament_ids: frozenset[int] | None = None
-    crew_tournament_ids: frozenset[int] | None = None
-
-    def any(self) -> bool:
-        return any(getattr(self, f) for f in self.__dataclass_fields__
-                   if f not in ('operated_tournament_ids', 'admin_tournament_ids',
-                                'crew_tournament_ids'))
 
 
 def build_admin_tabs(
@@ -252,27 +226,7 @@ def selected_admin_tab(tabs: list[dict], section: str | None) -> dict:
 
 async def resolve_admin_access(user: User) -> AdminAccess:
     """What ``user`` may reach in the admin area of the community in scope."""
-    roles = await AuthService.get_roles(user)
-    # Must stay tenant-filtered: these hang off the global User, so unfiltered a tournament
-    # admin in one community passes this gate in every other.
-    admin_tournament_ids, cc_tournament_ids = await AuthService.tournament_scope(user)
-    return AdminAccess(
-        # is_staff, not the literal STAFF grant, so a super-admin passes.
-        is_staff=await AuthService.is_staff(user),
-        is_stream_manager=Role.STREAM_MANAGER in roles,
-        is_volunteer_coordinator=Role.VOLUNTEER_COORDINATOR in roles,
-        is_equipment_manager=await AuthService.is_equipment_manager(user),
-        is_preset_manager=Role.PRESET_MANAGER in roles,
-        is_sync_admin=Role.SYNC_ADMIN in roles,
-        is_qualifier_admin=Role.QUALIFIER_ADMIN in roles,
-        is_tournament_admin=bool(admin_tournament_ids),
-        is_crew_coordinator=bool(cc_tournament_ids),
-        is_qualifier_owner=await user.admin_async_qualifiers.filter(
-            tenant_id=get_current_tenant_id()).exists(),
-        operated_tournament_ids=frozenset(admin_tournament_ids | cc_tournament_ids),
-        admin_tournament_ids=frozenset(admin_tournament_ids),
-        crew_tournament_ids=frozenset(cc_tournament_ids),
-    )
+    return await AdminNavService.access(user)
 
 
 async def _admin_menu(user: User) -> list[dict]:
