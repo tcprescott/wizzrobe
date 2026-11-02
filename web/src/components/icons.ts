@@ -102,6 +102,12 @@ import RefreshIcon from '@material-symbols/svg-400/outlined/refresh.svg?react'
 import PersonOffIcon from '@material-symbols/svg-400/outlined/person_off.svg?react'
 import KeyOffIcon from '@material-symbols/svg-400/outlined/key_off.svg?react'
 import PersonAddIcon from '@material-symbols/svg-400/outlined/person_add.svg?react'
+import PersonRemoveIcon from '@material-symbols/svg-400/outlined/person_remove.svg?react'
+import EventNoteIcon from '@material-symbols/svg-400/outlined/event_note.svg?react'
+import ViewColumnIcon from '@material-symbols/svg-400/outlined/view_column.svg?react'
+import ArrowUpwardIcon from '@material-symbols/svg-400/outlined/arrow_upward.svg?react'
+import ArrowDownwardIcon from '@material-symbols/svg-400/outlined/arrow_downward.svg?react'
+import VisibilityOffIcon from '@material-symbols/svg-400/outlined/visibility_off.svg?react'
 import Search from '@material-symbols/svg-400/outlined/search.svg?react'
 import Videocam from '@material-symbols/svg-400/outlined/videocam.svg?react'
 import Casino from '@material-symbols/svg-400/outlined/casino.svg?react'
@@ -109,8 +115,6 @@ import IAccountTree from '@material-symbols/svg-400/outlined/account_tree.svg?re
 import SyncIcon from '@material-symbols/svg-400/outlined/sync.svg?react'
 import SkipNextIcon from '@material-symbols/svg-400/outlined/skip_next.svg?react'
 import AddLinkIcon from '@material-symbols/svg-400/outlined/add_link.svg?react'
-import PersonRemoveIcon from '@material-symbols/svg-400/outlined/person_remove.svg?react'
-import EventNoteIcon from '@material-symbols/svg-400/outlined/event_note.svg?react'
 import PriorityHigh from '@material-symbols/svg-400/outlined/priority_high.svg?react'
 import Inbox from '@material-symbols/svg-400/outlined/inbox.svg?react'
 import Lock from '@material-symbols/svg-400/outlined/lock.svg?react'
@@ -135,6 +139,15 @@ import ISupportAgent from '@material-symbols/svg-400/outlined/support_agent.svg?
 import IVerified from '@material-symbols/svg-400/outlined/verified.svg?react'
 import IVideogameAsset from '@material-symbols/svg-400/outlined/videogame_asset.svg?react'
 import IReleaseAlert from '@material-symbols/svg-400/outlined/release_alert.svg?react'
+import PersonCheckIcon from '@material-symbols/svg-400/outlined/person_check.svg?react'
+import MeetingRoomIcon from '@material-symbols/svg-400/outlined/meeting_room.svg?react'
+import VisibilityIcon from '@material-symbols/svg-400/outlined/visibility.svg?react'
+import UploadIcon from '@material-symbols/svg-400/outlined/upload.svg?react'
+import ImageIcon from '@material-symbols/svg-400/outlined/image.svg?react'
+import PublicIcon from '@material-symbols/svg-400/outlined/public.svg?react'
+import PlayCircleIcon from '@material-symbols/svg-400/outlined/play_circle.svg?react'
+import StarIcon from '@material-symbols/svg-400/outlined/star.svg?react'
+import UnarchiveIcon from '@material-symbols/svg-400/outlined/unarchive.svg?react'
 
 type Svg = FC<SVGProps<SVGSVGElement>>
 
@@ -252,6 +265,10 @@ export const ICONS = {
   add_link: AddLinkIcon,
   person_remove: PersonRemoveIcon,
   event_note: EventNoteIcon,
+  view_column: ViewColumnIcon,
+  arrow_upward: ArrowUpwardIcon,
+  arrow_downward: ArrowDownwardIcon,
+  visibility_off: VisibilityOffIcon,
   attractions: IAttractions,
   code: ICode,
   contact_phone: IContactPhone,
@@ -273,6 +290,15 @@ export const ICONS = {
   verified: IVerified,
   videogame_asset: IVideogameAsset,
   release_alert: IReleaseAlert,
+  person_check: PersonCheckIcon,
+  meeting_room: MeetingRoomIcon,
+  visibility: VisibilityIcon,
+  upload: UploadIcon,
+  image: ImageIcon,
+  public: PublicIcon,
+  play_circle: PlayCircleIcon,
+  star: StarIcon,
+  unarchive: UnarchiveIcon,
 } satisfies Record<string, Svg>
 
 export const FILLED: Partial<Record<IconName, Svg>> = {

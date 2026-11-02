@@ -246,6 +246,12 @@
     margin-left: auto;
   }
 }
+.me-bar__track--declare {
+  background: var(--surface-sunken);
+}
+.me-bar__block--available {
+  background: color-mix(in srgb, var(--status-ok) 45%, var(--surface));
+}
 
 .me-lists {
   display: flex;

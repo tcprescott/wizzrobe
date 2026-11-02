@@ -147,35 +147,31 @@ export const actions = {
   seat: (id: number) => api.POST('/api/matches/{match_id}/seat', { params: { path: { match_id: id } } }).then(unwrap),
   start: (id: number) => api.POST('/api/matches/{match_id}/start', { params: { path: { match_id: id } } }).then(unwrap),
   finish: (id: number) => api.POST('/api/matches/{match_id}/finish', { params: { path: { match_id: id } } }).then(unwrap),
-  confirm: (id: number) =>
-    api.POST('/api/matches/{match_id}/confirm', { params: { path: { match_id: id } } }).then(unwrap),
+  confirm: (id: number) => api.POST('/api/matches/{match_id}/confirm', { params: { path: { match_id: id } } }).then(unwrap),
   roll: (id: number) => api.POST('/api/matches/{match_id}/seed', { params: { path: { match_id: id } } }).then(unwrap),
   winner: (id: number, playerId: number) =>
     api
       .POST('/api/matches/{match_id}/result', { params: { path: { match_id: id } }, body: { winner_id: playerId } })
       .then(unwrap),
   stage: (id: number, stageId: number | null) =>
-    api
-      .POST('/api/matches/{match_id}/stage', { params: { path: { match_id: id } }, body: { stage_id: stageId } })
-      .then(unwrap),
+    api.POST('/api/matches/{match_id}/stage', { params: { path: { match_id: id } }, body: { stage_id: stageId } }).then(unwrap),
   stations: (id: number, assignments: Record<string, string | null>) =>
-    api
-      .POST('/api/matches/{match_id}/stations', { params: { path: { match_id: id } }, body: { assignments } })
-      .then(unwrap),
+    api.POST('/api/matches/{match_id}/stations', { params: { path: { match_id: id } }, body: { assignments } }).then(unwrap),
   suggestStations: (id: number) =>
     api.POST('/api/matches/{match_id}/stations/suggest', { params: { path: { match_id: id } } }).then(unwrap),
   clearSeed: (id: number) =>
-    api.PATCH('/api/matches/{match_id}', { params: { path: { match_id: id } }, body: { clear_seed: true, clear_seated: false, clear_started: false, clear_finished: false, clear_confirmed: false } }).then(unwrap),
-  rewind: (id: number, step: string) =>
     api
-      .POST('/api/matches/{match_id}/rewind', { params: { path: { match_id: id } }, body: { to_step: step } })
+      .PATCH('/api/matches/{match_id}', {
+        params: { path: { match_id: id } },
+        body: { clear_seed: true, clear_seated: false, clear_started: false, clear_finished: false, clear_confirmed: false },
+      })
       .then(unwrap),
+  rewind: (id: number, step: string) =>
+    api.POST('/api/matches/{match_id}/rewind', { params: { path: { match_id: id } }, body: { to_step: step } }).then(unwrap),
   callOff: (id: number, reason: string) =>
-    api
-      .POST('/api/matches/{match_id}/cancel', { params: { path: { match_id: id } }, body: { reason } })
-      .then((r) => {
-        if (!r.response.ok) unwrap(r)
-      }),
+    api.POST('/api/matches/{match_id}/cancel', { params: { path: { match_id: id } }, body: { reason } }).then((r) => {
+      if (!r.response.ok) unwrap(r)
+    }),
   remove: (id: number) =>
     api.DELETE('/api/matches/{match_id}', { params: { path: { match_id: id } } }).then((r) => {
       if (!r.response.ok) unwrap(r)

@@ -20,6 +20,7 @@ from datetime import datetime, timezone
 from typing import Deque, Dict, List, Optional, Set
 
 TRIP_MINUTES = 10
+ADMISSIONS_PER_MINUTE = 600
 _WINDOW_SECONDS = 60.0
 
 
