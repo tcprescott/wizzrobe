@@ -2648,6 +2648,24 @@
         "title": "BracketFormat",
         "type": "string"
       },
+      "BracketFormatOption": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "label"
+        ],
+        "title": "BracketFormatOption",
+        "type": "object"
+      },
       "BracketMatchGameResponse": {
         "description": "One game of a bracket match's best-of-N series.",
         "properties": {
@@ -2965,6 +2983,50 @@
         "title": "BracketMatchState",
         "type": "string"
       },
+      "BracketNextStepResponse": {
+        "properties": {
+          "detail": {
+            "description": "The counts behind it.",
+            "title": "Detail",
+            "type": "string"
+          },
+          "done": {
+            "description": "Progress so far (enrolled, or matches reported).",
+            "title": "Done",
+            "type": "integer"
+          },
+          "key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The button the step offers: `enroll`, `start`, `report`, `complete`, `advance`, or null for none.",
+            "title": "Key"
+          },
+          "title": {
+            "description": "The step, such as \"Enroll and seed, then start\".",
+            "title": "Title",
+            "type": "string"
+          },
+          "total": {
+            "description": "What progress counts towards.",
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "title",
+          "detail",
+          "done",
+          "total"
+        ],
+        "title": "BracketNextStepResponse",
+        "type": "object"
+      },
       "BracketPhaseResponse": {
         "properties": {
           "bookable": {
@@ -3182,6 +3244,110 @@
         "title": "BracketResponse",
         "type": "object"
       },
+      "BracketRosterEntrantResponse": {
+        "properties": {
+          "enrolled": {
+            "description": "Already has an entry in this stage.",
+            "title": "Enrolled",
+            "type": "boolean"
+          },
+          "id": {
+            "description": "The entrant (on the tournament's roster).",
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "description": "`active` or `dropped`.",
+            "title": "Status",
+            "type": "string"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "status",
+          "enrolled"
+        ],
+        "title": "BracketRosterEntrantResponse",
+        "type": "object"
+      },
+      "BracketSeedEntryResponse": {
+        "properties": {
+          "entrant_id": {
+            "title": "Entrant Id",
+            "type": "integer"
+          },
+          "final_rank": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Final Rank"
+          },
+          "group_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Number"
+          },
+          "id": {
+            "description": "The entry (an entrant's place in this stage).",
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "seed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seed"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "entrant_id",
+          "name",
+          "status"
+        ],
+        "title": "BracketSeedEntryResponse",
+        "type": "object"
+      },
       "BracketSetResponse": {
         "properties": {
           "best_of": {
@@ -3327,6 +3493,41 @@
         "title": "BracketSetResponse",
         "type": "object"
       },
+      "BracketSideResponse": {
+        "properties": {
+          "entry_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entry Id"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "BracketSideResponse",
+        "type": "object"
+      },
       "BracketSiteResponse": {
         "properties": {
           "key": {
@@ -3433,6 +3634,196 @@
           }
         },
         "title": "BracketSlotResponse",
+        "type": "object"
+      },
+      "BracketStageDetailResponse": {
+        "properties": {
+          "entries": {
+            "description": "Seeded first, by seed.",
+            "items": {
+              "$ref": "#/components/schemas/BracketSeedEntryResponse"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "matches": {
+            "description": "Open matchups first, then results; empty for a draft.",
+            "items": {
+              "$ref": "#/components/schemas/BracketStageMatchResponse"
+            },
+            "title": "Matches",
+            "type": "array"
+          },
+          "roster": {
+            "description": "The tournament's whole roster, by name.",
+            "items": {
+              "$ref": "#/components/schemas/BracketRosterEntrantResponse"
+            },
+            "title": "Roster",
+            "type": "array"
+          },
+          "row": {
+            "$ref": "#/components/schemas/BracketStageRowResponse"
+          },
+          "tournament_name": {
+            "title": "Tournament Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "row",
+          "tournament_name",
+          "entries",
+          "roster",
+          "matches"
+        ],
+        "title": "BracketStageDetailResponse",
+        "type": "object"
+      },
+      "BracketStageMatchResponse": {
+        "properties": {
+          "best_of": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best Of"
+          },
+          "forfeit": {
+            "title": "Forfeit",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "label": {
+            "description": "Round name, group and board, such as \"Semifinals · Match 2\".",
+            "title": "Label",
+            "type": "string"
+          },
+          "round": {
+            "title": "Round",
+            "type": "integer"
+          },
+          "side1": {
+            "$ref": "#/components/schemas/BracketSideResponse"
+          },
+          "side2": {
+            "$ref": "#/components/schemas/BracketSideResponse"
+          },
+          "state": {
+            "description": "`open` or `complete` (pending matchups are left out).",
+            "title": "State",
+            "type": "string"
+          },
+          "winner_entry_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Winner Entry Id"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "round",
+          "state",
+          "side1",
+          "side2",
+          "forfeit"
+        ],
+        "title": "BracketStageMatchResponse",
+        "type": "object"
+      },
+      "BracketStageRowResponse": {
+        "properties": {
+          "can_advance": {
+            "description": "Complete, and the next stage is a draft that draws from this one.",
+            "title": "Can Advance",
+            "type": "boolean"
+          },
+          "can_complete": {
+            "description": "Swiss and round robin finish by hand; elimination stages finish themselves.",
+            "title": "Can Complete",
+            "type": "boolean"
+          },
+          "config": {
+            "description": "The stage's rules in plain words, one phrase each.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Config",
+            "type": "array"
+          },
+          "format": {
+            "title": "Format",
+            "type": "string"
+          },
+          "format_label": {
+            "title": "Format Label",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "next_step": {
+            "$ref": "#/components/schemas/BracketNextStepResponse"
+          },
+          "stage_label": {
+            "description": "1-based, as players see it: \"Stage 1\".",
+            "title": "Stage Label",
+            "type": "string"
+          },
+          "stage_order": {
+            "description": "0-based place in the tournament's chain of stages.",
+            "title": "Stage Order",
+            "type": "integer"
+          },
+          "state": {
+            "description": "`draft`, `active`, `complete` or `cancelled`.",
+            "title": "State",
+            "type": "string"
+          },
+          "state_label": {
+            "title": "State Label",
+            "type": "string"
+          },
+          "tournament_id": {
+            "title": "Tournament Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "tournament_id",
+          "name",
+          "stage_order",
+          "stage_label",
+          "format",
+          "format_label",
+          "state",
+          "state_label",
+          "config",
+          "next_step",
+          "can_complete",
+          "can_advance"
+        ],
+        "title": "BracketStageRowResponse",
         "type": "object"
       },
       "BracketStandingResponse": {
@@ -3543,6 +3934,37 @@
         "title": "BracketSyncResultResponse",
         "type": "object"
       },
+      "BracketTournamentResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "stages": {
+            "items": {
+              "$ref": "#/components/schemas/BracketStageRowResponse"
+            },
+            "title": "Stages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "is_active",
+          "stages"
+        ],
+        "title": "BracketTournamentResponse",
+        "type": "object"
+      },
       "BracketUpdateRequest": {
         "description": "Edit a DRAFT bracket's definition. Omitted fields are left alone.",
         "properties": {
@@ -3596,6 +4018,31 @@
           }
         },
         "title": "BracketUpdateRequest",
+        "type": "object"
+      },
+      "BracketsBoardResponse": {
+        "properties": {
+          "formats": {
+            "items": {
+              "$ref": "#/components/schemas/BracketFormatOption"
+            },
+            "title": "Formats",
+            "type": "array"
+          },
+          "tournaments": {
+            "description": "This event's tournaments that aren't on Challonge, active first, each with its stages in order.",
+            "items": {
+              "$ref": "#/components/schemas/BracketTournamentResponse"
+            },
+            "title": "Tournaments",
+            "type": "array"
+          }
+        },
+        "required": [
+          "tournaments",
+          "formats"
+        ],
+        "title": "BracketsBoardResponse",
         "type": "object"
       },
       "BreakdownResponse": {
@@ -14746,6 +15193,70 @@
         "title": "PushSubscribeRequest",
         "type": "object"
       },
+      "QualifierBoardLineResponse": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "rank": {
+            "title": "Rank",
+            "type": "integer"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "slots": {
+            "description": "Slots filled out of the total, as \"4/6\".",
+            "title": "Slots",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rank",
+          "name",
+          "score",
+          "slots"
+        ],
+        "title": "QualifierBoardLineResponse",
+        "type": "object"
+      },
+      "QualifierBoardResponse": {
+        "properties": {
+          "can_create": {
+            "description": "Whether the caller may add a qualifier (Staff or Qualifier Admin).",
+            "title": "Can Create",
+            "type": "boolean"
+          },
+          "qualifiers": {
+            "description": "Open ones first, then by how much is waiting.",
+            "items": {
+              "$ref": "#/components/schemas/QualifierRowResponse"
+            },
+            "title": "Qualifiers",
+            "type": "array"
+          },
+          "zone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The IANA zone to show times in for this viewer, or null for the device's.",
+            "title": "Zone"
+          }
+        },
+        "required": [
+          "qualifiers",
+          "can_create"
+        ],
+        "title": "QualifierBoardResponse",
+        "type": "object"
+      },
       "QualifierCreateRequest": {
         "properties": {
           "allowed_reattempts": {
@@ -14833,6 +15344,567 @@
           "name"
         ],
         "title": "QualifierCreateRequest",
+        "type": "object"
+      },
+      "QualifierDetailResponse": {
+        "properties": {
+          "leaderboard": {
+            "description": "The top of the leaderboard.",
+            "items": {
+              "$ref": "#/components/schemas/QualifierBoardLineResponse"
+            },
+            "title": "Leaderboard",
+            "type": "array"
+          },
+          "leaderboard_total": {
+            "title": "Leaderboard Total",
+            "type": "integer"
+          },
+          "queue": {
+            "description": "Runs waiting for review, oldest finish first.",
+            "items": {
+              "$ref": "#/components/schemas/QualifierQueueCardResponse"
+            },
+            "title": "Queue",
+            "type": "array"
+          },
+          "row": {
+            "$ref": "#/components/schemas/QualifierRowResponse"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/QualifierSettingsResponse"
+          },
+          "setup": {
+            "$ref": "#/components/schemas/QualifierSetupResponse"
+          }
+        },
+        "required": [
+          "row",
+          "settings",
+          "queue",
+          "leaderboard",
+          "leaderboard_total",
+          "setup"
+        ],
+        "title": "QualifierDetailResponse",
+        "type": "object"
+      },
+      "QualifierLiveRaceLineResponse": {
+        "properties": {
+          "has_seed": {
+            "title": "Has Seed",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "pool": {
+            "title": "Pool",
+            "type": "string"
+          },
+          "racetime_slug": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Racetime Slug"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "status_label": {
+            "title": "Status Label",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "pool",
+          "status",
+          "status_label",
+          "has_seed"
+        ],
+        "title": "QualifierLiveRaceLineResponse",
+        "type": "object"
+      },
+      "QualifierPermalinkLineResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "live_race": {
+            "description": "Kept for live races, not drawn for async runs.",
+            "title": "Live Race",
+            "type": "boolean"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "par_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Par Seconds"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "url",
+          "live_race"
+        ],
+        "title": "QualifierPermalinkLineResponse",
+        "type": "object"
+      },
+      "QualifierPersonResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "QualifierPersonResponse",
+        "type": "object"
+      },
+      "QualifierPoolLineResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "permalinks": {
+            "items": {
+              "$ref": "#/components/schemas/QualifierPermalinkLineResponse"
+            },
+            "title": "Permalinks",
+            "type": "array"
+          },
+          "preset_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preset Id"
+          },
+          "preset_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preset Name"
+          },
+          "roll_refusal": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why seeds can't be rolled into this pool, or null when they can.",
+            "title": "Roll Refusal"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "permalinks"
+        ],
+        "title": "QualifierPoolLineResponse",
+        "type": "object"
+      },
+      "QualifierQueueCardResponse": {
+        "properties": {
+          "claimed_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The time the runner submitted.",
+            "title": "Claimed Seconds"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "held_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Who holds the review claim, or null.",
+            "title": "Held By"
+          },
+          "held_by_me": {
+            "title": "Held By Me",
+            "type": "boolean"
+          },
+          "implausible": {
+            "description": "The claimed time is well under what the wall clock allows.",
+            "title": "Implausible",
+            "type": "boolean"
+          },
+          "measured_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The wall clock from draw to submit.",
+            "title": "Measured Seconds"
+          },
+          "notes": {
+            "description": "Review notes already on the run.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "other_runs": {
+            "description": "The runner's other attempts here, or empty.",
+            "title": "Other Runs",
+            "type": "string"
+          },
+          "permalink_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Permalink Url"
+          },
+          "pool": {
+            "title": "Pool",
+            "type": "string"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "integer"
+          },
+          "runner": {
+            "title": "Runner",
+            "type": "string"
+          },
+          "runner_id": {
+            "title": "Runner Id",
+            "type": "integer"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "vod_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vod Url"
+          }
+        },
+        "required": [
+          "run_id",
+          "runner",
+          "runner_id",
+          "pool",
+          "implausible",
+          "other_runs",
+          "notes",
+          "held_by_me"
+        ],
+        "title": "QualifierQueueCardResponse",
+        "type": "object"
+      },
+      "QualifierReviewersResponse": {
+        "properties": {
+          "members": {
+            "description": "The community's active members, to add from.",
+            "items": {
+              "$ref": "#/components/schemas/QualifierPersonResponse"
+            },
+            "title": "Members",
+            "type": "array"
+          },
+          "reviewers": {
+            "description": "People who review this qualifier only.",
+            "items": {
+              "$ref": "#/components/schemas/QualifierPersonResponse"
+            },
+            "title": "Reviewers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "reviewers",
+          "members"
+        ],
+        "title": "QualifierReviewersResponse",
+        "type": "object"
+      },
+      "QualifierRowResponse": {
+        "properties": {
+          "closes_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When runs close (UTC), or null for no end.",
+            "title": "Closes At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "opens_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When runs open (UTC), or null for no start.",
+            "title": "Opens At"
+          },
+          "runs": {
+            "description": "Every run in the qualifier.",
+            "title": "Runs",
+            "type": "integer"
+          },
+          "state": {
+            "description": "`open`, `upcoming`, `closed`, or `off` (switched off).",
+            "title": "State",
+            "type": "string"
+          },
+          "state_label": {
+            "title": "State Label",
+            "type": "string"
+          },
+          "to_review": {
+            "description": "Finished runs waiting for a verdict.",
+            "title": "To Review",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "state",
+          "state_label",
+          "to_review",
+          "runs"
+        ],
+        "title": "QualifierRowResponse",
+        "type": "object"
+      },
+      "QualifierSeedingResponse": {
+        "properties": {
+          "seeds": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "Entry id → seed, best leaderboard place first. Apply with `PATCH /brackets/{id}/seeds`.",
+            "title": "Seeds",
+            "type": "object"
+          },
+          "unmatched": {
+            "description": "Entrants the leaderboard doesn't cover, left out of `seeds`.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Unmatched",
+            "type": "array"
+          }
+        },
+        "required": [
+          "seeds",
+          "unmatched"
+        ],
+        "title": "QualifierSeedingResponse",
+        "type": "object"
+      },
+      "QualifierSettingsResponse": {
+        "properties": {
+          "allowed_reattempts": {
+            "title": "Allowed Reattempts",
+            "type": "integer"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "event_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Name"
+          },
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "runs_per_pool": {
+            "title": "Runs Per Pool",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "runs_per_pool",
+          "allowed_reattempts",
+          "is_active"
+        ],
+        "title": "QualifierSettingsResponse",
+        "type": "object"
+      },
+      "QualifierSetupResponse": {
+        "properties": {
+          "live_races": {
+            "title": "Live Races",
+            "type": "integer"
+          },
+          "live_races_open": {
+            "description": "Live races scheduled, open or racing.",
+            "title": "Live Races Open",
+            "type": "integer"
+          },
+          "pools": {
+            "title": "Pools",
+            "type": "integer"
+          },
+          "reviewers": {
+            "title": "Reviewers",
+            "type": "integer"
+          },
+          "seeds": {
+            "title": "Seeds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "pools",
+          "seeds",
+          "live_races",
+          "live_races_open",
+          "reviewers"
+        ],
+        "title": "QualifierSetupResponse",
         "type": "object"
       },
       "QualifierUpdateRequest": {
@@ -25826,6 +26898,339 @@
         ]
       }
     },
+    "/api/admin/brackets/board": {
+      "get": {
+        "description": "Every tournament in this event that isn't on Challonge, active first, with its native bracket stages in order. Each stage says the one step it's up to and the counts behind it.\n\n**Who can call this:** Staff.\n\n**App scope:** `staff:read`  \n**Feature:** only works when the community has **Native Brackets** turned on; otherwise every call answers `404`.",
+        "operationId": "board_api_admin_brackets_board_get",
+        "parameters": [
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BracketsBoardResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "The Brackets board",
+        "tags": [
+          "Admin: brackets"
+        ]
+      }
+    },
+    "/api/admin/brackets/{bracket_id}": {
+      "get": {
+        "description": "A stage's next step, its seeded entries, the tournament roster (who is or isn't enrolled), and its open matchups and results.\n\n**Who can call this:** Staff.\n\n**App scope:** `staff:read`  \n**Feature:** only works when the community has **Native Brackets** turned on; otherwise every call answers `404`.",
+        "operationId": "stage_api_admin_brackets__bracket_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "bracket_id",
+            "required": true,
+            "schema": {
+              "title": "Bracket Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BracketStageDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "One bracket stage",
+        "tags": [
+          "Admin: brackets"
+        ]
+      }
+    },
+    "/api/admin/brackets/{bracket_id}/qualifier-seeds": {
+      "get": {
+        "description": "Seeds the stage's entries by an async qualifier's leaderboard, best place first, matched on linked accounts. Nothing is saved: send `seeds` to `PATCH /brackets/{bracket_id}/seeds`. Fails with 400 when no entry is on the leaderboard.\n\n**Who can call this:** Staff.\n\n**App scope:** `staff:read`  \n**Feature:** only works when the community has **Native Brackets** turned on; otherwise every call answers `404`.",
+        "operationId": "qualifier_seeds_api_admin_brackets__bracket_id__qualifier_seeds_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "bracket_id",
+            "required": true,
+            "schema": {
+              "title": "Bracket Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "qualifier_id",
+            "required": true,
+            "schema": {
+              "title": "Qualifier Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QualifierSeedingResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "Work out seeds from a qualifier",
+        "tags": [
+          "Admin: brackets"
+        ]
+      }
+    },
     "/api/admin/match-schedule": {
       "get": {
         "description": "Every match on a day (or every day), grouped as the run sheet draws them: needs a decision, live now, up next, waiting for players, confirmed. Each row says what you may do to it in `can`.\n\n**Who can call this:** Staff, Broadcast tech, or Admins and crew coordinators of a tournament (who see only their tournaments' matches).\n\n**App scope:** `staff:read`",
@@ -27814,6 +29219,560 @@
         "summary": "Roll one test seed",
         "tags": [
           "Admin: seed presets"
+        ]
+      }
+    },
+    "/api/admin/qualifiers/board": {
+      "get": {
+        "description": "Every qualifier the caller runs or reviews, open ones first, each with how many runs wait for review.\n\n**Who can call this:** Staff, Qualifier Admins, and the qualifier's own reviewers.\n\n**App scope:** `staff:read`  \n**Feature:** only works when the community has **Async Qualifiers** turned on; otherwise every call answers `404`.",
+        "operationId": "board_api_admin_qualifiers_board_get",
+        "parameters": [
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QualifierBoardResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "The Qualifiers board",
+        "tags": [
+          "Admin: qualifiers"
+        ]
+      }
+    },
+    "/api/admin/qualifiers/{qualifier_id}": {
+      "get": {
+        "description": "The review queue (with each runner's other attempts and the claim lock), the top of the leaderboard, and counts for the setup pages.\n\n**Who can call this:** Staff, Qualifier Admins, and the qualifier's own reviewers.\n\n**App scope:** `staff:read`  \n**Feature:** only works when the community has **Async Qualifiers** turned on; otherwise every call answers `404`.",
+        "operationId": "detail_api_admin_qualifiers__qualifier_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "qualifier_id",
+            "required": true,
+            "schema": {
+              "title": "Qualifier Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QualifierDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "One qualifier",
+        "tags": [
+          "Admin: qualifiers"
+        ]
+      }
+    },
+    "/api/admin/qualifiers/{qualifier_id}/live-races": {
+      "get": {
+        "description": "Each live race, newest first, with its pool, state and racetime room.\n\n**Who can call this:** Staff, Qualifier Admins, and the qualifier's own reviewers.\n\n**App scope:** `staff:read`  \n**Feature:** only works when the community has **Async Qualifiers** turned on; otherwise every call answers `404`.",
+        "operationId": "live_races_api_admin_qualifiers__qualifier_id__live_races_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "qualifier_id",
+            "required": true,
+            "schema": {
+              "title": "Qualifier Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/QualifierLiveRaceLineResponse"
+                  },
+                  "title": "Response Live Races Api Admin Qualifiers  Qualifier Id  Live Races Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "A qualifier's live races",
+        "tags": [
+          "Admin: qualifiers"
+        ]
+      }
+    },
+    "/api/admin/qualifiers/{qualifier_id}/pools": {
+      "get": {
+        "description": "Each pool with its preset, whether it can roll seeds, and its permalinks.\n\n**Who can call this:** Staff, Qualifier Admins, and the qualifier's own reviewers.\n\n**App scope:** `staff:read`  \n**Feature:** only works when the community has **Async Qualifiers** turned on; otherwise every call answers `404`.",
+        "operationId": "pools_api_admin_qualifiers__qualifier_id__pools_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "qualifier_id",
+            "required": true,
+            "schema": {
+              "title": "Qualifier Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/QualifierPoolLineResponse"
+                  },
+                  "title": "Response Pools Api Admin Qualifiers  Qualifier Id  Pools Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "A qualifier's pools and seeds",
+        "tags": [
+          "Admin: qualifiers"
+        ]
+      }
+    },
+    "/api/admin/qualifiers/{qualifier_id}/reviewers": {
+      "get": {
+        "description": "The people who review this qualifier only (Staff and Qualifier Admins review every one), and the community's members to add from.\n\n**Who can call this:** Staff, Qualifier Admins, and the qualifier's own reviewers.\n\n**App scope:** `staff:read`  \n**Feature:** only works when the community has **Async Qualifiers** turned on; otherwise every call answers `404`.",
+        "operationId": "reviewers_api_admin_qualifiers__qualifier_id__reviewers_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "qualifier_id",
+            "required": true,
+            "schema": {
+              "title": "Qualifier Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QualifierReviewersResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "A qualifier's reviewers",
+        "tags": [
+          "Admin: qualifiers"
         ]
       }
     },
@@ -79769,6 +81728,14 @@
       "name": "Admin: tournaments"
     },
     {
+      "description": "The app's Qualifiers screen: the review queue, the top of the leaderboard, pools and live races.",
+      "name": "Admin: qualifiers"
+    },
+    {
+      "description": "The app's Brackets screen: each native stage's next step, its seeds, roster and open matchups.",
+      "name": "Admin: brackets"
+    },
+    {
       "description": "The app's Seed Presets screen: editor hints, checking a pasted value, test rolls and importing published presets.",
       "name": "Admin: seed presets"
     },
@@ -81544,6 +83511,8 @@
         "Events",
         "Tournaments",
         "Admin: tournaments",
+        "Admin: qualifiers",
+        "Admin: brackets",
         "Admin: seed presets",
         "Payouts",
         "Webhooks",
