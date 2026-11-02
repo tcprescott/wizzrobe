@@ -75660,6 +75660,10 @@
       "name": "My notifications"
     },
     {
+      "description": "Surveys sent to you: open one, save each part, and send your answers.",
+      "name": "My surveys"
+    },
+    {
       "description": "Which messages reach you and whether they ping, and the tournaments you follow.",
       "name": "Notifications"
     },
@@ -77445,6 +77449,7 @@
         "Player availability",
         "My profile",
         "My notifications",
+        "My surveys",
         "Notifications",
         "API tokens",
         "My developer tools"
