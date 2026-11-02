@@ -12,7 +12,8 @@ file-length limit; the desk's roster writes stay there. The one write here is
 re-sending the check-in test DM, which touches only the DM columns.
 """
 
-from typing import List, Tuple
+from dataclasses import dataclass
+from typing import Dict, List, Set, Tuple
 
 from application.errors import require_found
 from application.events import check_in_live
@@ -21,9 +22,19 @@ from application.repositories import CheckInEntrantRepository, CheckInEventRepos
 from application.services.auth_service import AuthService
 from application.services.check_in_accounts import desk_entrant, ensure_desk_sees
 from application.services.check_in_dm import start_dm_check
+from application.services.check_in_service import CheckInService
 from models import CheckInEntrant, CheckInEvent, CheckInEventStatus, FeatureFlag, User
 
 _DESK_DENIED = 'Only staff and check-in desk volunteers can do that.'
+
+
+@dataclass
+class DeskView:
+    event: CheckInEvent
+    entrants: List[CheckInEntrant]
+    volunteer_ids: Set[int]
+    suggestions: Dict[int, int]
+    can_manage: bool
 
 
 class CheckInDeskService:
@@ -68,3 +79,36 @@ class CheckInDeskService:
         await start_dm_check(entrant, entrant.event.name)
         check_in_live.publish(entrant.event_id, entrant.id, check_in_live.CHANGED)
         return entrant
+
+    @requires_feature(FeatureFlag.EVENT_CHECK_IN)
+    async def desk(self, actor: User, event_id: int) -> DeskView:
+        """Everything the app's desk screen draws for one event, in one read."""
+        event, entrants = await self.roster_for(actor, event_id)
+        service = CheckInService()
+        return DeskView(
+            event=event,
+            entrants=entrants,
+            volunteer_ids=await service.volunteer_user_ids(),
+            suggestions=await service.suggestion_counts(event, entrants),
+            can_manage=await AuthService.can_manage_check_in(actor),
+        )
+
+    @requires_feature(FeatureFlag.EVENT_CHECK_IN)
+    async def suggestions_for(self, actor: User, entrant_id: int) -> List[User]:
+        """Members whose names look like this row's, for the desk to confirm a link."""
+        await AuthService.ensure(await AuthService.can_run_check_in_desk(actor), _DESK_DENIED)
+        entrant = await desk_entrant(
+            actor, require_found(await self.entrants.get_by_id(entrant_id), 'Roster entry'),
+        )
+        return await CheckInService().suggest_users(entrant)
+
+    @requires_feature(FeatureFlag.EVENT_CHECK_IN)
+    async def find_members(
+        self, actor: User, event_id: int, query: str, *, for_link: bool = False,
+    ) -> List[User]:
+        """Members not yet on this roster matching ``query``: the link and walk-up searches."""
+        await AuthService.ensure(await AuthService.can_run_check_in_desk(actor), _DESK_DENIED)
+        event = await ensure_desk_sees(
+            actor, require_found(await self.events.get_by_id(event_id), 'Check-in event'),
+        )
+        return await CheckInService().search_members(event, query, for_link=for_link)
