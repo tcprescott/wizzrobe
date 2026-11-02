@@ -2609,6 +2609,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/check-in/entrants/{entrant_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a walk-up added by mistake (Staff only)
+         * @description Deletes a walk-up row. Matcherino badge holders and comps come back on the next sync, so they can't be removed here.
+         *
+         *     Fails with 400 for a Matcherino or comp row.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **App scope:** `staff:write`
+         *     **Feature:** only works when the community has **Event Check-in** turned on; otherwise every call answers `404`.
+         */
+        delete: operations["remove_entrant_api_check_in_entrants__entrant_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/check-in/entrants/{entrant_id}/check-in": {
         parameters: {
             query?: never;
@@ -2642,6 +2670,59 @@ export interface paths {
          *     **Feature:** only works when the community has **Event Check-in** turned on; otherwise every call answers `404`.
          */
         delete: operations["undo_check_in_api_check_in_entrants__entrant_id__check_in_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/check-in/entrants/{entrant_id}/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Likely accounts for a roster row
+         * @description Members whose names look like this row's name, best first, for the desk to confirm with `PUT /check-in/entrants/{entrant_id}/user`. Never linked on its own.
+         *
+         *     **Who can call this:** Staff or Check-in desk.
+         *
+         *     **App scope:** `staff:read`
+         *     **Feature:** only works when the community has **Event Check-in** turned on; otherwise every call answers `404`.
+         */
+        get: operations["entrant_suggestions_api_check_in_entrants__entrant_id__suggestions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/check-in/entrants/{entrant_id}/test-dm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send the check-in DM again
+         * @description Re-sends the check-in test DM, for someone who has just opened their Discord DMs. The result shows in `dm_status`.
+         *
+         *     Fails with 400 when they aren't checked in or have no Discord account linked.
+         *
+         *     **Who can call this:** Staff or Check-in desk.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **App scope:** `staff:write`
+         *     **Feature:** only works when the community has **Event Check-in** turned on; otherwise every call answers `404`.
+         */
+        post: operations["resend_test_dm_api_check_in_entrants__entrant_id__test_dm_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2704,6 +2785,56 @@ export interface paths {
          *     **Feature:** only works when the community has **Event Check-in** turned on; otherwise every call answers `404`.
          */
         get: operations["list_events_api_check_in_events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/check-in/events/{event_id}/desk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The check-in desk for one event
+         * @description The event, its roster as the desk shows it (badge codes and Discord usernames for the search, how many likely accounts each unlinked row has), and whether you may do the staff-only things. Check-in desk volunteers can read open events only.
+         *
+         *     **Who can call this:** Staff or Check-in desk.
+         *
+         *     **App scope:** `staff:read`
+         *     **Feature:** only works when the community has **Event Check-in** turned on; otherwise every call answers `404`.
+         */
+        get: operations["get_desk_api_check_in_events__event_id__desk_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/check-in/events/{event_id}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Find members to link or add as a walk-up
+         * @description Community members not yet on this roster whose name, Discord, Twitch or Matcherino name contains `q` (two characters or more). With `for_link=true` it also offers people on the roster only as a comp, so a comped volunteer who bought a badge can be linked to it.
+         *
+         *     **Who can call this:** Staff or Check-in desk.
+         *
+         *     **App scope:** `staff:read`
+         *     **Feature:** only works when the community has **Event Check-in** turned on; otherwise every call answers `404`.
+         */
+        get: operations["find_members_api_check_in_events__event_id__members_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -10178,6 +10309,88 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/work": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your Work tab
+         * @description The areas your roles open here (check-in desk, volunteer schedule, your volunteer availability, Proctor Station), each with a live line. An area you can't open is null or false.
+         *
+         *     **Who can call this:** Any member.
+         *
+         *     **App scope:** `play`
+         */
+        get: operations["my_work_api_work_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/work/schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The volunteer schedule for one day
+         * @description Every role's published shifts on one event day, laid out as columns on an hour scale in your saved column order. Leave `day` out for today during the event, else its first day.
+         *
+         *     **Who can call this:** Volunteers, proctors, check-in desk, Broadcast Tech, volunteer coordinators and staff.
+         *
+         *     **App scope:** `volunteer`
+         */
+        get: operations["volunteer_schedule_api_work_schedule_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/work/schedule/columns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Choose and order the volunteer schedule columns
+         * @description Saves which roles you show and in what order, for you only. The website's Full Schedule uses the same choice.
+         *
+         *     **Who can call this:** Anyone who can see the volunteer schedule.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **App scope:** `volunteer`
+         */
+        put: operations["save_schedule_columns_api_work_schedule_columns_put"];
+        post?: never;
+        /**
+         * Reset the volunteer schedule columns
+         * @description Forgets your column choice: every role shown, in the community's order.
+         *
+         *     **Who can call this:** Anyone who can see the volunteer schedule.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **App scope:** `volunteer`
+         */
+        delete: operations["reset_schedule_columns_api_work_schedule_columns_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export interface webhooks {
     "async_qualifier.*": {
@@ -12326,6 +12539,14 @@ export interface components {
              * @description Entries matching the filters, across all pages.
              */
             total: number;
+        };
+        /** AvailabilityAreaResponse */
+        AvailabilityAreaResponse: {
+            /**
+             * Windows
+             * @description How many availability windows you've saved.
+             */
+            windows: number;
         };
         /**
          * AvailabilityWindowInput
@@ -14738,6 +14959,168 @@ export interface components {
             /** Triforce Texts */
             triforce_texts: number;
         };
+        /** DeskAreaResponse */
+        DeskAreaResponse: {
+            /**
+             * Checked In
+             * @description People checked in at that event.
+             * @default 0
+             */
+            checked_in: number;
+            /**
+             * Event Id
+             * @description The open event, when exactly one is open; the desk opens straight on it.
+             */
+            event_id?: number | null;
+            /**
+             * Event Name
+             * @description That event's name.
+             * @default
+             */
+            event_name: string;
+            /**
+             * Expected
+             * @description People on its roster who still hold a badge or comp, plus anyone already checked in.
+             * @default 0
+             */
+            expected: number;
+            /**
+             * Open Events
+             * @description Check-in events open right now.
+             */
+            open_events: number;
+        };
+        /** DeskMemberResponse */
+        DeskMemberResponse: {
+            /** Id */
+            id: number;
+            /**
+             * Name
+             * @description Their display name.
+             */
+            name: string;
+            /**
+             * Username
+             * @description Their Discord username.
+             */
+            username?: string | null;
+        };
+        /** DeskResponse */
+        DeskResponse: {
+            /**
+             * Can Manage
+             * @description Staff: you may add walk-ups, remove them, and check in someone without a badge.
+             */
+            can_manage: boolean;
+            event: components["schemas"]["CheckInEventResponse"];
+            /** Rows */
+            rows: components["schemas"]["DeskRowResponse"][];
+            /**
+             * Zone
+             * @description The clock to print times on; null for the device's own.
+             */
+            zone?: string | null;
+        };
+        /** DeskRowResponse */
+        DeskRowResponse: {
+            /**
+             * Badge Codes
+             * @description Codes of the badges they hold, for the desk search.
+             */
+            badge_codes?: string[];
+            /**
+             * Badges
+             * @description Badge types they still hold, most expensive first. Empty for a walk-up or a comp.
+             */
+            badges?: string[];
+            /**
+             * Checked In At
+             * @description When they were checked in (UTC); empty if they haven't been.
+             */
+            checked_in_at?: string | null;
+            /**
+             * Checked In By Name
+             * @description Who checked them in.
+             */
+            checked_in_by_name?: string | null;
+            /**
+             * Comp Reasons
+             * @description Why the person is comped: role names and `volunteer`. Empty when they aren't comped.
+             */
+            comp_reasons?: string[];
+            /**
+             * Display Name
+             * @description The name the desk shows.
+             */
+            display_name: string;
+            /**
+             * Dm Status
+             * @description The check-in test DM: `pending`, `sent`, `blocked` (Discord refused: DMs closed or no shared server), `opted_out` (DMs off in Wizzrobe) or `failed` (Discord didn't answer). Null until they're checked in with a linked account.
+             */
+            dm_status?: string | null;
+            /**
+             * Event Id
+             * @description The check-in event this row is on.
+             */
+            event_id: number;
+            /**
+             * Has Discord
+             * @description The linked account has Discord, so the check-in DM can be re-sent.
+             * @default false
+             */
+            has_discord: boolean;
+            /**
+             * Id
+             * @description Roster entry id.
+             */
+            id: number;
+            /**
+             * Lanyard
+             * @description The lanyard the desk hands over (`staff`, `volunteer`, or a badge type's), or null.
+             */
+            lanyard?: string | null;
+            /**
+             * Link Method
+             * @description How the account was linked: `matcherino_id`, `discord_id`, `twitch_id`, `matcherino_handle`, `manual`, `walk_up` or `comp`. `manual` with no account means someone unlinked it by hand.
+             */
+            link_method?: string | null;
+            /**
+             * Signed In With
+             * @description How they signed in to Matcherino (`discord`, `twitch`, `google`…), to help the desk find their account.
+             */
+            signed_in_with?: string | null;
+            /**
+             * Source
+             * @description `matcherino`, `walk_up` or `comp`.
+             */
+            source: string;
+            /**
+             * Suggestions
+             * @description Likely accounts for an unlinked row (`GET /check-in/entrants/{id}/suggestions`).
+             * @default 0
+             */
+            suggestions: number;
+            /**
+             * User Id
+             * @description The linked member account; empty when no account is linked.
+             */
+            user_id?: number | null;
+            /**
+             * User Name
+             * @description The linked member's display name.
+             */
+            user_name?: string | null;
+            /**
+             * Username
+             * @description The linked member's Discord username, for the desk search.
+             */
+            username?: string | null;
+            /**
+             * Withdrawn At
+             * @description Set when they no longer hold a badge. Only staff can check them in anyway.
+             */
+            withdrawn_at?: string | null;
+        };
         /** DetailResponse */
         DetailResponse: {
             /**
@@ -15987,6 +16370,90 @@ export interface components {
             } | null;
             /** Errors */
             errors?: components["schemas"]["GraphQLErrorOut"][] | null;
+        };
+        /** GridColumnResponse */
+        GridColumnResponse: {
+            /** Position */
+            position: string;
+            /** Position Id */
+            position_id: number;
+            /** Shifts */
+            shifts: components["schemas"]["GridShiftResponse"][];
+        };
+        /** GridPersonResponse */
+        GridPersonResponse: {
+            /**
+             * Called Off
+             * @description Staff sent them home from this shift.
+             * @default false
+             */
+            called_off: boolean;
+            /**
+             * Is Viewer
+             * @description This is you.
+             */
+            is_viewer: boolean;
+            /** Name */
+            name: string;
+        };
+        /** GridRoleResponse */
+        GridRoleResponse: {
+            /** Name */
+            name: string;
+            /** Position Id */
+            position_id: number;
+            /** Visible */
+            visible: boolean;
+        };
+        /** GridShiftResponse */
+        GridShiftResponse: {
+            /**
+             * End Hour
+             * @description Hours after the day's local midnight the block ends (clipped to the grid).
+             */
+            end_hour: number;
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+            /**
+             * Label
+             * @description The shift's own label, if it has one.
+             * @default
+             */
+            label: string;
+            /**
+             * Lane
+             * @description Which side-by-side lane this block sits in when shifts overlap.
+             * @default 0
+             */
+            lane: number;
+            /**
+             * Lanes
+             * @description How many lanes its group of overlapping shifts shares.
+             * @default 1
+             */
+            lanes: number;
+            /**
+             * Open Slots
+             * @description Places still unfilled.
+             */
+            open_slots: number;
+            /** People */
+            people: components["schemas"]["GridPersonResponse"][];
+            /** Slots Needed */
+            slots_needed: number;
+            /**
+             * Start Hour
+             * @description Hours after the day's local midnight the block starts (clipped to the grid).
+             */
+            start_hour: number;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
         };
         /** GuideInfo */
         GuideInfo: {
@@ -19956,6 +20423,37 @@ export interface components {
             /** Match Id */
             match_id: number;
         };
+        /** ScheduleAreaResponse */
+        ScheduleAreaResponse: {
+            /**
+             * My Next Shift At
+             * @description When your next shift starts (UTC), if you have one coming.
+             */
+            my_next_shift_at?: string | null;
+            /**
+             * On Shift Now
+             * @description Volunteers on a published shift right now.
+             */
+            on_shift_now: number;
+        };
+        /** ScheduleColumnRequest */
+        ScheduleColumnRequest: {
+            /** Position Id */
+            position_id: number;
+            /**
+             * Visible
+             * @default true
+             */
+            visible: boolean;
+        };
+        /** ScheduleColumnsRequest */
+        ScheduleColumnsRequest: {
+            /**
+             * Columns
+             * @description The roles in the order to show them, each shown or hidden. Roles left out go at the end, shown.
+             */
+            columns: components["schemas"]["ScheduleColumnRequest"][];
+        };
         /** ScheduleEntryResponse */
         ScheduleEntryResponse: {
             /**
@@ -23655,6 +24153,63 @@ export interface components {
              */
             stagger_minutes?: number | null;
         };
+        /** VolunteerScheduleResponse */
+        VolunteerScheduleResponse: {
+            /**
+             * Columns
+             * @description One column per role shown, in your order.
+             */
+            columns?: components["schemas"]["GridColumnResponse"][];
+            /**
+             * Customized
+             * @description Your columns differ from the community's default order.
+             * @default false
+             */
+            customized: boolean;
+            /**
+             * Day
+             * @description The day shown; null when the event has no dates yet.
+             */
+            day?: string | null;
+            /**
+             * Days
+             * @description The event's days, in order.
+             */
+            days: string[];
+            /**
+             * First Hour
+             * @description The first hour row (hours after midnight; can pass 24 for overnight).
+             * @default 0
+             */
+            first_hour: number;
+            /**
+             * Hidden With Shifts
+             * @description Roles with shifts that day that you've hidden.
+             * @default 0
+             */
+            hidden_with_shifts: number;
+            /**
+             * Last Hour
+             * @description The hour the grid ends.
+             * @default 0
+             */
+            last_hour: number;
+            /**
+             * Midnight
+             * @description That day's local midnight (UTC). Hours in the grid count from here.
+             */
+            midnight?: string | null;
+            /**
+             * Roles
+             * @description Every role you can show, in your order, and whether it's shown.
+             */
+            roles: components["schemas"]["GridRoleResponse"][];
+            /**
+             * Zone
+             * @description The clock to print times on; null for the device's own.
+             */
+            zone?: string | null;
+        };
         /** VolunteerSettings */
         VolunteerSettings: {
             /**
@@ -24214,6 +24769,26 @@ export interface components {
             id: number;
             /** Name */
             name: string;
+        };
+        /** WorkAreasResponse */
+        WorkAreasResponse: {
+            /** @description Your volunteer availability; null when you don't volunteer here. */
+            availability?: components["schemas"]["AvailabilityAreaResponse"] | null;
+            /** @description The check-in desk; null when you can't work it. */
+            desk?: components["schemas"]["DeskAreaResponse"] | null;
+            /**
+             * Proctor
+             * @description Whether you can open Proctor Station.
+             * @default false
+             */
+            proctor: boolean;
+            /** @description The volunteer schedule; null when you can't see it. */
+            schedule?: components["schemas"]["ScheduleAreaResponse"] | null;
+            /**
+             * Zone
+             * @description The clock to print times on; null for the device's own.
+             */
+            zone?: string | null;
         };
         /** BookRequest */
         api__schemas__admin_match_schedule__BookRequest: {
@@ -33113,6 +33688,83 @@ export interface operations {
             };
         };
     };
+    remove_entrant_api_check_in_entrants__entrant_id__delete: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                entrant_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     check_in_api_check_in_entrants__entrant_id__check_in_post: {
         parameters: {
             query?: {
@@ -33197,6 +33849,155 @@ export interface operations {
         };
     };
     undo_check_in_api_check_in_entrants__entrant_id__check_in_delete: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                entrant_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckInEntrantResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    entrant_suggestions_api_check_in_entrants__entrant_id__suggestions_get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                entrant_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeskMemberResponse"][];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    resend_test_dm_api_check_in_entrants__entrant_id__test_dm_post: {
         parameters: {
             query?: {
                 /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
@@ -33456,6 +34257,150 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CheckInEventResponse"][];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_desk_api_check_in_events__event_id__desk_get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                event_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeskResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    find_members_api_check_in_events__event_id__members_get: {
+        parameters: {
+            query: {
+                /** @description Part of their name. */
+                q: string;
+                /** @description Searching to link a roster row, not to add a walk-up. */
+                for_link?: boolean;
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                event_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeskMemberResponse"][];
                 };
             };
             /** @description No token, or the token is unknown, expired or revoked. */
@@ -59408,6 +60353,302 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WebhookSecretResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    my_work_api_work_get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkAreasResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    volunteer_schedule_api_work_schedule_get: {
+        parameters: {
+            query?: {
+                /** @description The event day to show (local date). */
+                day?: string | null;
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VolunteerScheduleResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    save_schedule_columns_api_work_schedule_columns_put: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScheduleColumnsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GridRoleResponse"][];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    reset_schedule_columns_api_work_schedule_columns_delete: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GridRoleResponse"][];
                 };
             };
             /** @description A rule refused the request. `detail` says which. */

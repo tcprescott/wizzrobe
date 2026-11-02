@@ -68,6 +68,7 @@ from api.routers import (
     volunteers,
     web_push,
     webhooks,
+    work,
 )
 from models import FeatureFlag
 
@@ -91,6 +92,7 @@ router.include_router(stage_actions.router)
 router.include_router(me.router)
 router.include_router(my_schedule.router)
 router.include_router(admin_nav.router)
+router.include_router(work.router)
 router.include_router(community_settings.router)
 router.include_router(my_profile.router)
 router.include_router(admin_tournaments.router)

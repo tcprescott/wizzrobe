@@ -216,6 +216,7 @@ from .volunteer import (
 )
 from .web_push_service import WebPushService
 from .webhook_service import WebhookService
+from .work_service import WorkService
 
 __all__ = [
     'AccommodationService',
@@ -389,6 +390,7 @@ __all__ = [
     'VolunteerScheduleService',
     'WebPushService',
     'WebhookService',
+    'WorkService',
     'active_users_metrics',
     'assert_sg_fields_unchanged',
     'async_qualifier_access',
