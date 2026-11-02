@@ -66,6 +66,7 @@ the page saved in IndexedDB when it subscribed.
 
 ```bash
 cd web
+npm run gen:api                                              # the typed API client (needs poetry install at the repo root)
 VITE_API_BASE=https://onsite.speedgaming.org npm run build   # the API the app talks to
 npx cap sync                                                 # copies dist/ into both shells
 npx cap open ios        # Xcode
