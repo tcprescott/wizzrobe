@@ -5882,6 +5882,42 @@
     "label": "Dates & hours",
     "icon": "date_range",
     "summary": "When the event runs, and the hours matches can start each day."
+   },
+   {
+    "slug": "capacity",
+    "label": "Capacity",
+    "icon": "groups_2",
+    "summary": "How much the scheduler lets run at the same time."
+   },
+   {
+    "slug": "venue",
+    "label": "Venue",
+    "icon": "chair",
+    "summary": "The stations in the room and the screens on its walls."
+   },
+   {
+    "slug": "timezone",
+    "label": "Timezone",
+    "icon": "schedule",
+    "summary": "The community’s clock, or one of this event’s own."
+   },
+   {
+    "slug": "crew",
+    "label": "Crew",
+    "icon": "podcasts",
+    "summary": "Whether matches take broadcasters as well as commentators and trackers."
+   },
+   {
+    "slug": "reward-tiers",
+    "label": "Volunteer reward tiers",
+    "icon": "military_tech",
+    "summary": "The hour totals that earn a volunteer something."
+   },
+   {
+    "slug": "discord-roles",
+    "label": "Discord Roles from Wizzrobe",
+    "icon": "forum",
+    "summary": "Discord roles this event gives its tournament players, crew and volunteers."
    }
   ],
   "setup": [
@@ -7425,5 +7461,127 @@
   "open_matches": 0,
   "future_shifts": 0,
   "open_race_rooms": 0
- }
+ },
+ "/api/event-settings/dates": {
+  "starts_on": "2027-10-21",
+  "ends_on": "2027-10-24",
+  "days": [
+   {
+    "day": "2027-10-21",
+    "opens": "10:00",
+    "closes": "23:00"
+   },
+   {
+    "day": "2027-10-22",
+    "opens": "10:00",
+    "closes": "23:00"
+   },
+   {
+    "day": "2027-10-23",
+    "opens": "10:00",
+    "closes": "23:00"
+   },
+   {
+    "day": "2027-10-24",
+    "opens": null,
+    "closes": null
+   }
+  ],
+  "timezone_label": "Eastern Time (EDT)"
+ },
+ "/api/event-settings/capacity": {
+  "max_players": 60,
+  "max_stages": null
+ },
+ "/api/event-settings/timezone": {
+  "follows_community": false,
+  "mode": "pinned",
+  "name": "America/New_York",
+  "community_mode": "user",
+  "community_name": "America/New_York",
+  "options": [
+   "America/New_York",
+   "America/Chicago",
+   "America/Los_Angeles",
+   "Europe/London",
+   "Europe/Berlin"
+  ]
+ },
+ "/api/event-settings/crew": {
+  "broadcasters": true
+ },
+ "/api/event-settings/reward-tiers": {
+  "text": "",
+  "tiers": [
+   8,
+   12,
+   16
+  ]
+ },
+ "/api/event-settings/station-format": {
+  "format": "structured",
+  "options": [
+   {
+    "value": "free",
+    "label": "Anything (no check)"
+   },
+   {
+    "value": "numeric",
+    "label": "Numbers only (1, 2, 3…)"
+   },
+   {
+    "value": "structured",
+    "label": "Letter and number (A1, B12)"
+   },
+   {
+    "value": "alphanumeric",
+    "label": "Letters, numbers and hyphens"
+   }
+  ]
+ },
+ "/api/event-settings/stations": [
+  {
+   "id": 1,
+   "name": "A1",
+   "section": "Main hall",
+   "side": "left",
+   "position": 1,
+   "sort_order": 0,
+   "is_active": true
+  },
+  {
+   "id": 2,
+   "name": "A2",
+   "section": "Main hall",
+   "side": null,
+   "position": 2,
+   "sort_order": 1,
+   "is_active": true
+  },
+  {
+   "id": 3,
+   "name": "B1",
+   "section": "Side room",
+   "side": "right",
+   "position": null,
+   "sort_order": 2,
+   "is_active": false
+  }
+ ],
+ "/api/event-settings/room-screens": [
+  {
+   "id": 1,
+   "label": "Room A desk PC",
+   "revoked": false,
+   "last_used_at": "{{now-5m}}",
+   "issued_by": "Thomas"
+  },
+  {
+   "id": 2,
+   "label": "Old laptop",
+   "revoked": true,
+   "last_used_at": null,
+   "issued_by": null
+  }
+ ]
 }

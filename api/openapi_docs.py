@@ -134,6 +134,7 @@ TAG_GROUPS: List[tuple[str, List[tuple[str, str]]]] = [
         ('My schedule', "A player's own Home and Schedule: next match, what's waiting on them, and picking a time."),
         ('Admin shell', "Which admin areas and settings panes the caller may open, for the app's admin menu."),
         ('Community settings', "A community's own settings, one group per pane of Admin → Settings: colours and logo, clock, joining, profile reminders, Watch page, volunteers, meetups, features and connected apps."),
+        ('Event settings', "One event's own settings, one group per pane of Admin → Event settings: dates and daily hours, capacity, clock, broadcasters, volunteer reward tiers, and the venue's stations and room screens."),
         ('Matches', 'The schedule, and running a match from seating to a confirmed result.'),
         ('Admin: Match Schedule', "The staff run sheet as the app's admin Match Schedule draws it: grouped rows and one match's pane."),
         ('Crew', 'Commentator, tracker and broadcaster signups, approval and acknowledgement.'),

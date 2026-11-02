@@ -3355,6 +3355,346 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/event-settings/capacity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get how much runs at once
+         * @description **Who can call this:** Staff.
+         *
+         *     **Apps:** can't call this; it needs a personal API token.
+         */
+        get: operations["get_capacity_api_event_settings_capacity_get"];
+        /**
+         * Set how much runs at once
+         * @description Null puts a limit back to its default.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **Apps:** can't call this; it needs a personal API token.
+         */
+        put: operations["set_capacity_api_event_settings_capacity_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/event-settings/crew": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get whether matches take broadcasters
+         * @description **Who can call this:** Staff.
+         *
+         *     **Apps:** can't call this; it needs a personal API token.
+         */
+        get: operations["get_crew_api_event_settings_crew_get"];
+        /**
+         * Set whether matches take broadcasters
+         * @description **Who can call this:** Staff.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **Apps:** can't call this; it needs a personal API token.
+         */
+        put: operations["set_crew_api_event_settings_crew_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/event-settings/dates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the event's dates and daily hours
+         * @description When the event runs, and the hours matches can start on each of its days.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Apps:** can't call this; it needs a personal API token.
+         */
+        get: operations["get_dates_api_event_settings_dates_get"];
+        /**
+         * Set the event's dates
+         * @description Null leaves a bound blank, and the event then runs from its first match to its last.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **Apps:** can't call this; it needs a personal API token.
+         */
+        put: operations["set_dates_api_event_settings_dates_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/event-settings/hours": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set the event's daily hours
+         * @description Replaces every day's hours. A day left out, or with a time blank, allows any time. Fails with 400 when a day closes before it opens.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **Apps:** can't call this; it needs a personal API token.
+         */
+        put: operations["set_hours_api_event_settings_hours_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/event-settings/reward-tiers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the volunteer reward tiers
+         * @description The hour totals that earn a volunteer something at this event.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Apps:** can't call this; it needs a personal API token.
+         *     **Feature:** only works when the community has **Volunteer Scheduling** turned on; otherwise every call answers `404`.
+         */
+        get: operations["get_reward_tiers_api_event_settings_reward_tiers_get"];
+        /**
+         * Set the volunteer reward tiers
+         * @description Fails with 400 on anything but non-negative numbers.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **Apps:** can't call this; it needs a personal API token.
+         *     **Feature:** only works when the community has **Volunteer Scheduling** turned on; otherwise every call answers `404`.
+         */
+        put: operations["set_reward_tiers_api_event_settings_reward_tiers_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/event-settings/room-screens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the room screens
+         * @description Machines in the room showing the seeds board without signing in, revoked ones last.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Apps:** can't call this; it needs a personal API token.
+         */
+        get: operations["list_room_screens_api_event_settings_room_screens_get"];
+        put?: never;
+        /**
+         * Issue a room screen
+         * @description Returns the machine's URL once; only its hash is stored.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **Apps:** can't call this; it needs a personal API token.
+         */
+        post: operations["issue_room_screen_api_event_settings_room_screens_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/event-settings/room-screens/{screen_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke a room screen
+         * @description The machine gets a 404 on its next refresh, and the URL can't be brought back.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **Apps:** can't call this; it needs a personal API token.
+         */
+        delete: operations["revoke_room_screen_api_event_settings_room_screens__screen_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/event-settings/station-format": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get what a proctor may type as a station
+         * @description **Who can call this:** Staff.
+         *
+         *     **Apps:** can't call this; it needs a personal API token.
+         */
+        get: operations["get_station_format_api_event_settings_station_format_get"];
+        /**
+         * Set what a proctor may type as a station
+         * @description **Who can call this:** Staff.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **Apps:** can't call this; it needs a personal API token.
+         */
+        put: operations["set_station_format_api_event_settings_station_format_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/event-settings/stations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the venue's stations
+         * @description In display order, retired ones included.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Apps:** can't call this; it needs a personal API token.
+         */
+        get: operations["list_stations_api_event_settings_stations_get"];
+        put?: never;
+        /**
+         * Add a station
+         * @description Fails with 400 when the name is blank or taken.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **Apps:** can't call this; it needs a personal API token.
+         */
+        post: operations["create_station_api_event_settings_stations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/event-settings/stations/{station_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a station
+         * @description Past matches keep the station's name. Turning it off keeps it for later instead.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **Apps:** can't call this; it needs a personal API token.
+         */
+        delete: operations["delete_station_api_event_settings_stations__station_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Change a station
+         * @description Fields left out stay as they are; `side` or `position` sent as null clears it.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **Apps:** can't call this; it needs a personal API token.
+         */
+        patch: operations["update_station_api_event_settings_stations__station_id__patch"];
+        trace?: never;
+    };
+    "/api/event-settings/timezone": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the event's clock
+         * @description Whether the event follows the community's clock or keeps one of its own.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Apps:** can't call this; it needs a personal API token.
+         */
+        get: operations["get_timezone_api_event_settings_timezone_get"];
+        /**
+         * Set the event's clock
+         * @description Fails with 400 on an unknown mode or zone.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **Apps:** can't call this; it needs a personal API token.
+         */
+        put: operations["set_timezone_api_event_settings_timezone_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/events": {
         parameters: {
             query?: never;
@@ -13498,6 +13838,19 @@ export interface components {
              */
             players: number;
         };
+        /** CapacitySettings */
+        CapacitySettings: {
+            /**
+             * Max Players
+             * @description Players at once. Null uses 60.
+             */
+            max_players?: number | null;
+            /**
+             * Max Stages
+             * @description Stages at once. Null uses the number of active stages.
+             */
+            max_stages?: number | null;
+        };
         /** ChallongeLinkRequest */
         ChallongeLinkRequest: {
             /**
@@ -14631,6 +14984,11 @@ export interface components {
              */
             unapproved: boolean;
         };
+        /** CrewSettings */
+        CrewSettings: {
+            /** Broadcasters */
+            broadcasters: boolean;
+        };
         /** CrewSignupInfo */
         CrewSignupInfo: {
             /**
@@ -14726,6 +15084,24 @@ export interface components {
              * @description Tracker slots crewed across the tournament.
              */
             tracker: number;
+        };
+        /** DayHours */
+        DayHours: {
+            /**
+             * Closes
+             * @description `HH:MM` on the event's clock, or null for any time.
+             */
+            closes?: string | null;
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+            /**
+             * Opens
+             * @description `HH:MM` on the event's clock, or null for any time.
+             */
+            opens?: string | null;
         };
         /** DeletionPreviewResponse */
         DeletionPreviewResponse: {
@@ -15439,6 +15815,41 @@ export interface components {
             };
             event: components["schemas"]["EventResponse"];
         };
+        /** EventDatesResponse */
+        EventDatesResponse: {
+            /**
+             * Days
+             * @description Every day the event spans, from the dates or (when blank) its first and last match.
+             */
+            days: components["schemas"]["DayHours"][];
+            /** Ends On */
+            ends_on?: string | null;
+            /**
+             * Starts On
+             * @description Null when staff left it blank.
+             */
+            starts_on?: string | null;
+            /**
+             * Timezone Label
+             * @description The clock the hours are on, the event's own.
+             */
+            timezone_label: string;
+        };
+        /** EventDatesUpdate */
+        EventDatesUpdate: {
+            /** Ends On */
+            ends_on?: string | null;
+            /** Starts On */
+            starts_on?: string | null;
+        };
+        /** EventHoursUpdate */
+        EventHoursUpdate: {
+            /**
+             * Days
+             * @description Days left out, or with either time blank, allow any time.
+             */
+            days: components["schemas"]["DayHours"][];
+        };
         /** EventInfoIndex */
         EventInfoIndex: {
             /** Articles */
@@ -15507,6 +15918,36 @@ export interface components {
             open_race_rooms: number;
             /** Tournaments */
             tournaments: number;
+        };
+        /** EventTimezoneResponse */
+        EventTimezoneResponse: {
+            /** Community Mode */
+            community_mode: string;
+            /** Community Name */
+            community_name: string;
+            /** Follows Community */
+            follows_community: boolean;
+            /**
+             * Mode
+             * @description This event's own mode when it has one, else the community's.
+             */
+            mode: string;
+            /** Name */
+            name: string;
+            /** Options */
+            options: string[];
+        };
+        /** EventTimezoneUpdate */
+        EventTimezoneUpdate: {
+            /** Follows Community */
+            follows_community: boolean;
+            /**
+             * Mode
+             * @description `pinned` or `user`; needed unless following the community.
+             */
+            mode?: string | null;
+            /** Name */
+            name?: string | null;
         };
         /** EventUpdateRequest */
         EventUpdateRequest: {
@@ -19757,6 +20198,27 @@ export interface components {
              */
             note?: string | null;
         };
+        /** RewardTiersResponse */
+        RewardTiersResponse: {
+            /**
+             * Text
+             * @description What staff saved, normalised; blank when it uses the default.
+             */
+            text: string;
+            /**
+             * Tiers
+             * @description The tiers in effect, ascending.
+             */
+            tiers: number[];
+        };
+        /** RewardTiersUpdate */
+        RewardTiersUpdate: {
+            /**
+             * Text
+             * @description Hour totals separated by commas. Blank uses 8, 12, 16; `0` awards nothing.
+             */
+            text: string;
+        };
         /** RewindRequest */
         RewindRequest: {
             /**
@@ -19786,6 +20248,36 @@ export interface components {
             event?: string | null;
             /** @description The community role to grant. One of: staff, proctor, stream_manager, triforce_submitter, volunteer_coordinator, equipment_manager, volunteer, check_in_desk, preset_manager, sync_admin, qualifier_admin. super_admin is refused here. */
             role: components["schemas"]["Role"];
+        };
+        /** RoomScreenCreate */
+        RoomScreenCreate: {
+            /** Label */
+            label: string;
+        };
+        /** RoomScreenIssued */
+        RoomScreenIssued: {
+            screen: components["schemas"]["RoomScreenResponse"];
+            /**
+             * Url
+             * @description The machine's URL. Shown once: only its hash is stored.
+             */
+            url: string;
+        };
+        /** RoomScreenResponse */
+        RoomScreenResponse: {
+            /** Id */
+            id: number;
+            /**
+             * Issued By
+             * @description Null when the account that issued it has gone.
+             */
+            issued_by?: string | null;
+            /** Label */
+            label: string;
+            /** Last Used At */
+            last_used_at?: string | null;
+            /** Revoked */
+            revoked: boolean;
         };
         /**
          * RosterImportRequest
@@ -21063,6 +21555,69 @@ export interface components {
              */
             report_results?: boolean | null;
         };
+        /** StationCreate */
+        StationCreate: {
+            /** Name */
+            name: string;
+            /** Position */
+            position?: number | null;
+            /** Section */
+            section?: string | null;
+            side?: components["schemas"]["StationSide"] | null;
+            /**
+             * Sort Order
+             * @default 0
+             */
+            sort_order: number;
+        };
+        /**
+         * StationFormat
+         * @enum {string}
+         */
+        StationFormat: "free" | "numeric" | "structured" | "alphanumeric";
+        /** StationFormatOption */
+        StationFormatOption: {
+            /** Label */
+            label: string;
+            value: components["schemas"]["StationFormat"];
+        };
+        /** StationFormatResponse */
+        StationFormatResponse: {
+            format: components["schemas"]["StationFormat"];
+            /** Options */
+            options: components["schemas"]["StationFormatOption"][];
+        };
+        /** StationFormatSettings */
+        StationFormatSettings: {
+            format: components["schemas"]["StationFormat"];
+        };
+        /** StationResponse */
+        StationResponse: {
+            /** Id */
+            id: number;
+            /** Is Active */
+            is_active: boolean;
+            /** Name */
+            name: string;
+            /** Position */
+            position?: number | null;
+            /** Section */
+            section?: string | null;
+            side?: components["schemas"]["StationSide"] | null;
+            /** Sort Order */
+            sort_order: number;
+        };
+        /**
+         * StationSide
+         * @description Which half of the tournament room a station sits in.
+         *
+         *     Exactly two, because the rule it exists for is "the two players of a match
+         *     do not sit on the same side". A venue that has not described its layout
+         *     leaves ``Station.side`` null and the seating suggestion simply has less to
+         *     work with.
+         * @enum {string}
+         */
+        StationSide: "left" | "right";
         /** StationSuggestionResponse */
         StationSuggestionResponse: {
             /**
@@ -21077,6 +21632,23 @@ export interface components {
              * @description Seating rules the suggestion could not honour, as sentences to show the proctor. Empty when both players got opposite sides with no occupied neighbour.
              */
             relaxations?: string[];
+        };
+        /**
+         * StationUpdate
+         * @description Fields left out stay as they are; ``side`` or ``position`` sent as null clears it.
+         */
+        StationUpdate: {
+            /** Is Active */
+            is_active?: boolean | null;
+            /** Name */
+            name?: string | null;
+            /** Position */
+            position?: number | null;
+            /** Section */
+            section?: string | null;
+            side?: components["schemas"]["StationSide"] | null;
+            /** Sort Order */
+            sort_order?: number | null;
         };
         /** StreamCandidateRequest */
         StreamCandidateRequest: {
@@ -35468,6 +36040,1516 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Article"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_capacity_api_event_settings_capacity_get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CapacitySettings"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    set_capacity_api_event_settings_capacity_put: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CapacitySettings"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CapacitySettings"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_crew_api_event_settings_crew_get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CrewSettings"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    set_crew_api_event_settings_crew_put: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CrewSettings"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CrewSettings"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_dates_api_event_settings_dates_get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventDatesResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    set_dates_api_event_settings_dates_put: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EventDatesUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventDatesResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    set_hours_api_event_settings_hours_put: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EventHoursUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventDatesResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_reward_tiers_api_event_settings_reward_tiers_get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RewardTiersResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    set_reward_tiers_api_event_settings_reward_tiers_put: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RewardTiersUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RewardTiersResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_room_screens_api_event_settings_room_screens_get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoomScreenResponse"][];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    issue_room_screen_api_event_settings_room_screens_post: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoomScreenCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoomScreenIssued"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    revoke_room_screen_api_event_settings_room_screens__screen_id__delete: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                screen_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_station_format_api_event_settings_station_format_get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StationFormatResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    set_station_format_api_event_settings_station_format_put: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StationFormatSettings"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StationFormatResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_stations_api_event_settings_stations_get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StationResponse"][];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_station_api_event_settings_stations_post: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StationCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StationResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_station_api_event_settings_stations__station_id__delete: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                station_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_station_api_event_settings_stations__station_id__patch: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                station_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StationUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StationResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_timezone_api_event_settings_timezone_get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventTimezoneResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    set_timezone_api_event_settings_timezone_put: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EventTimezoneUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventTimezoneResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Nothing with that id in your community, or the feature is turned off for your community. */

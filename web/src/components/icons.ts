@@ -101,6 +101,9 @@ import Groups2Icon from '@material-symbols/svg-400/outlined/groups_2.svg?react'
 import ChairIcon from '@material-symbols/svg-400/outlined/chair.svg?react'
 import PodcastsIcon from '@material-symbols/svg-400/outlined/podcasts.svg?react'
 import MilitaryTechIcon from '@material-symbols/svg-400/outlined/military_tech.svg?react'
+import DesktopWindowsIcon from '@material-symbols/svg-400/outlined/desktop_windows.svg?react'
+import PinIcon from '@material-symbols/svg-400/outlined/pin.svg?react'
+import ToggleOffIcon from '@material-symbols/svg-400/outlined/toggle_off.svg?react'
 import AccountTreeIcon from '@material-symbols/svg-400/outlined/account_tree.svg?react'
 import SyncIcon from '@material-symbols/svg-400/outlined/sync.svg?react'
 import SkipNextIcon from '@material-symbols/svg-400/outlined/skip_next.svg?react'
@@ -251,6 +254,9 @@ export const ICONS = {
   chair: ChairIcon,
   podcasts: PodcastsIcon,
   military_tech: MilitaryTechIcon,
+  desktop_windows: DesktopWindowsIcon,
+  pin: PinIcon,
+  toggle_off: ToggleOffIcon,
   account_tree: AccountTreeIcon,
   sync: SyncIcon,
   skip_next: SkipNextIcon,

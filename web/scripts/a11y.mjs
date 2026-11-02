@@ -91,6 +91,22 @@ const TARGETS = [
     act: (p) => p.getByLabel('Reminder lead (minutes)').fill('30'),
     wait: 'text=Unsaved changes',
   },
+  ...['dates', 'capacity', 'venue', 'timezone', 'crew', 'reward-tiers', 'discord-roles'].map((s) => ({
+    name: `admin-event-settings-${s}`,
+    path: `/t/sgl/admin/event-settings/${s}`,
+  })),
+  {
+    name: 'admin-event-settings-station',
+    path: '/t/sgl/admin/event-settings/venue',
+    act: (p) => p.getByRole('button', { name: 'Add station' }).click(),
+    wait: 'role=dialog',
+  },
+  {
+    name: 'admin-event-settings-hours-unsaved',
+    path: '/t/sgl/admin/event-settings/dates',
+    act: (p) => p.getByLabel(/, opens$/).last().fill('12:00'),
+    wait: 'text=Unsaved changes',
+  },
   { name: 'admin-events', path: '/t/sgl/admin/events/sgl27' },
   { name: 'admin-events-draft', path: '/t/sgl/admin/events/sgl28' },
   {

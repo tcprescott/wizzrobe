@@ -236,3 +236,38 @@ export function RadioRows<V extends string>({
     </fieldset>
   )
 }
+
+/**
+ * A settings card whose rows act straight away (a list with a ⋮ per row), so
+ * it has no Save footer. `action` is the card's one button, in its header.
+ */
+export function ListCard({
+  title,
+  icon,
+  subtitle,
+  action,
+  children,
+}: {
+  title: string
+  icon?: IconName
+  subtitle?: string
+  action?: ReactNode
+  children: ReactNode
+}) {
+  const id = useId()
+  return (
+    <section className="panel settings-card" aria-labelledby={`${id}-title`}>
+      <header className="settings-card__head">
+        {icon && <Icon name={icon} size={20} />}
+        <div className="settings-card__heading">
+          <h2 className="settings-card__title" id={`${id}-title`}>
+            {title}
+          </h2>
+          {subtitle && <p className="settings-card__sub">{subtitle}</p>}
+        </div>
+        {action && <div className="settings-card__action">{action}</div>}
+      </header>
+      {children}
+    </section>
+  )
+}

@@ -3803,6 +3803,38 @@
         "title": "CapacityPeak",
         "type": "object"
       },
+      "CapacitySettings": {
+        "properties": {
+          "max_players": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Players at once. Null uses 60.",
+            "title": "Max Players"
+          },
+          "max_stages": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Stages at once. Null uses the number of active stages.",
+            "title": "Max Stages"
+          }
+        },
+        "title": "CapacitySettings",
+        "type": "object"
+      },
       "ChallongeLinkRequest": {
         "properties": {
           "challonge": {
@@ -5818,6 +5850,19 @@
         "title": "CrewRole",
         "type": "object"
       },
+      "CrewSettings": {
+        "properties": {
+          "broadcasters": {
+            "title": "Broadcasters",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "broadcasters"
+        ],
+        "title": "CrewSettings",
+        "type": "object"
+      },
       "CrewSignupInfo": {
         "properties": {
           "acknowledged_at": {
@@ -5959,6 +6004,44 @@
           "people"
         ],
         "title": "CrewedTournamentRow",
+        "type": "object"
+      },
+      "DayHours": {
+        "properties": {
+          "closes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`HH:MM` on the event's clock, or null for any time.",
+            "title": "Closes"
+          },
+          "day": {
+            "format": "date",
+            "title": "Day",
+            "type": "string"
+          },
+          "opens": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`HH:MM` on the event's clock, or null for any time.",
+            "title": "Opens"
+          }
+        },
+        "required": [
+          "day"
+        ],
+        "title": "DayHours",
         "type": "object"
       },
       "DeletionPreviewResponse": {
@@ -7422,6 +7505,101 @@
         "title": "EventCreateResponse",
         "type": "object"
       },
+      "EventDatesResponse": {
+        "properties": {
+          "days": {
+            "description": "Every day the event spans, from the dates or (when blank) its first and last match.",
+            "items": {
+              "$ref": "#/components/schemas/DayHours"
+            },
+            "title": "Days",
+            "type": "array"
+          },
+          "ends_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ends On"
+          },
+          "starts_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null when staff left it blank.",
+            "title": "Starts On"
+          },
+          "timezone_label": {
+            "description": "The clock the hours are on, the event's own.",
+            "title": "Timezone Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "days",
+          "timezone_label"
+        ],
+        "title": "EventDatesResponse",
+        "type": "object"
+      },
+      "EventDatesUpdate": {
+        "properties": {
+          "ends_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ends On"
+          },
+          "starts_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Starts On"
+          }
+        },
+        "title": "EventDatesUpdate",
+        "type": "object"
+      },
+      "EventHoursUpdate": {
+        "properties": {
+          "days": {
+            "description": "Days left out, or with either time blank, allow any time.",
+            "items": {
+              "$ref": "#/components/schemas/DayHours"
+            },
+            "title": "Days",
+            "type": "array"
+          }
+        },
+        "required": [
+          "days"
+        ],
+        "title": "EventHoursUpdate",
+        "type": "object"
+      },
       "EventInfoIndex": {
         "properties": {
           "articles": {
@@ -7570,6 +7748,84 @@
           "open_race_rooms"
         ],
         "title": "EventSummaryResponse",
+        "type": "object"
+      },
+      "EventTimezoneResponse": {
+        "properties": {
+          "community_mode": {
+            "title": "Community Mode",
+            "type": "string"
+          },
+          "community_name": {
+            "title": "Community Name",
+            "type": "string"
+          },
+          "follows_community": {
+            "title": "Follows Community",
+            "type": "boolean"
+          },
+          "mode": {
+            "description": "This event's own mode when it has one, else the community's.",
+            "title": "Mode",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "options": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Options",
+            "type": "array"
+          }
+        },
+        "required": [
+          "follows_community",
+          "mode",
+          "name",
+          "community_mode",
+          "community_name",
+          "options"
+        ],
+        "title": "EventTimezoneResponse",
+        "type": "object"
+      },
+      "EventTimezoneUpdate": {
+        "properties": {
+          "follows_community": {
+            "title": "Follows Community",
+            "type": "boolean"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`pinned` or `user`; needed unless following the community.",
+            "title": "Mode"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "required": [
+          "follows_community"
+        ],
+        "title": "EventTimezoneUpdate",
         "type": "object"
       },
       "EventUpdateRequest": {
@@ -16267,6 +16523,43 @@
         "title": "ReviewRequest",
         "type": "object"
       },
+      "RewardTiersResponse": {
+        "properties": {
+          "text": {
+            "description": "What staff saved, normalised; blank when it uses the default.",
+            "title": "Text",
+            "type": "string"
+          },
+          "tiers": {
+            "description": "The tiers in effect, ascending.",
+            "items": {
+              "type": "number"
+            },
+            "title": "Tiers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "text",
+          "tiers"
+        ],
+        "title": "RewardTiersResponse",
+        "type": "object"
+      },
+      "RewardTiersUpdate": {
+        "properties": {
+          "text": {
+            "description": "Hour totals separated by commas. Blank uses 8, 12, 16; `0` awards nothing.",
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "RewardTiersUpdate",
+        "type": "object"
+      },
       "RewindRequest": {
         "properties": {
           "to_step": {
@@ -16340,6 +16633,85 @@
           "role"
         ],
         "title": "RoleRequest",
+        "type": "object"
+      },
+      "RoomScreenCreate": {
+        "properties": {
+          "label": {
+            "maxLength": 100,
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label"
+        ],
+        "title": "RoomScreenCreate",
+        "type": "object"
+      },
+      "RoomScreenIssued": {
+        "properties": {
+          "screen": {
+            "$ref": "#/components/schemas/RoomScreenResponse"
+          },
+          "url": {
+            "description": "The machine's URL. Shown once: only its hash is stored.",
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "screen",
+          "url"
+        ],
+        "title": "RoomScreenIssued",
+        "type": "object"
+      },
+      "RoomScreenResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "issued_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null when the account that issued it has gone.",
+            "title": "Issued By"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          },
+          "revoked": {
+            "title": "Revoked",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "revoked"
+        ],
+        "title": "RoomScreenResponse",
         "type": "object"
       },
       "RosterImportRequest": {
@@ -18672,6 +19044,186 @@
         "title": "StartggSettingsUpdate",
         "type": "object"
       },
+      "StationCreate": {
+        "properties": {
+          "name": {
+            "maxLength": 50,
+            "title": "Name",
+            "type": "string"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
+          "section": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section"
+          },
+          "side": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StationSide"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sort_order": {
+            "default": 0,
+            "title": "Sort Order",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "StationCreate",
+        "type": "object"
+      },
+      "StationFormat": {
+        "enum": [
+          "free",
+          "numeric",
+          "structured",
+          "alphanumeric"
+        ],
+        "title": "StationFormat",
+        "type": "string"
+      },
+      "StationFormatOption": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/StationFormat"
+          }
+        },
+        "required": [
+          "value",
+          "label"
+        ],
+        "title": "StationFormatOption",
+        "type": "object"
+      },
+      "StationFormatResponse": {
+        "properties": {
+          "format": {
+            "$ref": "#/components/schemas/StationFormat"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/StationFormatOption"
+            },
+            "title": "Options",
+            "type": "array"
+          }
+        },
+        "required": [
+          "format",
+          "options"
+        ],
+        "title": "StationFormatResponse",
+        "type": "object"
+      },
+      "StationFormatSettings": {
+        "properties": {
+          "format": {
+            "$ref": "#/components/schemas/StationFormat"
+          }
+        },
+        "required": [
+          "format"
+        ],
+        "title": "StationFormatSettings",
+        "type": "object"
+      },
+      "StationResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
+          "section": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section"
+          },
+          "side": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StationSide"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sort_order": {
+            "title": "Sort Order",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "sort_order",
+          "is_active"
+        ],
+        "title": "StationResponse",
+        "type": "object"
+      },
+      "StationSide": {
+        "description": "Which half of the tournament room a station sits in.\n\nExactly two, because the rule it exists for is \"the two players of a match\ndo not sit on the same side\". A venue that has not described its layout\nleaves ``Station.side`` null and the seating suggestion simply has less to\nwork with.",
+        "enum": [
+          "left",
+          "right"
+        ],
+        "title": "StationSide",
+        "type": "string"
+      },
       "StationSuggestionResponse": {
         "properties": {
           "assignments": {
@@ -18695,6 +19247,80 @@
           "assignments"
         ],
         "title": "StationSuggestionResponse",
+        "type": "object"
+      },
+      "StationUpdate": {
+        "description": "Fields left out stay as they are; ``side`` or ``position`` sent as null clears it.",
+        "properties": {
+          "is_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Active"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
+          "section": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section"
+          },
+          "side": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StationSide"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sort_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Order"
+          }
+        },
+        "title": "StationUpdate",
         "type": "object"
       },
       "StreamCandidateRequest": {
@@ -42327,6 +42953,2169 @@
         "summary": "Get an event information article",
         "tags": [
           "Event information"
+        ]
+      }
+    },
+    "/api/event-settings/capacity": {
+      "get": {
+        "description": "**Who can call this:** Staff.\n\n**Apps:** can't call this; it needs a personal API token.",
+        "operationId": "get_capacity_api_event_settings_capacity_get",
+        "parameters": [
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CapacitySettings"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get how much runs at once",
+        "tags": [
+          "Event settings"
+        ]
+      },
+      "put": {
+        "description": "Null puts a limit back to its default.\n\n**Who can call this:** Staff.\n\n**Token:** needs a token that isn't read-only.  \n**Apps:** can't call this; it needs a personal API token.",
+        "operationId": "set_capacity_api_event_settings_capacity_put",
+        "parameters": [
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CapacitySettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CapacitySettings"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Set how much runs at once",
+        "tags": [
+          "Event settings"
+        ]
+      }
+    },
+    "/api/event-settings/crew": {
+      "get": {
+        "description": "**Who can call this:** Staff.\n\n**Apps:** can't call this; it needs a personal API token.",
+        "operationId": "get_crew_api_event_settings_crew_get",
+        "parameters": [
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CrewSettings"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get whether matches take broadcasters",
+        "tags": [
+          "Event settings"
+        ]
+      },
+      "put": {
+        "description": "**Who can call this:** Staff.\n\n**Token:** needs a token that isn't read-only.  \n**Apps:** can't call this; it needs a personal API token.",
+        "operationId": "set_crew_api_event_settings_crew_put",
+        "parameters": [
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrewSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CrewSettings"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Set whether matches take broadcasters",
+        "tags": [
+          "Event settings"
+        ]
+      }
+    },
+    "/api/event-settings/dates": {
+      "get": {
+        "description": "When the event runs, and the hours matches can start on each of its days.\n\n**Who can call this:** Staff.\n\n**Apps:** can't call this; it needs a personal API token.",
+        "operationId": "get_dates_api_event_settings_dates_get",
+        "parameters": [
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventDatesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get the event's dates and daily hours",
+        "tags": [
+          "Event settings"
+        ]
+      },
+      "put": {
+        "description": "Null leaves a bound blank, and the event then runs from its first match to its last.\n\n**Who can call this:** Staff.\n\n**Token:** needs a token that isn't read-only.  \n**Apps:** can't call this; it needs a personal API token.",
+        "operationId": "set_dates_api_event_settings_dates_put",
+        "parameters": [
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventDatesUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventDatesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Set the event's dates",
+        "tags": [
+          "Event settings"
+        ]
+      }
+    },
+    "/api/event-settings/hours": {
+      "put": {
+        "description": "Replaces every day's hours. A day left out, or with a time blank, allows any time. Fails with 400 when a day closes before it opens.\n\n**Who can call this:** Staff.\n\n**Token:** needs a token that isn't read-only.  \n**Apps:** can't call this; it needs a personal API token.",
+        "operationId": "set_hours_api_event_settings_hours_put",
+        "parameters": [
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventHoursUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventDatesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Set the event's daily hours",
+        "tags": [
+          "Event settings"
+        ]
+      }
+    },
+    "/api/event-settings/reward-tiers": {
+      "get": {
+        "description": "The hour totals that earn a volunteer something at this event.\n\n**Who can call this:** Staff.\n\n**Apps:** can't call this; it needs a personal API token.  \n**Feature:** only works when the community has **Volunteer Scheduling** turned on; otherwise every call answers `404`.",
+        "operationId": "get_reward_tiers_api_event_settings_reward_tiers_get",
+        "parameters": [
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RewardTiersResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get the volunteer reward tiers",
+        "tags": [
+          "Event settings"
+        ]
+      },
+      "put": {
+        "description": "Fails with 400 on anything but non-negative numbers.\n\n**Who can call this:** Staff.\n\n**Token:** needs a token that isn't read-only.  \n**Apps:** can't call this; it needs a personal API token.  \n**Feature:** only works when the community has **Volunteer Scheduling** turned on; otherwise every call answers `404`.",
+        "operationId": "set_reward_tiers_api_event_settings_reward_tiers_put",
+        "parameters": [
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RewardTiersUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RewardTiersResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Set the volunteer reward tiers",
+        "tags": [
+          "Event settings"
+        ]
+      }
+    },
+    "/api/event-settings/room-screens": {
+      "get": {
+        "description": "Machines in the room showing the seeds board without signing in, revoked ones last.\n\n**Who can call this:** Staff.\n\n**Apps:** can't call this; it needs a personal API token.",
+        "operationId": "list_room_screens_api_event_settings_room_screens_get",
+        "parameters": [
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RoomScreenResponse"
+                  },
+                  "title": "Response List Room Screens Api Event Settings Room Screens Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List the room screens",
+        "tags": [
+          "Event settings"
+        ]
+      },
+      "post": {
+        "description": "Returns the machine's URL once; only its hash is stored.\n\n**Who can call this:** Staff.\n\n**Token:** needs a token that isn't read-only.  \n**Apps:** can't call this; it needs a personal API token.",
+        "operationId": "issue_room_screen_api_event_settings_room_screens_post",
+        "parameters": [
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoomScreenCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomScreenIssued"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Issue a room screen",
+        "tags": [
+          "Event settings"
+        ]
+      }
+    },
+    "/api/event-settings/room-screens/{screen_id}": {
+      "delete": {
+        "description": "The machine gets a 404 on its next refresh, and the URL can't be brought back.\n\n**Who can call this:** Staff.\n\n**Token:** needs a token that isn't read-only.  \n**Apps:** can't call this; it needs a personal API token.",
+        "operationId": "revoke_room_screen_api_event_settings_room_screens__screen_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "screen_id",
+            "required": true,
+            "schema": {
+              "title": "Screen Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Revoke a room screen",
+        "tags": [
+          "Event settings"
+        ]
+      }
+    },
+    "/api/event-settings/station-format": {
+      "get": {
+        "description": "**Who can call this:** Staff.\n\n**Apps:** can't call this; it needs a personal API token.",
+        "operationId": "get_station_format_api_event_settings_station_format_get",
+        "parameters": [
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StationFormatResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get what a proctor may type as a station",
+        "tags": [
+          "Event settings"
+        ]
+      },
+      "put": {
+        "description": "**Who can call this:** Staff.\n\n**Token:** needs a token that isn't read-only.  \n**Apps:** can't call this; it needs a personal API token.",
+        "operationId": "set_station_format_api_event_settings_station_format_put",
+        "parameters": [
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StationFormatSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StationFormatResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Set what a proctor may type as a station",
+        "tags": [
+          "Event settings"
+        ]
+      }
+    },
+    "/api/event-settings/stations": {
+      "get": {
+        "description": "In display order, retired ones included.\n\n**Who can call this:** Staff.\n\n**Apps:** can't call this; it needs a personal API token.",
+        "operationId": "list_stations_api_event_settings_stations_get",
+        "parameters": [
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/StationResponse"
+                  },
+                  "title": "Response List Stations Api Event Settings Stations Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List the venue's stations",
+        "tags": [
+          "Event settings"
+        ]
+      },
+      "post": {
+        "description": "Fails with 400 when the name is blank or taken.\n\n**Who can call this:** Staff.\n\n**Token:** needs a token that isn't read-only.  \n**Apps:** can't call this; it needs a personal API token.",
+        "operationId": "create_station_api_event_settings_stations_post",
+        "parameters": [
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StationCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Add a station",
+        "tags": [
+          "Event settings"
+        ]
+      }
+    },
+    "/api/event-settings/stations/{station_id}": {
+      "delete": {
+        "description": "Past matches keep the station's name. Turning it off keeps it for later instead.\n\n**Who can call this:** Staff.\n\n**Token:** needs a token that isn't read-only.  \n**Apps:** can't call this; it needs a personal API token.",
+        "operationId": "delete_station_api_event_settings_stations__station_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "station_id",
+            "required": true,
+            "schema": {
+              "title": "Station Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete a station",
+        "tags": [
+          "Event settings"
+        ]
+      },
+      "patch": {
+        "description": "Fields left out stay as they are; `side` or `position` sent as null clears it.\n\n**Who can call this:** Staff.\n\n**Token:** needs a token that isn't read-only.  \n**Apps:** can't call this; it needs a personal API token.",
+        "operationId": "update_station_api_event_settings_stations__station_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "station_id",
+            "required": true,
+            "schema": {
+              "title": "Station Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StationUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Change a station",
+        "tags": [
+          "Event settings"
+        ]
+      }
+    },
+    "/api/event-settings/timezone": {
+      "get": {
+        "description": "Whether the event follows the community's clock or keeps one of its own.\n\n**Who can call this:** Staff.\n\n**Apps:** can't call this; it needs a personal API token.",
+        "operationId": "get_timezone_api_event_settings_timezone_get",
+        "parameters": [
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventTimezoneResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get the event's clock",
+        "tags": [
+          "Event settings"
+        ]
+      },
+      "put": {
+        "description": "Fails with 400 on an unknown mode or zone.\n\n**Who can call this:** Staff.\n\n**Token:** needs a token that isn't read-only.  \n**Apps:** can't call this; it needs a personal API token.",
+        "operationId": "set_timezone_api_event_settings_timezone_put",
+        "parameters": [
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventTimezoneUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventTimezoneResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Set the event's clock",
+        "tags": [
+          "Event settings"
         ]
       }
     },
@@ -77933,6 +80722,10 @@
       "name": "Community settings"
     },
     {
+      "description": "One event's own settings, one group per pane of Admin → Event settings: dates and daily hours, capacity, clock, broadcasters, volunteer reward tiers, and the venue's stations and room screens.",
+      "name": "Event settings"
+    },
+    {
       "description": "The schedule, and running a match from seating to a confirmed result.",
       "name": "Matches"
     },
@@ -79766,6 +82559,7 @@
         "My schedule",
         "Admin shell",
         "Community settings",
+        "Event settings",
         "Matches",
         "Admin: Match Schedule",
         "Crew",
