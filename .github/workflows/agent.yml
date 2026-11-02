@@ -1,0 +1,37 @@
+name: Broadcaster agent
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ['agent/**', '.github/workflows/agent.yml']
+  push:
+    branches: [main]
+    paths: ['agent/**', '.github/workflows/agent.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: agent
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: agent/go.mod
+          cache-dependency-path: agent/go.sum
+      - name: Format
+        run: test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)
+      - name: Vet
+        run: go vet ./...
+      - name: Test
+        run: go test -race ./...
+      - name: Build for Windows and Mac
+        run: |
+          GOOS=windows GOARCH=amd64 go build -o /dev/null ./cmd/wizzrobe-agent
+          GOOS=darwin GOARCH=arm64 go build -o /dev/null ./cmd/wizzrobe-agent
+          GOOS=darwin GOARCH=amd64 go build -o /dev/null ./cmd/wizzrobe-agent
