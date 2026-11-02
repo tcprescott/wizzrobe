@@ -344,6 +344,8 @@ class AuditActions:
     WEB_PUSH_SUBSCRIBED = 'web_push.subscribed'
     WEB_PUSH_UNSUBSCRIBED = 'web_push.unsubscribed'
     WEB_PUSH_ROTATED = 'web_push.rotated'
+    DEVICE_PUSH_REGISTERED = 'device_push.registered'
+    DEVICE_PUSH_REMOVED = 'device_push.removed'
     NOTIFICATION_EMAIL_CONFIRMED = 'notification_email.confirmed'
     NOTIFICATION_EMAIL_REMOVED = 'notification_email.removed'
     NOTIFICATION_TELEGRAM_LINKED = 'notification_telegram.linked'

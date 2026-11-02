@@ -81,6 +81,13 @@ class OAuthAppRepository(TenantScopedRepository[OAuthApp]):
         ).values_list('redirect_uris', flat=True)  # type: ignore[return-value]
 
     @staticmethod
+    async def first_party_redirect_uris() -> List[List[str]]:
+        """Redirect URIs of the live first-party apps (Wizzrobe's own). Global."""
+        return await OAuthApp.filter(
+            first_party=True, disabled_at__isnull=True,
+        ).values_list('redirect_uris', flat=True)  # type: ignore[return-value]
+
+    @staticmethod
     async def list_all() -> List[OAuthApp]:
         """Every app on the platform, for the super-admin view. Global."""
         return await OAuthApp.all().order_by('name', 'id').prefetch_related('owner')

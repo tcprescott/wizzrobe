@@ -11,12 +11,17 @@
  * storage for the platform keychain.
  */
 import { readStored, writeStored } from '../lib/storage'
+import { isNative } from '../lib/platform'
+import { openSignInPage } from '../native/signIn'
 import { API_BASE, CLIENT_ID, issuer, redirectUri } from './config'
 import { challengeFor, createVerifier, randomToken } from './pkce'
 
 const SESSION_KEY = 'wiz.session'
 const PENDING_KEY = 'wiz.signin'
 const REFRESH_EARLY_MS = 60_000
+// In the store apps the system can close the app while the sign-in browser is
+// up; localStorage outlives that, sessionStorage doesn't.
+const PENDING_STORE = () => (isNative() ? 'local' : 'session') as 'local' | 'session'
 
 export interface Tokens {
   access: string
@@ -87,7 +92,7 @@ async function postToken(form: Record<string, string>): Promise<Response> {
 
 export async function beginSignIn(returnTo: string): Promise<void> {
   const pending: PendingSignIn = { verifier: createVerifier(), state: randomToken(16), returnTo }
-  writeStored(PENDING_KEY, JSON.stringify(pending), 'session')
+  writeStored(PENDING_KEY, JSON.stringify(pending), PENDING_STORE())
   const url = new URL(`${issuer()}/authorize`)
   url.search = new URLSearchParams({
     response_type: 'code',
@@ -97,13 +102,14 @@ export async function beginSignIn(returnTo: string): Promise<void> {
     code_challenge_method: 'S256',
     state: pending.state,
   }).toString()
-  window.location.assign(url.toString())
+  if (isNative()) await openSignInPage(url.toString())
+  else window.location.assign(url.toString())
 }
 
 /** Finish the redirect back from /oauth/authorize. Returns where to go next. */
 export async function completeSignIn(params: URLSearchParams): Promise<string> {
-  const raw = readStored(PENDING_KEY, 'session')
-  writeStored(PENDING_KEY, null, 'session')
+  const raw = readStored(PENDING_KEY, PENDING_STORE())
+  writeStored(PENDING_KEY, null, PENDING_STORE())
   const pending = raw ? (JSON.parse(raw) as PendingSignIn) : null
   if (!pending || params.get('state') !== pending.state) {
     throw new SignInError("This sign-in didn't start here, or it expired. Try again.")
@@ -168,7 +174,17 @@ export async function accessToken(): Promise<string | null> {
   return (await refreshTokens(tokens.access))?.access ?? null
 }
 
+type SignOutHook = () => Promise<void>
+const signOutHooks = new Set<SignOutHook>()
+
+/** Runs while the session still works, so a hook can tell the server to forget this phone. */
+export function beforeSignOut(hook: SignOutHook): () => void {
+  signOutHooks.add(hook)
+  return () => signOutHooks.delete(hook)
+}
+
 export async function signOut(): Promise<void> {
+  await Promise.all([...signOutHooks].map((hook) => hook().catch(() => undefined)))
   const tokens = loadTokens()
   saveTokens(null)
   if (!tokens) return
