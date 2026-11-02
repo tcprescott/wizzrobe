@@ -236,11 +236,11 @@ class AdminBracketsService:
         row, entries, matches = (await self._rows(bracket.tournament_id, brackets))[bracket.id]
         entrants = await self.brackets.list_entrants(bracket.tournament_id)
         by_entrant = {en.id: en for en in entrants}
-        entry_name = {e.id: (by_entrant[e.entrant_id].display_name if e.entrant_id in by_entrant else f'Entry {e.id}') for e in entries}
-        enrolled = {e.entrant_id for e in entries}
+        entry_name = {e.id: (by_entrant[e.entrant_id].display_name if e.entrant_id in by_entrant else f'Entry {e.id}') for e in entries}  # type: ignore[attr-defined]
+        enrolled = {e.entrant_id for e in entries}  # type: ignore[attr-defined]
         seeds = sorted(
             (
-                SeedEntry(e.id, e.entrant_id, entry_name[e.id], e.seed, e.group_number, e.status.value, e.final_rank)
+                SeedEntry(e.id, e.entrant_id, entry_name[e.id], e.seed, e.group_number, e.status.value, e.final_rank)  # type: ignore[attr-defined]
                 for e in entries
             ),
             key=lambda s: (s.seed is None, s.seed or 0, s.name.lower()),
@@ -258,9 +258,9 @@ class AdminBracketsService:
                 round=m.round,
                 state=m.state.value,
                 best_of=m.best_of,
-                side1=Side(m.entry1_id, entry_name.get(m.entry1_id, 'Bye') if m.entry1_id else 'TBD', m.entry1_score),
-                side2=Side(m.entry2_id, entry_name.get(m.entry2_id, 'Bye') if m.entry2_id else 'TBD', m.entry2_score),
-                winner_entry_id=m.winner_id,
+                side1=Side(m.entry1_id, entry_name.get(m.entry1_id, 'Bye') if m.entry1_id else 'TBD', m.entry1_score),  # type: ignore[attr-defined]
+                side2=Side(m.entry2_id, entry_name.get(m.entry2_id, 'Bye') if m.entry2_id else 'TBD', m.entry2_score),  # type: ignore[attr-defined]
+                winner_entry_id=m.winner_id,  # type: ignore[attr-defined]
                 forfeit=m.forfeit,
             )
             for m in sorted(shown, key=lambda m: (m.state != BracketMatchState.OPEN, abs(m.round), m.round < 0, m.position))

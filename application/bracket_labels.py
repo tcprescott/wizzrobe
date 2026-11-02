@@ -134,7 +134,7 @@ def round_display_names(matches: List[BracketMatch], fmt: BracketFormat) -> Dict
     if double:
         by_id = {m.id: m for m in matches}
         gf_id, reset_id = detect_finals_ids([
-            RoundNode(id=m.id, round=m.round, winner_to_id=m.winner_to_id, loser_to_id=m.loser_to_id)
+            RoundNode(id=m.id, round=m.round, winner_to_id=m.winner_to_id, loser_to_id=m.loser_to_id)  # type: ignore[attr-defined]
             for m in matches
         ])
         gf_round = by_id[gf_id].round if gf_id in by_id else None

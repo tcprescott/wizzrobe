@@ -36,7 +36,7 @@ _STAFF = "**Who can call this:** Staff."
 async def board(actor: User = Depends(require_api_actor)):
     board = await AdminBracketsService().board(actor)
     return BracketsBoardResponse(
-        tournaments=board.tournaments,  # type: ignore[arg-type]
+        tournaments=board.tournaments,
         formats=[{'value': v, 'label': lbl} for v, lbl in board.formats],  # type: ignore[misc]
     )
 

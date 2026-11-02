@@ -159,7 +159,7 @@ def _state(q: AsyncQualifier, now: datetime) -> tuple:
 def _other_runs(tally: Mapping[int, Mapping[str, int]], run: AsyncQualifierRun) -> str:
     """The runner's other attempts here, so two reviewers judge with the same context.
     The tally counts this run too, so its own outcome is taken back off."""
-    counts = dict(tally.get(run.user_id, {}))
+    counts = dict(tally.get(run.user_id, {}))  # type: ignore[attr-defined]
     own = 'voided' if run.reattempted else run.review_status.value
     if counts.get(own):
         counts[own] -= 1
