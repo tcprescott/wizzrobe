@@ -111,6 +111,9 @@ import SkipNextIcon from '@material-symbols/svg-400/outlined/skip_next.svg?react
 import AddLinkIcon from '@material-symbols/svg-400/outlined/add_link.svg?react'
 import PersonRemoveIcon from '@material-symbols/svg-400/outlined/person_remove.svg?react'
 import EventNoteIcon from '@material-symbols/svg-400/outlined/event_note.svg?react'
+import PriorityHigh from '@material-symbols/svg-400/outlined/priority_high.svg?react'
+import Inbox from '@material-symbols/svg-400/outlined/inbox.svg?react'
+import Lock from '@material-symbols/svg-400/outlined/lock.svg?react'
 import IAttractions from '@material-symbols/svg-400/outlined/attractions.svg?react'
 import ICode from '@material-symbols/svg-400/outlined/code.svg?react'
 import IContactPhone from '@material-symbols/svg-400/outlined/contact_phone.svg?react'
@@ -166,6 +169,9 @@ export const ICONS = {
   search: Search,
   videocam: Videocam,
   casino: Casino,
+  inbox: Inbox,
+  priority_high: PriorityHigh,
+  lock: Lock,
   tv: Tv,
   open_in_new: OpenInNew,
   sports_esports: SportsEsports,
