@@ -229,5 +229,5 @@ in TypeScript.
   side (the run sheet on the left with its groups, the selected match in a pane
   beside it; on a phone the match opens as its own screen with a back link), and
   three PRs: (1) board and match pane with the run actions, (2) Needs you,
-  reschedule requests and comments, (3) Not booked yet and create/edit match.
+  reschedule requests and comments, (3) Not booked yet and create/edit match. Part 1 is PR #780.
   Mockups: `/mnt/project-files/mobile-app/admin-schedule-mockups/`.
