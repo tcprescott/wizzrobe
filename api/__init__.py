@@ -11,6 +11,7 @@ from api import graphql
 from api.dependencies import require_feature, tenant_context_scope
 from api.rate_limit import rate_limit
 from api.routers import (
+    admin_match_schedule,
     admin_nav,
     admin_notifications,
     async_qualifier_live_races,
@@ -83,6 +84,7 @@ router.include_router(me.router)
 router.include_router(my_schedule.router)
 router.include_router(admin_nav.router)
 router.include_router(my_profile.router)
+router.include_router(admin_match_schedule.router)
 router.include_router(my_notifications.router)
 router.include_router(my_developer.apps_router)
 router.include_router(my_developer.webhooks_router)

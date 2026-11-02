@@ -19,6 +19,11 @@ from nicegui import app, ui
 
 from application.content import parse_user_blocks
 from application.errors import NotFoundError
+from application.run_sheet import (
+    SHEET_CREW_ROLES,
+    decorate_run_sheet_row,
+    readiness,
+)
 from application.services import ItemTrackerService, MatchCommentService, StreamLayoutService, get_user_from_session
 from theme.busy import busy
 from theme.clipboard import copy_to_clipboard
@@ -30,7 +35,6 @@ from theme.matchup import matchup_label
 from theme.menu import menu_action, more_menu
 from theme.notify import notify_error
 from theme.tables.match_access import MatchBoardAccess
-from theme.tables.match_run_sheet import decorate_run_sheet_row
 from theme.tables.match_slots import CANDIDATE_STAGE
 from theme.url_state import url_param, url_state
 
@@ -43,12 +47,6 @@ _STATE_SINCE = {
     'Confirmed': 'Confirmed at',
 }
 
-_ROLES = (
-    ('commentators', 'commentator', 'Commentary'),
-    ('trackers', 'tracker', 'Tracking'),
-    ('broadcasters', 'broadcaster', 'Broadcast'),
-)
-
 
 def seed_rollable(row: dict) -> bool:
     """Python twin of ``match_slots.SEED_ROLLABLE``: may a seed be rolled now."""
@@ -57,91 +55,6 @@ def seed_rollable(row: dict) -> bool:
         and row.get('players')
         and row.get('state') not in ('Finished', 'Confirmed')
     )
-
-
-def _names(names: list) -> str:
-    return names[0] if len(names) == 1 else ', '.join(names[:-1]) + ' and ' + names[-1]
-
-
-def readiness(row: dict, *, crew: bool = True) -> list[dict]:
-    """The match sheet's checklist, one item per thing a match needs.
-
-    ``ready`` is True or False for what a match can't start well without, and
-    None for what's only information (no stage just means off stream). Seed and
-    crew appear only where the tournament uses them, and crew only when the
-    viewer looks after crew (``crew``).
-    """
-    players = row.get('players') or []
-    acks = row.get('acknowledgments') or []
-    items = []
-
-    if not players:
-        items.append({'key': 'players', 'label': 'Players', 'ready': False, 'detail': 'Not decided yet'})
-    else:
-        unconfirmed = [a.get('name') or '' for a in acks if not a.get('acknowledged')]
-        if not unconfirmed:
-            detail = 'Everyone has confirmed'
-        elif len(unconfirmed) == len(players) and len(players) == 2:
-            detail = f'Neither {unconfirmed[0]} nor {unconfirmed[1]} has confirmed'
-        else:
-            detail = f"{_names(unconfirmed)} {'hasn' if len(unconfirmed) == 1 else 'haven'}'t confirmed"
-        items.append({'key': 'players', 'label': 'Players confirmed', 'ready': not unconfirmed, 'detail': detail})
-
-        stations = [(p.get('name') or '', p.get('station')) for p in players]
-        missing = [name for name, station in stations if not station]
-        if row.get('stage'):
-            if len(missing) < len(stations):
-                detail = ' · '.join(f'{name} {station}' for name, station in stations if station)
-                items.append({'key': 'stations', 'label': 'Stations', 'ready': None, 'detail': detail})
-        else:
-            if len(missing) == len(stations):
-                detail = 'Not assigned'
-            else:
-                detail = ' · '.join(f'{name} {station}' for name, station in stations if station)
-                if missing:
-                    detail += f" · {_names(missing)} {'has' if len(missing) == 1 else 'have'} none"
-            items.append({'key': 'stations', 'label': 'Stations', 'ready': not missing, 'detail': detail})
-
-    stage = row.get('_stage') or ''
-    items.append({
-        'key': 'stage', 'label': 'Stage', 'ready': True if row.get('stage') else None,
-        'detail': stage or 'No stage',
-    })
-
-    seed = row.get('generated_seed')
-    if seed or row.get('tournament_seed_generator'):
-        if seed:
-            ready, detail = True, ''
-        elif row.get('seed_rolling_since'):
-            ready, detail = False, row.get('seed_rolling_label') or 'Rolling…'
-        elif row.get('seed_roll_error'):
-            ready, detail = False, row['seed_roll_error']
-        elif row.get('is_racetime'):
-            ready, detail = None, 'The race room rolls it'
-        else:
-            ready, detail = False, 'Not rolled'
-        items.append({'key': 'seed', 'label': 'Seed', 'ready': ready, 'detail': detail})
-
-    wanted = row.get('crew_wanted') or {}
-    required = row.get('crew_required') or {}
-    need = approved = waiting = 0
-    for key, _role, _label in _ROLES:
-        if not wanted.get(key):
-            continue
-        people = row.get(key) or []
-        got = sum(1 for p in people if p.get('approved'))
-        need += max((required.get(key) or 0) - got, 0)
-        approved += got
-        waiting += sum(1 for p in people if not p.get('approved'))
-    if crew and any(required.get(k) for k, _r, _l in _ROLES if wanted.get(k)):
-        if need:
-            detail = f'{need} more needed'
-            if waiting:
-                detail += f', {waiting} waiting for approval below'
-        else:
-            detail = 'Covered'
-        items.append({'key': 'crew', 'label': 'Crew', 'ready': not need, 'detail': detail})
-    return items
 
 
 class MatchSheet:
@@ -467,7 +380,7 @@ class MatchSheet:
 
     def _crew(self, row: dict) -> None:
         wanted = row.get('crew_wanted') or {}
-        roles = [r for r in _ROLES if wanted.get(r[0]) or row.get(r[0])]
+        roles = [r for r in SHEET_CREW_ROLES if wanted.get(r[0]) or row.get(r[0])]
         if not roles:
             return
         heading = ui.label('Crew').classes('match-sheet__section')

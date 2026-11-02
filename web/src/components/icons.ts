@@ -101,11 +101,13 @@ import Groups2Icon from '@material-symbols/svg-400/outlined/groups_2.svg?react'
 import ChairIcon from '@material-symbols/svg-400/outlined/chair.svg?react'
 import PodcastsIcon from '@material-symbols/svg-400/outlined/podcasts.svg?react'
 import MilitaryTechIcon from '@material-symbols/svg-400/outlined/military_tech.svg?react'
+import Search from '@material-symbols/svg-400/outlined/search.svg?react'
+import Videocam from '@material-symbols/svg-400/outlined/videocam.svg?react'
+import Casino from '@material-symbols/svg-400/outlined/casino.svg?react'
 import BugReportIcon from '@material-symbols/svg-400/outlined/bug_report.svg?react'
 import LightbulbIcon from '@material-symbols/svg-400/outlined/lightbulb.svg?react'
 import FavoriteIcon from '@material-symbols/svg-400/outlined/favorite.svg?react'
 import ChatBubbleIcon from '@material-symbols/svg-400/outlined/chat_bubble.svg?react'
-import SearchIcon from '@material-symbols/svg-400/outlined/search.svg?react'
 import RefreshIcon from '@material-symbols/svg-400/outlined/refresh.svg?react'
 import NotificationsActiveIcon from '@material-symbols/svg-400/outlined/notifications_active.svg?react'
 import NotificationsOffIcon from '@material-symbols/svg-400/outlined/notifications_off.svg?react'
@@ -140,6 +142,9 @@ export const ICONS = {
   event_available: EventAvailable,
   swap_horiz: SwapHoriz,
   schedule: Schedule,
+  search: Search,
+  videocam: Videocam,
+  casino: Casino,
   tv: Tv,
   open_in_new: OpenInNew,
   sports_esports: SportsEsports,
@@ -212,7 +217,6 @@ export const ICONS = {
   lightbulb: LightbulbIcon,
   favorite: FavoriteIcon,
   chat_bubble: ChatBubbleIcon,
-  search: SearchIcon,
   refresh: RefreshIcon,
   notifications_active: NotificationsActiveIcon,
   notifications_off: NotificationsOffIcon,
