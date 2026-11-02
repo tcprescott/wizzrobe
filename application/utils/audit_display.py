@@ -34,7 +34,7 @@ AREAS: tuple[AuditArea, ...] = (
     )),
     AuditArea('people', 'People', (
         'user.', 'role.', 'profile_nudge.', 'emergency_contact.', 'accommodation.', 'twitch.',
-        'racetime.', 'web_push.', 'notification_email.', 'notification_telegram.', 'tenant.member_', 'tenant.join_',
+        'racetime.', 'web_push.', 'device_push.', 'notification_email.', 'notification_telegram.', 'tenant.member_', 'tenant.join_',
     )),
     AuditArea('volunteers', 'Volunteers', ('volunteer.',)),
     AuditArea('check_in', 'Check-in', (
@@ -237,6 +237,8 @@ ACTION_LABELS: dict[str, str] = {
     'web_push.subscribed': 'Turned on phone notifications',
     'web_push.unsubscribed': 'Turned off phone notifications',
     'web_push.rotated': 'Refreshed phone notifications',
+    'device_push.registered': 'Turned on notifications in the Wizzrobe app',
+    'device_push.removed': 'Turned off notifications in the Wizzrobe app',
     'notification_email.confirmed': 'Confirmed a notification email',
     'notification_email.removed': 'Removed their notification email',
     'notification_telegram.linked': 'Connected Telegram',

@@ -3957,6 +3957,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/channels/native-devices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Turn on notifications in the store app
+         * @description Saves the push token the iOS or Android app got from its platform, so notifications reach that phone. Registering the same token again refreshes it, and a token another account registered moves to you (someone else signed in on that phone). Answers 404 when this server can't send to that platform.
+         *
+         *     **Who can call this:** Any member.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **App scope:** `profile:write`
+         */
+        post: operations["add_native_device_api_me_channels_native_devices_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/channels/native-devices/{device_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Stop notifications to one of your phones
+         * @description **Who can call this:** Any member, for their own phones.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **App scope:** `profile:write`
+         */
+        delete: operations["remove_native_device_api_me_channels_native_devices__device_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me/channels/telegram": {
         parameters: {
             query?: never;
@@ -11450,6 +11498,16 @@ export interface components {
             /** Email Notifications */
             email_notifications: boolean;
             /**
+             * Native Devices
+             * @description Store-app installs getting notifications.
+             */
+            native_devices: components["schemas"]["NativeDeviceResponse"][];
+            /**
+             * Native Push Platforms
+             * @description Phone platforms (`ios`, `android`) the store apps can get notifications on from this server.
+             */
+            native_push_platforms: string[];
+            /**
              * Push Configured
              * @description This server can send device notifications.
              */
@@ -11459,6 +11517,11 @@ export interface components {
              * @description The VAPID key a browser subscribes with.
              */
             push_public_key?: string | null;
+            /**
+             * Registered Device Id
+             * @description Set only when registering a phone: the id of the row that call saved.
+             */
+            registered_device_id?: number | null;
             /** Telegram Available */
             telegram_available: boolean;
             /** Telegram Connected */
@@ -14589,6 +14652,40 @@ export interface components {
             started_at?: string | null;
             /** @description Run status: `pending` (created ahead of a live race, not yet started), `in_progress`, `finished`, `forfeit` or `disqualified`. */
             status: components["schemas"]["AsyncQualifierRunStatus"];
+        };
+        /** NativeDeviceRegisterRequest */
+        NativeDeviceRegisterRequest: {
+            /** Device Name */
+            device_name?: string | null;
+            /**
+             * Platform
+             * @description `ios` or `android`.
+             */
+            platform: string;
+            /**
+             * Token
+             * @description The push token the phone's platform handed the app.
+             */
+            token: string;
+        };
+        /** NativeDeviceResponse */
+        NativeDeviceResponse: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Device Name */
+            device_name?: string | null;
+            /** Id */
+            id: number;
+            /** Last Used At */
+            last_used_at?: string | null;
+            /**
+             * Platform
+             * @description `ios` or `android`.
+             */
+            platform: string;
         };
         /** NeedResponse */
         NeedResponse: {
@@ -33990,6 +34087,160 @@ export interface operations {
                 "application/json": components["schemas"]["EnabledUpdate"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChannelsResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    add_native_device_api_me_channels_native_devices_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NativeDeviceRegisterRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChannelsResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    remove_native_device_api_me_channels_native_devices__device_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                device_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
