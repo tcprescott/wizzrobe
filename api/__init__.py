@@ -20,6 +20,7 @@ from api.routers import (
     audit,
     brackets,
     check_in,
+    community_settings,
     crew,
     discord_events,
     discord_role_mappings,
@@ -90,6 +91,7 @@ router.include_router(stage_actions.router)
 router.include_router(me.router)
 router.include_router(my_schedule.router)
 router.include_router(admin_nav.router)
+router.include_router(community_settings.router)
 router.include_router(my_profile.router)
 router.include_router(admin_tournaments.router)
 router.include_router(admin_presets.router)

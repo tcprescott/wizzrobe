@@ -137,6 +137,15 @@ import ISupportAgent from '@material-symbols/svg-400/outlined/support_agent.svg?
 import IVerified from '@material-symbols/svg-400/outlined/verified.svg?react'
 import IVideogameAsset from '@material-symbols/svg-400/outlined/videogame_asset.svg?react'
 import IReleaseAlert from '@material-symbols/svg-400/outlined/release_alert.svg?react'
+import PersonCheckIcon from '@material-symbols/svg-400/outlined/person_check.svg?react'
+import MeetingRoomIcon from '@material-symbols/svg-400/outlined/meeting_room.svg?react'
+import VisibilityIcon from '@material-symbols/svg-400/outlined/visibility.svg?react'
+import UploadIcon from '@material-symbols/svg-400/outlined/upload.svg?react'
+import ImageIcon from '@material-symbols/svg-400/outlined/image.svg?react'
+import PublicIcon from '@material-symbols/svg-400/outlined/public.svg?react'
+import PlayCircleIcon from '@material-symbols/svg-400/outlined/play_circle.svg?react'
+import StarIcon from '@material-symbols/svg-400/outlined/star.svg?react'
+import UnarchiveIcon from '@material-symbols/svg-400/outlined/unarchive.svg?react'
 
 type Svg = FC<SVGProps<SVGSVGElement>>
 
@@ -272,6 +281,15 @@ export const ICONS = {
   verified: IVerified,
   videogame_asset: IVideogameAsset,
   release_alert: IReleaseAlert,
+  person_check: PersonCheckIcon,
+  meeting_room: MeetingRoomIcon,
+  visibility: VisibilityIcon,
+  upload: UploadIcon,
+  image: ImageIcon,
+  public: PublicIcon,
+  play_circle: PlayCircleIcon,
+  star: StarIcon,
+  unarchive: UnarchiveIcon,
 } satisfies Record<string, Svg>
 
 export const FILLED: Partial<Record<IconName, Svg>> = {
