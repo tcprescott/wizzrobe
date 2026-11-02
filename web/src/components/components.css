@@ -511,6 +511,8 @@ textarea.input {
 .switch:disabled {
   opacity: 0.5;
   cursor: default;
+}
+
 /* Filter chips: one radio group of pill toggles above a list. */
 .filter-chips {
   display: flex;
