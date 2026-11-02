@@ -471,6 +471,18 @@ _ROUTES: Dict[RouteScope, tuple[str, ...]] = {
         'POST /web-push/rotate',
         'GET /version',
         'GET /graphql',
+        'GET /help',
+        'GET /help/snippets/{name}',
+        'GET /help/{slug}',
+        'GET /event-info',
+        'GET /event-info/guide.pdf',
+        'GET /event-info/{slug}',
+        'GET /changelog',
+        'GET /about',
+        'GET /about/privacy',
+        'GET /about/notices',
+        'GET /about/notice',
+        'GET /facts',
     ),
 }
 

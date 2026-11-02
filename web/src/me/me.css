@@ -246,3 +246,9 @@
     margin-left: auto;
   }
 }
+
+.me-lists {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}

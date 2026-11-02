@@ -36,11 +36,6 @@ import DirectionsRun from '@material-symbols/svg-400/outlined/directions_run.svg
 import TaskAlt from '@material-symbols/svg-400/outlined/task_alt.svg?react'
 import Desk from '@material-symbols/svg-400/outlined/desk.svg?react'
 import History from '@material-symbols/svg-400/outlined/history.svg?react'
-import HomeFill from '@material-symbols/svg-400/outlined/home-fill.svg?react'
-import CalendarMonthFill from '@material-symbols/svg-400/outlined/calendar_month-fill.svg?react'
-import StadiumFill from '@material-symbols/svg-400/outlined/stadium-fill.svg?react'
-import BadgeFill from '@material-symbols/svg-400/outlined/badge-fill.svg?react'
-import PersonFill from '@material-symbols/svg-400/outlined/person-fill.svg?react'
 import LinkIcon from '@material-symbols/svg-400/outlined/link.svg?react'
 import LinkOff from '@material-symbols/svg-400/outlined/link_off.svg?react'
 import Campaign from '@material-symbols/svg-400/outlined/campaign.svg?react'
@@ -110,6 +105,28 @@ import PersonAddIcon from '@material-symbols/svg-400/outlined/person_add.svg?rea
 import Search from '@material-symbols/svg-400/outlined/search.svg?react'
 import Videocam from '@material-symbols/svg-400/outlined/videocam.svg?react'
 import Casino from '@material-symbols/svg-400/outlined/casino.svg?react'
+import IAccountTree from '@material-symbols/svg-400/outlined/account_tree.svg?react'
+import IAttractions from '@material-symbols/svg-400/outlined/attractions.svg?react'
+import ICode from '@material-symbols/svg-400/outlined/code.svg?react'
+import IContactPhone from '@material-symbols/svg-400/outlined/contact_phone.svg?react'
+import IContactSupport from '@material-symbols/svg-400/outlined/contact_support.svg?react'
+import IDescription from '@material-symbols/svg-400/outlined/description.svg?react'
+import IDownload from '@material-symbols/svg-400/outlined/download.svg?react'
+import IHelp from '@material-symbols/svg-400/outlined/help.svg?react'
+import ILightbulb from '@material-symbols/svg-400/outlined/lightbulb.svg?react'
+import IList from '@material-symbols/svg-400/outlined/list.svg?react'
+import IMenuBook from '@material-symbols/svg-400/outlined/menu_book.svg?react'
+import IMusicNote from '@material-symbols/svg-400/outlined/music_note.svg?react'
+import IPendingActions from '@material-symbols/svg-400/outlined/pending_actions.svg?react'
+import IPets from '@material-symbols/svg-400/outlined/pets.svg?react'
+import IPictureAsPdf from '@material-symbols/svg-400/outlined/picture_as_pdf.svg?react'
+import IPictureInPicture from '@material-symbols/svg-400/outlined/picture_in_picture.svg?react'
+import IPrivacyTip from '@material-symbols/svg-400/outlined/privacy_tip.svg?react'
+import IRecordVoiceOver from '@material-symbols/svg-400/outlined/record_voice_over.svg?react'
+import ISupportAgent from '@material-symbols/svg-400/outlined/support_agent.svg?react'
+import IVerified from '@material-symbols/svg-400/outlined/verified.svg?react'
+import IVideogameAsset from '@material-symbols/svg-400/outlined/videogame_asset.svg?react'
+import IReleaseAlert from '@material-symbols/svg-400/outlined/release_alert.svg?react'
 
 type Svg = FC<SVGProps<SVGSVGElement>>
 
@@ -218,14 +235,31 @@ export const ICONS = {
   person_off: PersonOffIcon,
   key_off: KeyOffIcon,
   person_add: PersonAddIcon,
+  account_tree: IAccountTree,
+  attractions: IAttractions,
+  code: ICode,
+  contact_phone: IContactPhone,
+  contact_support: IContactSupport,
+  description: IDescription,
+  download: IDownload,
+  help: IHelp,
+  lightbulb: ILightbulb,
+  list: IList,
+  menu_book: IMenuBook,
+  music_note: IMusicNote,
+  pending_actions: IPendingActions,
+  pets: IPets,
+  picture_as_pdf: IPictureAsPdf,
+  picture_in_picture: IPictureInPicture,
+  privacy_tip: IPrivacyTip,
+  record_voice_over: IRecordVoiceOver,
+  support_agent: ISupportAgent,
+  verified: IVerified,
+  videogame_asset: IVideogameAsset,
+  release_alert: IReleaseAlert,
 } satisfies Record<string, Svg>
 
 export const FILLED: Partial<Record<IconName, Svg>> = {
-  home: HomeFill,
-  calendar_month: CalendarMonthFill,
-  stadium: StadiumFill,
-  badge: BadgeFill,
-  person: PersonFill,
 }
 
 export type IconName = keyof typeof ICONS

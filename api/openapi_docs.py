@@ -194,6 +194,11 @@ TAG_GROUPS: List[tuple[str, List[tuple[str, str]]]] = [
         ('Health', 'Liveness check for the server itself.'),
         ('Web push', 'Browser push subscription upkeep, called by the app\'s service worker.'),
     ]),
+    ('Reading', [
+        ('Help', 'How the app works: the help articles, search, and the snippets help icons show.'),
+        ('Event information', "A community's event handbook and its PDF guide."),
+        ('About the app', "What's new, the About page, the privacy policy, third-party notices and the facts."),
+    ]),
     ('GraphQL', [
         ('GraphQL', 'Read events, the schedule and brackets as one graph, in a single query.'),
     ]),
