@@ -101,8 +101,13 @@ import Groups2Icon from '@material-symbols/svg-400/outlined/groups_2.svg?react'
 import ChairIcon from '@material-symbols/svg-400/outlined/chair.svg?react'
 import PodcastsIcon from '@material-symbols/svg-400/outlined/podcasts.svg?react'
 import MilitaryTechIcon from '@material-symbols/svg-400/outlined/military_tech.svg?react'
-import PersonAddIcon from '@material-symbols/svg-400/outlined/person_add.svg?react'
+import AccountTreeIcon from '@material-symbols/svg-400/outlined/account_tree.svg?react'
 import SyncIcon from '@material-symbols/svg-400/outlined/sync.svg?react'
+import SkipNextIcon from '@material-symbols/svg-400/outlined/skip_next.svg?react'
+import AddLinkIcon from '@material-symbols/svg-400/outlined/add_link.svg?react'
+import PersonAddIcon from '@material-symbols/svg-400/outlined/person_add.svg?react'
+import PersonRemoveIcon from '@material-symbols/svg-400/outlined/person_remove.svg?react'
+import EventNoteIcon from '@material-symbols/svg-400/outlined/event_note.svg?react'
 import ViewColumnIcon from '@material-symbols/svg-400/outlined/view_column.svg?react'
 import ArrowUpwardIcon from '@material-symbols/svg-400/outlined/arrow_upward.svg?react'
 import ArrowDownwardIcon from '@material-symbols/svg-400/outlined/arrow_downward.svg?react'
@@ -110,7 +115,6 @@ import VisibilityOffIcon from '@material-symbols/svg-400/outlined/visibility_off
 import Search from '@material-symbols/svg-400/outlined/search.svg?react'
 import Videocam from '@material-symbols/svg-400/outlined/videocam.svg?react'
 import Casino from '@material-symbols/svg-400/outlined/casino.svg?react'
-import IAccountTree from '@material-symbols/svg-400/outlined/account_tree.svg?react'
 import IAttractions from '@material-symbols/svg-400/outlined/attractions.svg?react'
 import ICode from '@material-symbols/svg-400/outlined/code.svg?react'
 import IContactPhone from '@material-symbols/svg-400/outlined/contact_phone.svg?react'
@@ -236,13 +240,17 @@ export const ICONS = {
   chair: ChairIcon,
   podcasts: PodcastsIcon,
   military_tech: MilitaryTechIcon,
-  person_add: PersonAddIcon,
+  account_tree: AccountTreeIcon,
   sync: SyncIcon,
+  skip_next: SkipNextIcon,
+  add_link: AddLinkIcon,
+  person_add: PersonAddIcon,
+  person_remove: PersonRemoveIcon,
+  event_note: EventNoteIcon,
   view_column: ViewColumnIcon,
   arrow_upward: ArrowUpwardIcon,
   arrow_downward: ArrowDownwardIcon,
   visibility_off: VisibilityOffIcon,
-  account_tree: IAccountTree,
   attractions: IAttractions,
   code: ICode,
   contact_phone: IContactPhone,
