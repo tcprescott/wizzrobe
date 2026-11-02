@@ -40,6 +40,14 @@ In:
 - Stream key brokering: the channel owner connects the Twitch channel to
   Wizzrobe once; at go-live Wizzrobe fetches the key and the agent sets it in
   OBS, and clears it when the stream stops.
+- Hold screens so the stream never drops between matches: a stream layout
+  (like the Break starter) with "Up next" (players, round, start time,
+  countdown) and "Now playing", music from a community playlist uploaded to
+  Wizzrobe that the hold screen's browser source plays on a loop, and an
+  optional camera hole the agent fills with a camera the tech picks. The
+  stage cuts to the hold screen by itself shortly after a match finishes
+  (per-stage switch to make it manual); the tech cuts back. The upload
+  screen states the community needs the rights to its tracks.
 - Twitch chat bot on the same channel connection (EventSub chat in, Helix
   send out, on the bot service): a shared Wizzrobe bot account by default, a
   community's own bot account optional later. Built-in commands read the
@@ -80,7 +88,9 @@ stage's OBS beside it, tap-in on phone) before any screen is built.
   browser/colour/media/text sources, any local file path, and any non-https
   browser-source URL. Every command is audited server-side. Stream service
   settings stay refused until phase 5, which allows them only for a Twitch
-  ingest server and only from the go-live/stop flow.
+  ingest server and only from the go-live/stop flow. Camera capture inputs
+  (`dshow_input` on Windows, `macos-avcapture`/`av_capture_input` on Mac)
+  join the allowed kinds with the hold screen work; they can't read files.
 - **Twitch stream keys:** a per-stage channel connection (Twitch OAuth with
   `channel:read:stream_key`), token stored encrypted; the key is fetched at
   go-live, never stored by Wizzrobe, never shown in the app, and sits in the
@@ -100,7 +110,8 @@ stage's OBS beside it, tap-in on phone) before any screen is built.
 2. Scenes and feeds from stream layouts; Twitch runner feeds.
 3. Crop and audio, with per-runner profiles.
 4. Commentator stream (hosting picked from the spike numbers).
-5. Program control and run of show, stream key brokering.
+5. Program control and run of show, hold screens with playlist and camera,
+   stream key brokering.
 6. Twitch bot: title templates, built-in and custom chat commands.
 
 ## Acceptance
@@ -142,5 +153,8 @@ Later phases get their acceptance items with their mockups.
 - 2026-11-02 — Thomas asked for a Twitch bot. Picked: shared Wizzrobe bot
   with a community's own bot optional; fixed commands plus staff custom
   commands; title set automatically on air, with an override.
+- 2026-11-02 — Thomas asked for hold screens. Picked: music uploaded to
+  Wizzrobe; the agent adds the camera the tech picks; auto-switch to the hold
+  screen after a match, with a per-stage switch to turn that off.
 - 2026-11-02 — Thomas: the commentator stream must exclude commentary audio
   (a requirement, not a default).
