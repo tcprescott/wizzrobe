@@ -46,6 +46,7 @@ from . import (
     webhook_outbox_worker,
 )
 from .accommodation_service import AccommodationService
+from .admin_brackets_service import AdminBracketsService
 from .admin_nav_service import AdminAccess, AdminNav, AdminNavService
 from .admin_presets_service import AdminPresetsService
 from .admin_schedule_service import AdminScheduleService
@@ -219,6 +220,7 @@ __all__ = [
     'AccommodationService',
     'AccountOverview',
     'AdminAccess',
+    'AdminBracketsService',
     'AdminNav',
     'AdminNavService',
     'AdminPresetsService',

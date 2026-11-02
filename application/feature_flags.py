@@ -154,7 +154,7 @@ FEATURE_FLAG_REGISTRY: Dict[FeatureFlag, FeatureFlagSpec] = {
             'elimination, Swiss, round robin, and multi-stage chains) without '
             'the Challonge API.',
             'Online tournaments',
-            service_modules=('application/services/bracket_service.py',),
+            service_modules=('application/services/bracket_service.py', 'application/services/admin_brackets_service.py'),
         ),
         FeatureFlagSpec(
             FeatureFlag.FEEDBACK,
