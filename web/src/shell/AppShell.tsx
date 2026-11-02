@@ -6,8 +6,9 @@ import { TABS } from './tabs'
 import './shell.css'
 
 function currentTitle(pathname: string): string {
-  const key = pathname.split('/').filter(Boolean).at(-1)
-  return TABS.find((tab) => tab.key === key)?.label ?? 'Wizzrobe'
+  const parts = pathname.split('/').filter(Boolean)
+  const at = parts[2] === 'e' ? 4 : 2
+  return TABS.find((tab) => tab.key === parts[at])?.label ?? 'Wizzrobe'
 }
 
 export function AppShell() {

@@ -2341,6 +2341,78 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/event/hub": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The Event tab's hub
+         * @description What's on each stage now and next, the next few matches anywhere, and a card per active tournament with its bracket status.
+         *
+         *     **Who can call this:** Any member.
+         *
+         *     **App scope:** `schedule:read`
+         */
+        get: operations["event_hub_api_event_hub_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/event/schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The run sheet
+         * @description Every match scheduled in `[start, end)`, soonest first, with its crew slots and whether you play in it or watch it. Ask for one local day at a time; more than 48 hours is 400.
+         *
+         *     **Who can call this:** Any member.
+         *
+         *     **App scope:** `schedule:read`
+         */
+        get: operations["run_sheet_api_event_schedule_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/event/watch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The Watch screen
+         * @description Each stage's stream with what's on now and next, the streamed matches coming up over the next week, and the tournaments.
+         *
+         *     **Who can call this:** Any member.
+         *
+         *     **App scope:** `schedule:read`
+         */
+        get: operations["watch_api_event_watch_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/events": {
         parameters: {
             query?: never;
@@ -12352,6 +12424,45 @@ export interface components {
              */
             role: string;
         };
+        /** CrewSlotResponse */
+        CrewSlotResponse: {
+            /**
+             * Can Sign Up
+             * @description Whether you can sign up for this role now.
+             * @default false
+             */
+            can_sign_up: boolean;
+            /**
+             * Filled
+             * @description Approved signups.
+             */
+            filled: number;
+            /**
+             * Label
+             * @description Short label to print, like "Comm".
+             */
+            label: string;
+            /**
+             * Names
+             * @description Who's approved.
+             */
+            names: string[];
+            /**
+             * Needed
+             * @description How many the match wants. 0 for a match off stage that still has someone signed up.
+             */
+            needed: number;
+            /**
+             * Role
+             * @description `commentator`, `tracker` or `broadcaster`: what `POST /matches/{id}/crew` takes.
+             */
+            role: string;
+            /**
+             * Yours
+             * @description Your own signup: `pending`, `approved`, or null.
+             */
+            yours?: string | null;
+        };
         /** CrewedPerson */
         CrewedPerson: {
             /**
@@ -13037,6 +13148,20 @@ export interface components {
                 [key: string]: unknown;
             };
             event: components["schemas"]["EventResponse"];
+        };
+        /** EventHubResponse */
+        EventHubResponse: {
+            /** Stages */
+            stages: components["schemas"]["StageCardResponse"][];
+            /** Tournaments */
+            tournaments: components["schemas"]["TournamentCardResponse"][];
+            /** Up Next */
+            up_next: components["schemas"]["RunSheetRowResponse"][];
+            /**
+             * Zone
+             * @description The clock to print times on: the community's pinned zone, else your saved one, else null for the device's.
+             */
+            zone?: string | null;
         };
         /** EventResponse */
         EventResponse: {
@@ -16569,6 +16694,75 @@ export interface components {
              */
             total: number;
         };
+        /** RunSheetResponse */
+        RunSheetResponse: {
+            /** Rows */
+            rows: components["schemas"]["RunSheetRowResponse"][];
+            /**
+             * Zone
+             * @description The clock to print times on: the community's pinned zone, else your saved one, else null for the device's.
+             */
+            zone?: string | null;
+        };
+        /** RunSheetRowResponse */
+        RunSheetRowResponse: {
+            /** Crew */
+            crew: components["schemas"]["CrewSlotResponse"][];
+            /** Finished At */
+            finished_at?: string | null;
+            /** Match Id */
+            match_id: number;
+            /**
+             * Playing
+             * @description You play in it.
+             * @default false
+             */
+            playing: boolean;
+            /**
+             * Round
+             * @description The match's title, or its bracket stage and game, ready to print. May be empty.
+             */
+            round: string;
+            /** Scheduled At */
+            scheduled_at?: string | null;
+            /** Sides */
+            sides: components["schemas"]["SideResponse"][];
+            /**
+             * Stage
+             * @description The stage it runs on. Empty when it isn't on one.
+             */
+            stage: string;
+            /** Stage Id */
+            stage_id?: number | null;
+            /** Started At */
+            started_at?: string | null;
+            /**
+             * Stations
+             * @description The players' stations, once assigned.
+             */
+            stations: string[];
+            /**
+             * Status
+             * @description `scheduled`, `checked_in`, `live` or `finished`.
+             */
+            status: string;
+            /**
+             * Streamed
+             * @description The stage has a stream.
+             * @default false
+             */
+            streamed: boolean;
+            /** Tournament */
+            tournament: string;
+            /** Tournament Id */
+            tournament_id?: number | null;
+            /**
+             * Watching
+             * @description You watch it (`POST`/`DELETE /matches/{id}/watch`).
+             * @default false
+             */
+            watching: boolean;
+        };
         /** RunningLateRequest */
         RunningLateRequest: {
             /**
@@ -17068,6 +17262,20 @@ export interface components {
              */
             minutes: number;
         };
+        /** SideResponse */
+        SideResponse: {
+            /**
+             * Name
+             * @description A player's name, or what fills an undecided side, like "Winner of A3".
+             */
+            name: string;
+            /**
+             * Undecided
+             * @description True while a bracket hasn't decided who plays this side.
+             * @default false
+             */
+            undecided: boolean;
+        };
         /**
          * SpeedGamingEpisodeResponse
          * @description SG staging episode. The large raw ``payload`` blob is intentionally omitted.
@@ -17357,6 +17565,32 @@ export interface components {
              */
             best_of: 1 | 3 | 5;
         };
+        /** StageCardResponse */
+        StageCardResponse: {
+            /**
+             * Channel
+             * @description The Twitch channel, lowercased, for an embed.
+             */
+            channel?: string | null;
+            /**
+             * Channel Name
+             * @description The Twitch channel as spelled, for showing.
+             */
+            channel_name?: string | null;
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** @description The match seated or playing there now. */
+            on_now?: components["schemas"]["StreamMatchResponse"] | null;
+            /** Stream Url */
+            stream_url?: string | null;
+            /**
+             * Up Next
+             * @description The next two there, within a day.
+             */
+            up_next: components["schemas"]["StreamMatchResponse"][];
+        };
         /** StageCreateRequest */
         StageCreateRequest: {
             /**
@@ -17601,6 +17835,27 @@ export interface components {
              * @description Set or clear the stream-candidate flag
              */
             flag: boolean;
+        };
+        /** StreamMatchResponse */
+        StreamMatchResponse: {
+            /** Match Id */
+            match_id: number;
+            /** Scheduled At */
+            scheduled_at?: string | null;
+            /** Sides */
+            sides: components["schemas"]["SideResponse"][];
+            /**
+             * Stage
+             * @description The stage, in the coming-up list.
+             * @default
+             */
+            stage: string;
+            /** Started At */
+            started_at?: string | null;
+            /** Tournament */
+            tournament: string;
+            /** Tournament Id */
+            tournament_id?: number | null;
         };
         /** SubmitRunRequest */
         SubmitRunRequest: {
@@ -18506,6 +18761,47 @@ export interface components {
              * @description The bracket's page on its site (a Wizzrobe path for native).
              */
             url?: string | null;
+            /**
+             * Your Entrant Ids
+             * @description The entrants that are you, so the app can mark your own sets. Empty when you don't play in it.
+             */
+            your_entrant_ids?: number[];
+        };
+        /** TournamentCardResponse */
+        TournamentCardResponse: {
+            /**
+             * Bracket Url
+             * @description The bracket on an outside site, when there's no bracket here.
+             */
+            bracket_url?: string | null;
+            /** Format */
+            format: string;
+            /**
+             * Has Bracket
+             * @description `GET /tournaments/{id}/bracket` has something to show.
+             */
+            has_bracket: boolean;
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /**
+             * Prize Total
+             * @description Prize pool plus bonus, when Payouts is on and there is one.
+             */
+            prize_total?: string | null;
+            /** Rules Url */
+            rules_url?: string | null;
+            /**
+             * Status
+             * @description Bracket status to print, like "Bracket underway". May be empty.
+             */
+            status: string;
+            /**
+             * Tone
+             * @description `live`, `ok`, `pending` or `neutral`, for the status chip.
+             */
+            tone: string;
         };
         /** TournamentCreateRequest */
         TournamentCreateRequest: {
@@ -20075,6 +20371,23 @@ export interface components {
              * @description An existing member. Give this or `name`.
              */
             user_id?: number | null;
+        };
+        /** WatchResponse */
+        WatchResponse: {
+            /**
+             * Coming Up
+             * @description Streamed matches after the stage cards' ones, up to a week out.
+             */
+            coming_up: components["schemas"]["StreamMatchResponse"][];
+            /** Stages */
+            stages: components["schemas"]["StageCardResponse"][];
+            /** Tournaments */
+            tournaments: components["schemas"]["TournamentCardResponse"][];
+            /**
+             * Zone
+             * @description The clock to print times on: the community's pinned zone, else your saved one, else null for the device's.
+             */
+            zone?: string | null;
         };
         /**
          * WebPushRotateRequest
@@ -28386,6 +28699,214 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LoanResponse"][];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    event_hub_api_event_hub_get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventHubResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    run_sheet_api_event_schedule_get: {
+        parameters: {
+            query: {
+                /** @description Window start, an instant. */
+                start: string;
+                /** @description Window end, an instant. */
+                end: string;
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunSheetResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    watch_api_event_watch_get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchResponse"];
                 };
             };
             /** @description No token, or the token is unknown, expired or revoked. */

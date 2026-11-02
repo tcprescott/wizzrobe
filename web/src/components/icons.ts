@@ -69,6 +69,14 @@ import PauseIcon from '@material-symbols/svg-400/outlined/pause.svg?react'
 import PlayArrow from '@material-symbols/svg-400/outlined/play_arrow.svg?react'
 import RestartAlt from '@material-symbols/svg-400/outlined/restart_alt.svg?react'
 import HowToReg from '@material-symbols/svg-400/outlined/how_to_reg.svg?react'
+import Star from '@material-symbols/svg-400/outlined/star.svg?react'
+import Videocam from '@material-symbols/svg-400/outlined/videocam.svg?react'
+import LiveTv from '@material-symbols/svg-400/outlined/live_tv.svg?react'
+import AccountTree from '@material-symbols/svg-400/outlined/account_tree.svg?react'
+import Gavel from '@material-symbols/svg-400/outlined/gavel.svg?react'
+import Visibility from '@material-symbols/svg-400/outlined/visibility.svg?react'
+import VisibilityOff from '@material-symbols/svg-400/outlined/visibility_off.svg?react'
+import Search from '@material-symbols/svg-400/outlined/search.svg?react'
 
 type Svg = FC<SVGProps<SVGSVGElement>>
 
@@ -135,6 +143,14 @@ export const ICONS = {
   pause: PauseIcon,
   play_arrow: PlayArrow,
   restart_alt: RestartAlt,
+  star: Star,
+  videocam: Videocam,
+  live_tv: LiveTv,
+  account_tree: AccountTree,
+  gavel: Gavel,
+  visibility: Visibility,
+  visibility_off: VisibilityOff,
+  search: Search,
   how_to_reg: HowToReg,
 } satisfies Record<string, Svg>
 

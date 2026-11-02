@@ -1,6 +1,6 @@
 # Wizzrobe as a mobile app on a serverless backend
 
-Status: Building · Size: full · PRs: #760 (spec), #761 (step 3), #762 (step 4), #763 (step 2), #764 (step 6), #770 (step 5), #771 (step 7 Home + Schedule), #772 (step 7 Me + shift check-in) · Requested: 2026-10-31, Thomas
+Status: Building · Size: full · PRs: #760 (spec), #761 (step 3), #762 (step 4), #763 (step 2), #764 (step 6), #770 (step 5), #771 (step 7 Home + Schedule), #772 (step 7 Me + shift check-in), step 8 Event tab (this PR) · Requested: 2026-10-31, Thomas
 
 ## Problem
 
@@ -218,3 +218,9 @@ in TypeScript.
   accounts and "Use my Discord email" still open the website's sign-in pages in
   a tab, and device push waits for the service worker (step 12). Mockups:
   `/mnt/project-files/mobile-app/profile-mockups/`.
+- 2026-11-02 — Step 8 splits in two. Thomas picked the event-day screens first
+  (run sheet, brackets, Watch; the reading pages follow in their own thread),
+  and Event tab layout B, an event hub: a card per stage with what's on now and
+  next, the next few matches, and a card per tournament. The full schedule and
+  Watch open as their own screens with a back link; on a phone the bracket shows
+  one round at a time. Mockups: `/mnt/project-files/mobile-app/event-mockups/`.

@@ -12,7 +12,11 @@ import { NotFoundScreen } from './screens/NotFoundScreen'
 import { SignInScreen } from './screens/SignInScreen'
 import { HomeScreen } from './player/HomeScreen'
 import { ScheduleScreen } from './player/ScheduleScreen'
-import { EventScreen, WorkScreen } from './screens/TabScreens'
+import { WorkScreen } from './screens/TabScreens'
+import { BracketScreen } from './event/BracketScreen'
+import { EventHub } from './event/EventHub'
+import { RunSheetScreen } from './event/RunSheetScreen'
+import { WatchScreen } from './event/WatchScreen'
 import { AppShell } from './shell/AppShell'
 import { ThemeProvider } from './theme/ThemeProvider'
 
@@ -20,7 +24,10 @@ const tabRoutes: RouteObject[] = [
   { index: true, element: <Navigate to="home" replace /> },
   { path: 'home', element: <HomeScreen /> },
   { path: 'schedule', element: <ScheduleScreen /> },
-  { path: 'event', element: <EventScreen /> },
+  { path: 'event', element: <EventHub /> },
+  { path: 'event/schedule', element: <RunSheetScreen /> },
+  { path: 'event/watch', element: <WatchScreen /> },
+  { path: 'event/tournament/:tournamentId', element: <BracketScreen /> },
   { path: 'work', element: <WorkScreen /> },
   { path: 'me', element: <MeLayout />, children: [{ path: ':section', element: <MeSection /> }] },
 ]

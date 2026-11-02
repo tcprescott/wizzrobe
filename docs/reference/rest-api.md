@@ -192,6 +192,13 @@ Screen-shaped reads for the app's Home and Schedule tabs, built by `PlayerHomeSe
 - `GET /me/schedule?past=` — your matches, crew slots and shifts in the event window, soonest first (or ended ones, latest first).
 - `GET /me/bookable` — matchups waiting on you to pick a time, from native brackets, Challonge and start.gg in one list (`source` + `key`). `GET /me/bookable/{source}/{key}/check?at=` returns the booking-window `refusal` and the "Check this time" `clashes` without booking; `POST /me/bookable/{source}/{key}/book` (`scheduled_at`, an instant) books the next game. Both refuse (`400`) a matchup that isn't in your own list.
 
+### Event (`/api/event/…`) · `event_hub.py`
+The app's Event tab, built by `EventHubService`. Event-bound, scope `schedule:read`. Each response carries `zone`, the clock to print times on (as on `GET /me/home`).
+- `GET /event/hub` — each active stage's card (the match seated or playing there now, the next two within a day, the Twitch channel), the next five unstarted matches anywhere, and a card per active tournament (test tournaments left out) with its bracket status, whether `GET /tournaments/{id}/bracket` has something to show (`has_bracket`), and outside bracket and rules links.
+- `GET /event/schedule?start=&end=` — the run sheet: every match scheduled in the window, soonest first, at most 48 hours (`400` past that). Each row has its sides (undecided ones flagged), stage and stations, and its crew slots: needed, approved names, your own signup and whether you can sign up now (`POST /matches/{id}/crew`). `playing` and `watching` are about you.
+- `GET /event/watch` — the stage cards, streamed matches coming up over the next week that the cards don't show, and the tournament cards.
+- `GET /tournaments/{id}/bracket` also returns `your_entrant_ids`, so the app can mark your own sets without seeing anyone's account.
+
 ### My profile (`/api/me/…`) · `my_profile.py`, `my_notifications.py`, `my_developer.py`
 What the app's Me screen reads and edits, built by `MyProfileService` beside the existing self-service routes (`PATCH /users/me`, availability, equipment, feedback, notification settings). Event-bound; reads take scope `profile`, writes `profile:write`.
 - `GET /me/profile` — the section list (key, title, summary), flag-gated per community, plus the clock fields. `PATCH /me/clock` sets `timezone` and the 12/24-hour clock; only the fields sent change. `PATCH /users/me` also takes `matcherino_username` when Payouts is on.

@@ -4572,6 +4572,65 @@
         "title": "CrewSignupRequest",
         "type": "object"
       },
+      "CrewSlotResponse": {
+        "properties": {
+          "can_sign_up": {
+            "default": false,
+            "description": "Whether you can sign up for this role now.",
+            "title": "Can Sign Up",
+            "type": "boolean"
+          },
+          "filled": {
+            "description": "Approved signups.",
+            "title": "Filled",
+            "type": "integer"
+          },
+          "label": {
+            "description": "Short label to print, like \"Comm\".",
+            "title": "Label",
+            "type": "string"
+          },
+          "names": {
+            "description": "Who's approved.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Names",
+            "type": "array"
+          },
+          "needed": {
+            "description": "How many the match wants. 0 for a match off stage that still has someone signed up.",
+            "title": "Needed",
+            "type": "integer"
+          },
+          "role": {
+            "description": "`commentator`, `tracker` or `broadcaster`: what `POST /matches/{id}/crew` takes.",
+            "title": "Role",
+            "type": "string"
+          },
+          "yours": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Your own signup: `pending`, `approved`, or null.",
+            "title": "Yours"
+          }
+        },
+        "required": [
+          "role",
+          "label",
+          "needed",
+          "filled",
+          "names"
+        ],
+        "title": "CrewSlotResponse",
+        "type": "object"
+      },
       "CrewedPerson": {
         "properties": {
           "broadcast": {
@@ -5887,6 +5946,50 @@
           "event"
         ],
         "title": "EventCreateResponse",
+        "type": "object"
+      },
+      "EventHubResponse": {
+        "properties": {
+          "stages": {
+            "items": {
+              "$ref": "#/components/schemas/StageCardResponse"
+            },
+            "title": "Stages",
+            "type": "array"
+          },
+          "tournaments": {
+            "items": {
+              "$ref": "#/components/schemas/TournamentCardResponse"
+            },
+            "title": "Tournaments",
+            "type": "array"
+          },
+          "up_next": {
+            "items": {
+              "$ref": "#/components/schemas/RunSheetRowResponse"
+            },
+            "title": "Up Next",
+            "type": "array"
+          },
+          "zone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The clock to print times on: the community's pinned zone, else your saved one, else null for the device's.",
+            "title": "Zone"
+          }
+        },
+        "required": [
+          "stages",
+          "up_next",
+          "tournaments"
+        ],
+        "title": "EventHubResponse",
         "type": "object"
       },
       "EventResponse": {
@@ -12718,6 +12821,171 @@
         "title": "RoundScheduleStageResponse",
         "type": "object"
       },
+      "RunSheetResponse": {
+        "properties": {
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/RunSheetRowResponse"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "zone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The clock to print times on: the community's pinned zone, else your saved one, else null for the device's.",
+            "title": "Zone"
+          }
+        },
+        "required": [
+          "rows"
+        ],
+        "title": "RunSheetResponse",
+        "type": "object"
+      },
+      "RunSheetRowResponse": {
+        "properties": {
+          "crew": {
+            "items": {
+              "$ref": "#/components/schemas/CrewSlotResponse"
+            },
+            "title": "Crew",
+            "type": "array"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "match_id": {
+            "title": "Match Id",
+            "type": "integer"
+          },
+          "playing": {
+            "default": false,
+            "description": "You play in it.",
+            "title": "Playing",
+            "type": "boolean"
+          },
+          "round": {
+            "description": "The match's title, or its bracket stage and game, ready to print. May be empty.",
+            "title": "Round",
+            "type": "string"
+          },
+          "scheduled_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scheduled At"
+          },
+          "sides": {
+            "items": {
+              "$ref": "#/components/schemas/SideResponse"
+            },
+            "title": "Sides",
+            "type": "array"
+          },
+          "stage": {
+            "description": "The stage it runs on. Empty when it isn't on one.",
+            "title": "Stage",
+            "type": "string"
+          },
+          "stage_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage Id"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "stations": {
+            "description": "The players' stations, once assigned.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Stations",
+            "type": "array"
+          },
+          "status": {
+            "description": "`scheduled`, `checked_in`, `live` or `finished`.",
+            "title": "Status",
+            "type": "string"
+          },
+          "streamed": {
+            "default": false,
+            "description": "The stage has a stream.",
+            "title": "Streamed",
+            "type": "boolean"
+          },
+          "tournament": {
+            "title": "Tournament",
+            "type": "string"
+          },
+          "tournament_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tournament Id"
+          },
+          "watching": {
+            "default": false,
+            "description": "You watch it (`POST`/`DELETE /matches/{id}/watch`).",
+            "title": "Watching",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "match_id",
+          "status",
+          "tournament",
+          "round",
+          "sides",
+          "stage",
+          "stations",
+          "crew"
+        ],
+        "title": "RunSheetRowResponse",
+        "type": "object"
+      },
       "RunningLateRequest": {
         "properties": {
           "minutes": {
@@ -13627,6 +13895,26 @@
         "title": "ShiftLateRequest",
         "type": "object"
       },
+      "SideResponse": {
+        "properties": {
+          "name": {
+            "description": "A player's name, or what fills an undecided side, like \"Winner of A3\".",
+            "title": "Name",
+            "type": "string"
+          },
+          "undecided": {
+            "default": false,
+            "description": "True while a bracket hasn't decided who plays this side.",
+            "title": "Undecided",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "SideResponse",
+        "type": "object"
+      },
       "SpeedGamingEpisodeResponse": {
         "description": "SG staging episode. The large raw ``payload`` blob is intentionally omitted.",
         "properties": {
@@ -14168,6 +14456,79 @@
         "title": "StageBestOfRequest",
         "type": "object"
       },
+      "StageCardResponse": {
+        "properties": {
+          "channel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The Twitch channel, lowercased, for an embed.",
+            "title": "Channel"
+          },
+          "channel_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The Twitch channel as spelled, for showing.",
+            "title": "Channel Name"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "on_now": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StreamMatchResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The match seated or playing there now."
+          },
+          "stream_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stream Url"
+          },
+          "up_next": {
+            "description": "The next two there, within a day.",
+            "items": {
+              "$ref": "#/components/schemas/StreamMatchResponse"
+            },
+            "title": "Up Next",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "up_next"
+        ],
+        "title": "StageCardResponse",
+        "type": "object"
+      },
       "StageCreateRequest": {
         "properties": {
           "is_active": {
@@ -14566,6 +14927,73 @@
           "flag"
         ],
         "title": "StreamCandidateRequest",
+        "type": "object"
+      },
+      "StreamMatchResponse": {
+        "properties": {
+          "match_id": {
+            "title": "Match Id",
+            "type": "integer"
+          },
+          "scheduled_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scheduled At"
+          },
+          "sides": {
+            "items": {
+              "$ref": "#/components/schemas/SideResponse"
+            },
+            "title": "Sides",
+            "type": "array"
+          },
+          "stage": {
+            "default": "",
+            "description": "The stage, in the coming-up list.",
+            "title": "Stage",
+            "type": "string"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "tournament": {
+            "title": "Tournament",
+            "type": "string"
+          },
+          "tournament_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tournament Id"
+          }
+        },
+        "required": [
+          "match_id",
+          "tournament",
+          "sides"
+        ],
+        "title": "StreamMatchResponse",
         "type": "object"
       },
       "SubmitRunRequest": {
@@ -16147,6 +16575,14 @@
             ],
             "description": "The bracket's page on its site (a Wizzrobe path for native).",
             "title": "Url"
+          },
+          "your_entrant_ids": {
+            "description": "The entrants that are you, so the app can mark your own sets. Empty when you don't play in it.",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Your Entrant Ids",
+            "type": "array"
           }
         },
         "required": [
@@ -16157,6 +16593,82 @@
           "entrants"
         ],
         "title": "TournamentBracketResponse",
+        "type": "object"
+      },
+      "TournamentCardResponse": {
+        "properties": {
+          "bracket_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The bracket on an outside site, when there's no bracket here.",
+            "title": "Bracket Url"
+          },
+          "format": {
+            "title": "Format",
+            "type": "string"
+          },
+          "has_bracket": {
+            "description": "`GET /tournaments/{id}/bracket` has something to show.",
+            "title": "Has Bracket",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "prize_total": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Prize pool plus bonus, when Payouts is on and there is one.",
+            "title": "Prize Total"
+          },
+          "rules_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rules Url"
+          },
+          "status": {
+            "description": "Bracket status to print, like \"Bracket underway\". May be empty.",
+            "title": "Status",
+            "type": "string"
+          },
+          "tone": {
+            "description": "`live`, `ok`, `pending` or `neutral`, for the status chip.",
+            "title": "Tone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "format",
+          "status",
+          "tone",
+          "has_bracket"
+        ],
+        "title": "TournamentCardResponse",
         "type": "object"
       },
       "TournamentCreateRequest": {
@@ -19184,6 +19696,51 @@
           }
         },
         "title": "WalkUpRequest",
+        "type": "object"
+      },
+      "WatchResponse": {
+        "properties": {
+          "coming_up": {
+            "description": "Streamed matches after the stage cards' ones, up to a week out.",
+            "items": {
+              "$ref": "#/components/schemas/StreamMatchResponse"
+            },
+            "title": "Coming Up",
+            "type": "array"
+          },
+          "stages": {
+            "items": {
+              "$ref": "#/components/schemas/StageCardResponse"
+            },
+            "title": "Stages",
+            "type": "array"
+          },
+          "tournaments": {
+            "items": {
+              "$ref": "#/components/schemas/TournamentCardResponse"
+            },
+            "title": "Tournaments",
+            "type": "array"
+          },
+          "zone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The clock to print times on: the community's pinned zone, else your saved one, else null for the device's.",
+            "title": "Zone"
+          }
+        },
+        "required": [
+          "stages",
+          "coming_up",
+          "tournaments"
+        ],
+        "title": "WatchResponse",
         "type": "object"
       },
       "WebPushRotateRequest": {
@@ -32289,6 +32846,336 @@
         "summary": "List an asset's checkout history",
         "tags": [
           "Equipment"
+        ]
+      }
+    },
+    "/api/event/hub": {
+      "get": {
+        "description": "What's on each stage now and next, the next few matches anywhere, and a card per active tournament with its bracket status.\n\n**Who can call this:** Any member.\n\n**App scope:** `schedule:read`",
+        "operationId": "event_hub_api_event_hub_get",
+        "parameters": [
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventHubResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "schedule:read"
+            ]
+          }
+        ],
+        "summary": "The Event tab's hub",
+        "tags": [
+          "Event"
+        ]
+      }
+    },
+    "/api/event/schedule": {
+      "get": {
+        "description": "Every match scheduled in `[start, end)`, soonest first, with its crew slots and whether you play in it or watch it. Ask for one local day at a time; more than 48 hours is 400.\n\n**Who can call this:** Any member.\n\n**App scope:** `schedule:read`",
+        "operationId": "run_sheet_api_event_schedule_get",
+        "parameters": [
+          {
+            "description": "Window start, an instant.",
+            "in": "query",
+            "name": "start",
+            "required": true,
+            "schema": {
+              "description": "Window start, an instant.",
+              "format": "date-time",
+              "title": "Start",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Window end, an instant.",
+            "in": "query",
+            "name": "end",
+            "required": true,
+            "schema": {
+              "description": "Window end, an instant.",
+              "format": "date-time",
+              "title": "End",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunSheetResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "schedule:read"
+            ]
+          }
+        ],
+        "summary": "The run sheet",
+        "tags": [
+          "Event"
+        ]
+      }
+    },
+    "/api/event/watch": {
+      "get": {
+        "description": "Each stage's stream with what's on now and next, the streamed matches coming up over the next week, and the tournaments.\n\n**Who can call this:** Any member.\n\n**App scope:** `schedule:read`",
+        "operationId": "watch_api_event_watch_get",
+        "parameters": [
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WatchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "schedule:read"
+            ]
+          }
+        ],
+        "summary": "The Watch screen",
+        "tags": [
+          "Event"
         ]
       }
     },
@@ -64773,6 +65660,10 @@
       "name": "My schedule"
     },
     {
+      "description": "The app's Event tab: what's on each stage, the run sheet, and Watch.",
+      "name": "Event"
+    },
+    {
       "description": "The schedule, and running a match from seating to a confirmed result.",
       "name": "Matches"
     },
@@ -66576,6 +67467,7 @@
       "name": "Event day",
       "tags": [
         "My schedule",
+        "Event",
         "Matches",
         "Crew",
         "Reschedule requests",

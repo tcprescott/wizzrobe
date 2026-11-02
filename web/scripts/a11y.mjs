@@ -54,6 +54,12 @@ const TARGETS = [
   { name: 'event', path: '/t/sgl/event' },
   { name: 'work', path: '/t/sgl/work' },
   { name: 'schedule-shift-menu', path: '/t/sgl/schedule', act: (p) => p.getByRole('button', { name: 'More for Check-in desk' }).click(), wait: 'role=menu' },
+  { name: 'event', path: '/t/sgl/event' },
+  { name: 'event-schedule', path: '/t/sgl/event/schedule' },
+  { name: 'event-row-menu', path: '/t/sgl/event/schedule', act: (p) => p.getByRole('button', { name: 'More for Kai vs Morgan Wu' }).click(), wait: 'role=menu' },
+  { name: 'event-crew-choice', path: '/t/sgl/event/schedule', act: (p) => p.getByRole('button', { name: 'Sign up…' }).click(), wait: 'role=dialog' },
+  { name: 'event-watch', path: '/t/sgl/event/watch' },
+  { name: 'event-bracket', path: '/t/sgl/event/tournament/1' },
   { name: 'me', path: '/t/sgl/me' },
   ...['about', 'notifications', 'availability', 'accounts', 'staff-alerts', 'equipment', 'accommodation', 'emergency-contact', 'feedback', 'webhooks', 'apps', 'tokens', 'appearance'].map(
     (s) => ({ name: `me-${s}`, path: `/t/sgl/me/${s}` }),
@@ -98,6 +104,9 @@ function withTimes(value) {
 }
 
 async function stubApi(context) {
+  await context.route('https://player.twitch.tv/**', (route) =>
+    route.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><html lang="en"><title>Stream</title><body></body></html>' }),
+  )
   await context.route('**/api/**', (route) => {
     const path = new URL(route.request().url()).pathname
     const body = fixtures[path]
