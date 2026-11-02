@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { NavLink, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ActionsMenu, Banner, Button, Chip, EmptyState, Icon, PageHeader, Spinner, type Tone } from '../../components'
-import { useCommunity } from '../../community/CommunityProvider'
-import { usePhone } from '../../me/data'
+import { usePhone } from '../../lib/usePhone'
+import { useAdmin } from '../kit/useAdminNav'
 import { dayKey, effectiveZone, formatDay, formatTime } from '../../lib/time'
 import { readStored, writeStored } from '../../lib/storage'
 import { useBoard, type Board, type BoardFilters, type BoardRow } from './data'
@@ -61,7 +61,7 @@ function useFolded(): [Record<string, boolean>, (label: string, folded: boolean)
 }
 
 export function matchupText(row: BoardRow): string {
-  const names = [...row.players.map((p) => p.name), ...row.placeholders]
+  const names = [...row.players.map((p) => p.name), ...(row.placeholders ?? [])]
   if (names.length === 0) return 'Players to be decided'
   return names.length === 2 ? `${names[0]} vs ${names[1]}` : names.join(', ')
 }
@@ -75,7 +75,7 @@ export function metaText(row: BoardRow): string {
 }
 
 function Matchup({ row }: { row: BoardRow }) {
-  const names = [...row.players.map((p) => p.name), ...row.placeholders]
+  const names = [...row.players.map((p) => p.name), ...(row.placeholders ?? [])]
   if (names.length === 0) return <span className="ms-row__tbd">Players to be decided</span>
   if (names.length !== 2) return <>{names.join(', ')}</>
   return (
@@ -88,7 +88,7 @@ function Matchup({ row }: { row: BoardRow }) {
 }
 
 function Row({ row, zone, selected, to }: { row: BoardRow; zone: string; selected: boolean; to: string }) {
-  const comments = (row.comments.player ?? 0) + (row.comments.staff ?? 0)
+  const comments = (row.comments?.player ?? 0) + (row.comments?.staff ?? 0)
   const time = row.started_at ?? row.scheduled_at
   return (
     <NavLink
@@ -162,7 +162,7 @@ function DaySwitch({ board, day, zone, onDay }: { board: Board; day: string; zon
  * opens as its own, with a back link.
  */
 export function MatchScheduleScreen() {
-  const { base } = useCommunity()
+  const { adminBase } = useAdmin()
   const { match } = useParams()
   const matchId = Number(match) || null
   const phone = usePhone()
@@ -183,7 +183,7 @@ export function MatchScheduleScreen() {
   }, [search, filters.q, setFilters])
 
   const query = useSearchParams()[0].toString()
-  const home = `${base}/admin/match-schedule`
+  const home = `${adminBase}/match-schedule`
   const linkFor = (id: number) => `${home}/${id}${query ? `?${query}` : ''}`
   const backTo = `${home}${query ? `?${query}` : ''}`
   const count = useMemo(() => data?.groups.reduce((n, g) => n + g.rows.length, 0) ?? 0, [data])
@@ -195,7 +195,7 @@ export function MatchScheduleScreen() {
           <Icon name="chevron_left" size={20} />
           Match Schedule
         </NavLink>
-        <MatchPane matchId={matchId} board={data} onChanged={reload} onGone={() => navigate(backTo)} />
+        <MatchPane matchId={matchId} board={data} onChanged={reload} onGone={() => navigate(backTo)} standalone />
       </>
     )
   }

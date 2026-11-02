@@ -90,7 +90,7 @@ export const actions = {
   suggestStations: (id: number) =>
     api.POST('/api/matches/{match_id}/stations/suggest', { params: { path: { match_id: id } } }).then(unwrap),
   clearSeed: (id: number) =>
-    api.PATCH('/api/matches/{match_id}', { params: { path: { match_id: id } }, body: { clear_seed: true } }).then(unwrap),
+    api.PATCH('/api/matches/{match_id}', { params: { path: { match_id: id } }, body: { clear_seed: true, clear_seated: false, clear_started: false, clear_finished: false, clear_confirmed: false } }).then(unwrap),
   rewind: (id: number, step: string) =>
     api
       .POST('/api/matches/{match_id}/rewind', { params: { path: { match_id: id } }, body: { to_step: step } })

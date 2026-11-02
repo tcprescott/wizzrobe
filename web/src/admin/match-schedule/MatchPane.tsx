@@ -7,7 +7,6 @@ import {
   EmptyState,
   FormDialog,
   Icon,
-  IconButton,
   RowMenu,
   Spinner,
   type MenuItem,
@@ -24,6 +23,8 @@ interface PaneProps {
   onGone: () => void
   /** Desktop: where the pane's close button goes. */
   closeTo?: string
+  /** On a phone the pane is the whole screen, so its title is the page's heading. */
+  standalone?: boolean
 }
 
 const STEP_LABEL: Record<string, string> = {
@@ -34,7 +35,7 @@ const STEP_LABEL: Record<string, string> = {
 }
 
 /** One match beside the board (its own screen on a phone): run it, check it, staff its crew. */
-export function MatchPane({ matchId, board, onChanged, onGone, closeTo }: PaneProps) {
+export function MatchPane({ matchId, board, onChanged, onGone, closeTo, standalone = false }: PaneProps) {
   const { data, error, loading, reload } = usePane(matchId)
   const [busy, setBusy] = useState<string | null>(null)
   const [failure, setFailure] = useState<string | null>(null)
@@ -95,14 +96,20 @@ export function MatchPane({ matchId, board, onChanged, onGone, closeTo }: PanePr
           <Chip tone={m.tone as Tone}>{m.status}</Chip>
           {menu.length > 0 && <RowMenu label={`More for ${title}`} items={menu} />}
           {closeTo && (
-            <IconButton icon="close" label="Close match" asChild>
-              <NavLink to={closeTo} />
-            </IconButton>
+            <Button variant="ghost" size="sm" asChild>
+              <NavLink to={closeTo}>Close</NavLink>
+            </Button>
           )}
         </div>
-        <h2 className="ms-pane__title" id="ms-pane-title">
-          {title}
-        </h2>
+        {standalone ? (
+          <h1 className="ms-pane__title" id="ms-pane-title">
+            {title}
+          </h1>
+        ) : (
+          <h2 className="ms-pane__title" id="ms-pane-title">
+            {title}
+          </h2>
+        )}
         {m.state_since && (
           <p className="ms-pane__since">
             {STEP_LABEL[m.state.toLowerCase().replace(' ', '_')] ?? m.state} at {formatTime(m.state_since, zone)}
@@ -118,7 +125,7 @@ export function MatchPane({ matchId, board, onChanged, onGone, closeTo }: PanePr
             {m.players
               .filter((p) => p.ada)
               .map((p) => (
-                <span key={p.id ?? p.name} className="ms-tag ms-tag--info" title={(p.user_id && m.ada_notes[String(p.user_id)]) || undefined}>
+                <span key={p.id ?? p.name} className="ms-tag ms-tag--info" title={(p.user_id && (m.ada_notes ?? {})[String(p.user_id)]) || undefined}>
                   ADA: {p.name}
                 </span>
               ))}
@@ -211,9 +218,9 @@ export function MatchPane({ matchId, board, onChanged, onGone, closeTo }: PanePr
             })}
           </>
         )}
-        {(m.comments.player || m.comments.staff) && (
+        {(m.comments?.player || m.comments?.staff) && (
           <p className="ms-note">
-            {(m.comments.player ?? 0) + (m.comments.staff ?? 0)} comments on this match. Reading and writing them here is
+            {(m.comments?.player ?? 0) + (m.comments?.staff ?? 0)} comments on this match. Reading and writing them here is
             coming next.
           </p>
         )}
@@ -286,11 +293,12 @@ function Primary({ pane: m, busy, run }: { pane: Pane; busy: string | null; run:
       </div>
     )
   }
-  if (m.winners.length > 0 && m.can.confirm) {
+  const winners = m.winners ?? []
+  if (winners.length > 0 && m.can.confirm) {
     return (
       <div className="ms-primary" role="group" aria-label="Who won?">
         <span className="ms-primary__ask">Who won?</span>
-        {m.winners.map((w) => (
+        {winners.map((w) => (
           <Button key={w.id} variant="outline" busy={busy === `win-${w.id}`} onClick={() => run(`win-${w.id}`, () => actions.winner(m.id, w.id))}>
             {w.name} won
           </Button>
@@ -309,10 +317,11 @@ function Primary({ pane: m, busy, run }: { pane: Pane; busy: string | null; run:
   }
   const icon = { seat: 'how_to_reg', roll: 'casino', start: 'play_arrow', finish: 'check' } as const
   const event = step.event as keyof typeof icon | null
-  if (!event || !call[event]) return null
+  const act = event ? call[event] : undefined
+  if (!event || !act) return null
   return (
     <div className="ms-primary">
-      <Button icon={icon[event]} busy={busy === event} onClick={() => run(event, call[event])}>
+      <Button icon={icon[event]} busy={busy === event} onClick={() => run(event, act)}>
         {step.label}
       </Button>
     </div>
@@ -432,7 +441,7 @@ function StationsDialog({ pane: m, open, busy, onClose, run }: { pane: Pane; ope
     try {
       const out = await actions.suggestStations(m.id)
       setValues((prev) => ({ ...prev, ...Object.fromEntries(Object.entries(out.assignments).map(([k, v]) => [k, v])) }))
-      setNote(out.relaxations.join(' ') || null)
+      setNote((out.relaxations ?? []).join(' ') || null)
     } catch (err) {
       setNote(err instanceof Error ? err.message : String(err))
     }
