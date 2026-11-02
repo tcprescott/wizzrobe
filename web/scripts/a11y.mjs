@@ -54,7 +54,6 @@ const TARGETS = [
   { name: 'event', path: '/t/sgl/event' },
   { name: 'work', path: '/t/sgl/work' },
   { name: 'schedule-shift-menu', path: '/t/sgl/schedule', act: (p) => p.getByRole('button', { name: 'More for Check-in desk' }).click(), wait: 'role=menu' },
-  { name: 'event', path: '/t/sgl/event' },
   { name: 'event-schedule', path: '/t/sgl/event/schedule' },
   { name: 'event-row-menu', path: '/t/sgl/event/schedule', act: (p) => p.getByRole('button', { name: 'More for Kai vs Morgan Wu' }).click(), wait: 'role=menu' },
   { name: 'event-crew-choice', path: '/t/sgl/event/schedule', act: (p) => p.getByRole('button', { name: 'Sign up…' }).click(), wait: 'role=dialog' },
