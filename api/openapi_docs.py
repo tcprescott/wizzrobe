@@ -158,6 +158,7 @@ TAG_GROUPS: List[tuple[str, List[tuple[str, str]]]] = [
         ('Work', 'The app\'s Work tab for people who run the event: your areas and the volunteer schedule grid.'),
         ('My profile', 'Your own profile as the app\'s Me screen shows it: clock, connected accounts, staff alerts, accommodation and emergency contact.'),
         ('My notifications', 'Where your notifications reach you: Discord DMs, devices, email and Telegram.'),
+        ('My surveys', 'Surveys sent to you: open one, save each part, and send your answers.'),
         ('Notifications', 'Which messages reach you and whether they ping, and the tournaments you follow.'),
         ('API tokens', 'Your personal API tokens.'),
         ('My developer tools', 'OAuth apps you register and your personal webhooks.'),
