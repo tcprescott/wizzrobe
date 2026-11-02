@@ -136,10 +136,11 @@ def start_delivery() -> None:
 async def stop_delivery() -> None:
     from application.events import dispatch_queue as event_dispatch_queue
     from application.events import webhook_queue
-    from application.services import web_push_service
+    from application.services import native_push_service, web_push_service
     from application.services.discord import discord_queue
 
     await event_dispatch_queue.stop()
     await webhook_queue.stop()
     await discord_queue.stop()
     await web_push_service.aclose_http_client()
+    await native_push_service.aclose_http_client()

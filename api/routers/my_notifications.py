@@ -18,12 +18,20 @@ from api.schemas.my_profile import (
     EmailConfirmRequest,
     EmailStartRequest,
     EnabledUpdate,
+    NativeDeviceRegisterRequest,
+    NativeDeviceResponse,
     PushDeviceResponse,
     PushSubscribeRequest,
     TelegramLinkResponse,
 )
 from application.errors import NotFoundError
-from application.services import FeatureFlagService, NotificationChannelService, UserService, WebPushService
+from application.services import (
+    FeatureFlagService,
+    NativePushService,
+    NotificationChannelService,
+    UserService,
+    WebPushService,
+)
 from application.services.notification_channel_service import Channel, email_available, telegram_available
 from models import FeatureFlag, User
 
@@ -39,6 +47,8 @@ async def _channels(actor: User) -> ChannelsResponse:
     push = WebPushService()
     configured = push.is_configured()
     devices = await push.list_subscriptions(user) if configured else []
+    native = NativePushService()
+    native_tokens = await native.list_tokens(user)
     enabled = await FeatureFlagService().is_enabled(FeatureFlag.NOTIFICATION_CHANNELS)
     return ChannelsResponse(
         discord=bool(user.discord_id),
@@ -52,6 +62,8 @@ async def _channels(actor: User) -> ChannelsResponse:
             )
             for d in devices
         ],
+        native_push_platforms=native.configured_platforms(),
+        native_devices=[NativeDeviceResponse.model_validate(d) for d in native_tokens],
         channels_enabled=enabled,
         email_available=enabled and email_available(),
         email=user.email if enabled else None,
@@ -105,6 +117,40 @@ async def add_device(body: PushSubscribeRequest, actor: User = Depends(require_w
 )
 async def remove_device(device_id: int, actor: User = Depends(require_write_actor)) -> ChannelsResponse:
     await WebPushService().remove_subscription(actor, device_id)
+    return await _channels(actor)
+
+
+@router.post(
+    '/native-devices',
+    response_model=ChannelsResponse,
+    summary='Turn on notifications in the store app',
+    description=(
+        "Saves the push token the iOS or Android app got from its platform, so notifications "
+        "reach that phone. Registering the same token again refreshes it, and a token another "
+        "account registered moves to you (someone else signed in on that phone). Answers 404 "
+        "when this server can't send to that platform.\n\n"
+        "**Who can call this:** Any member."
+    ),
+)
+async def add_native_device(
+    body: NativeDeviceRegisterRequest, actor: User = Depends(require_write_actor),
+) -> ChannelsResponse:
+    row = await NativePushService().register(
+        actor, platform=body.platform, token=body.token, device_name=body.device_name,
+    )
+    channels = await _channels(actor)
+    channels.registered_device_id = row.id
+    return channels
+
+
+@router.delete(
+    '/native-devices/{device_id}',
+    response_model=ChannelsResponse,
+    summary='Stop notifications to one of your phones',
+    description="**Who can call this:** Any member, for their own phones.",
+)
+async def remove_native_device(device_id: int, actor: User = Depends(require_write_actor)) -> ChannelsResponse:
+    await NativePushService().remove(actor, device_id)
     return await _channels(actor)
 
 

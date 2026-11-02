@@ -15,6 +15,7 @@ import { AppShell } from './shell/AppShell'
 import { ReadingFrame } from './reading/ReadingFrame'
 import { readingRoutes } from './reading/routes'
 import { ThemeProvider } from './theme/ThemeProvider'
+import { startNativeBridge } from './native/bridge'
 
 const tabRoutes: RouteObject[] = [
   { index: true, element: <Navigate to="home" replace /> },
@@ -52,6 +53,7 @@ export const routes: RouteObject[] = [
 ]
 
 const router = createBrowserRouter(routes)
+startNativeBridge((to) => void router.navigate(to))
 
 export function App() {
   return (

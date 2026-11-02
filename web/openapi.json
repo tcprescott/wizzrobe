@@ -3360,6 +3360,22 @@
             "title": "Email Notifications",
             "type": "boolean"
           },
+          "native_devices": {
+            "description": "Store-app installs getting notifications.",
+            "items": {
+              "$ref": "#/components/schemas/NativeDeviceResponse"
+            },
+            "title": "Native Devices",
+            "type": "array"
+          },
+          "native_push_platforms": {
+            "description": "Phone platforms (`ios`, `android`) the store apps can get notifications on from this server.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Native Push Platforms",
+            "type": "array"
+          },
           "push_configured": {
             "description": "This server can send device notifications.",
             "title": "Push Configured",
@@ -3376,6 +3392,18 @@
             ],
             "description": "The VAPID key a browser subscribes with.",
             "title": "Push Public Key"
+          },
+          "registered_device_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set only when registering a phone: the id of the row that call saved.",
+            "title": "Registered Device Id"
           },
           "telegram_available": {
             "title": "Telegram Available",
@@ -3406,6 +3434,8 @@
           "dm_notifications",
           "push_configured",
           "devices",
+          "native_push_platforms",
+          "native_devices",
           "channels_enabled",
           "email_available",
           "email_notifications",
@@ -9407,6 +9437,87 @@
           "reattempt_was_granted"
         ],
         "title": "MyQualifierRunResponse",
+        "type": "object"
+      },
+      "NativeDeviceRegisterRequest": {
+        "properties": {
+          "device_name": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Name"
+          },
+          "platform": {
+            "description": "`ios` or `android`.",
+            "title": "Platform",
+            "type": "string"
+          },
+          "token": {
+            "description": "The push token the phone's platform handed the app.",
+            "maxLength": 512,
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "platform",
+          "token"
+        ],
+        "title": "NativeDeviceRegisterRequest",
+        "type": "object"
+      },
+      "NativeDeviceResponse": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "device_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Name"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          },
+          "platform": {
+            "description": "`ios` or `android`.",
+            "title": "Platform",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "platform",
+          "created_at"
+        ],
+        "title": "NativeDeviceResponse",
         "type": "object"
       },
       "NeedResponse": {
@@ -42152,6 +42263,211 @@
           }
         ],
         "summary": "Turn email notifications on or off",
+        "tags": [
+          "My notifications"
+        ]
+      }
+    },
+    "/api/me/channels/native-devices": {
+      "post": {
+        "description": "Saves the push token the iOS or Android app got from its platform, so notifications reach that phone. Registering the same token again refreshes it, and a token another account registered moves to you (someone else signed in on that phone). Answers 404 when this server can't send to that platform.\n\n**Who can call this:** Any member.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `profile:write`",
+        "operationId": "add_native_device_api_me_channels_native_devices_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NativeDeviceRegisterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "profile:write"
+            ]
+          }
+        ],
+        "summary": "Turn on notifications in the store app",
+        "tags": [
+          "My notifications"
+        ]
+      }
+    },
+    "/api/me/channels/native-devices/{device_id}": {
+      "delete": {
+        "description": "**Who can call this:** Any member, for their own phones.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `profile:write`",
+        "operationId": "remove_native_device_api_me_channels_native_devices__device_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "profile:write"
+            ]
+          }
+        ],
+        "summary": "Stop notifications to one of your phones",
         "tags": [
           "My notifications"
         ]
