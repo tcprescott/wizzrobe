@@ -233,3 +233,10 @@ in TypeScript.
   Station follows on the Event tab's run sheet. Until the live stream exists the
   desk and grid re-read on a timer and after every action. Mockups:
   `/mnt/project-files/mobile-app/work-mockups/`.
+
+- 2026-11-02 — Admin Match Schedule: Thomas picked layout C, list and detail side by
+  side (the run sheet on the left with its groups, the selected match in a pane
+  beside it; on a phone the match opens as its own screen with a back link), and
+  three PRs: (1) board and match pane with the run actions, (2) Needs you,
+  reschedule requests and comments, (3) Not booked yet and create/edit match. Part 1 is PR #780.
+  Mockups: `/mnt/project-files/mobile-app/admin-schedule-mockups/`.

@@ -989,7 +989,9 @@ Crew signup/undo and acknowledge buttons only render for the logged-in user's ow
 
 **The Day filter** — `Day` sits first in the filter row: `All dates` (the default — nothing is hidden until asked), `Today`, `Tomorrow`, `Next 7 days`. Admin → Match Schedule opens on `Today` instead (`default_day_scope`): at 1,300 matches `All dates` sent every row, about 2MB, on each open. The scope is a database filter (`scheduled_window` on `MatchRepository.get_all`), not a client-side one. `day_scope_window()` resolves the scope on the *display* clock through `local_day_bounds`, so "today" follows the viewer, and the window is half-open. It counts toward the mobile filter badge and is suspended under a deep link, for the same reason the State filter is: a link to one match must not land on an empty board.
 
-### Match board capabilities (`theme/tables/match_access.py`)
+### Match board capabilities (`application/match_board_access.py`)
+
+The class lives in `application/` so the app's REST reads (`AdminScheduleService`) answer the same per-row questions; `theme/tables/match_access.py` re-exports it. Likewise the run sheet's row logic (status, groups, next step, crew, `readiness`) lives in `application/run_sheet.py` and `theme/tables/match_run_sheet.py` keeps only the Vue templates and filters.
 
 `MatchBoardAccess` is what the board may **offer**, one frozen field per gate in `AuthService`:
 

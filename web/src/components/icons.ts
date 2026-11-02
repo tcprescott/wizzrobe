@@ -101,13 +101,15 @@ import Groups2Icon from '@material-symbols/svg-400/outlined/groups_2.svg?react'
 import ChairIcon from '@material-symbols/svg-400/outlined/chair.svg?react'
 import PodcastsIcon from '@material-symbols/svg-400/outlined/podcasts.svg?react'
 import MilitaryTechIcon from '@material-symbols/svg-400/outlined/military_tech.svg?react'
-import SearchIcon from '@material-symbols/svg-400/outlined/search.svg?react'
 import PersonAddIcon from '@material-symbols/svg-400/outlined/person_add.svg?react'
 import SyncIcon from '@material-symbols/svg-400/outlined/sync.svg?react'
 import ViewColumnIcon from '@material-symbols/svg-400/outlined/view_column.svg?react'
 import ArrowUpwardIcon from '@material-symbols/svg-400/outlined/arrow_upward.svg?react'
 import ArrowDownwardIcon from '@material-symbols/svg-400/outlined/arrow_downward.svg?react'
 import VisibilityOffIcon from '@material-symbols/svg-400/outlined/visibility_off.svg?react'
+import Search from '@material-symbols/svg-400/outlined/search.svg?react'
+import Videocam from '@material-symbols/svg-400/outlined/videocam.svg?react'
+import Casino from '@material-symbols/svg-400/outlined/casino.svg?react'
 
 type Svg = FC<SVGProps<SVGSVGElement>>
 
@@ -139,6 +141,9 @@ export const ICONS = {
   event_available: EventAvailable,
   swap_horiz: SwapHoriz,
   schedule: Schedule,
+  search: Search,
+  videocam: Videocam,
+  casino: Casino,
   tv: Tv,
   open_in_new: OpenInNew,
   sports_esports: SportsEsports,
@@ -207,7 +212,6 @@ export const ICONS = {
   chair: ChairIcon,
   podcasts: PodcastsIcon,
   military_tech: MilitaryTechIcon,
-  search: SearchIcon,
   person_add: PersonAddIcon,
   sync: SyncIcon,
   view_column: ViewColumnIcon,
