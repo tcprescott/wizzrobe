@@ -11,9 +11,11 @@ from api import graphql
 from api.dependencies import require_feature, tenant_context_scope
 from api.rate_limit import rate_limit
 from api.routers import (
+    admin_brackets,
     admin_match_schedule,
     admin_nav,
     admin_presets,
+    admin_qualifiers,
     admin_tournaments,
     async_qualifier_live_races,
     async_qualifiers,
@@ -38,6 +40,7 @@ from api.routers import (
     my_notifications,
     my_profile,
     my_schedule,
+    my_surveys,
     notification_settings,
     notifications,
     payouts,
@@ -56,6 +59,7 @@ from api.routers import (
     speedgaming,
     stage_actions,
     stages,
+    survey_builder,
     surveys,
     system_config,
     telemetry,
@@ -92,11 +96,16 @@ router.include_router(stages.router)
 router.include_router(stage_actions.router)
 router.include_router(me.router)
 router.include_router(my_schedule.router)
+router.include_router(my_surveys.router)
 router.include_router(admin_nav.router)
 router.include_router(work.router)
 router.include_router(community_settings.router)
 router.include_router(my_profile.router)
 router.include_router(admin_tournaments.router)
+router.include_router(
+    admin_brackets.router,
+    dependencies=[Depends(require_feature(FeatureFlag.BRACKETS))],
+)
 router.include_router(admin_presets.router)
 router.include_router(admin_match_schedule.router)
 router.include_router(my_notifications.router)
@@ -137,6 +146,7 @@ router.include_router(
     feedback.router,
     dependencies=[Depends(require_feature(FeatureFlag.FEEDBACK))],
 )
+router.include_router(survey_builder.router)
 router.include_router(
     surveys.router,
     dependencies=[Depends(require_feature(FeatureFlag.SURVEYS))],
@@ -189,6 +199,10 @@ router.include_router(
 )
 router.include_router(
     async_qualifiers.router,
+    dependencies=[Depends(require_feature(FeatureFlag.ASYNC_QUALIFIERS))],
+)
+router.include_router(
+    admin_qualifiers.router,
     dependencies=[Depends(require_feature(FeatureFlag.ASYNC_QUALIFIERS))],
 )
 
