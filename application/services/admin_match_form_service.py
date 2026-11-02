@@ -93,7 +93,7 @@ class AdminMatchFormService:
                 'tournament_id': match.tournament_id,  # type: ignore[attr-defined]
                 'stage_id': match.stage_id,  # type: ignore[attr-defined]
                 'scheduled_at': match.scheduled_at,
-                'player_ids': [p.user_id for p in players],
+                'player_ids': [p.user_id for p in players],  # type: ignore[attr-defined]
                 'commentator_ids': [c.user_id for c in await match.commentators],  # type: ignore[attr-defined]
                 'tracker_ids': [t.user_id for t in await match.trackers],  # type: ignore[attr-defined]
                 'broadcaster_ids': [b.user_id for b in await match.broadcasters],  # type: ignore[attr-defined]
@@ -103,7 +103,7 @@ class AdminMatchFormService:
                 'is_stream_candidate': bool(match.is_stream_candidate),
             })
             include = [*values['player_ids'], *values['commentator_ids'], *values['tracker_ids'], *values['broadcaster_ids']]
-            broadcasters = await EventService.broadcasters_on(match.event_id)  # type: ignore[attr-defined]
+            broadcasters = await EventService.broadcasters_on(match.event_id)
         else:
             broadcasters = await EventService.broadcasters_on(get_current_event_id())
         people = await UserService().get_community_people_summaries(include_user_ids=include, include_inactive=True)
@@ -137,8 +137,8 @@ class AdminMatchFormService:
             if stage_id:
                 await self.matches.assign_stage(match.id, stage_id, actor=actor)
             return match.id
-        match = await self.matches.get_match_by_id(match_id)
-        if match is None:
+        existing = await self.matches.get_match_by_id(match_id)
+        if existing is None:
             raise NotFoundError('Match not found')
         await self.matches.update_match(
             match_id, tournament_id=data['tournament_id'], scheduled_date=day, scheduled_time=clock,
@@ -148,9 +148,9 @@ class AdminMatchFormService:
             comment=data.get('comment') or '', title=data.get('title') or '',
             description=data.get('description') or '', actor=actor,
         )
-        if stage_id != match.stage_id:  # type: ignore[attr-defined]
+        if stage_id != existing.stage_id:  # type: ignore[attr-defined]
             await self.matches.assign_stage(match_id, stage_id, actor=actor)
-        if bool(data.get('is_stream_candidate')) != bool(match.is_stream_candidate):
+        if bool(data.get('is_stream_candidate')) != bool(existing.is_stream_candidate):
             await self.matches.set_stream_candidate(match_id, bool(data.get('is_stream_candidate')), actor=actor)
         return match_id
 
@@ -196,7 +196,7 @@ class AdminMatchFormService:
         rows = await bracket_sources.list_unbooked(actor, include_players_tbd=True)
         out = []
         for item in rows:
-            if event_id is not None and item.tournament.event_id != event_id:  # type: ignore[attr-defined]
+            if event_id is not None and item.tournament.event_id != event_id:
                 continue
             state = 'tbd' if item.players_tbd else 'ready' if item.ready else 'needs_account'
             out.append({
@@ -214,7 +214,7 @@ class AdminMatchFormService:
                 'best_of': item.best_of,
                 'games_booked': item.games_booked,
                 'link_candidates': [
-                    {'id': m.id, 'scheduled_at': m.scheduled_at, 'stage': m.stage.name if m.stage else None}  # type: ignore[attr-defined]
+                    {'id': m.id, 'scheduled_at': m.scheduled_at, 'stage': m.stage.name if m.stage else None}
                     for m in (item.lost_bookings if item.players_tbd else item.same_player_matches)
                 ],
                 'bracket_url': _bracket_url(item),
