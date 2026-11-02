@@ -12,11 +12,15 @@ import { NotFoundScreen } from './screens/NotFoundScreen'
 import { SignInScreen } from './screens/SignInScreen'
 import { HomeScreen } from './player/HomeScreen'
 import { ScheduleScreen } from './player/ScheduleScreen'
-import { WorkScreen } from './screens/TabScreens'
 import { BracketScreen } from './event/BracketScreen'
 import { EventHub } from './event/EventHub'
 import { RunSheetScreen } from './event/RunSheetScreen'
 import { WatchScreen } from './event/WatchScreen'
+import { DeskScreen } from './work/DeskScreen'
+import { MyAvailabilityScreen } from './work/MyAvailabilityScreen'
+import { ProctorScreen } from './work/ProctorScreen'
+import { VolunteerScheduleScreen } from './work/VolunteerScheduleScreen'
+import { WorkLayout } from './work/WorkLayout'
 import { AppShell } from './shell/AppShell'
 import { ReadingFrame } from './reading/ReadingFrame'
 import { readingRoutes } from './reading/routes'
@@ -31,7 +35,17 @@ const tabRoutes: RouteObject[] = [
   { path: 'event/schedule', element: <RunSheetScreen /> },
   { path: 'event/watch', element: <WatchScreen /> },
   { path: 'event/tournament/:tournamentId', element: <BracketScreen /> },
-  { path: 'work', element: <WorkScreen /> },
+  {
+    path: 'work',
+    element: <WorkLayout />,
+    children: [
+      { path: 'desk', element: <DeskScreen /> },
+      { path: 'desk/:eventId', element: <DeskScreen /> },
+      { path: 'schedule', element: <VolunteerScheduleScreen /> },
+      { path: 'availability', element: <MyAvailabilityScreen /> },
+      { path: 'proctor', element: <ProctorScreen /> },
+    ],
+  },
   { path: 'me', element: <MeLayout />, children: [{ path: ':section', element: <MeSection /> }] },
   { path: 'admin', element: <AdminLayout />, children: [{ path: ':area/*', element: <AdminAreaScreen /> }] },
   ...readingRoutes,

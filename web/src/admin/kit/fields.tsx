@@ -1,3 +1,5 @@
+import { useId } from 'react'
+import { Banner, Button } from '../../components'
 import { effectiveZone, wallClock, zonedInstant } from '../../lib/time'
 
 /** A date and a time input for one instant, read and written on `zone`'s clock. Empty date clears it. */
@@ -21,7 +23,13 @@ export function InstantField({
     <fieldset className="field t-instant">
       <legend className="field__label">{label}</legend>
       <div className="t-instant__inputs">
-        <input className="input" type="date" aria-label={`${label}, date`} value={wall.date} onChange={(e) => set(e.target.value, wall.time)} />
+        <input
+          className="input"
+          type="date"
+          aria-label={`${label}, date`}
+          value={wall.date}
+          onChange={(e) => set(e.target.value, wall.time)}
+        />
         <input
           className="input"
           type="time"
@@ -59,5 +67,58 @@ export function NumberField({
         onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))}
       />
     </label>
+  )
+}
+
+/** A whole number of minutes; blank means "use the default". */
+export function MinutesField({
+  label,
+  hint,
+  value,
+  onChange,
+  min = 1,
+}: {
+  label: string
+  hint: string
+  value: number | null
+  onChange: (value: number | null) => void
+  min?: number
+}) {
+  const id = useId()
+  return (
+    <div className="field settings-number">
+      <label className="field__label" htmlFor={id}>
+        {label}
+      </label>
+      <input
+        id={id}
+        className="input"
+        type="number"
+        inputMode="numeric"
+        min={min}
+        step={1}
+        value={value ?? ''}
+        aria-describedby={`${id}-hint`}
+        onChange={(e) => onChange(e.target.value === '' ? null : Math.trunc(Number(e.target.value)))}
+      />
+      <span className="field__hint" id={`${id}-hint`}>
+        {hint}
+      </span>
+    </div>
+  )
+}
+
+export function LoadError({ error, onRetry }: { error: Error; onRetry: () => void }) {
+  return (
+    <Banner
+      tone="error"
+      action={
+        <Button variant="outline" onClick={onRetry}>
+          Try again
+        </Button>
+      }
+    >
+      {error.message}
+    </Banner>
   )
 }
