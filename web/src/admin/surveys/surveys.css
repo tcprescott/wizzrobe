@@ -235,12 +235,16 @@
 }
 .sv-preview-as {
   display: inline-flex;
+  flex-wrap: wrap;
+  max-width: 100%;
   align-items: center;
   gap: var(--space-2);
   margin-right: var(--space-3);
 }
 .sv-preview-as select {
   width: auto;
+  max-width: 100%;
+  min-width: 0;
 }
 @media (max-width: 767.98px) {
   .sv-bars li {
