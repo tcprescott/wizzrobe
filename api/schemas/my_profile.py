@@ -117,6 +117,13 @@ class ChannelsResponse(BaseModel):
     push_configured: bool = Field(..., description="This server can send device notifications.")
     push_public_key: Optional[str] = Field(None, description="The VAPID key a browser subscribes with.")
     devices: List['PushDeviceResponse']
+    native_push_platforms: List[str] = Field(
+        default_factory=list,
+        description="Phone platforms (`ios`, `android`) the store apps can get notifications on from this server.",
+    )
+    native_devices: List['NativeDeviceResponse'] = Field(
+        default_factory=list, description="Store-app installs getting notifications.",
+    )
     channels_enabled: bool = Field(..., description="The community offers email and Telegram.")
     email_available: bool
     email: Optional[str] = None
@@ -135,6 +142,22 @@ class PushDeviceResponse(BaseModel):
     created_at: datetime
     last_used_at: Optional[datetime] = None
     endpoint_host: str = Field(..., description="The push service's host, to tell devices apart.")
+
+
+class NativeDeviceResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    platform: str = Field(..., description="`ios` or `android`.")
+    device_name: Optional[str] = None
+    created_at: datetime
+    last_used_at: Optional[datetime] = None
+
+
+class NativeDeviceRegisterRequest(BaseModel):
+    platform: str = Field(..., description="`ios` or `android`.")
+    token: str = Field(..., max_length=512, description="The push token the phone's platform handed the app.")
+    device_name: Optional[str] = Field(None, max_length=100)
 
 
 class PushSubscribeRequest(BaseModel):

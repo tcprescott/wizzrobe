@@ -263,6 +263,30 @@ class WebPushSubscription(Model):
         indexes = (('user',),)
 
 
+class DevicePushToken(Model):
+    """One store-app install's native push token (APNs on iOS, FCM on Android).
+
+    The web-push twin is :class:`WebPushSubscription`; the store apps can't use
+    web push, so they register the token their platform hands out instead. A
+    token belongs to one install, so signing in as someone else on the same
+    phone moves the row to that person.
+    """
+
+    id = fields.IntField(pk=True)
+    user = fields.ForeignKeyField(
+        'models.User', related_name='device_push_tokens', on_delete=fields.CASCADE
+    )
+    platform = fields.CharField(max_length=10, description='ios or android')
+    token = fields.CharField(max_length=512, unique=True)
+    device_name = fields.CharField(max_length=100, null=True)
+    created_at = fields.DatetimeField(auto_now_add=True)
+    last_used_at = fields.DatetimeField(null=True)
+
+    class Meta:
+        table = 'devicepushtoken'
+        indexes = (('user',),)
+
+
 class ContactVerification(Model):
     """A pending proof that a person controls an email address or Telegram chat.
 
