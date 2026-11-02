@@ -187,15 +187,21 @@ type inMessage struct {
 	Data        json.RawMessage `json:"data"`
 }
 
+// setOBS changes the OBS state and tells every session in one step under
+// a.mu, so a session that registers concurrently either sees the new state in
+// its hello or receives this message after its hello, never a stale hello last.
 func (a *Agent) setOBS(c *obs.Client, errText string) {
-	a.mu.Lock()
-	a.obs, a.obsErr = c, errText
-	a.mu.Unlock()
 	msg := outOBS{Type: "obs", Connected: c != nil, Error: errText}
 	if c != nil {
 		msg.OBSVersion = c.OBSVersion
 	}
-	a.broadcast(msg)
+	a.mu.Lock()
+	a.obs, a.obsErr = c, errText
+	list := a.sessionList()
+	a.mu.Unlock()
+	for _, s := range list {
+		s.send(msg)
+	}
 }
 
 func (a *Agent) currentOBS() *obs.Client {
@@ -207,20 +213,33 @@ func (a *Agent) currentOBS() *obs.Client {
 type session struct {
 	conn *websocket.Conn
 	ctx  context.Context
+	mu   sync.Mutex // orders writes, so the hello is always the first message
 }
 
 func (s *session) send(v any) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.write(v)
+}
+
+func (s *session) write(v any) {
 	ctx, cancel := context.WithTimeout(s.ctx, 10*time.Second)
 	defer cancel()
 	_ = wsjson.Write(ctx, s.conn, v)
 }
 
-func (a *Agent) broadcast(v any) {
-	a.mu.Lock()
+// sessionList needs a.mu held.
+func (a *Agent) sessionList() []*session {
 	list := make([]*session, 0, len(a.sessions))
 	for s := range a.sessions {
 		list = append(list, s)
 	}
+	return list
+}
+
+func (a *Agent) broadcast(v any) {
+	a.mu.Lock()
+	list := a.sessionList()
 	a.mu.Unlock()
 	for _, s := range list {
 		s.send(v)
@@ -243,16 +262,18 @@ func (a *Agent) serve(ctx context.Context) error {
 	defer stop()
 	s := &session{conn: conn, ctx: sctx}
 
-	hello := outHello{Type: "hello", AgentVersion: a.cfg.AgentVersion}
-	if c := a.currentOBS(); c != nil {
-		hello.OBSConnected, hello.OBSVersion = true, c.OBSVersion
-	}
-	s.send(hello)
-	a.log.Info("connected to Wizzrobe", "url", a.cfg.ServerURL)
-
+	s.mu.Lock()
 	a.mu.Lock()
 	a.sessions[s] = struct{}{}
+	hello := outHello{Type: "hello", AgentVersion: a.cfg.AgentVersion}
+	if a.obs != nil {
+		hello.OBSConnected, hello.OBSVersion = true, a.obs.OBSVersion
+	}
 	a.mu.Unlock()
+	s.write(hello)
+	s.mu.Unlock()
+	a.log.Info("connected to Wizzrobe", "url", a.cfg.ServerURL)
+
 	defer func() {
 		a.mu.Lock()
 		delete(a.sessions, s)
