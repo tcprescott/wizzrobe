@@ -188,3 +188,98 @@ class TestComments:
             note = (await c.post(f'/api/matches/{match.id}/comments', json={'body': 'x', 'kind': 'staff_private'})).json()
             assert (await c.delete(f'/api/match-comments/{note["id"]}')).status_code == 204
             assert (await c.get(f'/api/matches/{match.id}/comments')).json() == []
+
+
+class TestMatchForm:
+    async def test_form_lists_tournaments_with_who_is_enrolled(self, db, app):
+        from models import TournamentPlayers
+
+        _, raw = await create_user_token(username='boss', roles=[Role.STAFF])
+        cup = await Tournament.create(name='Cup', is_active=True)
+        await Tournament.create(name='Old', is_active=False)
+        ann = await create_community_member(username='ann')
+        await TournamentPlayers.create(tournament=cup, user=ann)
+        async with client_for(app, raw) as c:
+            body = (await c.get('/api/admin/match-schedule/form')).json()
+        assert [t['name'] for t in body['tournaments']] == ['Cup']
+        assert body['tournaments'][0]['enrolled'] == [ann.id]
+        assert body['values']['player_ids'] == []
+
+    async def test_create_hold_a_slot_then_edit_it(self, db, app):
+        _, raw = await create_user_token(username='boss', roles=[Role.STAFF])
+        cup = await Tournament.create(name='Cup', is_active=True)
+        stage = await Stage.create(name='Stage 1')
+        ann = await create_community_member(username='ann')
+        bob = await create_community_member(username='bob')
+        at = _at(3).replace(minute=0, second=0, microsecond=0)
+        async with client_for(app, raw) as c:
+            resp = await c.post('/api/admin/match-schedule/matches', json={
+                'tournament_id': cup.id, 'scheduled_at': at.isoformat(), 'title': 'Final', 'stage_id': stage.id,
+            })
+            assert resp.status_code == 201, resp.text
+            match_id = resp.json()['match_id']
+            match = await Match.get(id=match_id)
+            assert match.title == 'Final' and match.stage_id == stage.id and match.scheduled_at == at
+            later = at + timedelta(hours=1)
+            resp = await c.put(f'/api/admin/match-schedule/matches/{match_id}', json={
+                'tournament_id': cup.id, 'scheduled_at': later.isoformat(), 'player_ids': [ann.id, bob.id],
+                'title': 'Final', 'is_stream_candidate': True,
+            })
+            assert resp.status_code == 200, resp.text
+            form = (await c.get('/api/admin/match-schedule/form', params={'match_id': match_id})).json()
+        assert sorted(form['values']['player_ids']) == sorted([ann.id, bob.id])
+        assert form['values']['stage_id'] is None
+        assert form['values']['is_stream_candidate'] is True
+        assert (await Match.get(id=match_id)).scheduled_at == later
+
+    async def test_a_player_cannot_open_the_form(self, db, app):
+        _, raw = await create_user_token(username='pl')
+        async with client_for(app, raw) as c:
+            assert (await c.get('/api/admin/match-schedule/form')).status_code == 403
+
+    async def test_check_time_reports_a_clash(self, db, app):
+        _, raw = await create_user_token(username='boss', roles=[Role.STAFF])
+        cup = await Tournament.create(name='Cup', is_active=True)
+        busy = await _match(cup, _at(4), 'ann', 'bob')
+        ann = (await busy.players.all().prefetch_related('user'))[0].user
+        async with client_for(app, raw) as c:
+            body = (await c.post('/api/admin/match-schedule/check-time', json={
+                'tournament_id': cup.id, 'player_ids': [ann.id], 'scheduled_at': busy.scheduled_at.isoformat(),
+            })).json()
+        assert body['window'] is None
+        assert body['clashes']
+
+
+class TestUnbooked:
+    async def _setup(self):
+        from models import ChallongeMatch, ChallongeMatchState, ChallongeParticipant
+
+        cup = await Tournament.create(name='Cup', is_active=True, challonge_tournament_id='T1')
+        ann = await create_community_member(username='ann')
+        bob = await create_community_member(username='bob')
+        p1 = await ChallongeParticipant.create(tournament=cup, challonge_participant_id='a', name='Ann', user=ann)
+        p2 = await ChallongeParticipant.create(tournament=cup, challonge_participant_id='b', name='Bob', user=bob)
+        cm = await ChallongeMatch.create(
+            tournament=cup, challonge_match_id='m1', round=1, state=ChallongeMatchState.OPEN,
+            participant1=p1, participant2=p2,
+        )
+        return cup, cm
+
+    async def test_list_and_book(self, db, app):
+        _, raw = await create_user_token(username='boss', roles=[Role.STAFF])
+        cup, cm = await self._setup()
+        at = _at(5).replace(minute=0, second=0, microsecond=0)
+        async with client_for(app, raw) as c:
+            items = (await c.get('/api/admin/match-schedule/unbooked')).json()
+            assert [(i['source'], i['key'], i['state']) for i in items] == [('challonge', cm.id, 'ready')]
+            assert items[0]['players'] == ['Ann', 'Bob']
+            resp = await c.post(f'/api/admin/match-schedule/unbooked/challonge/{cm.id}/book', json={'scheduled_at': at.isoformat()})
+            assert resp.status_code == 201, resp.text
+            assert (await Match.get(id=resp.json()['match_id'])).scheduled_at == at
+            assert (await c.get('/api/admin/match-schedule/unbooked')).json() == []
+
+    async def test_a_player_sees_nothing(self, db, app):
+        _, raw = await create_user_token(username='pl')
+        await self._setup()
+        async with client_for(app, raw) as c:
+            assert (await c.get('/api/admin/match-schedule/unbooked')).status_code == 403

@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent spike console</title>
+<style>
+  :root { color-scheme: light dark; --bg:#fafafa; --fg:#1a1a1a; --muted:#5c5c5c; --line:#d6d6d6; --ok:#1b7f3b; --bad:#b3261e; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#141414; --fg:#ececec; --muted:#a8a8a8; --line:#3a3a3a; --ok:#6fd58f; --bad:#ff8a80; } }
+  body { margin:0; padding:16px; background:var(--bg); color:var(--fg); font:14px/1.4 system-ui, sans-serif; }
+  h1 { font-size:18px; margin:0 0 4px; }
+  h2 { font-size:15px; margin:0 0 8px; }
+  .muted { color:var(--muted); }
+  .grid { display:grid; gap:16px; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); margin-top:16px; }
+  section { border:1px solid var(--line); border-radius:8px; padding:12px; min-width:0; }
+  button, select, input { font:inherit; padding:6px 10px; border-radius:6px; border:1px solid var(--line); background:transparent; color:inherit; }
+  button { cursor:pointer; }
+  button.on { outline:2px solid var(--ok); }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:6px 0; }
+  img { max-width:100%; background:#000; border-radius:4px; display:block; }
+  input[type=number] { width:5em; }
+  textarea { width:100%; box-sizing:border-box; min-height:5em; font:12px ui-monospace, monospace; background:transparent; color:inherit; border:1px solid var(--line); border-radius:6px; }
+  #log { font:12px ui-monospace, monospace; max-height:260px; overflow:auto; white-space:pre-wrap; }
+  .ok { color:var(--ok); } .bad { color:var(--bad); }
+</style>
+</head>
+<body>
+<h1>Agent spike console</h1>
+<div class="muted">Agent: <span id="agent">…</span> · OBS: <span id="obs">…</span> · last round trip: <span id="rtt">–</span></div>
+
+<div class="grid">
+  <section>
+    <h2>Program</h2>
+    <img id="program" alt="Program preview">
+    <div class="row"><label><input type="checkbox" id="live" checked> Refresh every second</label></div>
+    <div class="row" id="scenes"></div>
+    <div class="row">
+      <button id="recStart">Start record</button><button id="recStop">Stop record</button>
+      <button id="stats">Stats</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Crop a source</h2>
+    <div class="row"><label>Scene <select id="cropScene"></select></label></div>
+    <div class="row"><label>Source <select id="cropItem"></select></label></div>
+    <img id="sourceShot" alt="Selected source preview">
+    <div class="row">
+      <label>Left <input type="number" id="cl" min="0" value="0"></label>
+      <label>Right <input type="number" id="cr" min="0" value="0"></label>
+      <label>Top <input type="number" id="ct" min="0" value="0"></label>
+      <label>Bottom <input type="number" id="cb" min="0" value="0"></label>
+    </div>
+    <div class="row"><button id="cropApply">Apply crop</button></div>
+  </section>
+
+  <section>
+    <h2>Audio</h2>
+    <div id="inputs"></div>
+  </section>
+
+  <section>
+    <h2>Any request</h2>
+    <div class="row"><input id="rawType" placeholder="GetStats" style="flex:1"></div>
+    <textarea id="rawData" aria-label="Request data as JSON">{}</textarea>
+    <div class="row"><button id="rawSend">Send</button></div>
+  </section>
+</div>
+
+<section style="margin-top:16px">
+  <h2>Log</h2>
+  <div id="log"></div>
+</section>
+
+<script>
+const key = new URLSearchParams(location.search).get('key') || '';
+const $ = id => document.getElementById(id);
+const pending = new Map();
+let ws, n = 0, program = '';
+
+function log(text, cls) {
+  const line = document.createElement('div');
+  if (cls) line.className = cls;
+  line.textContent = new Date().toLocaleTimeString() + '  ' + text;
+  $('log').prepend(line);
+}
+
+function connect() {
+  ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/console/ws?key=' + encodeURIComponent(key));
+  ws.onmessage = e => onMessage(JSON.parse(e.data));
+  ws.onclose = () => { $('agent').textContent = 'console disconnected'; setTimeout(connect, 2000); };
+}
+
+function send(requestType, data = {}, quiet = false) {
+  const id = String(++n);
+  return new Promise(resolve => {
+    pending.set(id, { resolve, requestType, quiet });
+    ws.send(JSON.stringify({ id, request_type: requestType, data }));
+  });
+}
+
+function onMessage(m) {
+  if (m.type === 'agent') {
+    $('agent').textContent = m.connected ? 'connected' : 'not connected';
+    $('agent').className = m.connected ? 'ok' : 'bad';
+    if (m.connected) refreshAll();
+  } else if (m.type === 'hello' || m.type === 'obs') {
+    const up = m.type === 'hello' ? m.obs_connected : m.connected;
+    $('obs').textContent = up ? 'connected' + (m.obs_version ? ' (websocket ' + m.obs_version + ')' : '') : 'not connected' + (m.error ? ': ' + m.error : '');
+    $('obs').className = up ? 'ok' : 'bad';
+    if (up) refreshAll();
+  } else if (m.type === 'event') {
+    log('event ' + m.event_type + ' ' + JSON.stringify(m.data || {}));
+    if (m.event_type === 'CurrentProgramSceneChanged') { program = m.data.sceneName; renderScenesActive(); }
+    if (m.event_type === 'SceneListChanged' || m.event_type === 'InputCreated' || m.event_type === 'InputRemoved') refreshAll();
+  } else if (m.type === 'result') {
+    const p = pending.get(m.id);
+    pending.delete(m.id);
+    if (m.rtt_ms !== undefined) $('rtt').textContent = m.rtt_ms + ' ms';
+    if (!p) return;
+    if (!p.quiet || !m.ok) log(p.requestType + ' → ' + (m.ok ? 'ok' : 'failed (' + m.code + ') ' + (m.comment || '')) + (m.rtt_ms !== undefined ? ' in ' + m.rtt_ms + ' ms' : ''), m.ok ? '' : 'bad');
+    p.resolve(m);
+  }
+}
+
+let sceneNames = [];
+async function refreshAll() {
+  const r = await send('GetSceneList', {}, true);
+  if (!r.ok) return;
+  program = r.data.currentProgramSceneName;
+  sceneNames = r.data.scenes.map(s => s.sceneName).reverse();
+  $('scenes').replaceChildren(...sceneNames.map(name => {
+    const b = document.createElement('button');
+    b.textContent = name;
+    b.dataset.scene = name;
+    b.onclick = () => send('SetCurrentProgramScene', { sceneName: name });
+    return b;
+  }));
+  renderScenesActive();
+  $('cropScene').replaceChildren(...sceneNames.map(s => new Option(s, s)));
+  await loadItems();
+  await loadInputs();
+}
+
+function renderScenesActive() {
+  for (const b of $('scenes').children) b.classList.toggle('on', b.dataset.scene === program);
+}
+
+let items = [];
+async function loadItems() {
+  const scene = $('cropScene').value;
+  if (!scene) return;
+  const r = await send('GetSceneItemList', { sceneName: scene }, true);
+  items = r.ok && r.data ? r.data.sceneItems : [];
+  $('cropItem').replaceChildren(...items.map(i => new Option(i.sourceName, i.sceneItemId)));
+  await showItem();
+}
+
+async function showItem() {
+  const it = items.find(i => String(i.sceneItemId) === $('cropItem').value);
+  if (!it) return;
+  const t = it.sceneItemTransform || {};
+  $('cl').value = t.cropLeft || 0; $('cr').value = t.cropRight || 0;
+  $('ct').value = t.cropTop || 0; $('cb').value = t.cropBottom || 0;
+  const s = await send('GetSourceScreenshot', { sourceName: it.sourceName, imageFormat: 'jpg', imageWidth: 640, imageCompressionQuality: 70 }, true);
+  if (s.ok) $('sourceShot').src = s.data.imageData;
+}
+
+$('cropScene').onchange = loadItems;
+$('cropItem').onchange = showItem;
+$('cropApply').onclick = () => send('SetSceneItemTransform', {
+  sceneName: $('cropScene').value,
+  sceneItemId: Number($('cropItem').value),
+  sceneItemTransform: { cropLeft: +$('cl').value, cropRight: +$('cr').value, cropTop: +$('ct').value, cropBottom: +$('cb').value },
+});
+
+async function loadInputs() {
+  const r = await send('GetInputList', {}, true);
+  const list = r.ok && r.data ? r.data.inputs : [];
+  const rows = [];
+  for (const inp of list) {
+    const v = await send('GetInputVolume', { inputName: inp.inputName }, true);
+    if (!v.ok || !v.data) continue;
+    const m = await send('GetInputMute', { inputName: inp.inputName }, true);
+    const row = document.createElement('div');
+    row.className = 'row';
+    const label = document.createElement('label');
+    label.textContent = inp.inputName + ' ';
+    const slider = document.createElement('input');
+    slider.type = 'range'; slider.min = -60; slider.max = 0; slider.step = 0.5;
+    slider.value = Math.max(-60, v.data.inputVolumeDb);
+    slider.setAttribute('aria-label', inp.inputName + ' volume in dB');
+    slider.onchange = () => send('SetInputVolume', { inputName: inp.inputName, inputVolumeDb: +slider.value });
+    label.append(slider);
+    const mute = document.createElement('button');
+    let muted = !!(m.ok && m.data && m.data.inputMuted);
+    const paint = () => { mute.textContent = muted ? 'Unmute' : 'Mute'; };
+    paint();
+    mute.onclick = async () => { const r2 = await send('SetInputMute', { inputName: inp.inputName, inputMuted: !muted }); if (r2.ok) { muted = !muted; paint(); } };
+    row.append(label, mute);
+    rows.push(row);
+  }
+  $('inputs').replaceChildren(...(rows.length ? rows : [Object.assign(document.createElement('div'), { className: 'muted', textContent: 'No audio inputs.' })]));
+}
+
+$('recStart').onclick = () => send('StartRecord');
+$('recStop').onclick = () => send('StopRecord');
+$('stats').onclick = async () => { const r = await send('GetStats'); if (r.ok) log(JSON.stringify(r.data)); };
+$('rawSend').onclick = async () => {
+  let data;
+  try { data = JSON.parse($('rawData').value || '{}'); } catch (e) { log('Data is not valid JSON', 'bad'); return; }
+  const r = await send($('rawType').value.trim(), data);
+  if (r.ok && r.data) log(JSON.stringify(r.data).slice(0, 2000));
+};
+
+setInterval(async () => {
+  if (!$('live').checked || !program || !ws || ws.readyState !== 1) return;
+  const r = await send('GetSourceScreenshot', { sourceName: program, imageFormat: 'jpg', imageWidth: 960, imageCompressionQuality: 70 }, true);
+  if (r.ok) $('program').src = r.data.imageData;
+}, 1000);
+
+connect();
+</script>
+</body>
+</html>
