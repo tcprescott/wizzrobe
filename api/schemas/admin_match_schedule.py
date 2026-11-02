@@ -124,6 +124,32 @@ class BoardGroup(BaseModel):
     rows: List[BoardRow]
 
 
+class RescheduleNeed(BaseModel):
+    id: int = Field(..., description="The request, for `POST /reschedule-requests/{id}/approve` or `/decline`.")
+    kind: str = Field(..., description="`reschedule` or `cancel`.")
+    requested_by: str
+    players: List[str]
+    title: Optional[str] = None
+    tournament: str
+    scheduled_at: Optional[datetime] = None
+    proposed_at: Optional[datetime] = None
+    reason: str
+    opponent_agreed: bool
+    created_at: datetime
+    clashes: List[str] = Field(..., description="Why the proposed time might not work. Approving anyway is allowed.")
+
+
+class Need(BaseModel):
+    kind: str = Field(..., description=(
+        "`request` (a player asked to move or call off a match), `site` (the bracket site already has a "
+        "result), `held` (the racetime room bot held a result), `result` (finished, not confirmed) or "
+        "`late` (past its time and nobody checked in)."
+    ))
+    match_id: int = Field(..., description="The match; for anything but `request` it is a row on this board.")
+    has_result: Optional[bool] = Field(None, description="For `result`: a winner is recorded.")
+    request: Optional[RescheduleNeed] = None
+
+
 class BoardResponse(BaseModel):
     zone: str = Field(..., description="The IANA zone the days are cut on and times print in.")
     days: List[date] = Field(..., description="The event's days, for the day switch; empty for a long event.")
@@ -132,6 +158,7 @@ class BoardResponse(BaseModel):
     scoped_tournaments: Optional[int] = Field(None, description="Set when the board shows only the viewer's own tournaments.")
     can_create: bool
     groups: List[BoardGroup]
+    needs_you: List[Need] = Field(..., description="Work waiting on you, in the order to show it.")
 
 
 class ChecklistItem(BaseModel):
