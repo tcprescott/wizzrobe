@@ -46,6 +46,7 @@ from . import (
     webhook_outbox_worker,
 )
 from .accommodation_service import AccommodationService
+from .admin_nav_service import AdminAccess, AdminNav, AdminNavService
 from .ai_provider_service import AiProviderService
 from .analytics_service import AnalyticsService
 from .api_token_service import ApiTokenService
@@ -134,6 +135,7 @@ from .payout_service import PayoutService
 from .personal_webhook_service import PersonalWebhookService
 from .platform_admin_service import AccountOverview, CommunityOverview, PlatformAdminService
 from .player_availability_service import PlayerAvailabilityService
+from .admin_schedule_service import AdminScheduleService
 from .player_home_service import PlayerHomeService
 from .preset_service import PresetService
 from .profile_nudge_service import ProfileNudgeService
@@ -213,6 +215,9 @@ from .webhook_service import WebhookService
 __all__ = [
     'AccommodationService',
     'AccountOverview',
+    'AdminAccess',
+    'AdminNav',
+    'AdminNavService',
     'AiProviderService',
     'AnalyticsService',
     'ApiTokenService',
@@ -299,6 +304,7 @@ __all__ = [
     'PersonalWebhookService',
     'PlatformAdminService',
     'PlayerAvailabilityService',
+    'AdminScheduleService',
     'PlayerHomeService',
     'PlayerLateService',
     'PresetService',

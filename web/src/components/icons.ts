@@ -69,6 +69,41 @@ import PauseIcon from '@material-symbols/svg-400/outlined/pause.svg?react'
 import PlayArrow from '@material-symbols/svg-400/outlined/play_arrow.svg?react'
 import RestartAlt from '@material-symbols/svg-400/outlined/restart_alt.svg?react'
 import HowToReg from '@material-symbols/svg-400/outlined/how_to_reg.svg?react'
+import TrophyIcon from '@material-symbols/svg-400/outlined/trophy.svg?react'
+import ChecklistIcon from '@material-symbols/svg-400/outlined/checklist.svg?react'
+import ViewTimelineIcon from '@material-symbols/svg-400/outlined/view_timeline.svg?react'
+import LiveTvIcon from '@material-symbols/svg-400/outlined/live_tv.svg?react'
+import FactCheckIcon from '@material-symbols/svg-400/outlined/fact_check.svg?react'
+import PaymentsIcon from '@material-symbols/svg-400/outlined/payments.svg?react'
+import ChangeHistoryIcon from '@material-symbols/svg-400/outlined/change_history.svg?react'
+import TimerIcon from '@material-symbols/svg-400/outlined/timer.svg?react'
+import SchemaIcon from '@material-symbols/svg-400/outlined/schema.svg?react'
+import SyncAltIcon from '@material-symbols/svg-400/outlined/sync_alt.svg?react'
+import CalendarViewWeekIcon from '@material-symbols/svg-400/outlined/calendar_view_week.svg?react'
+import EditCalendarIcon from '@material-symbols/svg-400/outlined/edit_calendar.svg?react'
+import CelebrationIcon from '@material-symbols/svg-400/outlined/celebration.svg?react'
+import RateReviewIcon from '@material-symbols/svg-400/outlined/rate_review.svg?react'
+import ManageAccountsIcon from '@material-symbols/svg-400/outlined/manage_accounts.svg?react'
+import FlagIcon from '@material-symbols/svg-400/outlined/flag.svg?react'
+import TuneIcon from '@material-symbols/svg-400/outlined/tune.svg?react'
+import SettingsIcon from '@material-symbols/svg-400/outlined/settings.svg?react'
+import AnalyticsIcon from '@material-symbols/svg-400/outlined/analytics.svg?react'
+import MonitorHeartIcon from '@material-symbols/svg-400/outlined/monitor_heart.svg?react'
+import AdminPanelSettingsIcon from '@material-symbols/svg-400/outlined/admin_panel_settings.svg?react'
+import RadioButtonUncheckedIcon from '@material-symbols/svg-400/outlined/radio_button_unchecked.svg?react'
+import GroupAddIcon from '@material-symbols/svg-400/outlined/group_add.svg?react'
+import VolunteerActivismIcon from '@material-symbols/svg-400/outlined/volunteer_activism.svg?react'
+import ForumIcon from '@material-symbols/svg-400/outlined/forum.svg?react'
+import ExtensionIcon from '@material-symbols/svg-400/outlined/extension.svg?react'
+import ToggleOnIcon from '@material-symbols/svg-400/outlined/toggle_on.svg?react'
+import DateRangeIcon from '@material-symbols/svg-400/outlined/date_range.svg?react'
+import Groups2Icon from '@material-symbols/svg-400/outlined/groups_2.svg?react'
+import ChairIcon from '@material-symbols/svg-400/outlined/chair.svg?react'
+import PodcastsIcon from '@material-symbols/svg-400/outlined/podcasts.svg?react'
+import MilitaryTechIcon from '@material-symbols/svg-400/outlined/military_tech.svg?react'
+import Search from '@material-symbols/svg-400/outlined/search.svg?react'
+import Videocam from '@material-symbols/svg-400/outlined/videocam.svg?react'
+import Casino from '@material-symbols/svg-400/outlined/casino.svg?react'
 
 type Svg = FC<SVGProps<SVGSVGElement>>
 
@@ -100,6 +135,9 @@ export const ICONS = {
   event_available: EventAvailable,
   swap_horiz: SwapHoriz,
   schedule: Schedule,
+  search: Search,
+  videocam: Videocam,
+  casino: Casino,
   tv: Tv,
   open_in_new: OpenInNew,
   sports_esports: SportsEsports,
@@ -136,6 +174,38 @@ export const ICONS = {
   play_arrow: PlayArrow,
   restart_alt: RestartAlt,
   how_to_reg: HowToReg,
+  trophy: TrophyIcon,
+  checklist: ChecklistIcon,
+  view_timeline: ViewTimelineIcon,
+  live_tv: LiveTvIcon,
+  fact_check: FactCheckIcon,
+  payments: PaymentsIcon,
+  change_history: ChangeHistoryIcon,
+  timer: TimerIcon,
+  schema: SchemaIcon,
+  sync_alt: SyncAltIcon,
+  calendar_view_week: CalendarViewWeekIcon,
+  edit_calendar: EditCalendarIcon,
+  celebration: CelebrationIcon,
+  rate_review: RateReviewIcon,
+  manage_accounts: ManageAccountsIcon,
+  flag: FlagIcon,
+  tune: TuneIcon,
+  settings: SettingsIcon,
+  analytics: AnalyticsIcon,
+  monitor_heart: MonitorHeartIcon,
+  admin_panel_settings: AdminPanelSettingsIcon,
+  radio_button_unchecked: RadioButtonUncheckedIcon,
+  group_add: GroupAddIcon,
+  volunteer_activism: VolunteerActivismIcon,
+  forum: ForumIcon,
+  extension: ExtensionIcon,
+  toggle_on: ToggleOnIcon,
+  date_range: DateRangeIcon,
+  groups_2: Groups2Icon,
+  chair: ChairIcon,
+  podcasts: PodcastsIcon,
+  military_tech: MilitaryTechIcon,
 } satisfies Record<string, Svg>
 
 export const FILLED: Partial<Record<IconName, Svg>> = {

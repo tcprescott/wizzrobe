@@ -4,6 +4,78 @@
  */
 
 export interface paths {
+    "/api/admin/match-schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The Match Schedule board
+         * @description Every match on a day (or every day), grouped as the run sheet draws them: needs a decision, live now, up next, waiting for players, confirmed. Each row says what you may do to it in `can`.
+         *
+         *     **Who can call this:** Staff, Broadcast tech, or Admins and crew coordinators of a tournament (who see only their tournaments' matches).
+         *
+         *     **App scope:** `staff:read`
+         */
+        get: operations["board_api_admin_match_schedule_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/match-schedule/matches/{match_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One match on the Match Schedule
+         * @description The board's line for the match plus its pane: what it still needs before it can start, where it can be rewound to, and when it reached its current step.
+         *
+         *     **Who can call this:** Staff, Broadcast tech, or Admins and crew coordinators of a tournament (who see only their tournaments' matches).
+         *
+         *     **App scope:** `staff:read`
+         */
+        get: operations["match_pane_api_admin_match_schedule_matches__match_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/nav": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your admin areas
+         * @description Every admin area you may open in this community, in menu order with its group, plus the Settings and Event settings panes and the setup checklist. The app draws its admin menu from this and hides what the API would refuse.
+         *
+         *     **Who can call this:** Any member. Someone with no admin access gets empty lists.
+         *
+         *     **App scope:** `staff:read`
+         */
+        get: operations["admin_nav_api_admin_nav_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/reports": {
         parameters: {
             query?: never;
@@ -3265,6 +3337,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/matches/{match_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Call a match off
+         * @description Cancels the match and DMs its players, crew and watchers, with your reason. A bracket slot the match held is freed so it can be booked again.
+         *
+         *     **Who can call this:** Staff or Admins of this tournament.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **App scope:** `staff:write`
+         */
+        post: operations["cancel_match_api_matches__match_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/matches/{match_id}/confirm": {
         parameters: {
             query?: never;
@@ -3475,6 +3572,31 @@ export interface paths {
          *     **App scope:** `staff:write`
          */
         post: operations["set_review_api_matches__match_id__review_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/matches/{match_id}/rewind": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rewind a match to an earlier step
+         * @description Takes the match back to `to_step` (`scheduled`, `checked_in`, `started` or `finished`), clearing every later step together. Fails with 400 when the match hasn't gone past that step.
+         *
+         *     **Who can call this:** Staff or Admins of this tournament.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **App scope:** `staff:write`
+         */
+        post: operations["rewind_match_api_matches__match_id__rewind_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -10057,6 +10179,64 @@ export interface components {
              */
             total: number;
         };
+        /** AdminAreaResponse */
+        AdminAreaResponse: {
+            /**
+             * Aliases
+             * @description Older slugs that should open this area.
+             */
+            aliases?: string[];
+            /**
+             * Group
+             * @description Menu heading: `Run the event`, `Online play`, `People`, `Community`, `Configuration` or `System`.
+             */
+            group: string;
+            /**
+             * Half
+             * @description `event` for areas that work inside one event, `community` for the rest.
+             */
+            half: string;
+            /**
+             * Icon
+             * @description Material Symbols name.
+             */
+            icon: string;
+            /** Label */
+            label: string;
+            /**
+             * Slug
+             * @description Path segment under `/admin/`, the same one the website uses.
+             */
+            slug: string;
+        };
+        /** AdminNavResponse */
+        AdminNavResponse: {
+            /**
+             * Areas
+             * @description In menu order. Empty when you have no admin access here.
+             */
+            areas: components["schemas"]["AdminAreaResponse"][];
+            /**
+             * Event Settings Panes
+             * @description Panes under Event settings, in menu order.
+             */
+            event_settings_panes: components["schemas"]["SettingsPaneResponse"][];
+            /**
+             * Settings Panes
+             * @description Panes under Settings, in menu order.
+             */
+            settings_panes: components["schemas"]["SettingsPaneResponse"][];
+            /**
+             * Setup
+             * @description The community's setup checklist, for staff and tournament admins.
+             */
+            setup: components["schemas"]["api__schemas__admin_nav__SetupStepResponse"][];
+            /**
+             * Setup Ready
+             * @description Every required setup step is done.
+             */
+            setup_ready: boolean;
+        };
         /** AdminRequest */
         AdminRequest: {
             /**
@@ -10818,6 +10998,193 @@ export interface components {
             starts_at: string;
             /** @default available */
             status: components["schemas"]["VolunteerAvailabilityStatus"];
+        };
+        /** BoardGroup */
+        BoardGroup: {
+            /** Folded By Default */
+            folded_by_default: boolean;
+            /** Label */
+            label: string;
+            /** Rows */
+            rows: components["schemas"]["BoardRow"][];
+        };
+        /** BoardPlayer */
+        BoardPlayer: {
+            /**
+             * Ada
+             * @description Staff arranged an ADA accommodation for this player.
+             * @default false
+             */
+            ada: boolean;
+            /**
+             * Id
+             * @description The player's match-player id: what `POST /matches/{id}/result` names as the winner.
+             */
+            id?: number | null;
+            /** Name */
+            name: string;
+            /**
+             * Station
+             * @description The player's station, once assigned.
+             */
+            station?: string | null;
+            /** User Id */
+            user_id?: number | null;
+        };
+        /** BoardResponse */
+        BoardResponse: {
+            /** Can Create */
+            can_create: boolean;
+            /**
+             * Days
+             * @description The event's days, for the day switch; empty for a long event.
+             */
+            days: string[];
+            /** Groups */
+            groups: components["schemas"]["BoardGroup"][];
+            /**
+             * Scoped Tournaments
+             * @description Set when the board shows only the viewer's own tournaments.
+             */
+            scoped_tournaments?: number | null;
+            /** Stages */
+            stages: components["schemas"]["Named"][];
+            /** Tournaments */
+            tournaments: components["schemas"]["Named"][];
+            /**
+             * Zone
+             * @description The IANA zone the days are cut on and times print in.
+             */
+            zone: string;
+        };
+        /** BoardRow */
+        BoardRow: {
+            /** Best Of */
+            best_of?: number | null;
+            /**
+             * Bracket
+             * @description The bracket stage the match is a game of.
+             */
+            bracket?: string | null;
+            can: components["schemas"]["RowCaps"];
+            /**
+             * Comments
+             * @description Comment counts by `player` and `staff`.
+             */
+            comments?: {
+                [key: string]: number;
+            };
+            /** Crew */
+            crew: components["schemas"]["CrewRole"][];
+            /** Game */
+            game?: number | null;
+            /** Group */
+            group: string;
+            /** Id */
+            id: number;
+            /**
+             * Is Racetime
+             * @default false
+             */
+            is_racetime: boolean;
+            /** Late */
+            late: components["schemas"]["LateTag"][];
+            /**
+             * Needs Review
+             * @default false
+             */
+            needs_review: boolean;
+            next_step?: components["schemas"]["NextStep"] | null;
+            /**
+             * Overrun
+             * @description A live match already past its estimated end.
+             * @default false
+             */
+            overrun: boolean;
+            /**
+             * Pending Result
+             * @description A result held behind Undo, as its label.
+             */
+            pending_result?: string | null;
+            /**
+             * Placeholders
+             * @description Undecided sides, such as `Winner of QF1`.
+             */
+            placeholders?: string[];
+            played_on_site?: components["schemas"]["SiteResult"] | null;
+            /** Players */
+            players: components["schemas"]["BoardPlayer"][];
+            racetime_held?: components["schemas"]["HeldResult"] | null;
+            /** Scheduled At */
+            scheduled_at?: string | null;
+            /**
+             * Seat Line
+             * @description Where the players sit, in a few words.
+             */
+            seat_line?: string | null;
+            /** Seed Code */
+            seed_code?: string | null;
+            /** Seed Error */
+            seed_error?: string | null;
+            /**
+             * Seed Rolling
+             * @default false
+             */
+            seed_rolling: boolean;
+            /** Seed Url */
+            seed_url?: string | null;
+            /** Set Label */
+            set_label?: string | null;
+            /** Stage */
+            stage?: string | null;
+            /** Stage Id */
+            stage_id?: number | null;
+            /** Started At */
+            started_at?: string | null;
+            /**
+             * State
+             * @description `Scheduled`, `Checked In`, `Started`, `Finished` or `Confirmed`.
+             */
+            state: string;
+            /**
+             * Status
+             * @description The line's status word, ready to print (`Late`, `To confirm`, `Played on Challonge`).
+             */
+            status: string;
+            /**
+             * Stream Candidate
+             * @default false
+             */
+            stream_candidate: boolean;
+            /**
+             * Tone
+             * @description The status chip's tone: `neutral`, `info`, `live`, `pending`, `ok` or `cancelled`.
+             */
+            tone: string;
+            /**
+             * Tournament
+             * @description The tournament's short name, else its name.
+             */
+            tournament: string;
+            /** Tournament Id */
+            tournament_id?: number | null;
+            /** Tournament Name */
+            tournament_name: string;
+            /**
+             * Until At
+             * @description When it finished, or while it runs, the estimated end.
+             */
+            until_at?: string | null;
+            /**
+             * Until Estimated
+             * @default false
+             */
+            until_estimated: boolean;
+            /**
+             * Winners
+             * @description The one-tap winner buttons on a live head-to-head.
+             */
+            winners?: components["schemas"]["Winner"][];
         };
         /** BookRequest */
         BookRequest: {
@@ -11635,6 +12002,15 @@ export interface components {
              */
             note?: string | null;
         };
+        /** CancelRequest */
+        CancelRequest: {
+            /**
+             * Reason
+             * @description Told to the players and crew.
+             * @default
+             */
+            reason: string;
+        };
         /** CapacityForecastResponse */
         CapacityForecastResponse: {
             /**
@@ -12010,6 +12386,20 @@ export interface components {
              */
             withdrawn: number;
         };
+        /** ChecklistItem */
+        ChecklistItem: {
+            /** Detail */
+            detail: string;
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /**
+             * Ready
+             * @description True or false for what a match needs; null for information only.
+             */
+            ready?: boolean | null;
+        };
         /** ClockUpdate */
         ClockUpdate: {
             /**
@@ -12127,7 +12517,7 @@ export interface components {
              * Setup
              * @description The whole setup checklist.
              */
-            setup: components["schemas"]["SetupStepResponse"][];
+            setup: components["schemas"]["api__schemas__platform__SetupStepResponse"][];
             /**
              * Setup Missing
              * @description Setup steps still to do, by label.
@@ -12692,6 +13082,55 @@ export interface components {
              * @description Distinct people who signed up, per bucket.
              */
             unique_people: number[];
+        };
+        /** CrewPerson */
+        CrewPerson: {
+            /** Approved */
+            approved: boolean;
+            /**
+             * Id
+             * @description The crew signup id, for `POST /crew/{crew_type}/{crew_id}/approval`.
+             */
+            id?: number | null;
+            /** Name */
+            name: string;
+            /**
+             * With
+             * @description The partner a commentator was invited with.
+             */
+            with?: string | null;
+        };
+        /** CrewRole */
+        CrewRole: {
+            /**
+             * Approvable
+             * @description The match is still open for crew approval.
+             */
+            approvable: boolean;
+            /**
+             * Count
+             * @description Signups against need, ready to print (`1/2`).
+             */
+            count: string;
+            /**
+             * Key
+             * @description `commentators`, `trackers` or `broadcasters`.
+             */
+            key: string;
+            /** Label */
+            label: string;
+            /** People */
+            people: components["schemas"]["CrewPerson"][];
+            /**
+             * Short
+             * @description Fewer signups than the match needs, while that can still be fixed.
+             */
+            short: boolean;
+            /**
+             * Unapproved
+             * @description Enough signups, but some wait for approval.
+             */
+            unapproved: boolean;
         };
         /** CrewSignupInfo */
         CrewSignupInfo: {
@@ -13864,6 +14303,17 @@ export interface components {
              */
             status: string;
         };
+        /** HeldResult */
+        HeldResult: {
+            /** Detail */
+            detail: string;
+            /** Label */
+            label: string;
+            /** Reason */
+            reason: string;
+            /** Url */
+            url?: string | null;
+        };
         /** HomeResponse */
         HomeResponse: {
             /** Needs You */
@@ -13919,6 +14369,13 @@ export interface components {
              * @description Their display name, or their username when they have none.
              */
             user_name?: string | null;
+        };
+        /** LateTag */
+        LateTag: {
+            /** Label */
+            label: string;
+            /** Note */
+            note?: string | null;
         };
         /** LeaderboardEntryResponse */
         LeaderboardEntryResponse: {
@@ -14445,6 +14902,156 @@ export interface components {
              * @description Name of the tournament, or an empty string.
              */
             tournament_name: string;
+        };
+        /** MatchPaneResponse */
+        MatchPaneResponse: {
+            /**
+             * Ada Notes
+             * @description Staff ADA notes by user id; withheld from proctors.
+             */
+            ada_notes?: {
+                [key: string]: string;
+            };
+            /** Best Of */
+            best_of?: number | null;
+            /**
+             * Bracket
+             * @description The bracket stage the match is a game of.
+             */
+            bracket?: string | null;
+            can: components["schemas"]["RowCaps"];
+            /** Checklist */
+            checklist: components["schemas"]["ChecklistItem"][];
+            /**
+             * Comments
+             * @description Comment counts by `player` and `staff`.
+             */
+            comments?: {
+                [key: string]: number;
+            };
+            /** Crew */
+            crew: components["schemas"]["CrewRole"][];
+            /** Description */
+            description?: string | null;
+            /** Game */
+            game?: number | null;
+            /** Group */
+            group: string;
+            /** Id */
+            id: number;
+            /**
+             * Is Racetime
+             * @default false
+             */
+            is_racetime: boolean;
+            /** Late */
+            late: components["schemas"]["LateTag"][];
+            /**
+             * Needs Review
+             * @default false
+             */
+            needs_review: boolean;
+            next_step?: components["schemas"]["NextStep"] | null;
+            /**
+             * Overrun
+             * @description A live match already past its estimated end.
+             * @default false
+             */
+            overrun: boolean;
+            /**
+             * Pending Result
+             * @description A result held behind Undo, as its label.
+             */
+            pending_result?: string | null;
+            /**
+             * Placeholders
+             * @description Undecided sides, such as `Winner of QF1`.
+             */
+            placeholders?: string[];
+            played_on_site?: components["schemas"]["SiteResult"] | null;
+            /** Players */
+            players: components["schemas"]["BoardPlayer"][];
+            racetime_held?: components["schemas"]["HeldResult"] | null;
+            /** Rewind To */
+            rewind_to: components["schemas"]["RewindTarget"][];
+            /** Scheduled At */
+            scheduled_at?: string | null;
+            /**
+             * Seat Line
+             * @description Where the players sit, in a few words.
+             */
+            seat_line?: string | null;
+            /** Seed Code */
+            seed_code?: string | null;
+            /** Seed Dm Blocked */
+            seed_dm_blocked: string[];
+            /** Seed Error */
+            seed_error?: string | null;
+            /**
+             * Seed Rolling
+             * @default false
+             */
+            seed_rolling: boolean;
+            /** Seed Url */
+            seed_url?: string | null;
+            /** Set Label */
+            set_label?: string | null;
+            /** Stage */
+            stage?: string | null;
+            /** Stage Id */
+            stage_id?: number | null;
+            /** Stage Url */
+            stage_url?: string | null;
+            /** Started At */
+            started_at?: string | null;
+            /**
+             * State
+             * @description `Scheduled`, `Checked In`, `Started`, `Finished` or `Confirmed`.
+             */
+            state: string;
+            /** State Since */
+            state_since?: string | null;
+            /**
+             * Status
+             * @description The line's status word, ready to print (`Late`, `To confirm`, `Played on Challonge`).
+             */
+            status: string;
+            /**
+             * Stream Candidate
+             * @default false
+             */
+            stream_candidate: boolean;
+            /**
+             * Tone
+             * @description The status chip's tone: `neutral`, `info`, `live`, `pending`, `ok` or `cancelled`.
+             */
+            tone: string;
+            /**
+             * Tournament
+             * @description The tournament's short name, else its name.
+             */
+            tournament: string;
+            /** Tournament Id */
+            tournament_id?: number | null;
+            /** Tournament Name */
+            tournament_name: string;
+            /**
+             * Until At
+             * @description When it finished, or while it runs, the estimated end.
+             */
+            until_at?: string | null;
+            /**
+             * Until Estimated
+             * @default false
+             */
+            until_estimated: boolean;
+            /**
+             * Winners
+             * @description The one-tap winner buttons on a live head-to-head.
+             */
+            winners?: components["schemas"]["Winner"][];
+            /** Zone */
+            zone: string;
         };
         /**
          * MatchRequestCreate
@@ -14981,6 +15588,13 @@ export interface components {
             /** @description Run status: `pending` (created ahead of a live race, not yet started), `in_progress`, `finished`, `forfeit` or `disqualified`. */
             status: components["schemas"]["AsyncQualifierRunStatus"];
         };
+        /** Named */
+        Named: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+        };
         /** NeedResponse */
         NeedResponse: {
             /**
@@ -15013,6 +15627,23 @@ export interface components {
             request_id?: number | null;
             /** Title */
             title: string;
+        };
+        /** NextStep */
+        NextStep: {
+            /**
+             * Event
+             * @description `seat`, `roll`, `start`, `winner` or `finish`; none while a seed rolls.
+             */
+            event?: string | null;
+            /** Label */
+            label: string;
+            /** Primary */
+            primary: boolean;
+            /**
+             * Rolling
+             * @default false
+             */
+            rolling: boolean;
         };
         /** NoticeInfo */
         NoticeInfo: {
@@ -16950,6 +17581,21 @@ export interface components {
              */
             note?: string | null;
         };
+        /** RewindRequest */
+        RewindRequest: {
+            /**
+             * To Step
+             * @description A step from the pane's `rewind_to`: `scheduled`, `checked_in`, `started` or `finished`.
+             */
+            to_step: string;
+        };
+        /** RewindTarget */
+        RewindTarget: {
+            /** Explanation */
+            explanation: string;
+            /** Step */
+            step: string;
+        };
         /**
          * Role
          * @enum {string}
@@ -17051,6 +17697,34 @@ export interface components {
              * @description Matchups in the stage.
              */
             total: number;
+        };
+        /** RowCaps */
+        RowCaps: {
+            /**
+             * Confirm
+             * @description Record, change or confirm the result.
+             */
+            confirm: boolean;
+            /**
+             * Crew
+             * @description Approve or decline crew signups.
+             */
+            crew: boolean;
+            /**
+             * Edit
+             * @description Edit, delete, rewind or call off the match.
+             */
+            edit: boolean;
+            /**
+             * Run
+             * @description Check in, roll the seed, start, finish, assign stations.
+             */
+            run: boolean;
+            /**
+             * Stage
+             * @description Put the match on a stage or take it off.
+             */
+            stage: boolean;
         };
         /** RunningLateRequest */
         RunningLateRequest: {
@@ -17515,33 +18189,16 @@ export interface components {
                 [key: string]: number | null;
             };
         };
-        /** SetupStepResponse */
-        SetupStepResponse: {
-            /**
-             * Done
-             * @description Whether the community has done it.
-             */
-            done: boolean;
-            /**
-             * Hint
-             * @description Why the step matters.
-             */
-            hint: string;
-            /**
-             * Key
-             * @description Stable id of the step, such as `staff` or `tournament`.
-             */
-            key: string;
-            /**
-             * Label
-             * @description What the step asks for.
-             */
+        /** SettingsPaneResponse */
+        SettingsPaneResponse: {
+            /** Icon */
+            icon: string;
+            /** Label */
             label: string;
-            /**
-             * Required
-             * @description Whether matches can't be scheduled until it's done.
-             */
-            required: boolean;
+            /** Slug */
+            slug: string;
+            /** Summary */
+            summary: string;
         };
         /** ShiftLateRequest */
         ShiftLateRequest: {
@@ -17550,6 +18207,23 @@ export interface components {
              * @description How late you expect to be: 10, 20 or 30.
              */
             minutes: number;
+        };
+        /** SiteResult */
+        SiteResult: {
+            /**
+             * No Winner
+             * @default false
+             */
+            no_winner: boolean;
+            /**
+             * Site
+             * @description `Challonge` or `start.gg`.
+             */
+            site: string;
+            /** Winner */
+            winner?: string | null;
+            /** Winner User Id */
+            winner_user_id?: number | null;
         };
         /**
          * SpeedGamingEpisodeResponse
@@ -20985,6 +21659,59 @@ export interface components {
              */
             url?: string | null;
         };
+        /** Winner */
+        Winner: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+        };
+        /** SetupStepResponse */
+        api__schemas__admin_nav__SetupStepResponse: {
+            /** Done */
+            done: boolean;
+            /** Hint */
+            hint: string;
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Required */
+            required: boolean;
+            /**
+             * Tab
+             * @description Label of the admin area that finishes this step.
+             */
+            tab: string;
+        };
+        /** SetupStepResponse */
+        api__schemas__platform__SetupStepResponse: {
+            /**
+             * Done
+             * @description Whether the community has done it.
+             */
+            done: boolean;
+            /**
+             * Hint
+             * @description Why the step matters.
+             */
+            hint: string;
+            /**
+             * Key
+             * @description Stable id of the step, such as `staff` or `tournament`.
+             */
+            key: string;
+            /**
+             * Label
+             * @description What the step asks for.
+             */
+            label: string;
+            /**
+             * Required
+             * @description Whether matches can't be scheduled until it's done.
+             */
+            required: boolean;
+        };
     };
     responses: never;
     parameters: never;
@@ -20994,6 +21721,209 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    board_api_admin_match_schedule_get: {
+        parameters: {
+            query?: {
+                /** @description A day on the board's clock; leave out for every day. */
+                day?: string | null;
+                tournament_id?: number | null;
+                stage_id?: number | null;
+                /** @description Matches players, tournament or stage. */
+                q?: string;
+                /** @description The device's IANA zone, used when neither the community nor you pin one. */
+                tz?: string | null;
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BoardResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    match_pane_api_admin_match_schedule_matches__match_id__get: {
+        parameters: {
+            query?: {
+                tz?: string | null;
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                match_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchPaneResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    admin_nav_api_admin_nav_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminNavResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     reports_menu_api_admin_reports_get: {
         parameters: {
             query?: {
@@ -32091,6 +33021,87 @@ export interface operations {
             };
         };
     };
+    cancel_match_api_matches__match_id__cancel_post: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                match_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CancelRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     confirm_match_api_matches__match_id__confirm_post: {
         parameters: {
             query?: {
@@ -32814,6 +33825,89 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["SetReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    rewind_match_api_matches__match_id__rewind_post: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                match_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RewindRequest"];
             };
         };
         responses: {
