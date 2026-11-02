@@ -9,7 +9,15 @@ on its own. The Help index is the way in; there is no menu item.
 
 from nicegui import app, ui
 
-from application.about import ABOUT_INTRO, BUILT_WITH_CLAUDE, PRIVACY_UPDATED, Notice, all_notices, find_notice, privacy_blocks
+from application.about import (
+    ABOUT_INTRO,
+    BUILT_WITH_CLAUDE,
+    PRIVACY_UPDATED,
+    Notice,
+    all_notices,
+    find_notice,
+    privacy_blocks,
+)
 from application.content import parse_blocks
 from application.services import TenantService, get_user_from_session
 from application.utils.build_info import build_info
