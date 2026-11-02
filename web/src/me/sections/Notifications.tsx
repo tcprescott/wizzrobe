@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { api, unwrap, type Schemas } from '../../api/client'
 import { Banner, Button, FormDialog, Icon, Panel, PanelRow, RowMenu, Spinner } from '../../components'
 import { currentEndpoint, pushUnavailable, subscribeDevice } from '../../lib/push'
+import { nativePlatform } from '../../lib/platform'
+import { nativePushUnavailable, rememberDeviceId, rememberedDeviceId, requestNativePush } from '../../native/push'
 import { message, useSection, type Channels } from '../data'
 import { useProfile } from '../MeLayout'
 
@@ -43,6 +45,10 @@ function deviceName(agent: string | null | undefined): string {
   const browser = /Edg\//.test(ua) ? 'Edge' : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : 'Browser'
   const os = /iPhone|iPad/.test(ua) ? 'iPhone or iPad' : /Android/.test(ua) ? 'Android' : /Mac OS X/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : /Linux/.test(ua) ? 'Linux' : ''
   return os ? `${browser} on ${os}` : browser
+}
+
+function phoneName(d: { platform: string; device_name?: string | null }): string {
+  return d.device_name || (d.platform === 'ios' ? 'iPhone or iPad' : 'Android phone')
 }
 
 function Switch({ id, checked, onChange, label, disabled }: { id: string; checked: boolean; onChange: (v: boolean) => void; label: string; disabled?: boolean }) {
@@ -158,11 +164,20 @@ function ChannelsPanel({ data, run, reload }: { data: Channels; run: Run; reload
   const [testOpen, setTestOpen] = useState(false)
   const [telegramUrl, setTelegramUrl] = useState<string | null>(null)
 
+  const platform = nativePlatform()
+  const nativeReady = platform !== null && data.native_push_platforms.includes(platform)
+  const nativeId = platform ? rememberedDeviceId() : null
+  const nativeOn = nativeId !== null && data.native_devices.some((d) => d.id === nativeId)
+
   useEffect(() => {
+    if (platform) {
+      if (nativeReady) void nativePushUnavailable().then(setUnavailable)
+      return
+    }
     if (!data.push_configured) return
     void pushUnavailable().then(setUnavailable)
     void currentEndpoint().then(setThisDevice)
-  }, [data.push_configured])
+  }, [data.push_configured, platform, nativeReady])
 
   useEffect(() => {
     if (!telegramUrl || data.telegram_connected) return
@@ -203,7 +218,36 @@ function ChannelsPanel({ data, run, reload }: { data: Channels; run: Run; reload
           </div>
         </PanelRow>
       )}
-      {data.push_configured && (
+      {nativeReady && (
+        <PanelRow>
+          <div className="me-row">
+            <Icon name="mobile" />
+            <span className="me-row__text">
+              <span className="me-row__title">This phone</span>
+              <span className="me-row__sub">{nativeOn ? 'Getting notifications' : unavailable ?? 'Not turned on'}</span>
+            </span>
+            {!nativeOn && !unavailable && (
+              <Button
+                variant="outline"
+                onClick={() =>
+                  void run(
+                    async () => {
+                      const registration = await requestNativePush()
+                      const next = await api.POST('/api/me/channels/native-devices', { body: registration }).then(unwrap)
+                      rememberDeviceId(next.registered_device_id ?? null)
+                    },
+                    reload,
+                    'Notifications are on for this phone.',
+                  )
+                }
+              >
+                Turn on
+              </Button>
+            )}
+          </div>
+        </PanelRow>
+      )}
+      {!platform && data.push_configured && (
         <PanelRow>
           <div className="me-row">
             <Icon name="mobile" />
@@ -252,6 +296,38 @@ function ChannelsPanel({ data, run, reload }: { data: Channels; run: Run; reload
                       () => api.DELETE('/api/me/channels/devices/{device_id}', { params: { path: { device_id: d.id } } }).then(unwrap),
                       reload,
                       'That device will stop getting notifications.',
+                    ),
+                },
+              ]}
+            />
+          </div>
+        </PanelRow>
+      ))}
+      {data.native_devices.map((d) => (
+        <PanelRow key={`app-${d.id}`}>
+          <div className="me-row">
+            <Icon name="notifications" />
+            <span className="me-row__text">
+              <span className="me-row__title">{phoneName(d)}</span>
+              <span className="me-row__sub">Wizzrobe app · since {new Date(d.created_at).toLocaleDateString()}</span>
+            </span>
+            <RowMenu
+              label={`More for ${phoneName(d)}`}
+              items={[
+                {
+                  label: 'Stop notifications here',
+                  icon: 'delete',
+                  destructive: true,
+                  onSelect: () =>
+                    void run(
+                      async () => {
+                        await api
+                          .DELETE('/api/me/channels/native-devices/{device_id}', { params: { path: { device_id: d.id } } })
+                          .then(unwrap)
+                        if (d.id === nativeId) rememberDeviceId(null)
+                      },
+                      reload,
+                      'That phone will stop getting notifications.',
                     ),
                 },
               ]}

@@ -43,7 +43,12 @@ NON_ACTOR = {"require_feature"}
 #   version  — the build version, also printed on the public /about page.
 #   rotate   — a push service reissued an endpoint; the caller proves itself by
 #              knowing the old endpoint and auth, and has no token to send.
-ALLOWLIST = {("health", "health"), ("version", "version"), ("web_push", "rotate")}
+ALLOWLIST = {
+    ("health", "health"), ("version", "version"), ("web_push", "rotate"),
+    # What's new, About and facts describe the app itself, like /version.
+    ("reading", "changelog"), ("reading", "about"), ("reading", "privacy"),
+    ("reading", "notices"), ("reading", "notice"), ("reading", "facts"),
+}
 
 
 def is_write_dep(name: str) -> bool:
