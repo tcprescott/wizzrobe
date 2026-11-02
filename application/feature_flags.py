@@ -86,7 +86,7 @@ FEATURE_FLAG_REGISTRY: Dict[FeatureFlag, FeatureFlagSpec] = {
             'Self-paced permalink-pool qualifiers with their own leaderboard, '
             'run review, and optional live races.',
             'Online tournaments',
-            service_modules=('application/services/async_qualifier/',),
+            service_modules=('application/services/async_qualifier/', 'application/services/admin_qualifiers_service.py'),
         ),
         FeatureFlagSpec(
             FeatureFlag.RACETIME_ROOMS,

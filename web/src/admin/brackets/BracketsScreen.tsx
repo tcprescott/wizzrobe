@@ -71,7 +71,7 @@ function BracketsBoard() {
         itemTo={(s) => `${base}/${s.id}`}
         title={(s) => `${names.get(s.tournament_id) ?? 'Tournament'} · ${s.name}`}
         sub={(s) => (
-          <span className="b-sub">
+          <span className="side-list__meta">
             <Chip tone={STATE_TONE[s.state]}>{s.state_label}</Chip>
             <span>{s.next_step.key ? `${s.next_step.title} · ${s.next_step.detail}` : s.next_step.detail}</span>
           </span>

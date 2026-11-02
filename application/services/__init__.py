@@ -47,6 +47,7 @@ from . import (
 )
 from .accommodation_service import AccommodationService
 from .admin_brackets_service import AdminBracketsService
+from .admin_qualifiers_service import AdminQualifiersService
 from .admin_nav_service import AdminAccess, AdminNav, AdminNavService
 from .admin_presets_service import AdminPresetsService
 from .admin_schedule_service import AdminScheduleService
@@ -221,6 +222,7 @@ __all__ = [
     'AccountOverview',
     'AdminAccess',
     'AdminBracketsService',
+    'AdminQualifiersService',
     'AdminNav',
     'AdminNavService',
     'AdminPresetsService',

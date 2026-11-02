@@ -370,6 +370,131 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/qualifiers/board": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The Qualifiers board
+         * @description Every qualifier the caller runs or reviews, open ones first, each with how many runs wait for review.
+         *
+         *     **Who can call this:** Staff, Qualifier Admins, and the qualifier's own reviewers.
+         *
+         *     **App scope:** `staff:read`
+         *     **Feature:** only works when the community has **Async Qualifiers** turned on; otherwise every call answers `404`.
+         */
+        get: operations["board_api_admin_qualifiers_board_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/qualifiers/{qualifier_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One qualifier
+         * @description The review queue (with each runner's other attempts and the claim lock), the top of the leaderboard, and counts for the setup pages.
+         *
+         *     **Who can call this:** Staff, Qualifier Admins, and the qualifier's own reviewers.
+         *
+         *     **App scope:** `staff:read`
+         *     **Feature:** only works when the community has **Async Qualifiers** turned on; otherwise every call answers `404`.
+         */
+        get: operations["detail_api_admin_qualifiers__qualifier_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/qualifiers/{qualifier_id}/live-races": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A qualifier's live races
+         * @description Each live race, newest first, with its pool, state and racetime room.
+         *
+         *     **Who can call this:** Staff, Qualifier Admins, and the qualifier's own reviewers.
+         *
+         *     **App scope:** `staff:read`
+         *     **Feature:** only works when the community has **Async Qualifiers** turned on; otherwise every call answers `404`.
+         */
+        get: operations["live_races_api_admin_qualifiers__qualifier_id__live_races_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/qualifiers/{qualifier_id}/pools": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A qualifier's pools and seeds
+         * @description Each pool with its preset, whether it can roll seeds, and its permalinks.
+         *
+         *     **Who can call this:** Staff, Qualifier Admins, and the qualifier's own reviewers.
+         *
+         *     **App scope:** `staff:read`
+         *     **Feature:** only works when the community has **Async Qualifiers** turned on; otherwise every call answers `404`.
+         */
+        get: operations["pools_api_admin_qualifiers__qualifier_id__pools_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/qualifiers/{qualifier_id}/reviewers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A qualifier's reviewers
+         * @description The people who review this qualifier only (Staff and Qualifier Admins review every one), and the community's members to add from.
+         *
+         *     **Who can call this:** Staff, Qualifier Admins, and the qualifier's own reviewers.
+         *
+         *     **App scope:** `staff:read`
+         *     **Feature:** only works when the community has **Async Qualifiers** turned on; otherwise every call answers `404`.
+         */
+        get: operations["reviewers_api_admin_qualifiers__qualifier_id__reviewers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/tournaments/board": {
         parameters: {
             query?: never;
@@ -18043,6 +18168,38 @@ export interface components {
             /** User Agent */
             user_agent?: string | null;
         };
+        /** QualifierBoardLineResponse */
+        QualifierBoardLineResponse: {
+            /** Name */
+            name: string;
+            /** Rank */
+            rank: number;
+            /** Score */
+            score: number;
+            /**
+             * Slots
+             * @description Slots filled out of the total, as "4/6".
+             */
+            slots: string;
+        };
+        /** QualifierBoardResponse */
+        QualifierBoardResponse: {
+            /**
+             * Can Create
+             * @description Whether the caller may add a qualifier (Staff or Qualifier Admin).
+             */
+            can_create: boolean;
+            /**
+             * Qualifiers
+             * @description Open ones first, then by how much is waiting.
+             */
+            qualifiers: components["schemas"]["QualifierRowResponse"][];
+            /**
+             * Zone
+             * @description The IANA zone to show times in for this viewer, or null for the device's.
+             */
+            zone?: string | null;
+        };
         /** QualifierCreateRequest */
         QualifierCreateRequest: {
             /**
@@ -18090,6 +18247,182 @@ export interface components {
              */
             runs_per_pool: number;
         };
+        /** QualifierDetailResponse */
+        QualifierDetailResponse: {
+            /**
+             * Leaderboard
+             * @description The top of the leaderboard.
+             */
+            leaderboard: components["schemas"]["QualifierBoardLineResponse"][];
+            /** Leaderboard Total */
+            leaderboard_total: number;
+            /**
+             * Queue
+             * @description Runs waiting for review, oldest finish first.
+             */
+            queue: components["schemas"]["QualifierQueueCardResponse"][];
+            row: components["schemas"]["QualifierRowResponse"];
+            settings: components["schemas"]["QualifierSettingsResponse"];
+            setup: components["schemas"]["QualifierSetupResponse"];
+        };
+        /** QualifierLiveRaceLineResponse */
+        QualifierLiveRaceLineResponse: {
+            /** Has Seed */
+            has_seed: boolean;
+            /** Id */
+            id: number;
+            /** Pool */
+            pool: string;
+            /** Racetime Slug */
+            racetime_slug?: string | null;
+            /** Status */
+            status: string;
+            /** Status Label */
+            status_label: string;
+            /** Title */
+            title: string;
+        };
+        /** QualifierPermalinkLineResponse */
+        QualifierPermalinkLineResponse: {
+            /** Id */
+            id: number;
+            /**
+             * Live Race
+             * @description Kept for live races, not drawn for async runs.
+             */
+            live_race: boolean;
+            /** Notes */
+            notes?: string | null;
+            /** Par Seconds */
+            par_seconds?: number | null;
+            /** Url */
+            url: string;
+        };
+        /** QualifierPersonResponse */
+        QualifierPersonResponse: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Username */
+            username?: string | null;
+        };
+        /** QualifierPoolLineResponse */
+        QualifierPoolLineResponse: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Permalinks */
+            permalinks: components["schemas"]["QualifierPermalinkLineResponse"][];
+            /** Preset Id */
+            preset_id?: number | null;
+            /** Preset Name */
+            preset_name?: string | null;
+            /**
+             * Roll Refusal
+             * @description Why seeds can't be rolled into this pool, or null when they can.
+             */
+            roll_refusal?: string | null;
+        };
+        /** QualifierQueueCardResponse */
+        QualifierQueueCardResponse: {
+            /**
+             * Claimed Seconds
+             * @description The time the runner submitted.
+             */
+            claimed_seconds?: number | null;
+            /** Finished At */
+            finished_at?: string | null;
+            /**
+             * Held By
+             * @description Who holds the review claim, or null.
+             */
+            held_by?: string | null;
+            /** Held By Me */
+            held_by_me: boolean;
+            /**
+             * Implausible
+             * @description The claimed time is well under what the wall clock allows.
+             */
+            implausible: boolean;
+            /**
+             * Measured Seconds
+             * @description The wall clock from draw to submit.
+             */
+            measured_seconds?: number | null;
+            /**
+             * Notes
+             * @description Review notes already on the run.
+             */
+            notes: string[];
+            /**
+             * Other Runs
+             * @description The runner's other attempts here, or empty.
+             */
+            other_runs: string;
+            /** Permalink Url */
+            permalink_url?: string | null;
+            /** Pool */
+            pool: string;
+            /** Run Id */
+            run_id: number;
+            /** Runner */
+            runner: string;
+            /** Runner Id */
+            runner_id: number;
+            /** Started At */
+            started_at?: string | null;
+            /** Vod Url */
+            vod_url?: string | null;
+        };
+        /** QualifierReviewersResponse */
+        QualifierReviewersResponse: {
+            /**
+             * Members
+             * @description The community's active members, to add from.
+             */
+            members: components["schemas"]["QualifierPersonResponse"][];
+            /**
+             * Reviewers
+             * @description People who review this qualifier only.
+             */
+            reviewers: components["schemas"]["QualifierPersonResponse"][];
+        };
+        /** QualifierRowResponse */
+        QualifierRowResponse: {
+            /**
+             * Closes At
+             * @description When runs close (UTC), or null for no end.
+             */
+            closes_at?: string | null;
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /**
+             * Opens At
+             * @description When runs open (UTC), or null for no start.
+             */
+            opens_at?: string | null;
+            /**
+             * Runs
+             * @description Every run in the qualifier.
+             */
+            runs: number;
+            /**
+             * State
+             * @description `open`, `upcoming`, `closed`, or `off` (switched off).
+             */
+            state: string;
+            /** State Label */
+            state_label: string;
+            /**
+             * To Review
+             * @description Finished runs waiting for a verdict.
+             */
+            to_review: number;
+        };
         /** QualifierSeedingResponse */
         QualifierSeedingResponse: {
             /**
@@ -18104,6 +18437,35 @@ export interface components {
              * @description Entrants the leaderboard doesn't cover, left out of `seeds`.
              */
             unmatched: string[];
+        };
+        /** QualifierSettingsResponse */
+        QualifierSettingsResponse: {
+            /** Allowed Reattempts */
+            allowed_reattempts: number;
+            /** Description */
+            description?: string | null;
+            /** Event Name */
+            event_name?: string | null;
+            /** Is Active */
+            is_active: boolean;
+            /** Runs Per Pool */
+            runs_per_pool: number;
+        };
+        /** QualifierSetupResponse */
+        QualifierSetupResponse: {
+            /** Live Races */
+            live_races: number;
+            /**
+             * Live Races Open
+             * @description Live races scheduled, open or racing.
+             */
+            live_races_open: number;
+            /** Pools */
+            pools: number;
+            /** Reviewers */
+            reviewers: number;
+            /** Seeds */
+            seeds: number;
         };
         /** QualifierUpdateRequest */
         QualifierUpdateRequest: {
@@ -24294,6 +24656,354 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    board_api_admin_qualifiers_board_get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QualifierBoardResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    detail_api_admin_qualifiers__qualifier_id__get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                qualifier_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QualifierDetailResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    live_races_api_admin_qualifiers__qualifier_id__live_races_get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                qualifier_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QualifierLiveRaceLineResponse"][];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    pools_api_admin_qualifiers__qualifier_id__pools_get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                qualifier_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QualifierPoolLineResponse"][];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    reviewers_api_admin_qualifiers__qualifier_id__reviewers_get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                qualifier_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QualifierReviewersResponse"];
                 };
             };
             /** @description No token, or the token is unknown, expired or revoked. */

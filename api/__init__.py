@@ -15,6 +15,7 @@ from api.routers import (
     admin_match_schedule,
     admin_nav,
     admin_presets,
+    admin_qualifiers,
     admin_tournaments,
     async_qualifier_live_races,
     async_qualifiers,
@@ -179,6 +180,10 @@ router.include_router(
 )
 router.include_router(
     async_qualifiers.router,
+    dependencies=[Depends(require_feature(FeatureFlag.ASYNC_QUALIFIERS))],
+)
+router.include_router(
+    admin_qualifiers.router,
     dependencies=[Depends(require_feature(FeatureFlag.ASYNC_QUALIFIERS))],
 )
 

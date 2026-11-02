@@ -68,6 +68,12 @@
   color: var(--fg-muted);
   overflow-wrap: anywhere;
 }
+.side-list__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+}
 .side-list__chev {
   color: var(--fg-muted);
   flex: none;

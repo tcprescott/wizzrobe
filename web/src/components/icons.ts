@@ -143,6 +143,7 @@ import ShuffleIcon from '@material-symbols/svg-400/outlined/shuffle.svg?react'
 import LeaderboardIcon from '@material-symbols/svg-400/outlined/leaderboard.svg?react'
 import ArrowUpwardIcon from '@material-symbols/svg-400/outlined/arrow_upward.svg?react'
 import ArrowDownwardIcon from '@material-symbols/svg-400/outlined/arrow_downward.svg?react'
+import LockOpenIcon from '@material-symbols/svg-400/outlined/lock_open.svg?react'
 
 type Svg = FC<SVGProps<SVGSVGElement>>
 
@@ -180,6 +181,7 @@ export const ICONS = {
   inbox: Inbox,
   priority_high: PriorityHigh,
   lock: Lock,
+  lock_open: LockOpenIcon,
   tv: Tv,
   open_in_new: OpenInNew,
   sports_esports: SportsEsports,
