@@ -86,6 +86,8 @@ const TARGETS = [
   { name: 'admin-qualifiers-pools', path: '/t/sgl/admin/qualifiers/7/pools', wait: 'text=Rolls from sgl27-open' },
   { name: 'admin-qualifiers-reviewers', path: '/t/sgl/admin/qualifiers/7/reviewers', wait: 'text=Find a member' },
   { name: 'admin-qualifiers-settings', path: '/t/sgl/admin/qualifiers/7/settings', wait: 'text=Undo changes' },
+  { name: 'admin-payouts', path: '/t/sgl/admin/payouts/3', wait: 'text=Dana Ortiz' },
+  { name: 'admin-payouts-sglive', path: '/t/sgl/admin/payouts', act: (p) => p.getByRole('button', { name: 'Actions' }).click().then(() => p.getByRole('menuitem', { name: 'Link sglive pages…' }).click()), wait: 'text=Suggested from the name' },
   { name: 'admin-stages', path: '/t/sgl/admin/stages/1' },
   { name: 'admin-stages-add', path: '/t/sgl/admin/stages', act: (p) => p.getByRole('button', { name: 'Add stage' }).click(), wait: 'role=dialog' },
   { name: 'admin-triforce', path: '/t/sgl/admin/triforce-texts/1' },

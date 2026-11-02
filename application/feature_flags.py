@@ -188,6 +188,7 @@ FEATURE_FLAG_REGISTRY: Dict[FeatureFlag, FeatureFlagSpec] = {
             "tournament's winners, with an export for the payout run.",
             'Operations',
             service_modules=('application/services/payout_service.py',
+                             'application/services/admin_payouts_service.py',
                              'application/services/sglive_pool_worker.py'),
         ),
         FeatureFlagSpec(

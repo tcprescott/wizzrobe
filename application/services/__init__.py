@@ -50,6 +50,7 @@ from .accommodation_service import AccommodationService
 from .admin_brackets_service import AdminBracketsService
 from .admin_match_form_service import AdminMatchFormService
 from .admin_nav_service import AdminAccess, AdminNav, AdminNavService
+from .admin_payouts_service import AdminPayoutsService
 from .admin_presets_service import AdminPresetsService
 from .admin_qualifiers_service import AdminQualifiersService
 from .admin_schedule_service import AdminScheduleService
@@ -228,6 +229,7 @@ __all__ = [
     'AdminMatchFormService',
     'AdminNav',
     'AdminNavService',
+    'AdminPayoutsService',
     'AdminPresetsService',
     'AdminQualifiersService',
     'AdminScheduleService',

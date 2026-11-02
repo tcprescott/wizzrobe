@@ -427,6 +427,165 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/payouts/board": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The Payouts board
+         * @description Every tournament the caller pays out, each with what its split still needs.
+         *
+         *     **Who can call this:** Staff, and tournament admins for their own tournaments.
+         *
+         *     **App scope:** `staff:read`
+         *     **Feature:** only works when the community has **Prize Payouts** turned on; otherwise every call answers `404`.
+         */
+        get: operations["board_api_admin_payouts_board_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/payouts/sglive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * sglive games and their links
+         * @description Every game on sglive.speedgaming.org with the tournament it pays into, or a name-matched suggestion.
+         *
+         *     **Who can call this:** Staff, and tournament admins for their own tournaments.
+         *
+         *     **App scope:** `staff:read`
+         *     **Feature:** only works when the community has **Prize Payouts** turned on; otherwise every call answers `404`.
+         */
+        get: operations["sglive_links_api_admin_payouts_sglive_get"];
+        /**
+         * Link sglive games to tournaments
+         * @description Saves which tournament each sglive game pays into, then fills the newly linked pools.
+         *
+         *     **Who can call this:** Staff, and tournament admins for their own tournaments.
+         *
+         *     **App scope:** `staff:write`
+         *     **Feature:** only works when the community has **Prize Payouts** turned on; otherwise every call answers `404`.
+         */
+        put: operations["set_sglive_links_api_admin_payouts_sglive_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/payouts/sglive/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sync pools from sglive now
+         * @description Reads sglive now instead of waiting for the 15-minute sync.
+         *
+         *     **Who can call this:** Staff, and tournament admins for their own tournaments.
+         *
+         *     **App scope:** `staff:write`
+         *     **Feature:** only works when the community has **Prize Payouts** turned on; otherwise every call answers `404`.
+         */
+        post: operations["sync_sglive_api_admin_payouts_sglive_sync_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/payouts/{tournament_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One tournament's payouts
+         * @description The pool, the bonus, every place in the split, and the players to name as winners.
+         *
+         *     **Who can call this:** Staff, and tournament admins for their own tournaments.
+         *
+         *     **App scope:** `staff:read`
+         *     **Feature:** only works when the community has **Prize Payouts** turned on; otherwise every call answers `404`.
+         */
+        get: operations["detail_api_admin_payouts__tournament_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/payouts/{tournament_id}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The payout block for Matcherino
+         * @description The split as text, in the shape the organizer asks admins to post.
+         *
+         *     **Who can call this:** Staff, and tournament admins for their own tournaments.
+         *
+         *     **App scope:** `staff:read`
+         *     **Feature:** only works when the community has **Prize Payouts** turned on; otherwise every call answers `404`.
+         */
+        get: operations["export_api_admin_payouts__tournament_id__export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/payouts/{tournament_id}/sglive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Stop syncing a pool from sglive
+         * @description The pool keeps its last synced amount and can be typed again.
+         *
+         *     **Who can call this:** Staff, and tournament admins for their own tournaments.
+         *
+         *     **App scope:** `staff:write`
+         *     **Feature:** only works when the community has **Prize Payouts** turned on; otherwise every call answers `404`.
+         */
+        delete: operations["unlink_sglive_api_admin_payouts__tournament_id__sglive_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/presets/check-paste": {
         parameters: {
             query?: never;
@@ -19352,6 +19511,93 @@ export interface components {
             /** Placeholder */
             placeholder: string;
         };
+        /** PayoutBoardResponse */
+        PayoutBoardResponse: {
+            /**
+             * Tournaments
+             * @description Every tournament the caller manages payouts for.
+             */
+            tournaments: components["schemas"]["PayoutRowResponse"][];
+            /**
+             * Zone
+             * @description The IANA zone to show times in for this viewer, or null for the device's.
+             */
+            zone?: string | null;
+        };
+        /** PayoutDetailResponse */
+        PayoutDetailResponse: {
+            /**
+             * Bonus
+             * @description The bonus, or null.
+             */
+            bonus?: string | null;
+            /**
+             * Entrants
+             * @description The tournament's players, plus anyone already named in the split.
+             */
+            entrants: components["schemas"]["PayoutEntrantResponse"][];
+            /** Id */
+            id: number;
+            /** Lines */
+            lines: components["schemas"]["PayoutEditLineResponse"][];
+            /** Name */
+            name: string;
+            /**
+             * Pool
+             * @description The pool, or null when nobody has set one.
+             */
+            pool?: string | null;
+            /**
+             * Sglive Slug
+             * @description The sglive page the pool follows; the pool can't be typed while set.
+             */
+            sglive_slug?: string | null;
+            /** Status */
+            status: string;
+            /** Status Label */
+            status_label: string;
+            /**
+             * Synced At
+             * @description When the pool last synced from sglive (UTC).
+             */
+            synced_at?: string | null;
+        };
+        /** PayoutEditLineResponse */
+        PayoutEditLineResponse: {
+            /**
+             * Amount
+             * @description The money this line pays right now.
+             */
+            amount: string;
+            /** Entrant Id */
+            entrant_id?: number | null;
+            /** Is Fixed */
+            is_fixed: boolean;
+            /** Note */
+            note?: string | null;
+            /**
+             * Percentage
+             * @description The share, or null on a fixed-amount line.
+             */
+            percentage?: string | null;
+            /** Place */
+            place: number;
+        };
+        /** PayoutEntrantResponse */
+        PayoutEntrantResponse: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+        };
+        /** PayoutExportResponse */
+        PayoutExportResponse: {
+            /**
+             * Text
+             * @description The payout block to paste into Matcherino's thread.
+             */
+            text: string;
+        };
         /** PayoutLineRequest */
         PayoutLineRequest: {
             /**
@@ -19428,6 +19674,37 @@ export interface components {
              * @description Finishing place this share pays, starting at 1. Tied places repeat.
              */
             place: number;
+        };
+        /** PayoutRowResponse */
+        PayoutRowResponse: {
+            /**
+             * Has Pool
+             * @description Whether a pool or bonus is set at all.
+             */
+            has_pool: boolean;
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Place Count */
+            place_count: number;
+            /**
+             * Sglive Slug
+             * @description The sglive page the pool follows, or null.
+             */
+            sglive_slug?: string | null;
+            /**
+             * Status
+             * @description `none` (no split yet), `unnamed` (a place has no winner), or `ready`.
+             */
+            status: string;
+            /** Status Label */
+            status_label: string;
+            /**
+             * Total
+             * @description Pool plus bonus.
+             */
+            total: string;
         };
         /** PayoutSplitRequest */
         PayoutSplitRequest: {
@@ -22287,6 +22564,53 @@ export interface components {
             slug: string;
             /** Summary */
             summary: string;
+        };
+        /** SgliveGameLineResponse */
+        SgliveGameLineResponse: {
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+            /**
+             * Suggested
+             * @description True when `tournament_id` is a name match, not a saved link.
+             */
+            suggested: boolean;
+            /** Total */
+            total: string;
+            /**
+             * Tournament Id
+             * @description The linked tournament, or the suggested one when `suggested`.
+             */
+            tournament_id?: number | null;
+        };
+        /** SgliveLinksRequest */
+        SgliveLinksRequest: {
+            /**
+             * Links
+             * @description sglive slug → tournament ID, or null to leave that game unlinked. Slugs left out keep their link.
+             */
+            links: {
+                [key: string]: number | null;
+            };
+        };
+        /** SgliveLinksResponse */
+        SgliveLinksResponse: {
+            /** Games */
+            games: components["schemas"]["SgliveGameLineResponse"][];
+            /**
+             * Tournaments
+             * @description Tournaments the caller can link.
+             */
+            tournaments: components["schemas"]["PayoutEntrantResponse"][];
+        };
+        /** SgliveSyncResponse */
+        SgliveSyncResponse: {
+            /**
+             * Missing
+             * @description Linked slugs sglive no longer lists; their pools kept their last amount.
+             */
+            missing: string[];
         };
         /** ShiftLateRequest */
         ShiftLateRequest: {
@@ -27577,6 +27901,515 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    board_api_admin_payouts_board_get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayoutBoardResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    sglive_links_api_admin_payouts_sglive_get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SgliveLinksResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    set_sglive_links_api_admin_payouts_sglive_put: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SgliveLinksRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    sync_sglive_api_admin_payouts_sglive_sync_post: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SgliveSyncResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    detail_api_admin_payouts__tournament_id__get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                tournament_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayoutDetailResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    export_api_admin_payouts__tournament_id__export_get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                tournament_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayoutExportResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    unlink_sglive_api_admin_payouts__tournament_id__sglive_delete: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                tournament_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
             /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */

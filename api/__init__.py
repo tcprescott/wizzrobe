@@ -12,6 +12,7 @@ from api.dependencies import require_feature, tenant_context_scope
 from api.rate_limit import rate_limit
 from api.routers import (
     admin_brackets,
+    admin_payouts,
     admin_match_schedule,
     admin_nav,
     admin_presets,
@@ -121,6 +122,10 @@ router.include_router(
 )
 router.include_router(
     payouts.router,
+    dependencies=[Depends(require_feature(FeatureFlag.PAYOUTS))],
+)
+router.include_router(
+    admin_payouts.router,
     dependencies=[Depends(require_feature(FeatureFlag.PAYOUTS))],
 )
 router.include_router(notifications.router)

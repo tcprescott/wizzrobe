@@ -13842,6 +13842,219 @@
         "title": "PasteFieldResponse",
         "type": "object"
       },
+      "PayoutBoardResponse": {
+        "properties": {
+          "tournaments": {
+            "description": "Every tournament the caller manages payouts for.",
+            "items": {
+              "$ref": "#/components/schemas/PayoutRowResponse"
+            },
+            "title": "Tournaments",
+            "type": "array"
+          },
+          "zone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The IANA zone to show times in for this viewer, or null for the device's.",
+            "title": "Zone"
+          }
+        },
+        "required": [
+          "tournaments"
+        ],
+        "title": "PayoutBoardResponse",
+        "type": "object"
+      },
+      "PayoutDetailResponse": {
+        "properties": {
+          "bonus": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The bonus, or null.",
+            "title": "Bonus"
+          },
+          "entrants": {
+            "description": "The tournament's players, plus anyone already named in the split.",
+            "items": {
+              "$ref": "#/components/schemas/PayoutEntrantResponse"
+            },
+            "title": "Entrants",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/PayoutEditLineResponse"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "pool": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The pool, or null when nobody has set one.",
+            "title": "Pool"
+          },
+          "sglive_slug": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The sglive page the pool follows; the pool can't be typed while set.",
+            "title": "Sglive Slug"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "status_label": {
+            "title": "Status Label",
+            "type": "string"
+          },
+          "synced_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the pool last synced from sglive (UTC).",
+            "title": "Synced At"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "status",
+          "status_label",
+          "lines",
+          "entrants"
+        ],
+        "title": "PayoutDetailResponse",
+        "type": "object"
+      },
+      "PayoutEditLineResponse": {
+        "properties": {
+          "amount": {
+            "description": "The money this line pays right now.",
+            "title": "Amount",
+            "type": "string"
+          },
+          "entrant_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entrant Id"
+          },
+          "is_fixed": {
+            "title": "Is Fixed",
+            "type": "boolean"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "percentage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The share, or null on a fixed-amount line.",
+            "title": "Percentage"
+          },
+          "place": {
+            "title": "Place",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "place",
+          "amount",
+          "is_fixed"
+        ],
+        "title": "PayoutEditLineResponse",
+        "type": "object"
+      },
+      "PayoutEntrantResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "PayoutEntrantResponse",
+        "type": "object"
+      },
+      "PayoutExportResponse": {
+        "properties": {
+          "text": {
+            "description": "The payout block to paste into Matcherino's thread.",
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "PayoutExportResponse",
+        "type": "object"
+      },
       "PayoutLineRequest": {
         "properties": {
           "amount": {
@@ -14003,6 +14216,64 @@
           "amount"
         ],
         "title": "PayoutLineResponse",
+        "type": "object"
+      },
+      "PayoutRowResponse": {
+        "properties": {
+          "has_pool": {
+            "description": "Whether a pool or bonus is set at all.",
+            "title": "Has Pool",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "place_count": {
+            "title": "Place Count",
+            "type": "integer"
+          },
+          "sglive_slug": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The sglive page the pool follows, or null.",
+            "title": "Sglive Slug"
+          },
+          "status": {
+            "description": "`none` (no split yet), `unnamed` (a place has no winner), or `ready`.",
+            "title": "Status",
+            "type": "string"
+          },
+          "status_label": {
+            "title": "Status Label",
+            "type": "string"
+          },
+          "total": {
+            "description": "Pool plus bonus.",
+            "title": "Total",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "status",
+          "status_label",
+          "total",
+          "has_pool",
+          "place_count"
+        ],
+        "title": "PayoutRowResponse",
         "type": "object"
       },
       "PayoutSplitRequest": {
@@ -19681,6 +19952,113 @@
           "summary"
         ],
         "title": "SettingsPaneResponse",
+        "type": "object"
+      },
+      "SgliveGameLineResponse": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "suggested": {
+            "description": "True when `tournament_id` is a name match, not a saved link.",
+            "title": "Suggested",
+            "type": "boolean"
+          },
+          "total": {
+            "title": "Total",
+            "type": "string"
+          },
+          "tournament_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The linked tournament, or the suggested one when `suggested`.",
+            "title": "Tournament Id"
+          }
+        },
+        "required": [
+          "slug",
+          "name",
+          "total",
+          "suggested"
+        ],
+        "title": "SgliveGameLineResponse",
+        "type": "object"
+      },
+      "SgliveLinksRequest": {
+        "properties": {
+          "links": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "description": "sglive slug → tournament ID, or null to leave that game unlinked. Slugs left out keep their link.",
+            "title": "Links",
+            "type": "object"
+          }
+        },
+        "required": [
+          "links"
+        ],
+        "title": "SgliveLinksRequest",
+        "type": "object"
+      },
+      "SgliveLinksResponse": {
+        "properties": {
+          "games": {
+            "items": {
+              "$ref": "#/components/schemas/SgliveGameLineResponse"
+            },
+            "title": "Games",
+            "type": "array"
+          },
+          "tournaments": {
+            "description": "Tournaments the caller can link.",
+            "items": {
+              "$ref": "#/components/schemas/PayoutEntrantResponse"
+            },
+            "title": "Tournaments",
+            "type": "array"
+          }
+        },
+        "required": [
+          "games",
+          "tournaments"
+        ],
+        "title": "SgliveLinksResponse",
+        "type": "object"
+      },
+      "SgliveSyncResponse": {
+        "properties": {
+          "missing": {
+            "description": "Linked slugs sglive no longer lists; their pools kept their last amount.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing",
+            "type": "array"
+          }
+        },
+        "required": [
+          "missing"
+        ],
+        "title": "SgliveSyncResponse",
         "type": "object"
       },
       "ShiftLateRequest": {
@@ -29326,6 +29704,771 @@
         "summary": "Your admin areas",
         "tags": [
           "Admin shell"
+        ]
+      }
+    },
+    "/api/admin/payouts/board": {
+      "get": {
+        "description": "Every tournament the caller pays out, each with what its split still needs.\n\n**Who can call this:** Staff, and tournament admins for their own tournaments.\n\n**App scope:** `staff:read`  \n**Feature:** only works when the community has **Prize Payouts** turned on; otherwise every call answers `404`.",
+        "operationId": "board_api_admin_payouts_board_get",
+        "parameters": [
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PayoutBoardResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "The Payouts board",
+        "tags": [
+          "Admin: payouts"
+        ]
+      }
+    },
+    "/api/admin/payouts/sglive": {
+      "get": {
+        "description": "Every game on sglive.speedgaming.org with the tournament it pays into, or a name-matched suggestion.\n\n**Who can call this:** Staff, and tournament admins for their own tournaments.\n\n**App scope:** `staff:read`  \n**Feature:** only works when the community has **Prize Payouts** turned on; otherwise every call answers `404`.",
+        "operationId": "sglive_links_api_admin_payouts_sglive_get",
+        "parameters": [
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SgliveLinksResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "sglive games and their links",
+        "tags": [
+          "Admin: payouts"
+        ]
+      },
+      "put": {
+        "description": "Saves which tournament each sglive game pays into, then fills the newly linked pools.\n\n**Who can call this:** Staff, and tournament admins for their own tournaments.\n\n**App scope:** `staff:write`  \n**Feature:** only works when the community has **Prize Payouts** turned on; otherwise every call answers `404`.",
+        "operationId": "set_sglive_links_api_admin_payouts_sglive_put",
+        "parameters": [
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SgliveLinksRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:write"
+            ]
+          }
+        ],
+        "summary": "Link sglive games to tournaments",
+        "tags": [
+          "Admin: payouts"
+        ]
+      }
+    },
+    "/api/admin/payouts/sglive/sync": {
+      "post": {
+        "description": "Reads sglive now instead of waiting for the 15-minute sync.\n\n**Who can call this:** Staff, and tournament admins for their own tournaments.\n\n**App scope:** `staff:write`  \n**Feature:** only works when the community has **Prize Payouts** turned on; otherwise every call answers `404`.",
+        "operationId": "sync_sglive_api_admin_payouts_sglive_sync_post",
+        "parameters": [
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SgliveSyncResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:write"
+            ]
+          }
+        ],
+        "summary": "Sync pools from sglive now",
+        "tags": [
+          "Admin: payouts"
+        ]
+      }
+    },
+    "/api/admin/payouts/{tournament_id}": {
+      "get": {
+        "description": "The pool, the bonus, every place in the split, and the players to name as winners.\n\n**Who can call this:** Staff, and tournament admins for their own tournaments.\n\n**App scope:** `staff:read`  \n**Feature:** only works when the community has **Prize Payouts** turned on; otherwise every call answers `404`.",
+        "operationId": "detail_api_admin_payouts__tournament_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tournament_id",
+            "required": true,
+            "schema": {
+              "title": "Tournament Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PayoutDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "One tournament's payouts",
+        "tags": [
+          "Admin: payouts"
+        ]
+      }
+    },
+    "/api/admin/payouts/{tournament_id}/export": {
+      "get": {
+        "description": "The split as text, in the shape the organizer asks admins to post.\n\n**Who can call this:** Staff, and tournament admins for their own tournaments.\n\n**App scope:** `staff:read`  \n**Feature:** only works when the community has **Prize Payouts** turned on; otherwise every call answers `404`.",
+        "operationId": "export_api_admin_payouts__tournament_id__export_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tournament_id",
+            "required": true,
+            "schema": {
+              "title": "Tournament Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PayoutExportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "The payout block for Matcherino",
+        "tags": [
+          "Admin: payouts"
+        ]
+      }
+    },
+    "/api/admin/payouts/{tournament_id}/sglive": {
+      "delete": {
+        "description": "The pool keeps its last synced amount and can be typed again.\n\n**Who can call this:** Staff, and tournament admins for their own tournaments.\n\n**App scope:** `staff:write`  \n**Feature:** only works when the community has **Prize Payouts** turned on; otherwise every call answers `404`.",
+        "operationId": "unlink_sglive_api_admin_payouts__tournament_id__sglive_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tournament_id",
+            "required": true,
+            "schema": {
+              "title": "Tournament Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:write"
+            ]
+          }
+        ],
+        "summary": "Stop syncing a pool from sglive",
+        "tags": [
+          "Admin: payouts"
         ]
       }
     },
@@ -84380,6 +85523,10 @@
       "name": "Admin: qualifiers"
     },
     {
+      "description": "The app's Payouts screen: each tournament's pool and split, edited in place, and the sglive links.",
+      "name": "Admin: payouts"
+    },
+    {
       "description": "The app's Brackets screen: each native stage's next step, its seeds, roster and open matchups.",
       "name": "Admin: brackets"
     },
@@ -86161,6 +87308,7 @@
         "Tournaments",
         "Admin: tournaments",
         "Admin: qualifiers",
+        "Admin: payouts",
         "Admin: brackets",
         "Admin: seed presets",
         "Payouts",

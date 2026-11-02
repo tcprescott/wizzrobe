@@ -1,11 +1,11 @@
 """Admin Payouts Page — prize pool and placement splits per tournament."""
 
-import re
 from decimal import Decimal, InvalidOperation
 
 from nicegui import app, background_tasks, context, ui
 
 from application.services import PayoutService, TournamentService, get_user_from_session
+from application.services.admin_payouts_service import suggest_sglive_links
 from application.services.payout_service import format_percentage
 from application.utils.timezone import format_local_time
 from theme.busy import busy_click
@@ -87,24 +87,6 @@ def _allocated_label(overview) -> str:
     if overview.has_fixed:
         return f'{_money(overview.allocated_amount)} of {_money(overview.total)}'
     return f'{format_percentage(overview.allocated_percentage)}%'
-
-
-def _name_key(name: str) -> str:
-    words = re.sub(r'[^a-z0-9 ]', ' ', name.lower()).split()
-    return ' '.join(w for w in words if w not in {'the', 'tournament', 'online'})
-
-
-def _suggest_links(games, tournaments: dict[int, str]) -> dict[str, int]:
-    """Pair sglive games with tournaments whose names match once normalised."""
-    keys: dict[str, list[int]] = {}
-    for tid, name in tournaments.items():
-        keys.setdefault(_name_key(name), []).append(tid)
-    suggestions: dict[str, int] = {}
-    for game in games:
-        match = keys.get(_name_key(game.name), [])
-        if len(match) == 1 and match[0] not in suggestions.values():
-            suggestions[game.slug] = match[0]
-    return suggestions
 
 
 def _notify_synced(missing: list[str]) -> None:
@@ -419,7 +401,7 @@ async def admin_payouts_page() -> None:
                 return
             tournaments = {o.tournament_id: o.name for o in overviews}
             current = {o.sglive_slug: o.tournament_id for o in overviews if o.sglive_slug}
-            suggested = _suggest_links(
+            suggested = suggest_sglive_links(
                 [g for g in games if g.slug not in current],
                 {tid: name for tid, name in tournaments.items() if tid not in current.values()},
             )
