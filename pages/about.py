@@ -9,7 +9,7 @@ on its own. The Help index is the way in; there is no menu item.
 
 from nicegui import app, ui
 
-from application.about import PRIVACY_UPDATED, Notice, all_notices, find_notice, privacy_blocks
+from application.about import ABOUT_INTRO, BUILT_WITH_CLAUDE, PRIVACY_UPDATED, Notice, all_notices, find_notice, privacy_blocks
 from application.content import parse_blocks
 from application.services import TenantService, get_user_from_session
 from application.utils.build_info import build_info
@@ -22,14 +22,6 @@ from theme.help.render import render_blocks
 from theme.page_header import page_header
 
 __all__ = ['create', 'link_card']
-
-_INTRO = (
-    'Wizzrobe runs the schedule for speedrun and randomizer events: matches, brackets, crew, '
-    'volunteers, equipment and check-in, with Discord sign-in and notifications. Each community '
-    'gets its own space, run by its own staff.\n\n'
-    "It's free software under the [GNU General Public License v3](https://www.gnu.org/licenses/gpl-3.0.html), "
-    'and the source is on [GitHub](https://github.com/tcprescott/wizzrobe).'
-)
 
 
 def link_card(icon: str, title: str, summary: str, target: str) -> None:
@@ -97,11 +89,9 @@ def create() -> None:
             page_header('About Wizzrobe', 'The app behind this community\'s schedule.')
             with ui.card().classes('w-full wiz-about-intro'):
                 with ui.element('div').classes('wiz-help-prose'):
-                    render_blocks(parse_blocks(_INTRO))
+                    render_blocks(parse_blocks(ABOUT_INTRO))
                 with banner(
-                    "Much of Wizzrobe's code was written with Claude, an AI model made by "
-                    'Anthropic. A person reviews every change before it ships, but if something '
-                    "looks wrong, tell us through Send Feedback or your community's staff.",
+                    BUILT_WITH_CLAUDE,
                     title='Built with Claude', tone='info', icon='smart_toy',
                 ):
                     pass

@@ -125,6 +125,11 @@ async def _ensure_app_grant_usable(token: ApiToken) -> None:
 
 COMMUNITY_HEADER = 'X-Wizzrobe-Community'
 
+EVENT_QUERY_HELP_READER = (
+    "The event to read about, by its slug (see `GET /api/events`). Leave it out for "
+    "the community's default event."
+)
+
 
 def _is_first_party(token: ApiToken) -> bool:
     """Wizzrobe's own app: an app grant with no community, from a first-party app."""
@@ -266,6 +271,81 @@ async def require_identity(
         status_code=status.HTTP_403_FORBIDDEN,
         detail="This token is limited to one community and can't list others",
     )
+
+
+async def _reader_tenant(request: Request, token: Optional[ApiToken]):
+    """The community a reading call is about: the token's own, else the header's."""
+    if token is not None and not _is_first_party(token):
+        return await TenantService.get_by_id(token.tenant_id)
+    slug = (request.headers.get(COMMUNITY_HEADER) or '').strip()
+    if not slug:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Name the community in the {COMMUNITY_HEADER} header",
+        )
+    return await TenantService.get_by_slug(slug)
+
+
+async def require_reader(
+    request: Request,
+    event: Optional[str] = Query(None, description=EVENT_QUERY_HELP_READER),
+    creds: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
+) -> Optional[User]:
+    """The reader of a public page, or ``None`` when nobody is signed in.
+
+    For help, the event handbook and the other pages the website serves to
+    anyone: the community comes from the header (or a personal token's own),
+    and a token only decides which role-gated articles show. A token that
+    doesn't belong to a member reads as signed out rather than being refused,
+    because nothing here is closed to outsiders. A token that no longer
+    resolves is still a 401, so the app refreshes it instead of quietly
+    dropping someone's staff articles. A third-party app's token reads as
+    signed out: its grant covers its scopes, not what its owner may read.
+    """
+    token: Optional[ApiToken] = None
+    user: Optional[User] = None
+    if creds is not None:
+        try:
+            result = await ApiTokenService().resolve_actor(creds.credentials)
+        except PermissionError as exc:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+        if result is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired API token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        if result[1].origin == ApiTokenOrigin.PAT.value or _is_first_party(result[1]):
+            user, token = result
+    tenant = await _reader_tenant(request, token)
+    if tenant is None or not tenant.is_active:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Community not found")
+    if user is not None and not (
+        await TenantService.is_member(user.id, tenant.id) or await AuthService.is_super_admin(user)
+    ):
+        user = None
+    set_tenant_id(tenant.id)
+    set_event_id(await EventService.default_event_id(tenant.id), tenant.id)
+    if event is not None:
+        event_id = await EventService.call_event_id(user, event)
+        if event_id is not None:
+            set_event_id(event_id, tenant.id)
+    set_timezone_name(await TimezoneService.tenant_timezone_name(tenant.id))
+    return user
+
+
+def reader_feature(flag: FeatureFlag):
+    """:func:`require_feature` for a public page: 404 when the community lacks ``flag``."""
+
+    async def _reader_feature(reader: Optional[User] = Depends(require_reader)) -> None:
+        if not await FeatureFlagService().is_enabled(flag):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="This feature is not enabled for this community.",
+            )
+
+    _reader_feature.feature_flag = flag  # type: ignore[attr-defined]  # read by api.openapi_docs
+    return _reader_feature
 
 
 EVENT_QUERY_HELP = (
