@@ -1,0 +1,111 @@
+/** a11y checks for this screen, with the stub API responses they need. See ../a11y.mjs. */
+export const targets = [
+  { name: 'schedule', path: '/t/sgl/schedule' },
+  { name: 'schedule-shift-menu', path: '/t/sgl/schedule', act: (p) => p.getByRole('button', { name: 'More for Check-in desk' }).click(), wait: 'role=menu' },
+]
+
+export const fixtures = {
+  "/api/me/schedule": {
+    "zone": "America/New_York",
+    "items": [
+      {
+        "assignment_id": null,
+        "status": "scheduled",
+        "stage": "Stage 2",
+        "station": "14",
+        "room_url": "https://racetime.gg/smz3/clever-link-1234",
+        "needs_acknowledgment": false,
+        "late_minutes": null,
+        "can_report_late": true,
+        "approved": null,
+        "checked_in": false,
+        "match_id": 101,
+        "kind": "match",
+        "starts_at": "{{now+20m}}",
+        "ends_at": "{{now+80m}}",
+        "title": "vs Kaizo",
+        "detail": "SMZ3 · Round 2"
+      },
+      {
+        "assignment_id": null,
+        "status": "scheduled",
+        "stage": "Stage 1",
+        "station": null,
+        "room_url": null,
+        "needs_acknowledgment": false,
+        "late_minutes": null,
+        "can_report_late": false,
+        "approved": false,
+        "checked_in": false,
+        "match_id": 102,
+        "kind": "crew",
+        "starts_at": "{{now+3h}}",
+        "ends_at": "{{now+4h}}",
+        "title": "Commentary",
+        "detail": "Ellie vs Marth · OoTR Top 8"
+      },
+      {
+        "assignment_id": 7,
+        "status": null,
+        "stage": null,
+        "station": null,
+        "room_url": null,
+        "needs_acknowledgment": false,
+        "late_minutes": null,
+        "can_report_late": true,
+        "approved": null,
+        "checked_in": false,
+        "match_id": null,
+        "kind": "shift",
+        "starts_at": "{{now+20m}}",
+        "ends_at": "{{now+140m}}",
+        "title": "Check-in desk",
+        "detail": "Front desk",
+        "shift_action": "arrive",
+        "can_release": true,
+        "can_undo_check_in": false,
+        "called_off": false
+      },
+      {
+        "assignment_id": null,
+        "status": "scheduled",
+        "stage": null,
+        "station": null,
+        "room_url": null,
+        "needs_acknowledgment": true,
+        "late_minutes": null,
+        "can_report_late": false,
+        "approved": null,
+        "checked_in": false,
+        "match_id": 103,
+        "kind": "match",
+        "starts_at": "{{now+1d}}",
+        "ends_at": "{{now+25h}}",
+        "title": "vs Marth",
+        "detail": "ALTTPR Open · Round 2"
+      },
+      {
+        "assignment_id": 8,
+        "status": null,
+        "stage": null,
+        "station": null,
+        "room_url": null,
+        "needs_acknowledgment": false,
+        "late_minutes": null,
+        "can_report_late": false,
+        "approved": null,
+        "checked_in": false,
+        "match_id": null,
+        "kind": "shift",
+        "starts_at": "{{now+2d}}",
+        "ends_at": "{{now+50h}}",
+        "title": "Proctor",
+        "detail": "Proctor Station",
+        "shift_action": "ack",
+        "can_release": true,
+        "can_undo_check_in": false,
+        "called_off": false
+      }
+    ]
+  }
+}

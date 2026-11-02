@@ -1,6 +1,6 @@
 /**
  * The typed REST client. Types come from src/api/schema.d.ts, generated from
- * the backend's OpenAPI schema (`npm run gen:api`); CI fails when they drift.
+ * the backend's OpenAPI schema by `npm run gen:api` (not committed; CI generates it).
  *
  * Every call carries the session's bearer token and the community it acts in
  * (X-Wizzrobe-Community): the app's one sign-in reaches every community the
