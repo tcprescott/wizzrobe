@@ -140,6 +140,8 @@ TAG_GROUPS: List[tuple[str, List[tuple[str, str]]]] = [
         ('Volunteers', 'Volunteer positions, shifts, assignments, availability and hours.'),
         ('Check-in', 'The event check-in desk: roster, check-in, walk-ups and account matching.'),
         ('Equipment', 'Lending equipment out and getting it back.'),
+        ('Admin: equipment', 'The app\'s Admin → Equipment screen: the owner and borrower picker and QR label sheets.'),
+        ('Admin: check-in', 'The app\'s Admin → Check-in Roster screen: check-in events, badge lanyards and the Matcherino login.'),
         ('Stages', 'Stages (streams and setups) that matches are assigned to.'),
         ('Triforce texts', 'Player-submitted triforce texts and their moderation.'),
         ('Feedback', 'Feedback people send from inside the app.'),
@@ -148,6 +150,8 @@ TAG_GROUPS: List[tuple[str, List[tuple[str, str]]]] = [
     ('People', [
         ('Users', 'People in this community, their profiles and roles.'),
         ('Membership', 'Requests to join the community, and answering them.'),
+        ('Admin: members', 'The app\'s Admin → Members screen: the member table, adding and importing members, ADA requests, emergency contacts and messaging a member.'),
+        ('Admin: meetups', 'The app\'s Admin → Meetups screen: reviewing the meetups attendees want to run.'),
         ('Player availability', 'When players say they can and can\'t play.'),
         ('My profile', 'Your own profile as the app\'s Me screen shows it: clock, connected accounts, staff alerts, accommodation and emergency contact.'),
         ('My notifications', 'Where your notifications reach you: Discord DMs, devices, email and Telegram.'),
