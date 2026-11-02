@@ -66,5 +66,39 @@ export async function subscribeDevice(publicKey: string): Promise<DeviceSubscrip
     throw new Error('Notifications are blocked for this site. Allow them in your browser settings, then try again.')
   }
   const sub = (await pm.getSubscription()) ?? (await pm.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(publicKey) }))
+  await rememberForRotation({ endpoint: sub.endpoint, auth: b64(sub.getKey('auth')), applicationServerKey: publicKey })
   return { endpoint: sub.endpoint, p256dh: b64(sub.getKey('p256dh')), auth: b64(sub.getKey('auth')), user_agent: navigator.userAgent }
+}
+
+interface RotationRecord {
+  endpoint: string
+  auth: string
+  applicationServerKey: string
+}
+
+/**
+ * What the service worker needs if the browser reissues this subscription
+ * with no page open (see sw/sw.js). Same database and key as the worker reads.
+ */
+function rememberForRotation(record: RotationRecord): Promise<void> {
+  return new Promise((resolve) => {
+    try {
+      const open = indexedDB.open('wiz-web-push', 1)
+      open.onupgradeneeded = () => {
+        if (!open.result.objectStoreNames.contains('state')) open.result.createObjectStore('state')
+      }
+      open.onerror = () => resolve()
+      open.onsuccess = () => {
+        const db = open.result
+        const tx = db.transaction('state', 'readwrite')
+        tx.objectStore('state').put(record, 'subscription')
+        tx.oncomplete = tx.onerror = () => {
+          db.close()
+          resolve()
+        }
+      }
+    } catch {
+      resolve()
+    }
+  })
 }

@@ -44,6 +44,7 @@ from api.routers import (
     race_room_profiles,
     race_rooms,
     racetime_bots,
+    reading,
     reports,
     reschedule_requests,
     seeds,
@@ -70,6 +71,9 @@ from models import FeatureFlag
 router = APIRouter(dependencies=[Depends(rate_limit), Depends(tenant_context_scope)])
 router.include_router(health.router)
 router.include_router(version.router)
+router.include_router(reading.help_router)
+router.include_router(reading.event_info_router)
+router.include_router(reading.app_router)
 router.include_router(matches.router)
 router.include_router(match_actions.router)
 router.include_router(match_comments.router)

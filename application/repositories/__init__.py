@@ -37,6 +37,7 @@ from .community_event_repository import (
     CommunityEventSubscriptionRepository,
 )
 from .data_export_repository import DataExportRepository
+from .device_push_token_repository import DevicePushTokenRepository
 from .discord_role_mapping_repository import DiscordRoleMappingRepository
 from .discord_role_sync_repository import DiscordRoleSyncRepository
 from .discord_scheduled_event_repository import DiscordScheduledEventRepository
@@ -139,6 +140,7 @@ __all__ = [
     'CommunityEventSeenRepository',
     'CommunityEventSubscriptionRepository',
     'DataExportRepository',
+    'DevicePushTokenRepository',
     'DiscordRoleMappingRepository',
     'DiscordRoleSyncRepository',
     'DiscordScheduledEventRepository',

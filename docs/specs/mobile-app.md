@@ -1,6 +1,6 @@
 # Wizzrobe as a mobile app on a serverless backend
 
-Status: Building · Size: full · PRs: #760 (spec), #761 (step 3), #762 (step 4), #763 (step 2), #764 (step 6), #770 (step 5), #771 (step 7 Home + Schedule), #772 (step 7 Me + shift check-in) · Requested: 2026-10-31, Thomas
+Status: Building · Size: full · PRs: #760 (spec), #761 (step 3), #762 (step 4), #763 (step 2), #764 (step 6), #770 (step 5), #771 (step 7 Home + Schedule), #772 (step 7 Me + shift check-in), step 12 native shells (this PR) · Requested: 2026-10-31, Thomas
 
 ## Problem
 
@@ -231,3 +231,19 @@ in TypeScript.
   three PRs: (1) board and match pane with the run actions, (2) Needs you,
   reschedule requests and comments, (3) Not booked yet and create/edit match. Part 1 is PR #780.
   Mockups: `/mnt/project-files/mobile-app/admin-schedule-mockups/`.
+- 2026-11-02 — Step 12: Thomas picked APNs direct for iPhones and FCM for
+  Android (official Capacitor push plugin, no Firebase SDK in the iOS app).
+- 2026-11-02 — Step 12: Thomas picked bundling the built app inside the store
+  apps rather than loading the live website.
+- 2026-11-02 — Step 12: the app id stays a placeholder (`org.speedgaming.wizzrobe`,
+  `web/src/native/appId.ts`); Thomas confirms the real one before the first
+  store upload.
+- 2026-11-02 — Step 12: the service worker caches the app's own files and
+  handles push; API data is never cached (Thomas's pick).
+- 2026-11-02 — Step 12: CI does compile checks only (Android debug on every
+  `web/` pull request, unsigned iOS simulator build on demand); signing and
+  TestFlight / Play uploads follow once the developer accounts exist.
+- 2026-11-02 — Step 12: Thomas picked layout A for Me › Notifications in the
+  store app: a "This phone" row with Turn on, and phones listed with the other
+  devices, tagged "Wizzrobe app". Mockups:
+  `/mnt/project-files/mobile-app/native-push-mockups/`.
