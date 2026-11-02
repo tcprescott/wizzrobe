@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from application.services.ticket_store_service import WEBHOOK_PURPOSE
+from application.services.ticket_store_service import HOOK_SEAL_PURPOSE
 from application.utils.clients.stripe_client import sign
 from application.utils.secret_box import open_
 from models import FeatureFlag, Role, TenantFeatureFlag, TicketOrder, TicketOrderStatus, TicketStore
@@ -44,7 +44,7 @@ async def test_staff_set_up_a_badge_and_a_member_buys_it():
     order = await TicketOrder.get(id=order_id)
     body = json.dumps({'id': 'evt_1', 'type': 'checkout.session.completed', 'data': {'object': {
         'id': order.provider_ref, 'payment_status': 'paid', 'payment_intent': 'pi_1'}}}).encode()
-    secret = open_(store.webhook_secret, purpose=WEBHOOK_PURPOSE, context=str(store.tenant_id))
+    secret = open_(store.webhook_secret, purpose=HOOK_SEAL_PURPOSE, context=str(store.tenant_id))
     async with client_for(app) as anonymous:
         url = f'/api/ticket-webhooks/stripe/{store.webhook_token}'
         bad = await anonymous.post(url, content=body, headers={'Stripe-Signature': sign(body, 'whsec_wrong')})

@@ -12,7 +12,7 @@ from application.services.ticket_checkout_service import TicketCheckoutService
 from application.services.ticket_comp_refund_service import TicketCompRefundService
 from application.services.ticket_gateways import GatewaySignatureError
 from application.services.ticket_service import TicketService
-from application.services.ticket_store_service import WEBHOOK_PURPOSE, TicketStoreService
+from application.services.ticket_store_service import HOOK_SEAL_PURPOSE, TicketStoreService
 from application.utils.clients import stripe_client as stripe_module
 from application.utils.clients.stripe_client import sign, verify_signature
 from application.utils.secret_box import open_
@@ -89,7 +89,7 @@ async def vip(staff, store):
 
 
 def _secret(store: TicketStore) -> str:
-    return open_(store.webhook_secret, purpose=WEBHOOK_PURPOSE, context=str(store.tenant_id))
+    return open_(store.webhook_secret, purpose=HOOK_SEAL_PURPOSE, context=str(store.tenant_id))
 
 
 async def _post(store: TicketStore, payload: dict, *, secret=None, stamp=None):

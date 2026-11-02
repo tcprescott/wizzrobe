@@ -43,6 +43,8 @@ from . import (
     stream_layout_starters,
     telegram_bot_worker,
     telemetry_retention,
+    ticket_dm,
+    ticket_gateways,
     webhook_outbox_worker,
 )
 from .accommodation_service import AccommodationService
@@ -427,6 +429,8 @@ __all__ = [
     'stream_layout_starters',
     'telegram_bot_worker',
     'telemetry_retention',
+    'ticket_dm',
+    'ticket_gateways',
     'validate_async_qualifier_config',
     'validate_bracket_config',
     'validate_counts',

@@ -57,10 +57,8 @@ class TicketTypeRepository(EventScopedRepository[TicketType]):
 
     @staticmethod
     async def list_all(*, active_only: bool = False) -> List[TicketType]:
-        qs = TicketType.all()
-        if active_only:
-            qs = qs.filter(is_active=True)
-        return await event_scoped(qs).order_by('sort_order', 'price_cents', 'id')
+        filters = {'is_active': True} if active_only else {}
+        return await event_scoped(TicketType.filter(**filters)).order_by('sort_order', 'price_cents', 'id')
 
     @staticmethod
     async def get_many(type_ids: Iterable[int]) -> Dict[int, TicketType]:
@@ -97,18 +95,18 @@ class TicketOrderRepository(EventScopedRepository[TicketOrder]):
 
     @staticmethod
     async def get_by_provider_ref(provider: TicketProvider, ref: str) -> Optional[TicketOrder]:
+        # event-scope: exempt — a store webhook finds its order before any event is bound; the order then binds its own.
         return await scoped(TicketOrder.filter(provider=provider, provider_ref=ref)).first()
 
     @staticmethod
     async def get_by_payment_ref(provider: TicketProvider, ref: str) -> Optional[TicketOrder]:
+        # event-scope: exempt — a store webhook finds its order before any event is bound; the order then binds its own.
         return await scoped(TicketOrder.filter(provider=provider, payment_ref=ref)).first()
 
     @staticmethod
     async def list_for_event(*, statuses: Optional[List[TicketOrderStatus]] = None, limit: int = 200) -> List[TicketOrder]:
-        qs = TicketOrder.all()
-        if statuses:
-            qs = qs.filter(status__in=statuses)
-        return await event_scoped(qs).prefetch_related('buyer', 'tickets__ticket_type', 'tickets__owner') \
+        filters = {'status__in': statuses} if statuses else {}
+        return await event_scoped(TicketOrder.filter(**filters)).prefetch_related('buyer', 'tickets__ticket_type', 'tickets__owner') \
             .order_by('-created_at').limit(limit)
 
     @staticmethod
@@ -181,10 +179,12 @@ class TicketRepository(EventScopedRepository[Ticket]):
 
     @staticmethod
     async def get_by_claim_lookup(lookup: str) -> Optional[Ticket]:
+        # event-scope: exempt — a claim link names one badge, and the badge decides its own event.
         return await scoped(Ticket.filter(claim_lookup=lookup)).prefetch_related('ticket_type', 'order__buyer').first()
 
     @staticmethod
     async def get_by_code(code: str) -> Optional[Ticket]:
+        # event-scope: exempt — a badge code is unique; the badge decides its own event.
         return await scoped(Ticket.filter(code=code)).first()
 
     @staticmethod

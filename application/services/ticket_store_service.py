@@ -29,8 +29,8 @@ from application.utils.environment import get_base_url
 from application.utils.secret_box import open_, seal
 from models import FeatureFlag, TicketProvider, TicketStore, User
 
-SECRET_PURPOSE = 'ticket_store'
-WEBHOOK_PURPOSE = 'ticket_store_webhook'
+STORE_SEAL_PURPOSE = 'ticket_store'
+HOOK_SEAL_PURPOSE = 'ticket_store_webhook'
 
 
 @dataclass(frozen=True)
@@ -53,7 +53,7 @@ def _context(store: TicketStore) -> str:
 
 def store_gateway(store: TicketStore) -> TicketGateway:
     """A gateway on ``store``'s account, or a ``ValueError`` when its key no longer opens."""
-    secret = open_(store.secret, purpose=SECRET_PURPOSE, context=_context(store))
+    secret = open_(store.secret, purpose=STORE_SEAL_PURPOSE, context=_context(store))
     if secret is None:
         raise ValueError(f'The {store.provider.label} key needs pasting again on Admin → Tickets.')
     return gateway_for(store.provider, secret)
@@ -62,7 +62,7 @@ def store_gateway(store: TicketStore) -> TicketGateway:
 def store_webhook_secret(store: TicketStore) -> Optional[str]:
     if not store.webhook_secret:
         return None
-    return open_(store.webhook_secret, purpose=WEBHOOK_PURPOSE, context=_context(store))
+    return open_(store.webhook_secret, purpose=HOOK_SEAL_PURPOSE, context=_context(store))
 
 
 class TicketStoreService:
@@ -105,8 +105,8 @@ class TicketStoreService:
         context = str(require_tenant_id())
         fields = dict(
             account_label=(connected.account_label or '')[:255] or None,
-            secret=seal(secret, purpose=SECRET_PURPOSE, context=context),
-            webhook_secret=seal(connected.webhook_secret, purpose=WEBHOOK_PURPOSE, context=context)
+            secret=seal(secret, purpose=STORE_SEAL_PURPOSE, context=context),
+            webhook_secret=seal(connected.webhook_secret, purpose=HOOK_SEAL_PURPOSE, context=context)
             if connected.webhook_secret else None,
             webhook_id=connected.webhook_id,
             test_mode=connected.test_mode,
