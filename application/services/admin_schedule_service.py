@@ -10,10 +10,12 @@ Times are UTC instants; ``zone`` says which clock to print them on, as for the
 player reads (``PlayerHomeService.viewer_zone``).
 """
 
+import logging
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from application.errors import NotFoundError
+from application.event_context import get_current_event_id
 from application.match_board_access import MatchBoardAccess
 from application.run_sheet import (
     FOLDED_BY_DEFAULT,
@@ -27,14 +29,18 @@ from application.services.match.match_comment_service import MatchCommentService
 from application.services.match.match_display_service import MatchDisplayService
 from application.services.match.match_rewind import rewind_targets
 from application.services.match.match_service import MatchService
+from application.services.match.match_suggestion_service import MatchSuggestionService
+from application.services.match_reschedule_service import MatchRescheduleService
 from application.services.player_home_service import PlayerHomeService
 from application.services.system_config_service import SystemConfigService
 from application.services.timezone_service import TimezoneService
 from application.timezone_context import is_valid_timezone, tz_scope
 from application.utils.timezone import local_day_bounds
-from models import Role, User
+from models import RescheduleRequestKind, Role, User
 
 CONFIRMED_GROUP = 'Confirmed'
+
+NEED_KINDS = ('request', 'site', 'held', 'result', 'late')
 MAX_DAY_TABS = 10
 
 _STATE_SINCE = {
@@ -43,6 +49,9 @@ _STATE_SINCE = {
     'Finished': 'finished_at',
     'Confirmed': 'confirmed_at',
 }
+
+
+logger = logging.getLogger(__name__)
 
 
 def _instant(ts: Optional[float]) -> Optional[datetime]:
@@ -154,6 +163,7 @@ class AdminScheduleService:
         await self._stamp(access, actor, rows)
         with tz_scope(zone):
             arranged = arrange_run_sheet(rows, admin_group)
+        needs = await self.needs_you(access, actor, arranged, scope=scope, tournament_id=tournament_id)
         groups: List[Dict[str, Any]] = []
         for row in arranged:
             if row['_group_start']:
@@ -175,6 +185,87 @@ class AdminScheduleService:
             'scoped_tournaments': None if scope is None else len(scope),
             'can_create': access.edit,
             'groups': groups,
+            'needs_you': needs,
+        }
+
+    async def needs_you(
+        self,
+        access: MatchBoardAccess,
+        actor: User,
+        rows: List[dict],
+        *,
+        scope: Optional[frozenset[int]] = None,
+        tournament_id: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
+        """The work waiting on this viewer rather than the clock, as ``theme.match_inbox``
+        draws it: reschedule requests, results a bracket site already has, races the
+        room bot held, finished matches nobody confirmed, and matches nobody seated.
+
+        Match items name a board row and follow the board's filters; requests follow
+        the tournament filter only, since a request is about a time, not a day.
+        """
+        out: List[Dict[str, Any]] = []
+        if access.edit:
+            ids = None if scope is None else sorted(scope)
+            if tournament_id is not None:
+                ids = [tournament_id] if ids is None or tournament_id in ids else []
+            requests = await MatchRescheduleService().list_pending(
+                actor, tournament_ids=ids, event_id=get_current_event_id(),
+            ) if ids != [] else []
+            for request in requests:
+                out.append(await self._request_need(actor, request))
+        confirmable = [r for r in rows if access.can_confirm_row(r)]
+        out += [{'kind': 'site', 'match_id': r['id']} for r in confirmable if r.get('played_on_site')]
+        out += [{'kind': 'held', 'match_id': r['id']} for r in confirmable if r.get('racetime_held')]
+        finished = sorted(
+            (r for r in confirmable if r.get('state') == 'Finished' and not r.get('racetime_held')),
+            key=lambda r: (not r.get('needs_review'), bool(r.get('has_result')), r.get('scheduled_ts') or 0),
+        )
+        out += [
+            {'kind': 'result', 'match_id': r['id'], 'has_result': bool(r.get('has_result'))}
+            for r in finished
+        ]
+        out += [
+            {'kind': 'late', 'match_id': r['id']}
+            for r in rows
+            if access.can_run_row(r) and r.get('state') == 'Scheduled'
+            and (r.get('is_overdue') or r.get('_late'))
+            and r.get('players') and not r.get('is_racetime') and not r.get('played_on_site')
+        ]
+        return out
+
+    @staticmethod
+    async def _request_need(actor: User, request) -> Dict[str, Any]:
+        match = request.match
+        players = [p.user for p in match.players]
+        cancel = request.kind is RescheduleRequestKind.CANCEL
+        clashes: List[str] = []
+        if not cancel and request.proposed_at:
+            try:
+                found = await MatchSuggestionService().find_clashes(
+                    match.tournament_id, [u.id for u in players], request.proposed_at,
+                    actor=actor, exclude_match_id=match.id,
+                )
+                clashes = [c.message for c in found]
+            except Exception:
+                logger.warning('Clash check failed for reschedule request %s', request.id, exc_info=True)
+        return {
+            'kind': 'request',
+            'match_id': match.id,
+            'request': {
+                'id': request.id,
+                'kind': request.kind.value,
+                'requested_by': request.requested_by.preferred_name if request.requested_by else 'A player',
+                'players': [u.preferred_name for u in players],
+                'title': match.title or None,
+                'tournament': match.tournament.name if match.tournament else '',
+                'scheduled_at': match.scheduled_at,
+                'proposed_at': request.proposed_at,
+                'reason': request.reason,
+                'opponent_agreed': request.opponent_agreed_at is not None,
+                'created_at': request.created_at,
+                'clashes': clashes,
+            },
         }
 
     def _row(self, access: MatchBoardAccess, row: dict) -> Dict[str, Any]:

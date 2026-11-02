@@ -150,6 +150,12 @@ Players asking staff to move or call off a match. Approving **performs** the cha
 - `POST /reschedule-requests/{id}/approve` — `{scheduled_at?, note?}`. Omitting `scheduled_at` takes the proposed time; supplying one counters with a different time. `400` when the request named no time and none is given.
 - `POST /reschedule-requests/{id}/decline` — `{note}`. The note is **required** (`422` without it).
 
+### Match comments · `match_comments.py`
+`MatchCommentService` decides who reads and writes each kind. PLAY scope.
+- `GET /matches/{id}/comments` — oldest first. Whoever may run the match reads all of them; a player reads their own and staff messages to the players; anyone else gets `[]`.
+- `POST /matches/{id}/comments` — `{body, kind}`: `player` (a player in the match, DMs the admin on duty and tournament admins, 10 a minute), `staff_private` or `staff_to_players` (whoever may run the match; the latter DMs the players). `400` for a kind you can't post.
+- `DELETE /match-comments/{comment_id}` — the author, or whoever may run the match.
+
 Raising, agreeing and withdrawing take any write token (the service checks the actor plays in the match); deciding is re-gated in the service on `can_crud_match`, which is wider than global STAFF. Every gate lives in the service rather than the router, so the web, Discord and MCP surfaces inherit it. All timestamps are UTC, like the rest of the API — only Discord renders per-viewer.
 
 ### Crew (`/api/crew`) · `crew.py`
@@ -199,6 +205,7 @@ What the app's admin menu draws, built by `AdminNavService`. Scope `staff:read`.
 ### Admin Match Schedule (`/api/admin/match-schedule`) · `admin_match_schedule.py`
 The app's admin run sheet, built by `AdminScheduleService` from `MatchDisplayService` rows and the shared run-sheet logic in `application/run_sheet.py` (the same functions the website's board draws from). Event-bound (`?event=`, a match path binds its own event), scope `staff:read`. Who may open it mirrors the website: staff and Broadcast Tech see every match; a tournament admin or crew coordinator sees only their tournaments (`scoped_tournaments`); anyone else is `403`.
 - `GET /admin/match-schedule?day=&tournament_id=&stage_id=&q=&tz=` — the day's matches (or every day with no `day`) in board groups (Needs a decision, Live now, Up next, Waiting for players, Confirmed; `folded_by_default` on Confirmed). Each row carries its status word and tone, crew per role, late tags, comment counts, winner buttons, the next lifecycle step, and `can` (`edit`, `run`, `confirm`, `stage`, `crew`) from `MatchBoardAccess`, so the app never re-derives a permission. `days` are the event window's days for the day switch; `zone` cuts the days (the community's pinned clock, else yours, else `tz`).
+- The board also carries `needs_you`, the inbox `theme/match_inbox.py` draws: `request` items (pending reschedule requests in the viewer's tournaments, with the reason and `clashes` for the proposed time; only for viewers who may edit), then `site`, `held`, `result` and `late` items naming a board row.
 - `GET /admin/match-schedule/matches/{id}` — the same row plus the pane: the "Ready to start" `checklist`, `rewind_to` steps, `state_since`, `seed_dm_blocked`, and staff ADA notes (withheld from proctors). Every action is an existing `/matches/{id}/…` or `/crew/…` route.
 
 ### My profile (`/api/me/…`) · `my_profile.py`, `my_notifications.py`, `my_developer.py`

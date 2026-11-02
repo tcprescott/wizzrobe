@@ -104,6 +104,9 @@ import MilitaryTechIcon from '@material-symbols/svg-400/outlined/military_tech.s
 import Search from '@material-symbols/svg-400/outlined/search.svg?react'
 import Videocam from '@material-symbols/svg-400/outlined/videocam.svg?react'
 import Casino from '@material-symbols/svg-400/outlined/casino.svg?react'
+import PriorityHigh from '@material-symbols/svg-400/outlined/priority_high.svg?react'
+import Inbox from '@material-symbols/svg-400/outlined/inbox.svg?react'
+import Lock from '@material-symbols/svg-400/outlined/lock.svg?react'
 
 type Svg = FC<SVGProps<SVGSVGElement>>
 
@@ -138,6 +141,9 @@ export const ICONS = {
   search: Search,
   videocam: Videocam,
   casino: Casino,
+  inbox: Inbox,
+  priority_high: PriorityHigh,
+  lock: Lock,
   tv: Tv,
   open_in_new: OpenInNew,
   sports_esports: SportsEsports,

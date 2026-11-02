@@ -1482,6 +1482,14 @@
             "title": "Groups",
             "type": "array"
           },
+          "needs_you": {
+            "description": "Work waiting on you, in the order to show it.",
+            "items": {
+              "$ref": "#/components/schemas/Need"
+            },
+            "title": "Needs You",
+            "type": "array"
+          },
           "scoped_tournaments": {
             "anyOf": [
               {
@@ -1520,7 +1528,8 @@
           "tournaments",
           "stages",
           "can_create",
-          "groups"
+          "groups",
+          "needs_you"
         ],
         "title": "BoardResponse",
         "type": "object"
@@ -8029,6 +8038,82 @@
         "title": "ManualResultRequest",
         "type": "object"
       },
+      "MatchCommentCreate": {
+        "properties": {
+          "body": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Body",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/MatchCommentKind",
+            "description": "`player` for a player in the match; `staff_private` or `staff_to_players` for whoever may run it."
+          }
+        },
+        "required": [
+          "body",
+          "kind"
+        ],
+        "title": "MatchCommentCreate",
+        "type": "object"
+      },
+      "MatchCommentKind": {
+        "description": "Who wrote a match comment, and so who may read it.\n\nA player's comment goes to staff only; their opponent never sees it. Staff\npick one of two paths: a private note other staff and proctors read, or a\nmessage the match's players see as well.",
+        "enum": [
+          "player",
+          "staff_private",
+          "staff_to_players"
+        ],
+        "title": "MatchCommentKind",
+        "type": "string"
+      },
+      "MatchCommentResponse": {
+        "properties": {
+          "author": {
+            "title": "Author",
+            "type": "string"
+          },
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "can_delete": {
+            "title": "Can Delete",
+            "type": "boolean"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "kind": {
+            "description": "`player` (a player to staff), `staff_private` (a note only staff and proctors read) or `staff_to_players` (staff to the match's players).",
+            "title": "Kind",
+            "type": "string"
+          },
+          "own": {
+            "description": "You wrote it.",
+            "title": "Own",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "body",
+          "author",
+          "own",
+          "created_at",
+          "can_delete"
+        ],
+        "title": "MatchCommentResponse",
+        "type": "object"
+      },
       "MatchCreateRequest": {
         "properties": {
           "broadcaster_ids": {
@@ -10051,6 +10136,48 @@
           "name"
         ],
         "title": "Named",
+        "type": "object"
+      },
+      "Need": {
+        "properties": {
+          "has_result": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "For `result`: a winner is recorded.",
+            "title": "Has Result"
+          },
+          "kind": {
+            "description": "`request` (a player asked to move or call off a match), `site` (the bracket site already has a result), `held` (the racetime room bot held a result), `result` (finished, not confirmed) or `late` (past its time and nobody checked in).",
+            "title": "Kind",
+            "type": "string"
+          },
+          "match_id": {
+            "description": "The match; for anything but `request` it is a row on this board.",
+            "title": "Match Id",
+            "type": "integer"
+          },
+          "request": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RescheduleNeed"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "match_id"
+        ],
+        "title": "Need",
         "type": "object"
       },
       "NeedResponse": {
@@ -13547,6 +13674,104 @@
           "note"
         ],
         "title": "RescheduleDeclineRequest",
+        "type": "object"
+      },
+      "RescheduleNeed": {
+        "properties": {
+          "clashes": {
+            "description": "Why the proposed time might not work. Approving anyway is allowed.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Clashes",
+            "type": "array"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "description": "The request, for `POST /reschedule-requests/{id}/approve` or `/decline`.",
+            "title": "Id",
+            "type": "integer"
+          },
+          "kind": {
+            "description": "`reschedule` or `cancel`.",
+            "title": "Kind",
+            "type": "string"
+          },
+          "opponent_agreed": {
+            "title": "Opponent Agreed",
+            "type": "boolean"
+          },
+          "players": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Players",
+            "type": "array"
+          },
+          "proposed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proposed At"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "requested_by": {
+            "title": "Requested By",
+            "type": "string"
+          },
+          "scheduled_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scheduled At"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "tournament": {
+            "title": "Tournament",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "requested_by",
+          "players",
+          "tournament",
+          "reason",
+          "opponent_agreed",
+          "created_at",
+          "clashes"
+        ],
+        "title": "RescheduleNeed",
         "type": "object"
       },
       "RescheduleRequestCreate": {
@@ -36601,6 +36826,120 @@
         ]
       }
     },
+    "/api/match-comments/{comment_id}": {
+      "delete": {
+        "description": "**Who can call this:** The comment's author, or whoever may run the match.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `play`",
+        "operationId": "delete_comment_api_match_comments__comment_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "comment_id",
+            "required": true,
+            "schema": {
+              "title": "Comment Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "play"
+            ]
+          }
+        ],
+        "summary": "Delete a comment",
+        "tags": [
+          "Match comments"
+        ]
+      }
+    },
     "/api/matches": {
       "get": {
         "description": "Matches in this community, soonest first, filtered by match, stage or tournament id and a scheduled-time range. Each match carries its tournament, stage, seed, players and approved crew; pending crew signups are left out.\n\n**Who can call this:** Any member.\n\n**App scope:** `schedule:read`",
@@ -37764,6 +38103,250 @@
         "summary": "Call a match off",
         "tags": [
           "Matches"
+        ]
+      }
+    },
+    "/api/matches/{match_id}/comments": {
+      "get": {
+        "description": "Oldest first. Whoever may run the match reads every comment. A player reads their own comments and what staff sent the players. Anyone else gets an empty list.\n\n**Who can call this:** Any member.\n\n**App scope:** `play`",
+        "operationId": "list_comments_api_matches__match_id__comments_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "match_id",
+            "required": true,
+            "schema": {
+              "title": "Match Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MatchCommentResponse"
+                  },
+                  "title": "Response List Comments Api Matches  Match Id  Comments Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "play"
+            ]
+          }
+        ],
+        "summary": "The comments you may read on a match",
+        "tags": [
+          "Match comments"
+        ]
+      },
+      "post": {
+        "description": "A `player` comment DMs the admin on duty and the tournament's admins; a `staff_to_players` message DMs the players who want those; a `staff_private` note DMs nobody. Fails with 400 when the body is empty or too long, you aren't allowed that kind on this match, or a player posts more than 10 in a minute.\n\n**Who can call this:** The match's players (`player`), or whoever may run the match.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `play`",
+        "operationId": "add_comment_api_matches__match_id__comments_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "match_id",
+            "required": true,
+            "schema": {
+              "title": "Match Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatchCommentCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatchCommentResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "play"
+            ]
+          }
+        ],
+        "summary": "Comment on a match",
+        "tags": [
+          "Match comments"
         ]
       }
     },
@@ -66854,6 +67437,10 @@
       "name": "Reschedule requests"
     },
     {
+      "description": "Notes on a match: players to staff, staff notes, and staff to players.",
+      "name": "Match comments"
+    },
+    {
       "description": "Volunteer positions, shifts, assignments, availability and hours.",
       "name": "Volunteers"
     },
@@ -68650,6 +69237,7 @@
         "Admin: Match Schedule",
         "Crew",
         "Reschedule requests",
+        "Match comments",
         "Volunteers",
         "Check-in",
         "Equipment",
