@@ -23,6 +23,7 @@ from . import (
     event_retention,
     event_setup_copy,
     item_tracker_catalog,
+    join_mode_copy,
     notification_catalog,
     notification_links,
     oauth_handoff_service,
@@ -217,6 +218,7 @@ from .volunteer import (
 )
 from .web_push_service import WebPushService
 from .webhook_service import WebhookService
+from .work_service import WorkService
 
 __all__ = [
     'AccommodationService',
@@ -392,6 +394,7 @@ __all__ = [
     'VolunteerScheduleService',
     'WebPushService',
     'WebhookService',
+    'WorkService',
     'active_users_metrics',
     'assert_sg_fields_unchanged',
     'async_qualifier_access',
@@ -416,6 +419,7 @@ __all__ = [
     'get_user_from_discord_id',
     'get_user_from_session',
     'item_tracker_catalog',
+    'join_mode_copy',
     'notification_catalog',
     'notification_links',
     'oauth_handoff_service',
