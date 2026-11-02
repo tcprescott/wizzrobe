@@ -569,3 +569,55 @@
     flex-wrap: wrap;
   }
 }
+
+/* The frame around a reading page for someone signed out or outside this community */
+.public-frame {
+  min-height: 100vh;
+  background: var(--page-bg);
+}
+.public-frame__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  height: var(--topbar-h, 56px);
+  padding: 0 var(--space-3);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.public-frame__content {
+  padding: var(--space-4) var(--space-4) var(--space-6);
+  max-width: 1320px;
+  margin: 0 auto;
+}
+.public-frame__content:focus {
+  outline: none;
+}
+@media (max-width: 767.98px) {
+  .public-frame__content {
+    padding: var(--space-3) 16px var(--space-5);
+  }
+}
+
+/* Event guide pages */
+.guide-pages {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: 820px;
+}
+.guide-page {
+  position: relative;
+  /* Paper stays white in dark mode: the PDF draws dark text on it. */
+  background: white;
+  box-shadow: var(--shadow-1);
+  border: 1px solid var(--border-subtle);
+}
+.guide-link {
+  position: absolute;
+}
+.guide-link:focus-visible {
+  outline: 2px solid var(--accent);
+}
