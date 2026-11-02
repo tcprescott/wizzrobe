@@ -58,6 +58,12 @@ const TARGETS = [
   { name: 'admin', path: '/t/sgl/admin' },
   { name: 'admin-setup', path: '/t/sgl/admin/setup' },
   { name: 'admin-not-built', path: '/t/sgl/admin/members' },
+  { name: 'admin-notifications', path: '/t/sgl/admin/notifications' },
+  { name: 'admin-notifications-sheet', path: '/t/sgl/admin/notifications', act: (p) => p.getByRole('button', { name: /^Player comment on a match/ }).click(), wait: 'role=radiogroup' },
+  { name: 'admin-feedback', path: '/t/sgl/admin/feedback' },
+  { name: 'admin-feedback-open', path: '/t/sgl/admin/feedback/30' },
+  { name: 'admin-feedback-menu', path: '/t/sgl/admin/feedback/31', act: (p) => p.getByRole('button', { name: 'More for feedback from Kayla R.' }).click(), wait: 'role=menu' },
+  { name: 'admin-service-health', path: '/t/sgl/admin/service-health' },
   ...['about', 'notifications', 'availability', 'accounts', 'staff-alerts', 'equipment', 'accommodation', 'emergency-contact', 'feedback', 'webhooks', 'apps', 'tokens', 'appearance'].map(
     (s) => ({ name: `me-${s}`, path: `/t/sgl/me/${s}` }),
   ),

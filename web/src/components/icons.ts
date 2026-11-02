@@ -101,6 +101,14 @@ import Groups2Icon from '@material-symbols/svg-400/outlined/groups_2.svg?react'
 import ChairIcon from '@material-symbols/svg-400/outlined/chair.svg?react'
 import PodcastsIcon from '@material-symbols/svg-400/outlined/podcasts.svg?react'
 import MilitaryTechIcon from '@material-symbols/svg-400/outlined/military_tech.svg?react'
+import BugReportIcon from '@material-symbols/svg-400/outlined/bug_report.svg?react'
+import LightbulbIcon from '@material-symbols/svg-400/outlined/lightbulb.svg?react'
+import FavoriteIcon from '@material-symbols/svg-400/outlined/favorite.svg?react'
+import ChatBubbleIcon from '@material-symbols/svg-400/outlined/chat_bubble.svg?react'
+import SearchIcon from '@material-symbols/svg-400/outlined/search.svg?react'
+import RefreshIcon from '@material-symbols/svg-400/outlined/refresh.svg?react'
+import NotificationsActiveIcon from '@material-symbols/svg-400/outlined/notifications_active.svg?react'
+import NotificationsOffIcon from '@material-symbols/svg-400/outlined/notifications_off.svg?react'
 
 type Svg = FC<SVGProps<SVGSVGElement>>
 
@@ -200,6 +208,14 @@ export const ICONS = {
   chair: ChairIcon,
   podcasts: PodcastsIcon,
   military_tech: MilitaryTechIcon,
+  bug_report: BugReportIcon,
+  lightbulb: LightbulbIcon,
+  favorite: FavoriteIcon,
+  chat_bubble: ChatBubbleIcon,
+  search: SearchIcon,
+  refresh: RefreshIcon,
+  notifications_active: NotificationsActiveIcon,
+  notifications_off: NotificationsOffIcon,
 } satisfies Record<string, Svg>
 
 export const FILLED: Partial<Record<IconName, Svg>> = {
