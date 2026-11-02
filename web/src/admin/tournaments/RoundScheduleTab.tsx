@@ -3,7 +3,7 @@ import { api, unwrap } from '../../api/client'
 import { Banner, Button, Chip, EmptyState, Panel, PanelRow, Spinner } from '../../components'
 import { done, message } from '../../me/data'
 import { useAdminQuery, type BoardRow, type RoundStage } from './data'
-import { InstantField } from './fields'
+import { InstantField } from '../kit/fields'
 
 type Entry = {
   opens_at: string | null

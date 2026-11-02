@@ -675,6 +675,22 @@
     "aliases": []
    },
    {
+    "slug": "stages",
+    "label": "Stages",
+    "icon": "tv",
+    "group": "Run the event",
+    "half": "event",
+    "aliases": []
+   },
+   {
+    "slug": "triforce-texts",
+    "label": "Triforce Texts",
+    "icon": "change_history",
+    "group": "Run the event",
+    "half": "event",
+    "aliases": []
+   },
+   {
     "slug": "event-settings",
     "label": "Event settings",
     "icon": "event",
@@ -725,6 +741,32 @@
     "group": "System",
     "half": "community",
     "aliases": []
+   },
+   {
+    "slug": "speedgaming",
+    "label": "SpeedGaming",
+    "icon": "sync_alt",
+    "group": "Online play",
+    "half": "event",
+    "aliases": []
+   },
+   {
+    "slug": "racetime",
+    "label": "Racetime",
+    "icon": "flag",
+    "group": "Community",
+    "half": "community",
+    "aliases": []
+   },
+   {
+    "slug": "seed-presets",
+    "label": "Seed Presets",
+    "icon": "tune",
+    "group": "Configuration",
+    "half": "community",
+    "aliases": [
+     "presets"
+    ]
    }
   ],
   "settings_panes": [
@@ -995,6 +1037,236 @@
    "total": 0,
    "detail": "Not drawn yet",
    "placeholder": true
+  }
+ ],
+ "/api/stages": [
+  {
+   "id": 1,
+   "name": "Main stage",
+   "is_active": true,
+   "stream_url": "https://twitch.tv/speedgaming",
+   "created_at": "{{now-10d}}",
+   "updated_at": "{{now-10d}}"
+  },
+  {
+   "id": 2,
+   "name": "Side stage",
+   "is_active": true,
+   "stream_url": null,
+   "created_at": "{{now-10d}}",
+   "updated_at": "{{now-10d}}"
+  },
+  {
+   "id": 3,
+   "name": "Old stage",
+   "is_active": false,
+   "stream_url": null,
+   "created_at": "{{now-10d}}",
+   "updated_at": "{{now-10d}}"
+  }
+ ],
+ "/api/triforce-texts": [
+  {
+   "id": 1,
+   "tournament_id": 1,
+   "text": "GG FROM\nTHE CROWD\nAT SGL",
+   "author": "Ari",
+   "user_id": 11,
+   "approved": null,
+   "created_at": "{{now-2h}}"
+  },
+  {
+   "id": 2,
+   "tournament_id": 1,
+   "text": "GOOD LUCK\nRUNNERS\n",
+   "author": "Bex",
+   "user_id": 12,
+   "approved": true,
+   "approved_at": "{{now-1h}}",
+   "created_at": "{{now-3h}}"
+  }
+ ],
+ "/api/speedgaming/links": [
+  {
+   "id": 1,
+   "tournament_id": 1,
+   "event_slug": "alttprleague",
+   "content_type": null,
+   "active": true,
+   "sync_interval_minutes": 15,
+   "lookahead_hours": 72,
+   "last_status": "ok",
+   "last_synced_at": "{{now-10m}}",
+   "last_error": null,
+   "created_at": "{{now-10d}}",
+   "updated_at": "{{now-10d}}"
+  },
+  {
+   "id": 2,
+   "tournament_id": 2,
+   "event_slug": "smleague",
+   "active": false,
+   "sync_interval_minutes": 15,
+   "lookahead_hours": 72,
+   "last_status": "error",
+   "last_error": "SpeedGaming didn't answer.",
+   "last_synced_at": "{{now-1d}}",
+   "created_at": "{{now-10d}}",
+   "updated_at": "{{now-10d}}"
+  }
+ ],
+ "/api/speedgaming/links/1/episodes": [
+  {
+   "id": 1,
+   "sg_episode_id": "4812",
+   "title": "Ari vs Bex",
+   "scheduled_at": "{{now+5h}}",
+   "sync_status": "synced",
+   "created_at": "{{now-10d}}",
+   "updated_at": "{{now-10d}}"
+  },
+  {
+   "id": 2,
+   "sg_episode_id": "4813",
+   "title": "Cato vs Dee",
+   "scheduled_at": "{{now+1d}}",
+   "sync_status": "error",
+   "sync_error": "No such player",
+   "created_at": "{{now-10d}}",
+   "updated_at": "{{now-10d}}"
+  }
+ ],
+ "/api/tournaments": [
+  {
+   "id": 1,
+   "name": "ALTTPR Main",
+   "is_active": true,
+   "players_per_match": 2,
+   "required_commentators": 2,
+   "required_trackers": 1,
+   "allow_player_match_requests": true,
+   "created_at": "{{now-10d}}",
+   "updated_at": "{{now-10d}}"
+  },
+  {
+   "id": 2,
+   "name": "Super Metroid",
+   "is_active": true,
+   "players_per_match": 2,
+   "required_commentators": 2,
+   "required_trackers": 1,
+   "allow_player_match_requests": true,
+   "created_at": "{{now-10d}}",
+   "updated_at": "{{now-10d}}"
+  }
+ ],
+ "/api/race-room-profiles": [
+  {
+   "id": 1,
+   "name": "League race",
+   "goal": "Beat the game",
+   "invitational": false,
+   "unlisted": false,
+   "auto_start": true,
+   "allow_comments": true,
+   "allow_midrace_chat": true,
+   "allow_non_entrant_chat": false,
+   "chat_message_delay": 0,
+   "start_delay": 15,
+   "time_limit": 24,
+   "streaming_required": true,
+   "created_at": "{{now-10d}}",
+   "updated_at": "{{now-10d}}"
+  },
+  {
+   "id": 2,
+   "name": "Casual",
+   "goal": null,
+   "invitational": false,
+   "unlisted": false,
+   "auto_start": true,
+   "allow_comments": true,
+   "allow_midrace_chat": true,
+   "allow_non_entrant_chat": false,
+   "chat_message_delay": 0,
+   "start_delay": 15,
+   "time_limit": 24,
+   "streaming_required": true,
+   "created_at": "{{now-10d}}",
+   "updated_at": "{{now-10d}}"
+  }
+ ],
+ "/api/presets": [
+  {
+   "id": 5,
+   "name": "sgl2026",
+   "randomizer": "alttpr",
+   "description": "SGL 2026 standard",
+   "settings": {
+    "goal": "ganon",
+    "mode": "open"
+   },
+   "created_at": "{{now-10d}}",
+   "updated_at": "{{now-10d}}"
+  },
+  {
+   "id": 6,
+   "name": "sgl2026",
+   "randomizer": "ffr",
+   "settings": {
+    "flags": "HACAAAAAAAAAAAA"
+   },
+   "created_at": "{{now-10d}}",
+   "updated_at": "{{now-10d}}"
+  }
+ ],
+ "/api/admin/presets/editor": {
+  "randomizers": [
+   {
+    "slug": "alttpr",
+    "name": "A Link to the Past",
+    "available": true,
+    "rolls_from_flags": false,
+    "paste_field": null,
+    "offers_remote_presets": true,
+    "remote_branches": []
+   },
+   {
+    "slug": "ffr",
+    "name": "Final Fantasy",
+    "available": true,
+    "rolls_from_flags": true,
+    "paste_field": {
+     "key": "flags",
+     "label": "Flag string",
+     "placeholder": "Paste the flags from finalfantasyrandomizer.com",
+     "hint": "Copy them from the site's Share button."
+    },
+    "offers_remote_presets": false,
+    "remote_branches": []
+   }
+  ],
+  "usage": [
+   {
+    "preset_id": 5,
+    "tournaments": [
+     "ALTTPR Main"
+    ]
+   }
+  ]
+ },
+ "/api/admin/presets/check-paste": {
+  "kind": "example",
+  "example": "https://finalfantasyrandomizer.com/Randomize?s=1234&f=HACAAAAAAAAAAAA"
+ },
+ "/api/admin/presets/remote": [
+  {
+   "name": "open",
+   "description": "Open mode"
+  },
+  {
+   "name": "standard",
+   "description": null
   }
  ]
 }

@@ -1,6 +1,5 @@
 import { api, unwrap, type Schemas } from '../../api/client'
-import { useQuery } from '../../api/useQuery'
-import { useCommunity } from '../../community/CommunityProvider'
+import { useAdminQuery } from '../kit/useAdminQuery'
 
 export type Board = Schemas['BoardResponse']
 export type BoardRow = Schemas['BoardRowResponse']
@@ -12,11 +11,7 @@ export type Entrant = Schemas['EntrantResponse']
 export type RoundStage = Schemas['RoundScheduleStageResponse']
 export type StartggSettings = Schemas['StartggSettingsResponse']
 
-/** A read keyed on the community and event, so switching either reloads it. */
-export function useAdminQuery<T>(name: string | null, load: () => Promise<T>) {
-  const { community, event } = useCommunity()
-  return useQuery(name === null ? null : `admin/${name}@${community.slug}/${event?.slug ?? ''}`, load)
-}
+export { useAdminQuery }
 
 export function useBoard() {
   return useAdminQuery('tournaments/board', () => api.GET('/api/admin/tournaments/board').then(unwrap))

@@ -6,7 +6,6 @@ import { usePhone } from '../../lib/usePhone'
 import { message } from '../../me/data'
 import { SideList } from '../kit'
 import { useAdmin } from '../kit/useAdminNav'
-import './tournaments.css'
 import { SIGNUP_LABEL, SIGNUP_TONE, useBoard, type Board, type BoardRow } from './data'
 import { TournamentDetail } from './TournamentDetail'
 

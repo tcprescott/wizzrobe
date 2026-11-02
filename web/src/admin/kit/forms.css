@@ -1,4 +1,4 @@
-/* Admin → Tournaments: filters, the open tournament's header, tabs and panels. */
+/* Admin forms and detail panes: filter chips, a detail header and tabs, rows, form grids, checks, key-value lists. */
 
 .filter-chips {
   display: flex;

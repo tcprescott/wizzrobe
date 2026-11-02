@@ -3,7 +3,7 @@ import { api, unwrap } from '../../api/client'
 import { Banner, Button, Panel, PanelRow, Spinner } from '../../components'
 import { message } from '../../me/data'
 import { useAdminQuery, type BoardRow, type Tournament } from './data'
-import { InstantField, NumberField } from './fields'
+import { InstantField, NumberField } from '../kit/fields'
 
 type Draft = {
   name: string
