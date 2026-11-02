@@ -372,6 +372,20 @@
     "endpoint_host": "fcm.googleapis.com"
    }
   ],
+  "native_push_platforms": [
+   "ios",
+   "android"
+  ],
+  "native_devices": [
+   {
+    "id": 7,
+    "platform": "ios",
+    "device_name": "iPhone 16",
+    "created_at": "{{now-2d}}",
+    "last_used_at": "{{now-2h}}"
+   }
+  ],
+  "registered_device_id": null,
   "channels_enabled": true,
   "email_available": true,
   "email": "sam@example.com",

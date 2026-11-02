@@ -187,6 +187,15 @@ Every boolean variable below uses one grammar (`env_flag` in `application/utils/
 | `SERVICE_HEALTH_ALERT_DM` | no | off | `application/utils/environment.py` | Opt in to DMing every super-admin on an unhealthy transition. Transitions always publish a `service_health.alert` event and capture to Sentry regardless. |
 | `VAPID_PRIVATE_KEY` | no | — | `application/services/web_push_service.py` | Enables web push. Base64url raw 32-byte P-256 key from `scripts/generate_vapid_keys.py`. **Keep secret and stable** — rotating it invalidates every subscription. See [web-push.md](features/web-push.md). |
 | `VAPID_SUBJECT` | no | `BASE_URL` when https | `application/services/web_push_service.py` | `mailto:` or `https:` contact sent to push services (RFC 8292). Without a usable value web push stays off even with a key. |
+| `APNS_KEY` | no | — | `application/services/native_push_service.py` | Enables iPhone push from the store app (with the three below). The `.p8` auth key's PEM text from Apple Developer › Keys (APNs enabled); `\n` escapes are accepted. **Keep secret.** See [native-apps.md](features/native-apps.md). |
+| `APNS_KEY_ID` | with `APNS_KEY` | — | `application/services/native_push_service.py` | The 10-character id Apple shows for that key. |
+| `APNS_TEAM_ID` | with `APNS_KEY` | — | `application/services/native_push_service.py` | The Apple developer team id. |
+| `APNS_TOPIC` | with `APNS_KEY` | — | `application/services/native_push_service.py` | The iOS app's bundle id (same as `APP_ID`). |
+| `APNS_SANDBOX` | no | off | `application/services/native_push_service.py` | Try Apple's development gateway first (Xcode builds). Either way a token the first gateway rejects is retried once on the other. |
+| `FCM_SERVICE_ACCOUNT` | no | — | `application/services/native_push_service.py` | Enables Android push from the store app: the Firebase service account's JSON (Firebase console › Project settings › Service accounts). Also carries iPhone push when APNs isn't set. **Keep secret.** |
+| `APP_ID` | no | — | `application/services/app_association_service.py` | The store apps' id (iOS bundle id = Android package). With the two below, serves the `/.well-known` files that let community links open the app. |
+| `APPLE_TEAM_ID` | no | — | `application/services/app_association_service.py` | Turns on `/.well-known/apple-app-site-association` (universal links). |
+| `ANDROID_CERT_SHA256` | no | — | `application/services/app_association_service.py` | Turns on `/.well-known/assetlinks.json` (app links). Comma-separated SHA-256 signing-certificate fingerprints: Play's app-signing key plus any upload or debug key. |
 | `SENDGRID_API_KEY` | no | — | `application/utils/clients/sendgrid_client.py` | Enables email notifications (with `EMAIL_FROM_ADDRESS`). A SendGrid key with Mail Send access. See [notification-channels.md](features/notification-channels.md). |
 | `EMAIL_FROM_ADDRESS` | no | — | `application/utils/clients/sendgrid_client.py` | Sender address; its domain must be authenticated in SendGrid (SPF/DKIM) or mail lands in spam. |
 | `EMAIL_FROM_NAME` | no | `Wizzrobe` | `application/utils/clients/sendgrid_client.py` | Sender display name. |
