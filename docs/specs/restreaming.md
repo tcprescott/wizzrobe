@@ -37,6 +37,9 @@ In:
   only and game/runner audio on the commentator track too.
 - Program control: scene switching, run of show, start/stop stream, Twitch
   title.
+- Stream key brokering: the channel owner connects the Twitch channel to
+  Wizzrobe once; at go-live Wizzrobe fetches the key and the agent sets it in
+  OBS, and clears it when the stream stops.
 
 Out:
 - Wizzrobe encoding or compositing video itself.
@@ -64,7 +67,13 @@ stage's OBS beside it, tap-in on phone) before any screen is built.
 - **Agent safety:** the obs-websocket password never leaves the machine; the
   agent refuses any request type not on its allowlist, any input kind outside
   browser/colour/media/text sources, any local file path, and any non-https
-  browser-source URL. Every command is audited server-side.
+  browser-source URL. Every command is audited server-side. Stream service
+  settings stay refused until phase 5, which allows them only for a Twitch
+  ingest server and only from the go-live/stop flow.
+- **Twitch stream keys:** a per-stage channel connection (Twitch OAuth with
+  `channel:read:stream_key`), token stored encrypted; the key is fetched at
+  go-live, never stored by Wizzrobe, never shown in the app, and sits in the
+  broadcaster's OBS only while the stream runs.
 - **Other surfaces:** REST for the app; the agent connection lives on the
   always-on bot service (Cloud Run caps a websocket at the request timeout, so
   the agent reconnects with backoff anyway).
@@ -116,5 +125,7 @@ Later phases get their acceptance items with their mockups.
 - 2026-11-02 — Thomas picked "Spike now, build later": build phases 1 to 5
   after the app rebuild's admin screens land.
 - 2026-11-02 — Thomas picked Windows and Mac for the agent.
+- 2026-11-02 — Thomas picked "Connect Twitch, push key" for stream keys: the
+  agent sets the key at go-live and clears it after.
 - 2026-11-02 — Thomas: the commentator stream must exclude commentary audio
   (a requirement, not a default).
