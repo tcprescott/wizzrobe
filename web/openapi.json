@@ -3279,6 +3279,24 @@
         "title": "BracketSetResponse",
         "type": "object"
       },
+      "BracketSiteResponse": {
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label"
+        ],
+        "title": "BracketSiteResponse",
+        "type": "object"
+      },
       "BracketSlotResponse": {
         "properties": {
           "entrant_id": {
@@ -3436,6 +3454,46 @@
         ],
         "title": "BracketState",
         "type": "string"
+      },
+      "BracketSyncResultResponse": {
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "source_label": {
+            "title": "Source Label",
+            "type": "string"
+          },
+          "summary": {
+            "description": "What changed, ready to print.",
+            "title": "Summary",
+            "type": "string"
+          },
+          "tournament_id": {
+            "title": "Tournament Id",
+            "type": "integer"
+          },
+          "tournament_name": {
+            "title": "Tournament Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tournament_id",
+          "tournament_name",
+          "source_label",
+          "summary"
+        ],
+        "title": "BracketSyncResultResponse",
+        "type": "object"
       },
       "BracketUpdateRequest": {
         "description": "Edit a DRAFT bracket's definition. Omitted fields are left alone.",
@@ -4978,6 +5036,19 @@
         "title": "ConfigValueUpdate",
         "type": "object"
       },
+      "ConfirmedResponse": {
+        "properties": {
+          "confirmed": {
+            "title": "Confirmed",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "confirmed"
+        ],
+        "title": "ConfirmedResponse",
+        "type": "object"
+      },
       "ConnectedAccountResponse": {
         "properties": {
           "description": {
@@ -5769,6 +5840,34 @@
         "title": "CrewedTournamentRow",
         "type": "object"
       },
+      "DeletionPreviewResponse": {
+        "properties": {
+          "brackets": {
+            "title": "Brackets",
+            "type": "integer"
+          },
+          "matches": {
+            "title": "Matches",
+            "type": "integer"
+          },
+          "players": {
+            "title": "Players",
+            "type": "integer"
+          },
+          "triforce_texts": {
+            "title": "Triforce Texts",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "matches",
+          "players",
+          "brackets",
+          "triforce_texts"
+        ],
+        "title": "DeletionPreviewResponse",
+        "type": "object"
+      },
       "DetailResponse": {
         "properties": {
           "detail": {
@@ -6151,6 +6250,113 @@
         "title": "DiscordScheduledEventResponse",
         "type": "object"
       },
+      "DropMatchResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "scheduled_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scheduled At"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title"
+        ],
+        "title": "DropMatchResponse",
+        "type": "object"
+      },
+      "DropPlanResponse": {
+        "properties": {
+          "group": {
+            "description": "Larger matches: the player comes off the line-up.",
+            "items": {
+              "$ref": "#/components/schemas/DropMatchResponse"
+            },
+            "title": "Group",
+            "type": "array"
+          },
+          "head_to_head": {
+            "description": "Two-player matches: forfeited to the opponent, or called off.",
+            "items": {
+              "$ref": "#/components/schemas/DropMatchResponse"
+            },
+            "title": "Head To Head",
+            "type": "array"
+          },
+          "on_bracket_site": {
+            "description": "They're also dropped on the Challonge bracket.",
+            "title": "On Bracket Site",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "head_to_head",
+          "group",
+          "on_bracket_site"
+        ],
+        "title": "DropPlanResponse",
+        "type": "object"
+      },
+      "DropRequest": {
+        "properties": {
+          "forfeit_matches": {
+            "default": true,
+            "description": "Forfeit their head-to-head matches; false calls them off.",
+            "title": "Forfeit Matches",
+            "type": "boolean"
+          },
+          "reason": {
+            "$ref": "#/components/schemas/ForfeitReason",
+            "default": "withdrew",
+            "description": "Recorded on forfeited matches."
+          }
+        },
+        "title": "DropRequest",
+        "type": "object"
+      },
+      "DropResultResponse": {
+        "properties": {
+          "called_off": {
+            "title": "Called Off",
+            "type": "integer"
+          },
+          "forfeited": {
+            "title": "Forfeited",
+            "type": "integer"
+          },
+          "on_bracket_site": {
+            "title": "On Bracket Site",
+            "type": "boolean"
+          },
+          "removed_from": {
+            "title": "Removed From",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "forfeited",
+          "called_off",
+          "removed_from",
+          "on_bracket_site"
+        ],
+        "title": "DropResultResponse",
+        "type": "object"
+      },
       "DropoffPartResponse": {
         "properties": {
           "answered": {
@@ -6405,6 +6611,19 @@
         "title": "EnrollRequest",
         "type": "object"
       },
+      "EntrantAssignRequest": {
+        "properties": {
+          "user_id": {
+            "title": "User Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "user_id"
+        ],
+        "title": "EntrantAssignRequest",
+        "type": "object"
+      },
       "EntrantCreateRequest": {
         "properties": {
           "display_name": {
@@ -6435,6 +6654,93 @@
           "display_name"
         ],
         "title": "EntrantCreateRequest",
+        "type": "object"
+      },
+      "EntrantListResponse": {
+        "properties": {
+          "entrants": {
+            "items": {
+              "$ref": "#/components/schemas/EntrantResponse"
+            },
+            "title": "Entrants",
+            "type": "array"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "site": {
+            "title": "Site",
+            "type": "string"
+          }
+        },
+        "required": [
+          "site",
+          "label",
+          "entrants"
+        ],
+        "title": "EntrantListResponse",
+        "type": "object"
+      },
+      "EntrantResponse": {
+        "properties": {
+          "conflicting_user": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PersonResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Matched by hand, but the entrant's Challonge account belongs to this member."
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "manual",
+              "linked",
+              "suggested",
+              "unmatched"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "suggested_user": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PersonResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A likely member to confirm (start.gg only)."
+          },
+          "user": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PersonResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "status"
+        ],
+        "title": "EntrantResponse",
         "type": "object"
       },
       "EntrantUserRequest": {
@@ -7691,6 +7997,16 @@
         "title": "FollowableTournamentResponse",
         "type": "object"
       },
+      "ForfeitReason": {
+        "description": "Why a match was decided without being played out (``Match.forfeit_reason``).",
+        "enum": [
+          "no_show",
+          "withdrew",
+          "disqualified"
+        ],
+        "title": "ForfeitReason",
+        "type": "string"
+      },
       "GeneratedSeedBase": {
         "description": "A rolled seed and its provenance.\n\n``settings_snapshot`` is the settings as sent to the randomizer at roll time,\nwhich is what answers \"what settings did this seed use?\" after the preset has\nsince been edited. Exposed on the authenticated match read only — a\nspoiler-adjacent setting is precisely what a viewer must not see mid-race.",
         "properties": {
@@ -8250,6 +8566,30 @@
           "scheduled_match_id"
         ],
         "title": "LinkGameRequest",
+        "type": "object"
+      },
+      "LinkRequest": {
+        "properties": {
+          "bracket": {
+            "description": "The bracket's link or id on that site.",
+            "minLength": 1,
+            "title": "Bracket",
+            "type": "string"
+          },
+          "site": {
+            "enum": [
+              "challonge",
+              "startgg"
+            ],
+            "title": "Site",
+            "type": "string"
+          }
+        },
+        "required": [
+          "site",
+          "bracket"
+        ],
+        "title": "LinkRequest",
         "type": "object"
       },
       "LinkedAccountInfo": {
@@ -11663,6 +12003,127 @@
         "title": "OAuthAppUpdate",
         "type": "object"
       },
+      "PasteCheckRequest": {
+        "properties": {
+          "randomizer": {
+            "title": "Randomizer",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "randomizer",
+          "value"
+        ],
+        "title": "PasteCheckRequest",
+        "type": "object"
+      },
+      "PasteCheckResponse": {
+        "properties": {
+          "build": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Build"
+          },
+          "example": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What a player would be handed for these flags.",
+            "title": "Example"
+          },
+          "kind": {
+            "description": "`site_version`, `example`, `build` or `none`.",
+            "title": "Kind",
+            "type": "string"
+          },
+          "site_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Site Version"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Headline settings; null when the build isn't known.",
+            "title": "Summary"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "PasteCheckResponse",
+        "type": "object"
+      },
+      "PasteFieldResponse": {
+        "properties": {
+          "hint": {
+            "title": "Hint",
+            "type": "string"
+          },
+          "key": {
+            "description": "The settings key the pasted value is saved under.",
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "placeholder": {
+            "title": "Placeholder",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "placeholder",
+          "hint"
+        ],
+        "title": "PasteFieldResponse",
+        "type": "object"
+      },
       "PayoutLineRequest": {
         "properties": {
           "amount": {
@@ -12039,6 +12500,35 @@
         "title": "PermalinkUpdateRequest",
         "type": "object"
       },
+      "PersonResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "PersonResponse",
+        "type": "object"
+      },
       "PersonalWebhookCreate": {
         "properties": {
           "event_types": {
@@ -12272,6 +12762,35 @@
         "title": "PersonalWebhooksResponse",
         "type": "object"
       },
+      "PhaseResponse": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "phase_id": {
+            "title": "Phase Id",
+            "type": "string"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State"
+          }
+        },
+        "required": [
+          "phase_id",
+          "name"
+        ],
+        "title": "PhaseResponse",
+        "type": "object"
+      },
       "PlatformUserResponse": {
         "properties": {
           "communities": {
@@ -12437,6 +12956,30 @@
         "title": "PlayerInfo",
         "type": "object"
       },
+      "PlayerResponse": {
+        "properties": {
+          "enrolled_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enrolled At"
+          },
+          "user": {
+            "$ref": "#/components/schemas/PersonResponse"
+          }
+        },
+        "required": [
+          "user"
+        ],
+        "title": "PlayerResponse",
+        "type": "object"
+      },
       "PoolCreateRequest": {
         "properties": {
           "name": {
@@ -12536,6 +13079,30 @@
           "settings"
         ],
         "title": "PresetCreateRequest",
+        "type": "object"
+      },
+      "PresetEditorResponse": {
+        "properties": {
+          "randomizers": {
+            "items": {
+              "$ref": "#/components/schemas/RandomizerEditorResponse"
+            },
+            "title": "Randomizers",
+            "type": "array"
+          },
+          "usage": {
+            "items": {
+              "$ref": "#/components/schemas/PresetUsageResponse"
+            },
+            "title": "Usage",
+            "type": "array"
+          }
+        },
+        "required": [
+          "randomizers",
+          "usage"
+        ],
+        "title": "PresetEditorResponse",
         "type": "object"
       },
       "PresetResponse": {
@@ -12650,6 +13217,28 @@
           }
         },
         "title": "PresetUpdateRequest",
+        "type": "object"
+      },
+      "PresetUsageResponse": {
+        "properties": {
+          "preset_id": {
+            "title": "Preset Id",
+            "type": "integer"
+          },
+          "tournaments": {
+            "description": "Tournaments rolling from it; deleting the preset detaches them.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Tournaments",
+            "type": "array"
+          }
+        },
+        "required": [
+          "preset_id",
+          "tournaments"
+        ],
+        "title": "PresetUsageResponse",
         "type": "object"
       },
       "PrivacyPolicy": {
@@ -14321,6 +14910,62 @@
         "title": "RacetimeBotUpdateRequest",
         "type": "object"
       },
+      "RandomizerEditorResponse": {
+        "properties": {
+          "available": {
+            "description": "False when the community hasn't added this randomizer's API key.",
+            "title": "Available",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "offers_remote_presets": {
+            "description": "Its own API publishes presets to import.",
+            "title": "Offers Remote Presets",
+            "type": "boolean"
+          },
+          "paste_field": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PasteFieldResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Edit this randomizer's preset as one pasted value instead of JSON."
+          },
+          "remote_branches": {
+            "description": "Catalogue variants to choose between; empty for one list.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Remote Branches",
+            "type": "array"
+          },
+          "rolls_from_flags": {
+            "description": "A roll is a seed number beside a flag string.",
+            "title": "Rolls From Flags",
+            "type": "boolean"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug",
+          "name",
+          "available",
+          "rolls_from_flags",
+          "offers_remote_presets",
+          "remote_branches"
+        ],
+        "title": "RandomizerEditorResponse",
+        "type": "object"
+      },
       "RandomizerResponse": {
         "description": "A supported randomizer and whether it can embed community triforce texts.",
         "properties": {
@@ -14453,6 +15098,63 @@
           }
         },
         "title": "ReleaseAssignmentRequest",
+        "type": "object"
+      },
+      "RemoteImportRequest": {
+        "properties": {
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Branch"
+          },
+          "names": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Names",
+            "type": "array"
+          },
+          "randomizer": {
+            "title": "Randomizer",
+            "type": "string"
+          }
+        },
+        "required": [
+          "randomizer",
+          "names"
+        ],
+        "title": "RemoteImportRequest",
+        "type": "object"
+      },
+      "RemotePresetResponse": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "RemotePresetResponse",
         "type": "object"
       },
       "ReportResultRequest": {
@@ -14872,6 +15574,74 @@
         "title": "RoundMetadataRequest",
         "type": "object"
       },
+      "RoundScheduleEntry": {
+        "properties": {
+          "best_of": {
+            "default": 1,
+            "enum": [
+              1,
+              3,
+              5
+            ],
+            "title": "Best Of",
+            "type": "integer"
+          },
+          "closes_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When it closes (UTC).",
+            "title": "Closes At"
+          },
+          "daily_from": {
+            "anyOf": [
+              {
+                "pattern": "^\\d{2}:\\d{2}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "HH:MM on the community's clock.",
+            "title": "Daily From"
+          },
+          "daily_until": {
+            "anyOf": [
+              {
+                "pattern": "^\\d{2}:\\d{2}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "HH:MM on the community's clock.",
+            "title": "Daily Until"
+          },
+          "opens_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the stage opens for booking (UTC).",
+            "title": "Opens At"
+          }
+        },
+        "title": "RoundScheduleEntry",
+        "type": "object"
+      },
       "RoundScheduleStageResponse": {
         "properties": {
           "best_of": {
@@ -14970,6 +15740,23 @@
           "best_of"
         ],
         "title": "RoundScheduleStageResponse",
+        "type": "object"
+      },
+      "RoundScheduleUpdate": {
+        "properties": {
+          "stages": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/RoundScheduleEntry"
+            },
+            "description": "Every stage's window by stage key; a stage left out or blank has none.",
+            "title": "Stages",
+            "type": "object"
+          }
+        },
+        "required": [
+          "stages"
+        ],
+        "title": "RoundScheduleUpdate",
         "type": "object"
       },
       "RowCaps": {
@@ -15909,6 +16696,28 @@
         "title": "ShiftLateRequest",
         "type": "object"
       },
+      "SignupWindow": {
+        "enum": [
+          "upcoming",
+          "open",
+          "closed"
+        ],
+        "title": "SignupWindow",
+        "type": "string"
+      },
+      "SiteLabelResponse": {
+        "properties": {
+          "site": {
+            "title": "Site",
+            "type": "string"
+          }
+        },
+        "required": [
+          "site"
+        ],
+        "title": "SiteLabelResponse",
+        "type": "object"
+      },
       "SiteResult": {
         "properties": {
           "no_winner": {
@@ -16533,6 +17342,46 @@
         "title": "StaffNotificationUpdate",
         "type": "object"
       },
+      "StageActionRequest": {
+        "properties": {
+          "action": {
+            "description": "The `stage_action.key` from the board row.",
+            "title": "Action",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "title": "StageActionRequest",
+        "type": "object"
+      },
+      "StageActionResponse": {
+        "properties": {
+          "confirm": {
+            "description": "What to show before running it: it changes the bracket on Challonge.",
+            "title": "Confirm",
+            "type": "string"
+          },
+          "key": {
+            "description": "Pass back to the stage endpoint to run it.",
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "description": "Button text, such as `Start the group stage`.",
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "confirm"
+        ],
+        "title": "StageActionResponse",
+        "type": "object"
+      },
       "StageBase": {
         "properties": {
           "id": {
@@ -16943,6 +17792,92 @@
           "pool_id"
         ],
         "title": "StartRunRequest",
+        "type": "object"
+      },
+      "StartggSettingsResponse": {
+        "properties": {
+          "bookable_phase_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The phase players book from; null means every phase.",
+            "title": "Bookable Phase Id"
+          },
+          "event_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Name"
+          },
+          "event_slug": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Slug"
+          },
+          "phases": {
+            "items": {
+              "$ref": "#/components/schemas/PhaseResponse"
+            },
+            "title": "Phases",
+            "type": "array"
+          },
+          "report_results": {
+            "description": "Results are written back to start.gg.",
+            "title": "Report Results",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "report_results",
+          "phases"
+        ],
+        "title": "StartggSettingsResponse",
+        "type": "object"
+      },
+      "StartggSettingsUpdate": {
+        "properties": {
+          "bookable_phase_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Send null for every phase. Omit to leave it.",
+            "title": "Bookable Phase Id"
+          },
+          "report_results": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Omit to leave it.",
+            "title": "Report Results"
+          }
+        },
+        "title": "StartggSettingsUpdate",
         "type": "object"
       },
       "StationSuggestionResponse": {
@@ -18104,6 +19039,30 @@
         "title": "TelemetrySummaryResponse",
         "type": "object"
       },
+      "TestRollResponse": {
+        "properties": {
+          "randomizer": {
+            "title": "Randomizer",
+            "type": "string"
+          },
+          "seed_url": {
+            "title": "Seed Url",
+            "type": "string"
+          },
+          "used_preset_settings": {
+            "description": "False when this randomizer ignores preset settings.",
+            "title": "Used Preset Settings",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "randomizer",
+          "seed_url",
+          "used_preset_settings"
+        ],
+        "title": "TestRollResponse",
+        "type": "object"
+      },
       "TimeCheckResponse": {
         "properties": {
           "clashes": {
@@ -18504,22 +19463,168 @@
         "title": "TournamentBase",
         "type": "object"
       },
-      "TournamentBracketResponse": {
+      "TournamentBoardResponse": {
         "properties": {
-          "entrants": {
-            "items": {
-              "$ref": "#/components/schemas/BracketEntrantSummary"
-            },
-            "title": "Entrants",
-            "type": "array"
-          },
-          "filtered": {
-            "default": false,
-            "description": "True when filters trimmed the phases, pools or sets.",
-            "title": "Filtered",
+          "can_create": {
+            "description": "Add tournament is offered (staff only).",
+            "title": "Can Create",
             "type": "boolean"
           },
-          "last_synced_at": {
+          "linkable_sites": {
+            "description": "Sites a tournament can be linked to here.",
+            "items": {
+              "$ref": "#/components/schemas/BracketSiteResponse"
+            },
+            "title": "Linkable Sites",
+            "type": "array"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/TournamentBoardRowResponse"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "zone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The zone to print times in; null means the device's own.",
+            "title": "Zone"
+          }
+        },
+        "required": [
+          "rows",
+          "can_create",
+          "linkable_sites"
+        ],
+        "title": "TournamentBoardResponse",
+        "type": "object"
+      },
+      "TournamentBoardRowResponse": {
+        "properties": {
+          "average_match_duration": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Minutes.",
+            "title": "Average Match Duration"
+          },
+          "bracket": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/api__schemas__admin_tournaments__TournamentBracketResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The bracket site it follows, if linked."
+          },
+          "bracket_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bracket Url"
+          },
+          "can_delete": {
+            "description": "Delete is offered: staff, and the tournament is inactive.",
+            "title": "Can Delete",
+            "type": "boolean"
+          },
+          "can_link": {
+            "description": "Link or unlink a bracket is offered (staff only).",
+            "title": "Can Link",
+            "type": "boolean"
+          },
+          "can_manage_bracket": {
+            "description": "Sync, stage step and entrant matching are offered.",
+            "title": "Can Manage Bracket",
+            "type": "boolean"
+          },
+          "has_round_schedule": {
+            "description": "Whether Round schedule applies (a linked bracket).",
+            "title": "Has Round Schedule",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "is_test": {
+            "description": "Hidden from the event info page only.",
+            "title": "Is Test",
+            "type": "boolean"
+          },
+          "max_match_duration": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Minutes.",
+            "title": "Max Match Duration"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "player_count": {
+            "title": "Player Count",
+            "type": "integer"
+          },
+          "players_per_match": {
+            "title": "Players Per Match",
+            "type": "integer"
+          },
+          "rules_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rules Url"
+          },
+          "seed_generator": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seed Generator"
+          },
+          "signup_state": {
+            "$ref": "#/components/schemas/SignupWindow"
+          },
+          "signups_close_at": {
             "anyOf": [
               {
                 "format": "date-time",
@@ -18529,30 +19634,21 @@
                 "type": "null"
               }
             ],
-            "description": "When the start.gg or Challonge mirror last synced (UTC).",
-            "title": "Last Synced At"
+            "title": "Signups Close At"
           },
-          "phases": {
-            "items": {
-              "$ref": "#/components/schemas/BracketPhaseResponse"
-            },
-            "title": "Phases",
-            "type": "array"
+          "signups_open_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signups Open At"
           },
-          "source": {
-            "description": "`native`, `startgg` or `challonge`.",
-            "title": "Source",
-            "type": "string"
-          },
-          "tournament": {
-            "title": "Tournament",
-            "type": "string"
-          },
-          "tournament_id": {
-            "title": "Tournament Id",
-            "type": "integer"
-          },
-          "url": {
+          "tournament_format": {
             "anyOf": [
               {
                 "type": "string"
@@ -18561,18 +19657,23 @@
                 "type": "null"
               }
             ],
-            "description": "The bracket's page on its site (a Wizzrobe path for native).",
-            "title": "Url"
+            "title": "Tournament Format"
           }
         },
         "required": [
-          "tournament_id",
-          "tournament",
-          "source",
-          "phases",
-          "entrants"
+          "id",
+          "name",
+          "is_active",
+          "is_test",
+          "players_per_match",
+          "player_count",
+          "signup_state",
+          "has_round_schedule",
+          "can_manage_bracket",
+          "can_link",
+          "can_delete"
         ],
-        "title": "TournamentBracketResponse",
+        "title": "TournamentBoardRowResponse",
         "type": "object"
       },
       "TournamentCreateRequest": {
@@ -22214,6 +23315,151 @@
         "title": "SetupStepResponse",
         "type": "object"
       },
+      "api__schemas__admin_tournaments__TournamentBracketResponse": {
+        "properties": {
+          "label": {
+            "description": "The site's name as people see it.",
+            "title": "Label",
+            "type": "string"
+          },
+          "site": {
+            "description": "`challonge` or `startgg`.",
+            "title": "Site",
+            "type": "string"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Where a Challonge bracket stands, such as `Group stage`.",
+            "title": "Stage"
+          },
+          "stage_action": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StageActionResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The next Challonge stage step, if any."
+          },
+          "synced_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Last sync (UTC), or null if never synced.",
+            "title": "Synced At"
+          },
+          "unmatched": {
+            "description": "Entrants not yet matched to a member.",
+            "title": "Unmatched",
+            "type": "integer"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The bracket on the site.",
+            "title": "Url"
+          }
+        },
+        "required": [
+          "site",
+          "label",
+          "unmatched"
+        ],
+        "title": "TournamentBracketResponse",
+        "type": "object"
+      },
+      "api__schemas__bracket_overview__TournamentBracketResponse": {
+        "properties": {
+          "entrants": {
+            "items": {
+              "$ref": "#/components/schemas/BracketEntrantSummary"
+            },
+            "title": "Entrants",
+            "type": "array"
+          },
+          "filtered": {
+            "default": false,
+            "description": "True when filters trimmed the phases, pools or sets.",
+            "title": "Filtered",
+            "type": "boolean"
+          },
+          "last_synced_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the start.gg or Challonge mirror last synced (UTC).",
+            "title": "Last Synced At"
+          },
+          "phases": {
+            "items": {
+              "$ref": "#/components/schemas/BracketPhaseResponse"
+            },
+            "title": "Phases",
+            "type": "array"
+          },
+          "source": {
+            "description": "`native`, `startgg` or `challonge`.",
+            "title": "Source",
+            "type": "string"
+          },
+          "tournament": {
+            "title": "Tournament",
+            "type": "string"
+          },
+          "tournament_id": {
+            "title": "Tournament Id",
+            "type": "integer"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The bracket's page on its site (a Wizzrobe path for native).",
+            "title": "Url"
+          }
+        },
+        "required": [
+          "tournament_id",
+          "tournament",
+          "source",
+          "phases",
+          "entrants"
+        ],
+        "title": "TournamentBracketResponse",
+        "type": "object"
+      },
       "api__schemas__platform__SetupStepResponse": {
         "properties": {
           "done": {
@@ -22933,6 +24179,3006 @@
         "summary": "Notification settings as the admin screen shows them",
         "tags": [
           "Notification settings"
+        ]
+      }
+    },
+    "/api/admin/presets/check-paste": {
+      "post": {
+        "description": "Reads a Wind Waker permalink, an FFR flags link or a flag string the way a roll will, without saving anything. Fails with 400 and the reason when it can't be read.\n\n**Who can call this:** Staff or Preset manager.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `staff:write`",
+        "operationId": "check_paste_api_admin_presets_check_paste_post",
+        "parameters": [
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasteCheckRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasteCheckResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:write"
+            ]
+          }
+        ],
+        "summary": "Check a pasted permalink or flag string",
+        "tags": [
+          "Admin: seed presets"
+        ]
+      }
+    },
+    "/api/admin/presets/editor": {
+      "get": {
+        "description": "Every randomizer with its display name, whether it can be used here, how its settings are entered and whether it publishes presets, plus which tournaments roll from each preset.\n\n**Who can call this:** Staff or Preset manager.\n\n**App scope:** `staff:read`",
+        "operationId": "editor_api_admin_presets_editor_get",
+        "parameters": [
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PresetEditorResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "What the preset editor needs",
+        "tags": [
+          "Admin: seed presets"
+        ]
+      }
+    },
+    "/api/admin/presets/import-remote": {
+      "post": {
+        "description": "Saves the named presets as this community's own, fetched fresh from the randomizer.\n\n**Who can call this:** Staff or Preset manager.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `staff:write`",
+        "operationId": "import_remote_api_admin_presets_import_remote_post",
+        "parameters": [
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RemoteImportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PresetResponse"
+                  },
+                  "title": "Response Import Remote Api Admin Presets Import Remote Post",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:write"
+            ]
+          }
+        ],
+        "summary": "Import a randomizer's published presets",
+        "tags": [
+          "Admin: seed presets"
+        ]
+      }
+    },
+    "/api/admin/presets/remote": {
+      "get": {
+        "description": "The catalogue its own API publishes, to pick from before importing. Needs its API key.\n\n**Who can call this:** Staff or Preset manager.\n\n**App scope:** `staff:read`",
+        "operationId": "remote_api_admin_presets_remote_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "randomizer",
+            "required": true,
+            "schema": {
+              "title": "Randomizer",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "branch",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Branch"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RemotePresetResponse"
+                  },
+                  "title": "Response Remote Api Admin Presets Remote Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "A randomizer's published presets",
+        "tags": [
+          "Admin: seed presets"
+        ]
+      }
+    },
+    "/api/admin/presets/{preset_id}/test-roll": {
+      "post": {
+        "description": "Rolls a seed from the preset to check the randomizer works; it's audited but never attached to a match. Some randomizers take minutes.\n\n**Who can call this:** Staff or Preset manager.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `staff:write`",
+        "operationId": "test_roll_api_admin_presets__preset_id__test_roll_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "preset_id",
+            "required": true,
+            "schema": {
+              "title": "Preset Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestRollResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:write"
+            ]
+          }
+        ],
+        "summary": "Roll one test seed",
+        "tags": [
+          "Admin: seed presets"
+        ]
+      }
+    },
+    "/api/admin/tournaments/board": {
+      "get": {
+        "description": "Every tournament in this event the caller runs, by name, with signups, bracket site, seed, match length and player count, plus which actions each row offers. Staff see all of them; a tournament admin sees their own.\n\n**Who can call this:** Staff, or an admin of any tournament here.\n\n**App scope:** `staff:read`",
+        "operationId": "board_api_admin_tournaments_board_get",
+        "parameters": [
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TournamentBoardResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "The Tournaments board",
+        "tags": [
+          "Admin: tournaments"
+        ]
+      }
+    },
+    "/api/admin/tournaments/sync": {
+      "post": {
+        "description": "Pulls every linked tournament on the board from its bracket site. One that fails is reported in its own `error` and doesn't stop the rest.\n\n**Who can call this:** Staff, or an admin of any tournament here.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `staff:write`",
+        "operationId": "sync_all_api_admin_tournaments_sync_post",
+        "parameters": [
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/BracketSyncResultResponse"
+                  },
+                  "title": "Response Sync All Api Admin Tournaments Sync Post",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:write"
+            ]
+          }
+        ],
+        "summary": "Sync every linked bracket",
+        "tags": [
+          "Admin: tournaments"
+        ]
+      }
+    },
+    "/api/admin/tournaments/{tournament_id}": {
+      "get": {
+        "description": "The same row the board shows, after a change.\n\n**Who can call this:** Staff, or an admin of this tournament.\n\n**App scope:** `staff:read`",
+        "operationId": "row_api_admin_tournaments__tournament_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tournament_id",
+            "required": true,
+            "schema": {
+              "title": "Tournament Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TournamentBoardRowResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "One tournament's board row",
+        "tags": [
+          "Admin: tournaments"
+        ]
+      }
+    },
+    "/api/admin/tournaments/{tournament_id}/bracket": {
+      "delete": {
+        "description": "Detaches the tournament from its bracket site and drops the mirror here. Nothing on the site changes and booked matches stay.\n\n**Who can call this:** Staff.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `staff:write`",
+        "operationId": "unlink_api_admin_tournaments__tournament_id__bracket_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tournament_id",
+            "required": true,
+            "schema": {
+              "title": "Tournament Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:write"
+            ]
+          }
+        ],
+        "summary": "Unlink the bracket",
+        "tags": [
+          "Admin: tournaments"
+        ]
+      },
+      "put": {
+        "description": "Links the tournament to a Challonge or start.gg bracket by its link or id and mirrors it. Fails with 400 when the link is for the other site or the site isn't on here.\n\n**Who can call this:** Staff.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `staff:write`",
+        "operationId": "link_api_admin_tournaments__tournament_id__bracket_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tournament_id",
+            "required": true,
+            "schema": {
+              "title": "Tournament Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteLabelResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:write"
+            ]
+          }
+        ],
+        "summary": "Link a bracket",
+        "tags": [
+          "Admin: tournaments"
+        ]
+      }
+    },
+    "/api/admin/tournaments/{tournament_id}/bracket/entrants": {
+      "get": {
+        "description": "Each entrant on the linked site and the member it maps to.\n\n**Who can call this:** Staff, or an admin of this tournament.\n\n**App scope:** `staff:read`",
+        "operationId": "entrants_api_admin_tournaments__tournament_id__bracket_entrants_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tournament_id",
+            "required": true,
+            "schema": {
+              "title": "Tournament Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntrantListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "The bracket's entrants and who they are",
+        "tags": [
+          "Admin: tournaments"
+        ]
+      }
+    },
+    "/api/admin/tournaments/{tournament_id}/bracket/entrants/confirm-suggestions": {
+      "post": {
+        "description": "404 unless the bracket is on start.gg.\n\n**Who can call this:** Staff, or an admin of this tournament.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `staff:write`",
+        "operationId": "confirm_suggestions_api_admin_tournaments__tournament_id__bracket_entrants_confirm_suggestions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tournament_id",
+            "required": true,
+            "schema": {
+              "title": "Tournament Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfirmedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:write"
+            ]
+          }
+        ],
+        "summary": "Confirm every start.gg suggestion",
+        "tags": [
+          "Admin: tournaments"
+        ]
+      }
+    },
+    "/api/admin/tournaments/{tournament_id}/bracket/entrants/{entrant_id}": {
+      "delete": {
+        "description": "The entrant falls back to their own linked account, if any.\n\n**Who can call this:** Staff, or an admin of this tournament.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `staff:write`",
+        "operationId": "clear_entrant_api_admin_tournaments__tournament_id__bracket_entrants__entrant_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tournament_id",
+            "required": true,
+            "schema": {
+              "title": "Tournament Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "entrant_id",
+            "required": true,
+            "schema": {
+              "title": "Entrant Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:write"
+            ]
+          }
+        ],
+        "summary": "Clear an entrant's hand match",
+        "tags": [
+          "Admin: tournaments"
+        ]
+      },
+      "put": {
+        "description": "Sync keeps a hand match. Also confirms a start.gg suggestion.\n\n**Who can call this:** Staff, or an admin of this tournament.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `staff:write`",
+        "operationId": "assign_entrant_api_admin_tournaments__tournament_id__bracket_entrants__entrant_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tournament_id",
+            "required": true,
+            "schema": {
+              "title": "Tournament Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "entrant_id",
+            "required": true,
+            "schema": {
+              "title": "Entrant Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EntrantAssignRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:write"
+            ]
+          }
+        ],
+        "summary": "Match an entrant to a member",
+        "tags": [
+          "Admin: tournaments"
+        ]
+      }
+    },
+    "/api/admin/tournaments/{tournament_id}/bracket/entrants/{entrant_id}/dismiss": {
+      "post": {
+        "description": "404 unless the bracket is on start.gg.\n\n**Who can call this:** Staff, or an admin of this tournament.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `staff:write`",
+        "operationId": "dismiss_suggestion_api_admin_tournaments__tournament_id__bracket_entrants__entrant_id__dismiss_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tournament_id",
+            "required": true,
+            "schema": {
+              "title": "Tournament Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "entrant_id",
+            "required": true,
+            "schema": {
+              "title": "Entrant Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:write"
+            ]
+          }
+        ],
+        "summary": "Dismiss a start.gg suggestion",
+        "tags": [
+          "Admin: tournaments"
+        ]
+      }
+    },
+    "/api/admin/tournaments/{tournament_id}/bracket/stage": {
+      "post": {
+        "description": "Starts the group stage, the final stage, or finalizes, on Challonge, then re-syncs. Needs the Challonge connection's stage scope. Fails with 400 when that isn't the next step any more.\n\n**Who can call this:** Staff, or an admin of this tournament.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `staff:write`",
+        "operationId": "stage_api_admin_tournaments__tournament_id__bracket_stage_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tournament_id",
+            "required": true,
+            "schema": {
+              "title": "Tournament Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StageActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TournamentBoardRowResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:write"
+            ]
+          }
+        ],
+        "summary": "Run the next Challonge stage step",
+        "tags": [
+          "Admin: tournaments"
+        ]
+      }
+    },
+    "/api/admin/tournaments/{tournament_id}/bracket/startgg": {
+      "get": {
+        "description": "404 unless the bracket is on start.gg.\n\n**Who can call this:** Staff, or an admin of this tournament.\n\n**App scope:** `staff:read`",
+        "operationId": "startgg_settings_api_admin_tournaments__tournament_id__bracket_startgg_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tournament_id",
+            "required": true,
+            "schema": {
+              "title": "Tournament Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartggSettingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "A start.gg bracket's settings",
+        "tags": [
+          "Admin: tournaments"
+        ]
+      },
+      "patch": {
+        "description": "Which phase players book from, and whether results go back to start.gg.\n\n**Who can call this:** Staff, or an admin of this tournament.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `staff:write`",
+        "operationId": "update_startgg_settings_api_admin_tournaments__tournament_id__bracket_startgg_patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tournament_id",
+            "required": true,
+            "schema": {
+              "title": "Tournament Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartggSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartggSettingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:write"
+            ]
+          }
+        ],
+        "summary": "Change a start.gg bracket's settings",
+        "tags": [
+          "Admin: tournaments"
+        ]
+      }
+    },
+    "/api/admin/tournaments/{tournament_id}/bracket/sync": {
+      "post": {
+        "description": "Pulls the latest entrants and matches from the linked site.\n\n**Who can call this:** Staff, or an admin of this tournament.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `staff:write`",
+        "operationId": "sync_api_admin_tournaments__tournament_id__bracket_sync_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tournament_id",
+            "required": true,
+            "schema": {
+              "title": "Tournament Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BracketSyncResultResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:write"
+            ]
+          }
+        ],
+        "summary": "Sync the bracket now",
+        "tags": [
+          "Admin: tournaments"
+        ]
+      }
+    },
+    "/api/admin/tournaments/{tournament_id}/deletion-preview": {
+      "get": {
+        "description": "How many matches, players, brackets and triforce texts a permanent delete removes.\n\n**Who can call this:** Staff.\n\n**App scope:** `staff:read`",
+        "operationId": "deletion_preview_api_admin_tournaments__tournament_id__deletion_preview_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tournament_id",
+            "required": true,
+            "schema": {
+              "title": "Tournament Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeletionPreviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "What deleting a tournament takes with it",
+        "tags": [
+          "Admin: tournaments"
+        ]
+      }
+    },
+    "/api/admin/tournaments/{tournament_id}/people": {
+      "get": {
+        "description": "The community's active members, for the enrol and match-entrant pickers.\n\n**Who can call this:** Staff, or an admin of this tournament.\n\n**App scope:** `staff:read`",
+        "operationId": "people_api_admin_tournaments__tournament_id__people_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tournament_id",
+            "required": true,
+            "schema": {
+              "title": "Tournament Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PersonResponse"
+                  },
+                  "title": "Response People Api Admin Tournaments  Tournament Id  People Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "Members to pick from",
+        "tags": [
+          "Admin: tournaments"
+        ]
+      }
+    },
+    "/api/admin/tournaments/{tournament_id}/players": {
+      "get": {
+        "description": "Everyone enrolled, by name, with when they joined.\n\n**Who can call this:** Staff, or an admin of this tournament.\n\n**App scope:** `staff:read`",
+        "operationId": "players_api_admin_tournaments__tournament_id__players_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tournament_id",
+            "required": true,
+            "schema": {
+              "title": "Tournament Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PlayerResponse"
+                  },
+                  "title": "Response Players Api Admin Tournaments  Tournament Id  Players Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "A tournament's players",
+        "tags": [
+          "Admin: tournaments"
+        ]
+      }
+    },
+    "/api/admin/tournaments/{tournament_id}/players/{user_id}/drop": {
+      "post": {
+        "description": "Takes the player off the roster and the Challonge bracket, forfeits or calls off their head-to-head matches, takes them off larger matches, and DMs them once.\n\n**Who can call this:** Staff, or an admin of this tournament.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `staff:write`",
+        "operationId": "drop_api_admin_tournaments__tournament_id__players__user_id__drop_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tournament_id",
+            "required": true,
+            "schema": {
+              "title": "Tournament Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DropRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DropResultResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:write"
+            ]
+          }
+        ],
+        "summary": "Drop a player",
+        "tags": [
+          "Admin: tournaments"
+        ]
+      }
+    },
+    "/api/admin/tournaments/{tournament_id}/players/{user_id}/drop-plan": {
+      "get": {
+        "description": "The unplayed matches a drop settles, and whether they come off the Challonge bracket too.\n\n**Who can call this:** Staff, or an admin of this tournament.\n\n**App scope:** `staff:read`",
+        "operationId": "drop_plan_api_admin_tournaments__tournament_id__players__user_id__drop_plan_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tournament_id",
+            "required": true,
+            "schema": {
+              "title": "Tournament Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DropPlanResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "What dropping a player would do",
+        "tags": [
+          "Admin: tournaments"
+        ]
+      }
+    },
+    "/api/admin/tournaments/{tournament_id}/round-schedule": {
+      "put": {
+        "description": "Sets every stage's booking window and games at once; read it back from `GET /tournaments/{tournament_id}/round-schedule`. Daily hours need both ends.\n\n**Who can call this:** Staff, or an admin of this tournament.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `staff:write`",
+        "operationId": "save_round_schedule_api_admin_tournaments__tournament_id__round_schedule_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tournament_id",
+            "required": true,
+            "schema": {
+              "title": "Tournament Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoundScheduleUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:write"
+            ]
+          }
+        ],
+        "summary": "Replace the round schedule",
+        "tags": [
+          "Admin: tournaments"
         ]
       }
     },
@@ -60588,7 +64834,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TournamentBracketResponse"
+                  "$ref": "#/components/schemas/api__schemas__bracket_overview__TournamentBracketResponse"
                 }
               }
             },
@@ -69067,6 +73313,14 @@
       "name": "Tournaments"
     },
     {
+      "description": "The app's Tournaments board: players, dropping a player, bracket entrants, sync and link, and the round schedule.",
+      "name": "Admin: tournaments"
+    },
+    {
+      "description": "The app's Seed Presets screen: editor hints, checking a pasted value, test rolls and importing published presets.",
+      "name": "Admin: seed presets"
+    },
+    {
       "description": "Prize pools and payouts per tournament.",
       "name": "Payouts"
     },
@@ -70834,6 +75088,8 @@
       "tags": [
         "Events",
         "Tournaments",
+        "Admin: tournaments",
+        "Admin: seed presets",
         "Payouts",
         "Webhooks",
         "Discord role mappings",
