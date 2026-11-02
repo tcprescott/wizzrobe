@@ -26,7 +26,7 @@ from api.schemas.check_in import (
 )
 from api.schemas.work import DeskMemberResponse, DeskResponse, DeskRowResponse
 from application.errors import require_found
-from application.services import CheckInDeskService, CheckInService
+from application.services import CheckInDeskService, CheckInService, PlayerHomeService
 from models import CheckInEntrant, CheckInEvent, User
 
 router = APIRouter(prefix="/check-in", tags=["Check-in"], route_class=ServiceErrorRoute, dependencies=[Depends(event_binding(event_id=CheckInEvent, entrant_id=CheckInEntrant))])
@@ -190,6 +190,7 @@ def _members(users: List[User]) -> List[DeskMemberResponse]:
 async def get_desk(event_id: int, actor: User = Depends(require_api_actor)):
     view = await CheckInDeskService().desk(actor, event_id)
     return DeskResponse(
+        zone=await PlayerHomeService.viewer_zone(actor),
         event=CheckInEventResponse.from_row(view.event),
         can_manage=view.can_manage,
         rows=[DeskRowResponse.from_desk_row(e, view.volunteer_ids, view.suggestions) for e in view.entrants],

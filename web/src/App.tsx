@@ -14,7 +14,12 @@ import { NotFoundScreen } from './screens/NotFoundScreen'
 import { SignInScreen } from './screens/SignInScreen'
 import { HomeScreen } from './player/HomeScreen'
 import { ScheduleScreen } from './player/ScheduleScreen'
-import { EventScreen, WorkScreen } from './screens/TabScreens'
+import { EventScreen } from './screens/TabScreens'
+import { DeskScreen } from './work/DeskScreen'
+import { MyAvailabilityScreen } from './work/MyAvailabilityScreen'
+import { ProctorScreen } from './work/ProctorScreen'
+import { VolunteerScheduleScreen } from './work/VolunteerScheduleScreen'
+import { WorkLayout } from './work/WorkLayout'
 import { AppShell } from './shell/AppShell'
 import { ThemeProvider } from './theme/ThemeProvider'
 
@@ -23,7 +28,17 @@ const tabRoutes: RouteObject[] = [
   { path: 'home', element: <HomeScreen /> },
   { path: 'schedule', element: <ScheduleScreen /> },
   { path: 'event', element: <EventScreen /> },
-  { path: 'work', element: <WorkScreen /> },
+  {
+    path: 'work',
+    element: <WorkLayout />,
+    children: [
+      { path: 'desk', element: <DeskScreen /> },
+      { path: 'desk/:eventId', element: <DeskScreen /> },
+      { path: 'schedule', element: <VolunteerScheduleScreen /> },
+      { path: 'availability', element: <MyAvailabilityScreen /> },
+      { path: 'proctor', element: <ProctorScreen /> },
+    ],
+  },
   { path: 'me', element: <MeLayout />, children: [{ path: ':section', element: <MeSection /> }] },
   { path: 'admin', element: <AdminLayout />, children: [{ path: ':area/*', element: <AdminAreaScreen /> }] },
 ]

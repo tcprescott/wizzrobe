@@ -36,6 +36,8 @@ class AvailabilityAreaResponse(BaseModel):
 class WorkAreasResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    zone: Optional[str] = Field(None, description="The clock to print times on; null for the device's own.")
+
     desk: Optional[DeskAreaResponse] = Field(None, description="The check-in desk; null when you can't work it.")
     schedule: Optional[ScheduleAreaResponse] = Field(None, description="The volunteer schedule; null when you can't see it.")
     availability: Optional[AvailabilityAreaResponse] = Field(None, description="Your volunteer availability; null when you don't volunteer here.")
@@ -80,6 +82,7 @@ class GridRoleResponse(BaseModel):
 
 
 class VolunteerScheduleResponse(BaseModel):
+    zone: Optional[str] = Field(None, description="The clock to print times on; null for the device's own.")
     days: List[date] = Field(..., description="The event's days, in order.")
     day: Optional[date] = Field(None, description="The day shown; null when the event has no dates yet.")
     midnight: Optional[datetime] = Field(None, description="That day's local midnight (UTC). Hours in the grid count from here.")
@@ -108,6 +111,7 @@ class DeskRowResponse(CheckInEntrantResponse):
     username: Optional[str] = Field(None, description="The linked member's Discord username, for the desk search.")
     has_discord: bool = Field(False, description="The linked account has Discord, so the check-in DM can be re-sent.")
     suggestions: int = Field(0, description="Likely accounts for an unlinked row (`GET /check-in/entrants/{id}/suggestions`).")
+    signed_in_with: Optional[str] = Field(None, description="How they signed in to Matcherino (`discord`, `twitch`, `google`…), to help the desk find their account.")
 
     @classmethod
     def from_desk_row(
@@ -121,10 +125,12 @@ class DeskRowResponse(CheckInEntrantResponse):
             username=user.username if user else None,
             has_discord=bool(user and user.discord_id),
             suggestions=suggestions.get(entrant.id, 0),
+            signed_in_with=entrant.auth_provider or None,
         )
 
 
 class DeskResponse(BaseModel):
+    zone: Optional[str] = Field(None, description="The clock to print times on; null for the device's own.")
     event: CheckInEventResponse
     can_manage: bool = Field(..., description="Staff: you may add walk-ups, remove them, and check in someone without a badge.")
     rows: List[DeskRowResponse]

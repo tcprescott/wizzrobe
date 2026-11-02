@@ -17,7 +17,7 @@ from api.schemas.work import (
     VolunteerScheduleResponse,
     WorkAreasResponse,
 )
-from application.services import WorkService
+from application.services import PlayerHomeService, WorkService
 from application.services.volunteer.volunteer_schedule_grid import CALLED_OFF
 from models import User
 
@@ -38,12 +38,15 @@ router = APIRouter(
     ),
 )
 async def my_work(actor: User = Depends(require_api_actor)) -> WorkAreasResponse:
-    return WorkAreasResponse.model_validate(await WorkService().areas(actor), from_attributes=True)
+    body = WorkAreasResponse.model_validate(await WorkService().areas(actor), from_attributes=True)
+    body.zone = await PlayerHomeService.viewer_zone(actor)
+    return body
 
 
-def _schedule_response(view) -> VolunteerScheduleResponse:
+def _schedule_response(view, zone) -> VolunteerScheduleResponse:
     grid = view.grid
     return VolunteerScheduleResponse(
+        zone=zone,
         days=view.days,
         day=view.day,
         midnight=grid.midnight if grid else None,
@@ -96,7 +99,7 @@ async def volunteer_schedule(
     day: Optional[date] = Query(None, description="The event day to show (local date)."),
     actor: User = Depends(require_api_actor),
 ) -> VolunteerScheduleResponse:
-    return _schedule_response(await WorkService().schedule_view(actor, day))
+    return _schedule_response(await WorkService().schedule_view(actor, day), await PlayerHomeService.viewer_zone(actor))
 
 
 @router.put(

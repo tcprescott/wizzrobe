@@ -44,7 +44,9 @@ class TestAreas:
         _, raw = await create_user_token(username='plain')
         async with client_for(app, raw) as c:
             body = (await c.get('/api/work')).json()
-        assert body == {'desk': None, 'schedule': None, 'availability': None, 'proctor': False}
+        assert {k: body[k] for k in ('desk', 'schedule', 'availability', 'proctor')} == {
+            'desk': None, 'schedule': None, 'availability': None, 'proctor': False,
+        }
 
     async def test_a_volunteer_sees_schedule_and_availability(self, db, app):
         me, raw = await create_user_token(username='vol', roles=[Role.VOLUNTEER])

@@ -4863,6 +4863,18 @@
             },
             "title": "Rows",
             "type": "array"
+          },
+          "zone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The clock to print times on; null for the device's own.",
+            "title": "Zone"
           }
         },
         "required": [
@@ -4980,6 +4992,18 @@
             ],
             "description": "How the account was linked: `matcherino_id`, `discord_id`, `twitch_id`, `matcherino_handle`, `manual`, `walk_up` or `comp`. `manual` with no account means someone unlinked it by hand.",
             "title": "Link Method"
+          },
+          "signed_in_with": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How they signed in to Matcherino (`discord`, `twitch`, `google`…), to help the desk find their account.",
+            "title": "Signed In With"
           },
           "source": {
             "description": "`matcherino`, `walk_up` or `comp`.",
@@ -19581,6 +19605,18 @@
             },
             "title": "Roles",
             "type": "array"
+          },
+          "zone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The clock to print times on; null for the device's own.",
+            "title": "Zone"
           }
         },
         "required": [
@@ -20450,6 +20486,18 @@
               }
             ],
             "description": "The volunteer schedule; null when you can't see it."
+          },
+          "zone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The clock to print times on; null for the device's own.",
+            "title": "Zone"
           }
         },
         "title": "WorkAreasResponse",
