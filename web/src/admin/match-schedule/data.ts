@@ -8,6 +8,18 @@ export type Board = Schemas['BoardResponse']
 export type BoardRow = Schemas['BoardRow']
 export type Pane = Schemas['MatchPaneResponse']
 export type CrewRole = Schemas['CrewRole']
+export type Need = Schemas['Need']
+export type RescheduleNeed = Schemas['RescheduleNeed']
+export type Comment = Schemas['MatchCommentResponse']
+export type CommentKind = Schemas['MatchCommentCreate']['kind']
+export type MatchForm = Schemas['MatchFormResponse']
+export type MatchFormSave = Schemas['MatchFormSave']
+export type TimeCheck = Schemas['TimeCheck']
+export type Unbooked = Schemas['UnbookedItem']
+export interface BookingRef {
+  source: string
+  key: number
+}
 
 export interface BoardFilters {
   day: string | null
@@ -61,6 +73,69 @@ export function usePane(matchId: number | null) {
   )
 }
 
+export function useComments(matchId: number) {
+  const { community } = useCommunity()
+  const event = useEventQuery()
+  return useQuery(`admin/schedule/comments@${community.slug}/${matchId}`, () =>
+    api
+      .GET('/api/matches/{match_id}/comments', { params: { path: { match_id: matchId }, query: event } })
+      .then(unwrap),
+  )
+}
+
+export function useMatchForm(matchId: number | null) {
+  const { community } = useCommunity()
+  const event = useEventQuery()
+  return useQuery(`admin/schedule/form@${community.slug}/${matchId ?? 'new'}`, () =>
+    api
+      .GET('/api/admin/match-schedule/form', { params: { query: { ...event, ...(matchId ? { match_id: matchId } : {}) } } })
+      .then(unwrap),
+  )
+}
+
+export function useUnbooked(enabled: boolean) {
+  const { community } = useCommunity()
+  const event = useEventQuery()
+  const result = useQuery(enabled ? `admin/schedule/unbooked@${community.slug}/${event.event ?? ''}` : null, () =>
+    api.GET('/api/admin/match-schedule/unbooked', { params: { query: event } }).then(unwrap),
+  )
+  useReloadOnReturn(result.reload)
+  return result
+}
+
+/** Calls that take the event along, so a match made from /e/<slug> lands in that event. */
+export function useScheduling() {
+  const event = useEventQuery()
+  return {
+    create: (body: MatchFormSave) =>
+      api.POST('/api/admin/match-schedule/matches', { params: { query: event }, body }).then(unwrap),
+    update: (id: number, body: MatchFormSave) =>
+      api
+        .PUT('/api/admin/match-schedule/matches/{match_id}', { params: { path: { match_id: id }, query: event }, body })
+        .then(unwrap),
+    checkTime: (body: Schemas['TimeCheckRequest']) =>
+      api.POST('/api/admin/match-schedule/check-time', { params: { query: event }, body }).then(unwrap),
+    suggest: (body: Schemas['SuggestRequest']) =>
+      api.POST('/api/admin/match-schedule/suggest-time', { params: { query: event }, body }).then(unwrap),
+    book: (ref: BookingRef, scheduledAt: string, allowOutsideRound: boolean) =>
+      api
+        .POST('/api/admin/match-schedule/unbooked/{source}/{key}/book', {
+          params: { path: ref, query: event },
+          body: { scheduled_at: scheduledAt, allow_outside_round: allowOutsideRound },
+        })
+        .then(unwrap),
+    link: (ref: BookingRef, matchId: number, ahead: boolean) =>
+      api
+        .POST('/api/admin/match-schedule/unbooked/{source}/{key}/link', {
+          params: { path: ref, query: { ...event, ahead } },
+          body: { match_id: matchId },
+        })
+        .then((r) => {
+          if (!r.response.ok) unwrap(r)
+        }),
+  }
+}
+
 const CREW_TYPE: Record<string, string> = {
   commentators: 'commentator',
   trackers: 'tracker',
@@ -111,5 +186,24 @@ export const actions = {
         params: { path: { crew_type: CREW_TYPE[role] ?? role, crew_id: crewId } },
         body: { approved },
       })
+      .then(unwrap),
+  comment: (id: number, body: string, kind: CommentKind) =>
+    api
+      .POST('/api/matches/{match_id}/comments', { params: { path: { match_id: id } }, body: { body, kind } })
+      .then(unwrap),
+  deleteComment: (commentId: number) =>
+    api.DELETE('/api/match-comments/{comment_id}', { params: { path: { comment_id: commentId } } }).then((r) => {
+      if (!r.response.ok) unwrap(r)
+    }),
+  approveRequest: (requestId: number, scheduledAt: string | null = null) =>
+    api
+      .POST('/api/reschedule-requests/{request_id}/approve', {
+        params: { path: { request_id: requestId } },
+        body: { scheduled_at: scheduledAt, note: null },
+      })
+      .then(unwrap),
+  declineRequest: (requestId: number, note: string) =>
+    api
+      .POST('/api/reschedule-requests/{request_id}/decline', { params: { path: { request_id: requestId } }, body: { note } })
       .then(unwrap),
 }

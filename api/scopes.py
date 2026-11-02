@@ -132,6 +132,9 @@ _ROUTES: Dict[RouteScope, tuple[str, ...]] = {
         'POST /matches/{match_id}/reschedule-requests',
         'POST /reschedule-requests/{request_id}/agree',
         'POST /reschedule-requests/{request_id}/withdraw',
+        'GET /matches/{match_id}/comments',
+        'POST /matches/{match_id}/comments',
+        'DELETE /match-comments/{comment_id}',
         'GET /tournaments/{tournament_id}/match-suggestion',
         'POST /tournaments/{tournament_id}/signup',
         'DELETE /tournaments/{tournament_id}/signup',
@@ -200,6 +203,10 @@ _ROUTES: Dict[RouteScope, tuple[str, ...]] = {
         'GET /reschedule-requests',
         'GET /admin/match-schedule',
         'GET /admin/match-schedule/matches/{match_id}',
+        'GET /admin/match-schedule/form',
+        'GET /admin/match-schedule/unbooked',
+        'POST /admin/match-schedule/check-time',
+        'POST /admin/match-schedule/suggest-time',
         'GET /tournaments/{tournament_id}/players',
         'GET /users',
         'GET /users/{user_id}',
@@ -297,6 +304,10 @@ _ROUTES: Dict[RouteScope, tuple[str, ...]] = {
         'DELETE /matches/{match_id}',
         'POST /matches/{match_id}/rewind',
         'POST /matches/{match_id}/cancel',
+        'POST /admin/match-schedule/matches',
+        'PUT /admin/match-schedule/matches/{match_id}',
+        'POST /admin/match-schedule/unbooked/{source}/{key}/book',
+        'POST /admin/match-schedule/unbooked/{source}/{key}/link',
         'POST /matches/{match_id}/stream-candidate',
         'POST /matches/{match_id}/stage',
         'POST /matches/{match_id}/stations',
@@ -516,7 +527,11 @@ _ROUTES: Dict[RouteScope, tuple[str, ...]] = {
     ),
 }
 
-READ_ONLY_POSTS: Final = frozenset({'POST /graphql'})
+READ_ONLY_POSTS: Final = frozenset({
+    'POST /graphql',
+    'POST /admin/match-schedule/check-time',
+    'POST /admin/match-schedule/suggest-time',
+})
 
 
 def _flatten() -> Dict[str, RouteScope]:

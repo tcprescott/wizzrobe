@@ -124,6 +124,32 @@ class BoardGroup(BaseModel):
     rows: List[BoardRow]
 
 
+class RescheduleNeed(BaseModel):
+    id: int = Field(..., description="The request, for `POST /reschedule-requests/{id}/approve` or `/decline`.")
+    kind: str = Field(..., description="`reschedule` or `cancel`.")
+    requested_by: str
+    players: List[str]
+    title: Optional[str] = None
+    tournament: str
+    scheduled_at: Optional[datetime] = None
+    proposed_at: Optional[datetime] = None
+    reason: str
+    opponent_agreed: bool
+    created_at: datetime
+    clashes: List[str] = Field(..., description="Why the proposed time might not work. Approving anyway is allowed.")
+
+
+class Need(BaseModel):
+    kind: str = Field(..., description=(
+        "`request` (a player asked to move or call off a match), `site` (the bracket site already has a "
+        "result), `held` (the racetime room bot held a result), `result` (finished, not confirmed) or "
+        "`late` (past its time and nobody checked in)."
+    ))
+    match_id: int = Field(..., description="The match; for anything but `request` it is a row on this board.")
+    has_result: Optional[bool] = Field(None, description="For `result`: a winner is recorded.")
+    request: Optional[RescheduleNeed] = None
+
+
 class BoardResponse(BaseModel):
     zone: str = Field(..., description="The IANA zone the days are cut on and times print in.")
     days: List[date] = Field(..., description="The event's days, for the day switch; empty for a long event.")
@@ -132,6 +158,7 @@ class BoardResponse(BaseModel):
     scoped_tournaments: Optional[int] = Field(None, description="Set when the board shows only the viewer's own tournaments.")
     can_create: bool
     groups: List[BoardGroup]
+    needs_you: List[Need] = Field(..., description="Work waiting on you, in the order to show it.")
 
 
 class ChecklistItem(BaseModel):
@@ -163,3 +190,116 @@ class RewindRequest(BaseModel):
 
 class CancelRequest(BaseModel):
     reason: str = Field('', max_length=500, description="Told to the players and crew.")
+
+
+class FormTournament(BaseModel):
+    id: int
+    name: str
+    enrolled: List[int] = Field(..., description="User ids enrolled in it: the Players picker offers these unless told to offer everyone.")
+    players_per_match: Optional[int] = None
+
+
+class FormValues(BaseModel):
+    tournament_id: Optional[int] = None
+    stage_id: Optional[int] = None
+    scheduled_at: Optional[datetime] = None
+    player_ids: List[int]
+    commentator_ids: List[int]
+    tracker_ids: List[int]
+    broadcaster_ids: List[int]
+    title: str
+    description: str
+    comment: str
+    is_stream_candidate: bool
+
+
+class MatchFormResponse(BaseModel):
+    match_id: Optional[int] = None
+    synced_from_speedgaming: bool = Field(..., description="Its tournament, time and players come from SpeedGaming and can't be changed here.")
+    tournaments: List[FormTournament]
+    stages: List[Named]
+    people: List[Named] = Field(..., description="Community members, for the player and crew pickers.")
+    broadcasters: bool = Field(..., description="Show the Broadcasters picker.")
+    values: FormValues
+
+
+class MatchFormSave(BaseModel):
+    tournament_id: int
+    stage_id: Optional[int] = None
+    scheduled_at: datetime = Field(..., description="When, as an ISO 8601 instant with an offset.")
+    player_ids: List[int] = Field(default_factory=list, description="Empty holds the slot; the title shows until players are set.")
+    commentator_ids: List[int] = Field(default_factory=list)
+    tracker_ids: List[int] = Field(default_factory=list)
+    broadcaster_ids: Optional[List[int]] = Field(None, description="Leave out to keep the broadcasters as they are.")
+    title: str = Field('', max_length=255)
+    description: str = Field('', max_length=5000)
+    comment: str = Field('', max_length=2000)
+    is_stream_candidate: bool = False
+
+
+class SavedMatch(BaseModel):
+    match_id: int
+
+
+class TimeCheckRequest(BaseModel):
+    tournament_id: int
+    player_ids: List[int] = Field(default_factory=list)
+    scheduled_at: datetime
+    match_id: Optional[int] = Field(None, description="The match being moved, so it doesn't clash with itself.")
+    source: Optional[str] = Field(None, description="For a bracket matchup: `bracket`, `challonge` or `startgg`.")
+    key: Optional[int] = Field(None, description="The matchup's id within its source.")
+
+
+class WindowWarning(BaseModel):
+    message: str
+    can_override: bool = Field(..., description="You may book outside it anyway (`allow_outside_round`).")
+
+
+class TimeCheck(BaseModel):
+    window: Optional[WindowWarning] = Field(None, description="The round's booking window this time falls outside of.")
+    clashes: List[str] = Field(..., description="Why the time might not work. Booking anyway is allowed.")
+
+
+class SuggestRequest(BaseModel):
+    tournament_id: int
+    player_ids: List[int] = Field(default_factory=list)
+    match_id: Optional[int] = None
+    source: Optional[str] = None
+    key: Optional[int] = None
+
+
+class Suggestion(BaseModel):
+    scheduled_at: datetime
+
+
+class LinkCandidate(BaseModel):
+    id: int
+    scheduled_at: Optional[datetime] = None
+    stage: Optional[str] = None
+
+
+class UnbookedItem(BaseModel):
+    source: str = Field(..., description="`bracket`, `challonge` or `startgg`.")
+    source_label: str
+    key: int
+    tournament_id: int
+    tournament: str
+    round_label: str
+    players: List[str]
+    player_ids: List[int]
+    state: str = Field(..., description="`ready`, `needs_account` (a player has no Wizzrobe account) or `tbd` (players not decided yet).")
+    unlinked: List[str]
+    window_text: Optional[str] = None
+    best_of: int
+    games_booked: int
+    link_candidates: List[LinkCandidate] = Field(..., description="Matches already on the schedule that look like this matchup's.")
+    bracket_url: Optional[str] = None
+
+
+class BookRequest(BaseModel):
+    scheduled_at: datetime
+    allow_outside_round: bool = Field(False, description="Book outside the round's window (staff and tournament admins).")
+
+
+class LinkRequest(BaseModel):
+    match_id: int
