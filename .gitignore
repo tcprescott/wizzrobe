@@ -187,3 +187,7 @@ profile.html
 # Vendored JS bundles: only package.json, the lockfile and dist/ are committed.
 node_modules/
 !theme/markdown_editor/dist/
+
+# Generated from the routers by `npm run gen:api` (web/); never committed.
+web/openapi.json
+web/src/api/schema.d.ts
