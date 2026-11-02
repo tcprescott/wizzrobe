@@ -48,6 +48,8 @@ ALLOWLIST = {
     # What's new, About and facts describe the app itself, like /version.
     ("reading", "changelog"), ("reading", "about"), ("reading", "privacy"),
     ("reading", "notices"), ("reading", "notice"), ("reading", "facts"),
+    # POST only to carry a body; both read and save nothing (READ_ONLY_POSTS in api/scopes.py).
+    ("admin_match_schedule", "check_time"), ("admin_match_schedule", "suggest_time"),
 }
 
 
