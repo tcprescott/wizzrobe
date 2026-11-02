@@ -1,0 +1,32 @@
+# MediaMTX for the commentator stream spike. OBS pushes SRT in, browsers
+# pull WebRTC (WHEP) out. Throwaway: run it on a test VM, not production.
+logLevel: info
+
+rtsp: no
+rtmp: no
+hls: no
+
+srt: yes
+srtAddress: :8890
+
+webrtc: yes
+webrtcAddress: :8889
+webrtcLocalUDPAddress: :8189
+# Set to the VM's public IP or hostname so browsers outside can reach the UDP port.
+webrtcAdditionalHosts: []
+
+authInternalUsers:
+  - user: obs
+    pass: change-me-publish
+    permissions:
+      - action: publish
+        path: commentary
+  - user: any
+    pass:
+    permissions:
+      - action: read
+        path: commentary
+
+paths:
+  commentary:
+    source: publisher
