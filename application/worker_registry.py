@@ -87,6 +87,10 @@ class WorkerSpec:
     boot: Optional[str] = None
     """A module function every process calls at startup in either mode
     (an event-bus subscription that feeds the worker)."""
+    task_handler: Optional[str] = None
+    """A module coroutine ``(payload) -> delay | None`` that Cloud Tasks calls
+    through ``/internal/tasks/<key>`` (:mod:`application.task_queue`). With
+    Cloud Tasks on, the Scheduler job becomes a slow safety net."""
 
     def load(self) -> ModuleType:
         return importlib.import_module(self.module)
@@ -113,12 +117,12 @@ WORKERS: Dict[str, WorkerSpec] = {s.key: s for s in (
     _spec('service_health', 'application.services.service_health_worker', placement=Placement.BOT),
     _spec('async_qualifier', 'application.services.async_qualifier.async_qualifier_worker'),
     # Leave ungated: gating it would strand rolls already in flight across a restart.
-    _spec('seed_roll', 'application.services.seed_roll_worker'),
+    _spec('seed_roll', 'application.services.seed_roll_worker', task_handler='handle_task'),
     _spec('check_in_sync', 'application.services.check_in_sync_worker'),
     _spec('sglive_pool', 'application.services.sglive_pool_worker'),
     _spec('startgg_sync', 'application.services.startgg_sync_worker'),
     _spec('challonge_sync', 'application.services.challonge_sync_worker'),
-    _spec('data_export', 'application.services.exports.data_export_worker'),
+    _spec('data_export', 'application.services.exports.data_export_worker', task_handler='handle_task'),
     _spec('webhook_outbox', 'application.services.webhook_outbox_worker'),
     _spec('dm_outbox', 'application.services.dm_outbox_worker'),
     _spec('discord_role_sync', 'application.services.discord.discord_role_sync_worker', boot='subscribe'),
@@ -142,6 +146,14 @@ def scheduled(key: str) -> Optional[WorkerSpec]:
     """The worker a scheduled tick may run under ``key``, or ``None``."""
     spec = WORKERS.get(key)
     if spec is None or spec.placement is not Placement.SCHEDULED:
+        return None
+    return spec
+
+
+def task_backed(key: str) -> Optional[WorkerSpec]:
+    """The worker a Cloud Tasks call may run under ``key``, or ``None``."""
+    spec = scheduled(key)
+    if spec is None or spec.task_handler is None:
         return None
     return spec
 
@@ -176,6 +188,15 @@ def cron_schedule(interval: float) -> str:
     return '* * * * *' if minutes == 1 else f'*/{minutes} * * * *'
 
 
+def scheduler_cron(spec: WorkerSpec, *, cloud_tasks: bool) -> str:
+    """The cron for ``spec``'s Scheduler job. A task-backed worker only needs its
+    safety-net tick when Cloud Tasks carries the real work."""
+    if cloud_tasks and spec.task_handler:
+        from application.task_queue import SAFETY_NET_MINUTES
+        return cron_schedule(SAFETY_NET_MINUTES * 60)
+    return cron_schedule(spec.loop().interval)
+
+
 @dataclass(frozen=True)
 class TickResult:
     ticks: int
@@ -184,8 +205,14 @@ class TickResult:
 
 async def run_scheduled(spec: WorkerSpec, window: float) -> TickResult:
     """One scheduled call's work: a single tick, or for a worker faster than the
-    Scheduler's one-minute floor, ticks at its own interval until ``window`` ends."""
+    Scheduler's one-minute floor, ticks at its own interval until ``window`` ends.
+    A task-backed worker gets a single safety-net tick while Cloud Tasks is on."""
+    from application import task_queue
+
     loop = spec.loop()
+    if spec.task_handler and task_queue.enabled():
+        ok = await loop.run_once()
+        return TickResult(1, int(not ok))
     deadline = time.monotonic() + window
     ticks = failures = 0
     while True:

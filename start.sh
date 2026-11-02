@@ -68,6 +68,13 @@ elif [ "$1" = "prod" ]; then
     # exec: as the container's PID 1, bash never forwards SIGTERM, so without it
     # every stop was a SIGKILL that skipped shutdown and dropped queued DMs.
     exec poetry run uvicorn main:app "${GRACEFUL_SHUTDOWN[@]}" --workers 1 --log-level info --port 8000 --host 0.0.0.0
+elif [ "$1" = "bots" ]; then
+    # The always-on bot service (bots.py) beside an API started with
+    # DISCORD_GATEWAY=off and RACETIME_BOT_ENABLED=off. Cloud Run's bots service
+    # runs this; today's single-process deploy never does.
+    echo "Starting the bot service in production mode..."
+    export ENVIRONMENT=production
+    exec poetry run uvicorn bots:app "${GRACEFUL_SHUTDOWN[@]}" --workers 1 --log-level info --port "${PORT:-8000}" --host 0.0.0.0
 elif [ "$1" = "dev" ]; then
     echo "Starting Uvicorn server in development mode..."
     poetry run uvicorn main:app "${GRACEFUL_SHUTDOWN[@]}" --reload "${RELOAD_EXCLUDES[@]}" --log-level info --port 8000
@@ -103,6 +110,6 @@ elif [ "$1" = "validate" ]; then
     export MOCK_STARTGG=true
     poetry run uvicorn main:app "${GRACEFUL_SHUTDOWN[@]}" --log-level info --port 8000
 else
-    echo "Invalid parameter. Use 'prod', 'dev', 'mock', 'validate', or 'stop'."
+    echo "Invalid parameter. Use 'prod', 'bots', 'dev', 'mock', 'validate', or 'stop'."
     exit 1
 fi

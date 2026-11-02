@@ -292,6 +292,25 @@ class TestWorker:
         assert not await DataExport.filter(id=old.id).exists()
 
 
+class TestCloudTasks:
+    async def test_requesting_queues_a_build_and_the_handler_drains_the_queue(self, db, monkeypatch):
+        from application import task_queue
+        calls = []
+
+        async def fake_enqueue(key, payload=None, *, delay_seconds=0.0):
+            calls.append(key)
+            return True
+
+        monkeypatch.setattr(task_queue, 'enqueue', fake_enqueue)
+        await Tournament.create(name='A')
+        export = await DataExportService().request_tournaments(await _staff())
+        assert calls == ['data_export']
+
+        assert await data_export_worker.handle_task({}) == 0.0
+        assert (await DataExport.get(id=export.id)).status == DataExportStatus.READY
+        assert await data_export_worker.handle_task({}) is None
+
+
 class TestSchema:
     async def test_the_json_matches_the_published_schema(self, db):
         jsonschema = pytest.importorskip('jsonschema')

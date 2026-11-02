@@ -6,6 +6,11 @@ Wizzrobe ships as a single application container plus PostgreSQL and a Redis ses
 
 ## Topology
 
+> **Cloud Run (staging, not live yet).** The serverless layout from the mobile
+> app spec (an `api` and a `bots` service, Scheduler jobs, Cloud Tasks queues) is
+> described in [deploy/cloudrun/README.md](../deploy/cloudrun/README.md). Production
+> stays the single process below until the switch-over.
+
 [`docker-compose.yml`](../docker-compose.yml) defines three services and two named volumes:
 
 ```
@@ -171,6 +176,8 @@ Every boolean variable below uses one grammar (`env_flag` in `application/utils/
 | `MEMORY_CENSUS_DUMP` | no | unset | `main.py` | CI only. A file path: each `SIGUSR1` writes a `memory_census` there as JSON (the pid goes to `<path>.pid`), for `scripts/ui_leak_check.js`. Leave unset in production. |
 | `SPEEDGAMING_SYNC_ENABLED` | no | off | `application/utils/environment.py` | Master switch for the SpeedGaming ETL sync worker. Off → no outbound polls. On → each active `SpeedGamingEventLink` is polled on its cadence and materialized into `Match` rows. |
 | `WORKER_MODE` | no | `loop` | `application/worker_registry.py` | `loop` runs every background worker in-process (today). `scheduled` stops the Scheduler-placed workers' loops and opens `POST /internal/workers/<key>/tick` for Cloud Scheduler ([scheduled-workers.md](features/scheduled-workers.md)). |
+| `CLOUD_TASKS_LOCATION` | no | unset | `application/task_queue.py` | `projects/<p>/locations/<region>`. With `WORKER_MODE=scheduled`, seed rolls and data exports schedule their own follow-up checks as Cloud Tasks instead of bursting every minute ([scheduled-workers.md](features/scheduled-workers.md#cloud-tasks-follow-ups)). Unset → they poll as before. |
+| `CLOUD_TASKS_QUEUE_PREFIX` | no | `wizzrobe-` | `application/task_queue.py` | Queue names are this prefix plus the worker key, hyphenated (`wizzrobe-staging-seed-roll`). |
 | `WORKER_TICK_AUDIENCE` | in `scheduled` mode | — | `api/worker_ticks.py` | The OIDC audience set on the Cloud Scheduler jobs; a token for any other audience is refused. |
 | `WORKER_TICK_SERVICE_ACCOUNT` | in `scheduled` mode | — | `api/worker_ticks.py` | The service-account email the Scheduler jobs sign as; any other caller is refused. |
 | `WORKER_TICK_WINDOW_SECONDS` | no | 55 | `api/worker_ticks.py` | How long one tick call keeps ticking a worker faster than once a minute. |
@@ -189,7 +196,7 @@ Every boolean variable below uses one grammar (`env_flag` in `application/utils/
 | `API_RATE_LIMIT_PER_MIN` | no | `120` | `api/rate_limit.py` | Per-client budget per minute, keyed by token (or client IP). Shared by the REST API and MCP, so one credential gets one budget. |
 | `API_APP_RATE_LIMIT_PER_MIN` | no | `600` | `api/rate_limit.py` | Ceiling per third-party app across all of its users' grants, on top of each grant's own budget. |
 | `MCP_ENABLED` | no | on | `mcpserver/__init__.py` | Kill switch for the remote MCP server: off removes `/mcp`, its OAuth and discovery routes, and the lifespan hook. See [mcp-server.md](features/mcp-server.md). |
-| `TRUST_PROXY_FORWARDED_FOR` | no | off | `api/rate_limit.py` | Rate limiter trusts `X-Forwarded-For` for the client IP — only behind a trusted proxy. |
+| `TRUST_PROXY_FORWARDED_FOR` | no | off | `api/rate_limit.py` | Rate limiter trusts `X-Forwarded-For` for the client IP — only behind a trusted proxy. `on` takes the first entry (a proxy that overwrites the header); `last` takes the last (a proxy that appends, such as Cloud Run). |
 
 See [reference/authentication.md](reference/authentication.md) for how the OAuth variables are wired into the login flow.
 
@@ -249,6 +256,8 @@ Shutdown reverses this: the workers stop, the queue workers are cancelled (any s
 | Workers | n/a (reload implies one process) | n/a | one | `--workers 1` |
 | Port | 8000 | 8000 | 8000 | 8000 |
 | Forced env | — | `ENVIRONMENT=development`, `MOCK_DISCORD`, `MOCK_SEEDGEN`, `MOCK_CHALLONGE`, `MOCK_TWITCH`, `MOCK_RACETIME`, `MOCK_MATCHERINO`, `MOCK_STARTGG` | same as `mock` | `ENVIRONMENT=production` |
+
+`./start.sh bots` runs `bots.py` (Discord gateway and racetime room bot) the way `prod` runs `main.py`, on `$PORT` (default 8000). Only the Cloud Run bot service uses it; see [deploy/cloudrun/README.md](../deploy/cloudrun/README.md).
 
 `mock` is the one-command offline dev loop — no Discord, Challonge, Twitch, racetime.gg, Matcherino or randomizer credentials needed. `validate` is `mock` without the watcher, for browser runs where a mid-run reload would tear down open pages and fill the log with teardown tracebacks; see [development.md](development.md#running-the-server-and-the-two-ways-it-bites).
 

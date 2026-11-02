@@ -48,6 +48,30 @@ the OpenAPI schema.
 `poetry run python scripts/run_worker_tick.py --list` prints each worker's
 placement and the cron its Scheduler job should use (`cron_schedule`).
 
+## Cloud Tasks follow-ups
+
+A seed roll waits on one provider task and a data export on one queued row, so
+with `CLOUD_TASKS_LOCATION` set (scheduled mode only) they don't burst every
+minute. `application/task_queue.py`:
+
+- The service that starts the work enqueues a task: `ProviderTaskService.mark_submitted`
+  queues `seed_roll` with `{"task_id"}` 5s out; `DataExportService` queues
+  `data_export` when an export is requested.
+- Cloud Tasks POSTs it to `/internal/tasks/<key>` (`api/worker_ticks.py`, same
+  OIDC check as the ticks), which calls the worker's `task_handler`
+  (`WorkerSpec.task_handler`, `handle_task` in the worker module). The handler
+  does one step and returns the delay before the next, or `None` when done; the
+  endpoint enqueues the follow-up. A handler that raises is a 500, and the
+  queue retries it.
+- The worker's Scheduler job becomes a single tick every 5 minutes
+  (`scheduler_cron(..., cloud_tasks=True)`, `run_scheduled` skips the burst). It
+  sweeps stale rows and picks up anything a failed enqueue left, so a Cloud Tasks
+  outage makes work late, not lost.
+- The export queue dispatches one task at a time, which keeps the loop's
+  one-export-at-a-time pacing.
+
+Unset, `enqueue` does nothing and both workers poll exactly as before.
+
 ## Not covered yet
 
 - **Overlap across instances.** The "already running" guard is per instance. Two
@@ -60,7 +84,6 @@ placement and the cron its Scheduler job should use (`cron_schedule`).
 - **Discord-calling ticks** (reminders, Discord events, role sync) still go through
   `DiscordService`, which today needs the gateway client in the same process.
   Step 4 (Discord over HTTP) has to land before those run on Cloud Run.
-- **Scheduler jobs themselves** are created in step 5 (Cloud Run deploy).
-- **Seed roll and data export polling move to Cloud Tasks in step 5** (Thomas,
-  2026-10-31): a slow roll or a queued export enqueues its own follow-up check
-  instead of a minute burst that keeps an instance awake while idle.
+- **Scheduler jobs and queues** are generated from `WORKERS` by
+  `scripts/cloudrun.py` ([deploy/cloudrun/README.md](../../deploy/cloudrun/README.md)).
+  None exist yet.

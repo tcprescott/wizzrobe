@@ -43,6 +43,11 @@ class TestRateLimitKey:
         req = _request({'x-forwarded-for': '9.9.9.9, 10.0.0.1'}, host='10.0.0.1')
         assert _client_key(req) == 'ip:9.9.9.9'
 
+    def test_last_mode_ignores_a_forged_prefix(self, monkeypatch):
+        monkeypatch.setenv('TRUST_PROXY_FORWARDED_FOR', 'last')
+        req = _request({'x-forwarded-for': '6.6.6.6, 9.9.9.9'}, host='10.0.0.1')
+        assert _client_key(req) == 'ip:9.9.9.9'
+
 
 @pytest.fixture
 def headers_app():

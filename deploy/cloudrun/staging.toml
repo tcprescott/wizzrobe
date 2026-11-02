@@ -1,0 +1,54 @@
+# Cloud Run staging environment. `scripts/cloudrun.py plan deploy/cloudrun/staging.toml`
+# prints everything this describes; `apply` creates or updates it. Nothing here is
+# a secret: secrets are Secret Manager names, read by the services at start.
+#
+# Values marked TODO don't exist yet. They are filled in once the Google Cloud
+# project is set up (see deploy/cloudrun/README.md).
+
+name = "wizzrobe-staging"                 # prefix for services, jobs and queues
+project = "TODO-gcp-project-id"
+region = "us-east4"
+image = "us-east4-docker.pkg.dev/TODO-gcp-project-id/wizzrobe/wizzrobe"
+
+# The api service's public URL: the run.app URL after the first deploy, or a
+# custom domain. Scheduler and Cloud Tasks call it, and it is their OIDC audience.
+api_url = "https://TODO-staging-api-url"
+
+runtime_service_account = "wizzrobe-run@TODO-gcp-project-id.iam.gserviceaccount.com"
+invoker_service_account = "wizzrobe-invoker@TODO-gcp-project-id.iam.gserviceaccount.com"
+
+# Cloud SQL instance connection name. Both services get a Cloud SQL Auth Proxy
+# sidecar on 127.0.0.1:5432. Leave empty to point DB_HOST at another Postgres.
+cloudsql_instance = "TODO-gcp-project-id:us-east4:wizzrobe-staging"
+
+# Seed rolls and data export polling run as Cloud Tasks follow-ups when true.
+cloud_tasks = true
+
+[api]
+min_instances = 0
+max_instances = 4
+cpu = "1"
+memory = "1Gi"
+concurrency = 80
+
+[bots]
+cpu = "1"
+memory = "512Mi"
+
+# Plain settings, on both services.
+[env]
+DB_NAME = "wizzrobe"
+DB_USERNAME = "wizzrobe"
+BASE_URL = "https://TODO-staging-api-url"
+TRUST_FORWARDED_HOST = "on"
+TRUST_PROXY_FORWARDED_FOR = "last"
+
+# Environment variable = Secret Manager secret name (latest version), on both services.
+[secrets]
+DB_PASSWORD = "wizzrobe-staging-db-password"
+STORAGE_SECRET = "wizzrobe-staging-storage-secret"
+DISCORD_TOKEN = "wizzrobe-staging-discord-token"
+DISCORD_CLIENT_ID = "wizzrobe-staging-discord-client-id"
+DISCORD_CLIENT_SECRET = "wizzrobe-staging-discord-client-secret"
+DISCORD_PUBLIC_KEY = "wizzrobe-staging-discord-public-key"
+SENTRY_DSN = "wizzrobe-staging-sentry-dsn"

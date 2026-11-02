@@ -253,6 +253,54 @@ class TestSweepStale:
         assert refreshed.status == ProviderTaskStatus.QUEUED
 
 
+class TestCloudTasks:
+    """With Cloud Tasks on, each submitted roll schedules its own next check."""
+
+    @pytest.fixture
+    def enqueued(self, monkeypatch):
+        from application import task_queue
+        calls = []
+
+        async def fake_enqueue(key, payload=None, *, delay_seconds=0.0):
+            calls.append((key, payload, delay_seconds))
+            return True
+
+        monkeypatch.setattr(task_queue, 'enqueue', fake_enqueue)
+        return calls
+
+    async def _submitted(self, task):
+        return await ProviderTaskService().mark_submitted(
+            task, provider_task_id='up-1',
+            provider_params={'branch': 'stable'}, settings={'branch': 'stable'},
+        )
+
+    async def test_submitting_queues_the_first_check(self, queued_task, enqueued):
+        await self._submitted(queued_task)
+        assert enqueued == [('seed_roll', {'task_id': queued_task.id}, 5)]
+
+    async def test_a_running_roll_asks_to_be_checked_again(self, queued_task, enqueued, monkeypatch):
+        from application.services import seed_roll_worker
+        from application.services.seedgen_service import SeedGenerationService
+
+        await self._submitted(queued_task)
+        monkeypatch.setattr(SeedGenerationService, 'poll_async_roll', _async_returning(AsyncRollPoll(seed=None)))
+        assert await seed_roll_worker.handle_task({'task_id': queued_task.id}) == seed_roll_worker.TICK_SECONDS
+
+    async def test_a_finished_roll_stops(self, queued_task, match_with_players, enqueued, monkeypatch):
+        from application.services import seed_roll_worker
+        from application.services.seedgen_service import SeedGenerationService
+
+        await self._submitted(queued_task)
+        monkeypatch.setattr(SeedGenerationService, 'poll_async_roll', _async_returning(_finished()))
+        assert await seed_roll_worker.handle_task({'task_id': queued_task.id}) is None
+        assert (await Match.get(id=match_with_players.id)).generated_seed_id is not None
+
+    async def test_an_unknown_task_stops(self, db):
+        from application.services import seed_roll_worker
+        assert await seed_roll_worker.handle_task({'task_id': 999999}) is None
+        assert await seed_roll_worker.handle_task({}) is None
+
+
 def _async_returning(value):
     async def _call(*args, **kwargs):
         return value

@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional
 
+from application import task_queue
 from application.errors import require_found
 from application.event_context import event_scope
 from application.repositories import (
@@ -177,10 +178,12 @@ class DataExportService:
             raise ValueError(f'You can request {MAX_PER_HOUR} exports an hour. Try again later.')
         if await self.repository.count_pending_in_tenant() >= MAX_PENDING_PER_COMMUNITY:
             raise ValueError('Several exports are already building for this community. Try again in a few minutes.')
-        return await self.repository.create_queued(
+        export = await self.repository.create_queued(
             requested_by_id=actor.id, kind=kind, title=title[:255],
             params=params, progress_total=total,
         )
+        await task_queue.enqueue('data_export')
+        return export
 
     async def list_mine(self, actor: User, limit: int = 20) -> List[DataExport]:
         return await self.repository.list_for_requester(actor.id, limit=limit)
