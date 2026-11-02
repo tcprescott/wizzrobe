@@ -9,6 +9,8 @@ on:
     branches: [main]
     paths:
       - 'web/**'
+      - 'api/**'
+      - 'scripts/export_openapi.py'
       - '.github/workflows/native-apps.yml'
   workflow_dispatch:
     inputs:
@@ -19,6 +21,9 @@ on:
 
 permissions:
   contents: read
+
+env:
+  POETRY_VERSION: '2.3.3'
 
 concurrency:
   group: native-apps-${{ github.ref }}
@@ -34,6 +39,18 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Install Poetry
+        run: pipx install poetry==${{ env.POETRY_VERSION }}
+
+      - name: Install Python dependencies
+        working-directory: .
+        run: poetry install --no-interaction
+
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
@@ -47,6 +64,9 @@ jobs:
 
       - name: Install
         run: npm ci
+
+      - name: Generate the API client
+        run: npm run gen:api
 
       - name: Build the app and copy it into the shell
         env:
@@ -67,6 +87,18 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Install Poetry
+        run: pipx install poetry==${{ env.POETRY_VERSION }}
+
+      - name: Install Python dependencies
+        working-directory: .
+        run: poetry install --no-interaction
+
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
@@ -75,6 +107,9 @@ jobs:
 
       - name: Install
         run: npm ci
+
+      - name: Generate the API client
+        run: npm run gen:api
 
       - name: Build the app and copy it into the shell
         env:

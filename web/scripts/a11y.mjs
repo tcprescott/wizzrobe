@@ -17,17 +17,16 @@
  *   A11Y_ONLY=me-notifications    only targets whose name starts with this
  */
 import { spawn } from 'node:child_process'
-import { mkdirSync, readFileSync } from 'node:fs'
+import { mkdirSync, readdirSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { chromium } from 'playwright'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const root = join(here, '..')
 const require = createRequire(import.meta.url)
 const axeSource = readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8')
-const fixtures = JSON.parse(readFileSync(join(here, 'a11y-fixtures.json'), 'utf8'))
 
 const GUIDE_PDF = readFileSync(join(root, '..', 'application', 'event_info', 'content', 'default', 'Event-Guide-Dev-Fixture.pdf'))
 
@@ -41,149 +40,32 @@ mkdirSync(OUT, { recursive: true })
 
 const SESSION = JSON.stringify({ access: 'fixture-access', refresh: 'fixture-refresh', expiresAt: 4102444800000 })
 
-/** `signedIn: false` loads with no session; `act` puts the page in a state worth checking. */
-const TARGETS = [
-  { name: 'sign-in', path: '/sign-in', signedIn: false },
-  { name: 'kit', path: '/kit', signedIn: false },
-  { name: 'kit-dialog', path: '/kit', signedIn: false, act: (p) => p.getByRole('button', { name: 'Open dialog' }).click(), wait: 'role=dialog' },
-  { name: 'kit-menu', path: '/kit', signedIn: false, act: (p) => p.getByRole('button', { name: 'More for this row' }).click(), wait: 'role=menu' },
-  { name: 'communities', path: '/' },
-  { name: 'home', path: '/t/sgl/home' },
-  { name: 'home-event', path: '/t/sgl/e/sgl26/home' },
-  { name: 'schedule', path: '/t/sgl/schedule' },
-  { name: 'home-pick-time', path: '/t/sgl/home', act: (p) => p.getByRole('button', { name: 'Pick a time' }).click(), wait: 'role=dialog' },
-  { name: 'home-review', path: '/t/sgl/home', act: (p) => p.getByRole('button', { name: 'Review' }).click(), wait: 'role=dialog' },
-  { name: 'home-running-late', path: '/t/sgl/home', act: (p) => p.getByRole('button', { name: 'Running late' }).first().click(), wait: 'role=dialog' },
-  { name: 'event', path: '/t/sgl/event' },
-  { name: 'work', path: '/t/sgl/work' },
-  { name: 'work-desk', path: '/t/sgl/work/desk' },
-  { name: 'work-desk-link', path: '/t/sgl/work/desk', act: (p) => p.getByRole('button', { name: 'Check in Alexis Moreau' }).click(), wait: 'role=dialog' },
-  { name: 'work-desk-walk-up', path: '/t/sgl/work/desk', act: (p) => p.getByRole('button', { name: 'Walk-up' }).click(), wait: 'role=dialog' },
-  { name: 'work-desk-menu', path: '/t/sgl/work/desk', act: (p) => p.getByRole('button', { name: 'More for Al Kim' }).click(), wait: 'role=menu' },
-  { name: 'work-schedule', path: '/t/sgl/work/schedule' },
-  { name: 'work-schedule-columns', path: '/t/sgl/work/schedule', act: (p) => p.getByRole('button', { name: /Columns/ }).click(), wait: 'role=dialog' },
-  { name: 'work-schedule-shift', path: '/t/sgl/work/schedule', act: (p) => p.getByRole('button', { name: /^Check-in, .*Sam/ }).click(), wait: 'role=dialog' },
-  { name: 'work-availability', path: '/t/sgl/work/availability' },
-  { name: 'work-proctor', path: '/t/sgl/work/proctor' },
-  { name: 'schedule-shift-menu', path: '/t/sgl/schedule', act: (p) => p.getByRole('button', { name: 'More for Check-in desk' }).click(), wait: 'role=menu' },
-  { name: 'me', path: '/t/sgl/me' },
-  { name: 'admin', path: '/t/sgl/admin' },
-  { name: 'admin-setup', path: '/t/sgl/admin/setup' },
-  { name: 'admin-not-built', path: '/t/sgl/admin/service-health' },
-  { name: 'admin-tournaments', path: '/t/sgl/admin/tournaments/1/settings' },
-  { name: 'admin-tournament-players', path: '/t/sgl/admin/tournaments/1/players' },
-  { name: 'admin-tournament-bracket', path: '/t/sgl/admin/tournaments/1/bracket' },
-  { name: 'admin-tournament-schedule', path: '/t/sgl/admin/tournaments/1/schedule' },
-  { name: 'admin-tournament-link', path: '/t/sgl/admin/tournaments/2/bracket' },
-  { name: 'admin-tournament-add', path: '/t/sgl/admin/tournaments', act: (p) => p.getByRole('button', { name: 'Add tournament' }).click(), wait: 'role=dialog' },
-  { name: 'admin-tournament-drop', path: '/t/sgl/admin/tournaments/1/players', act: (p) => p.getByRole('button', { name: 'More for Ari' }).click(), wait: 'role=menu' },
-  { name: 'admin-brackets-live', path: '/t/sgl/admin/brackets/5', wait: 'text=Open matches · 2' },
-  { name: 'admin-brackets-draft', path: '/t/sgl/admin/brackets/6', wait: 'text=Roster · 6' },
-  { name: 'admin-brackets-report', path: '/t/sgl/admin/brackets/5', act: (p) => p.getByRole('button', { name: 'Report a result' }).click(), wait: 'role=dialog' },
-  { name: 'admin-brackets-seed-tools', path: '/t/sgl/admin/brackets/6', act: (p) => p.getByRole('button', { name: 'Seed tools' }).click(), wait: 'role=menu' },
-  { name: 'admin-qualifiers', path: '/t/sgl/admin/qualifiers/7' },
-  { name: 'admin-qualifiers-reject', path: '/t/sgl/admin/qualifiers/7', act: (p) => p.getByRole('button', { name: 'Reject' }).first().click(), wait: 'role=dialog' },
-  { name: 'admin-qualifiers-pools', path: '/t/sgl/admin/qualifiers/7/pools', wait: 'text=Rolls from sgl27-open' },
-  { name: 'admin-qualifiers-reviewers', path: '/t/sgl/admin/qualifiers/7/reviewers', wait: 'text=Find a member' },
-  { name: 'admin-qualifiers-settings', path: '/t/sgl/admin/qualifiers/7/settings', wait: 'text=Undo changes' },
-  { name: 'admin-stages', path: '/t/sgl/admin/stages/1' },
-  { name: 'admin-stages-add', path: '/t/sgl/admin/stages', act: (p) => p.getByRole('button', { name: 'Add stage' }).click(), wait: 'role=dialog' },
-  { name: 'admin-triforce', path: '/t/sgl/admin/triforce-texts/1' },
-  { name: 'admin-speedgaming', path: '/t/sgl/admin/speedgaming/1' },
-  { name: 'admin-speedgaming-add', path: '/t/sgl/admin/speedgaming', act: (p) => p.getByRole('button', { name: 'Link an event' }).click(), wait: 'role=dialog' },
-  { name: 'admin-racetime', path: '/t/sgl/admin/racetime/1' },
-  { name: 'admin-presets', path: '/t/sgl/admin/seed-presets/5' },
-  { name: 'admin-presets-paste', path: '/t/sgl/admin/seed-presets/6' },
-  { name: 'admin-presets-import', path: '/t/sgl/admin/seed-presets', act: async (p) => { await p.getByRole('button', { name: 'Actions' }).first().click(); await p.getByRole('menuitem', { name: /Import from/ }).click() }, wait: 'role=dialog' },
-  { name: 'admin-settings-general', path: '/t/sgl/admin/settings/general' },
-  { name: 'admin-settings-members', path: '/t/sgl/admin/settings/members' },
-  { name: 'admin-settings-watch', path: '/t/sgl/admin/settings/watch' },
-  { name: 'admin-settings-volunteers', path: '/t/sgl/admin/settings/volunteers' },
-  { name: 'admin-settings-meetups', path: '/t/sgl/admin/settings/community-events' },
-  { name: 'admin-settings-apps', path: '/t/sgl/admin/settings/apps' },
-  { name: 'admin-settings-features', path: '/t/sgl/admin/settings/features' },
-  { name: 'admin-settings-not-built', path: '/t/sgl/admin/settings/discord' },
-  {
-    name: 'admin-settings-unsaved',
-    path: '/t/sgl/admin/settings/volunteers',
-    act: (p) => p.getByLabel('Reminder lead (minutes)').fill('30'),
-    wait: 'text=Unsaved changes',
-  },
-  { name: 'admin-events', path: '/t/sgl/admin/events/sgl27' },
-  { name: 'admin-events-draft', path: '/t/sgl/admin/events/sgl28' },
-  {
-    name: 'admin-events-new',
-    path: '/t/sgl/admin/events',
-    act: (p) => p.getByRole('button', { name: 'New event' }).click(),
-    wait: 'role=dialog',
-  },
-  {
-    name: 'admin-events-copy',
-    path: '/t/sgl/admin/events/sgl27',
-    act: (p) => p.getByRole('button', { name: /^More actions for / }).click().then(() => p.getByRole('menuitem', { name: 'New event from this…' }).click()),
-    wait: 'role=dialog',
-  },
-  {
-    name: 'admin-events-archive',
-    path: '/t/sgl/admin/events/sgl27',
-    act: (p) => p.getByRole('button', { name: 'Archive…' }).click(),
-    wait: 'role=dialog',
-  },
-  { name: 'admin-schedule', path: '/t/sgl/admin/match-schedule?day=2026-10-24' },
-  { name: 'admin-schedule-match', path: '/t/sgl/admin/match-schedule/301?day=2026-10-24' },
-  { name: 'admin-schedule-rewind', path: '/t/sgl/admin/match-schedule/301?day=2026-10-24', act: (p) => p.getByRole('button', { name: /^More for .* vs / }).click().then(() => p.getByRole('menuitem', { name: 'Rewind…' }).click()), wait: 'role=dialog' },
-  { name: 'admin-schedule-request', path: '/t/sgl/admin/match-schedule?day=2026-10-24', act: (p) => p.getByRole('button', { name: 'Review' }).first().click(), wait: 'role=dialog' },
-  { name: 'admin-schedule-decline', path: '/t/sgl/admin/match-schedule?day=2026-10-24', act: (p) => p.getByRole('button', { name: 'Decline' }).first().click(), wait: 'role=dialog' },
-  { name: 'admin-schedule-unbooked', path: '/t/sgl/admin/match-schedule?day=2026-10-24&view=unbooked' },
-  { name: 'admin-schedule-book', path: '/t/sgl/admin/match-schedule/unbooked/challonge/11?day=2026-10-24&view=unbooked', act: (p) => p.getByLabel('Date', { exact: true }).fill('2026-10-24').then(() => p.getByLabel('Time', { exact: true }).fill('15:30')), wait: 'text=Check this time' },
-  { name: 'admin-schedule-link', path: '/t/sgl/admin/match-schedule/unbooked/challonge/11?day=2026-10-24&view=unbooked', act: (p) => p.getByRole('button', { name: /^More for / }).click().then(() => p.getByRole('menuitem', { name: 'Link an existing match…' }).click()), wait: 'role=dialog' },
-  { name: 'admin-schedule-new', path: '/t/sgl/admin/match-schedule/new?day=2026-10-24', act: (p) => p.getByLabel('Players', { exact: true }).fill('a'), wait: 'role=button[name="Kai"]' },
-  { name: 'admin-schedule-stations', path: '/t/sgl/admin/match-schedule/301?day=2026-10-24', act: (p) => p.getByRole('button', { name: 'Assign' }).click(), wait: 'role=dialog' },
-  { name: 'admin-members', path: '/t/sgl/admin/members' },
-  { name: 'admin-member', path: '/t/sgl/admin/members/2' },
-  { name: 'admin-member-message', path: '/t/sgl/admin/members/2', act: (p) => p.getByRole('button', { name: 'Message' }).click(), wait: 'role=dialog' },
-  { name: 'admin-member-menu', path: '/t/sgl/admin/members/2', act: (p) => p.getByRole('button', { name: 'More for Kirby' }).click(), wait: 'role=menu' },
-  { name: 'admin-members-ada', path: '/t/sgl/admin/members/ada' },
-  { name: 'admin-members-ada-request', path: '/t/sgl/admin/members/ada/6' },
-  { name: 'admin-check-in', path: '/t/sgl/admin/check-in-roster' },
-  { name: 'admin-check-in-event', path: '/t/sgl/admin/check-in-roster/61' },
-  { name: 'admin-check-in-edit', path: '/t/sgl/admin/check-in-roster/61', act: (p) => p.getByRole('button', { name: 'Edit' }).click(), wait: 'role=dialog' },
-  { name: 'admin-equipment', path: '/t/sgl/admin/equipment' },
-  { name: 'admin-equipment-asset', path: '/t/sgl/admin/equipment/51' },
-  { name: 'admin-equipment-edit', path: '/t/sgl/admin/equipment/51', act: (p) => p.getByRole('button', { name: 'Edit' }).click(), wait: 'role=dialog' },
-  { name: 'admin-equipment-labels', path: '/t/sgl/admin/equipment/labels?ids=51,52,53,54' },
-  { name: 'admin-meetups', path: '/t/sgl/admin/meetups' },
-  { name: 'admin-meetup', path: '/t/sgl/admin/meetups/21' },
-  { name: 'admin-meetup-edit', path: '/t/sgl/admin/meetups/21', act: (p) => p.getByRole('button', { name: 'More for Speedrun trivia night' }).click().then(() => p.getByRole('menuitem', { name: 'Edit…' }).click()), wait: 'role=dialog' },
-  ...['about', 'notifications', 'availability', 'accounts', 'staff-alerts', 'equipment', 'accommodation', 'emergency-contact', 'feedback', 'webhooks', 'apps', 'tokens', 'appearance'].map(
-    (s) => ({ name: `me-${s}`, path: `/t/sgl/me/${s}` }),
-  ),
-  { name: 'me-customize', path: '/t/sgl/me/notifications', act: (p) => p.getByRole('button', { name: 'Show' }).click(), wait: 'role=group' },
-  { name: 'me-notifications-app', path: '/t/sgl/me/notifications', native: 'ios' },
-  { name: 'me-send-test', path: '/t/sgl/me/notifications', act: (p) => p.getByRole('button', { name: 'Send a test…' }).click(), wait: 'role=dialog' },
-  { name: 'me-block-time', path: '/t/sgl/me/availability', act: (p) => p.getByRole('button', { name: 'Block a time' }).click(), wait: 'role=dialog' },
-  { name: 'me-add-webhook', path: '/t/sgl/me/webhooks', act: (p) => p.getByRole('button', { name: 'Add webhook' }).click(), wait: 'role=dialog' },
-  { name: 'me-register-app', path: '/t/sgl/me/apps', act: (p) => p.getByRole('button', { name: 'Register an app' }).click(), wait: 'role=dialog' },
-  { name: 'me-sign-out', path: '/t/sgl/me/appearance', act: (p) => p.getByRole('button', { name: 'Sign out' }).click(), wait: 'role=dialog' },
-  { name: 'picker', path: '/t/sgl/home', act: (p) => p.getByRole('button', { name: /Change event or community/ }).click(), wait: 'role=menu' },
-  { name: 'help', path: '/t/sgl/help' },
-  { name: 'help-article', path: '/t/sgl/help/crew' },
-  { name: 'help-zoom', path: '/t/sgl/help/crew', act: (p) => p.getByRole('button', { name: /^Enlarge/ }).first().click(), wait: 'role=dialog' },
-  { name: 'event-info', path: '/t/sgl/event-info' },
-  { name: 'event-info-article', path: '/t/sgl/event-info/schedule' },
-  { name: 'event-guide', path: '/t/sgl/event-info/guide', wait: '.guide-page', act: async () => {} },
-  { name: 'help-signed-out', path: '/t/sgl/help', signedIn: false },
-  { name: 'help-article-signed-out', path: '/t/sgl/help/crew', signedIn: false },
-  { name: 'changelog', path: '/t/sgl/changelog' },
-  { name: 'about', path: '/t/sgl/about' },
-  { name: 'about-privacy', path: '/t/sgl/about/privacy' },
-  { name: 'about-notices', path: '/t/sgl/about/notices' },
-  { name: 'about-notice', path: '/t/sgl/about/notices', act: (p) => p.locator('.read-notices button').first().click(), wait: 'role=dialog' },
-  { name: 'facts', path: '/t/sgl/facts' },
-  { name: 'player-no-work', path: '/t/second/home' },
-  { name: 'not-a-member', path: '/t/elsewhere/home' },
-  { name: 'not-found', path: '/nowhere' },
-]
+/**
+ * Each screen's checks and stub API responses live in a11y/<screen>.mjs, which
+ * exports `targets` and `fixtures`; every file in that folder is picked up, so
+ * a new screen adds a file instead of editing a shared list.
+ *
+ * A target: `signedIn: false` loads with no session; `act` puts the page in a
+ * state worth checking and `wait` is what to wait for after it; `native` runs
+ * it as the store app on that platform.
+ *
+ * A fixture: the JSON body served for that API path. "{{now+42m}}" in it
+ * becomes an instant that far from now, so countdowns and "Today" render.
+ */
+const TARGETS = []
+const fixtures = {}
+const screens = join(here, 'a11y')
+for (const file of readdirSync(screens).filter((f) => f.endsWith('.mjs')).sort()) {
+  const screen = await import(pathToFileURL(join(screens, file)).href)
+  for (const target of screen.targets ?? []) {
+    if (TARGETS.some((t) => t.name === target.name)) throw new Error(`a11y/${file}: target "${target.name}" is already defined`)
+    TARGETS.push(target)
+  }
+  for (const [path, body] of Object.entries(screen.fixtures ?? {})) {
+    if (path in fixtures) throw new Error(`a11y/${file}: fixture ${path} is already defined in another screen file`)
+    fixtures[path] = body
+  }
+}
 
 function startPreview() {
   const vite = join(root, 'node_modules', 'vite', 'bin', 'vite.js')
@@ -200,7 +82,6 @@ function startPreview() {
   })
 }
 
-// "{{now+42m}}" in a fixture becomes an instant that far from now, so countdowns and "Today" render.
 const UNITS = { m: 60e3, h: 3600e3, d: 86400e3 }
 function withTimes(value) {
   if (typeof value === 'string') {
