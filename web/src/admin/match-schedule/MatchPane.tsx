@@ -1,17 +1,6 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import {
-  Banner,
-  Button,
-  Chip,
-  EmptyState,
-  FormDialog,
-  Icon,
-  RowMenu,
-  Spinner,
-  type MenuItem,
-  type Tone,
-} from '../../components'
+import { Banner, Button, Chip, EmptyState, FormDialog, Icon, RowMenu, Spinner, type MenuItem, type Tone } from '../../components'
 import { effectiveZone, formatDayTime, formatTime } from '../../lib/time'
 import { actions, usePane, type Board, type Pane } from './data'
 import { matchupText, metaText } from './MatchScheduleScreen'
@@ -43,7 +32,14 @@ export function MatchPane({ matchId, board, onChanged, onGone, closeTo, standalo
 
   if (error && !data) {
     return (
-      <Banner tone="error" action={<Button variant="outline" onClick={reload}>Try again</Button>}>
+      <Banner
+        tone="error"
+        action={
+          <Button variant="outline" onClick={reload}>
+            Try again
+          </Button>
+        }
+      >
         {error.message}
       </Banner>
     )
@@ -132,7 +128,12 @@ export function MatchPane({ matchId, board, onChanged, onGone, closeTo, standalo
           </div>
         )}
         {m.late.some((l) => l.note) && (
-          <p className="ms-note">{m.late.filter((l) => l.note).map((l) => `${l.label}: ${l.note}`).join(' · ')}</p>
+          <p className="ms-note">
+            {m.late
+              .filter((l) => l.note)
+              .map((l) => `${l.label}: ${l.note}`)
+              .join(' · ')}
+          </p>
         )}
         {Object.entries(m.ada_notes ?? {}).map(([uid, note]) => (
           <p key={uid} className="ms-note">
@@ -156,7 +157,14 @@ export function MatchPane({ matchId, board, onChanged, onGone, closeTo, standalo
                 <span className="ms-check__label">{item.label}</span>
                 <span className="ms-check__detail">{item.detail}</span>
               </span>
-              <CheckAction pane={m} item={item.key} board={board} busy={busy} run={run} onStations={() => setDialog('stations')} />
+              <CheckAction
+                pane={m}
+                item={item.key}
+                board={board}
+                busy={busy}
+                run={run}
+                onStations={() => setDialog('stations')}
+              />
             </li>
           ))}
         </ul>
@@ -183,7 +191,11 @@ export function MatchPane({ matchId, board, onChanged, onGone, closeTo, standalo
                 <div key={role.key} className="ms-role">
                   <div className="ms-role__head">
                     <span className="ms-role__label">{role.label}</span>
-                    {role.short ? <Chip tone="pending">{role.count} · more needed</Chip> : <span className="ms-role__count">{role.count}</span>}
+                    {role.short ? (
+                      <Chip tone="pending">{role.count} · more needed</Chip>
+                    ) : (
+                      <span className="ms-role__count">{role.count}</span>
+                    )}
                   </div>
                   {approved.length > 0 ? (
                     <div className="ms-pills">
@@ -228,8 +240,8 @@ export function MatchPane({ matchId, board, onChanged, onGone, closeTo, standalo
         )}
         {(m.comments?.player || m.comments?.staff) && (
           <p className="ms-note">
-            {(m.comments?.player ?? 0) + (m.comments?.staff ?? 0)} comments on this match. Reading and writing them here is
-            coming next.
+            {(m.comments?.player ?? 0) + (m.comments?.staff ?? 0)} comments on this match. Reading and writing them here is coming
+            next.
           </p>
         )}
       </div>
@@ -307,7 +319,12 @@ function Primary({ pane: m, busy, run }: { pane: Pane; busy: string | null; run:
       <div className="ms-primary" role="group" aria-label="Who won?">
         <span className="ms-primary__ask">Who won?</span>
         {winners.map((w) => (
-          <Button key={w.id} variant="outline" busy={busy === `win-${w.id}`} onClick={() => run(`win-${w.id}`, () => actions.winner(m.id, w.id))}>
+          <Button
+            key={w.id}
+            variant="outline"
+            busy={busy === `win-${w.id}`}
+            onClick={() => run(`win-${w.id}`, () => actions.winner(m.id, w.id))}
+          >
             {w.name} won
           </Button>
         ))}
@@ -377,9 +394,24 @@ function CheckAction({
       </Button>
     )
   }
-  if (item === 'seed' && m.next_step?.event !== 'roll' && m.can.run && open && !m.seed_url && !m.seed_rolling && !m.is_racetime && m.players.length > 0) {
+  if (
+    item === 'seed' &&
+    m.next_step?.event !== 'roll' &&
+    m.can.run &&
+    open &&
+    !m.seed_url &&
+    !m.seed_rolling &&
+    !m.is_racetime &&
+    m.players.length > 0
+  ) {
     return (
-      <Button variant="outline" size="sm" busy={busy === 'roll'} busyLabel="Rolling…" onClick={() => run('roll', () => actions.roll(m.id))}>
+      <Button
+        variant="outline"
+        size="sm"
+        busy={busy === 'roll'}
+        busyLabel="Rolling…"
+        onClick={() => run('roll', () => actions.roll(m.id))}
+      >
         Roll seed
       </Button>
     )
@@ -387,7 +419,19 @@ function CheckAction({
   return null
 }
 
-function RewindDialog({ pane: m, open, busy, onClose, run }: { pane: Pane; open: boolean; busy: string | null; onClose: () => void; run: Run }) {
+function RewindDialog({
+  pane: m,
+  open,
+  busy,
+  onClose,
+  run,
+}: {
+  pane: Pane
+  open: boolean
+  busy: string | null
+  onClose: () => void
+  run: Run
+}) {
   const [step, setStep] = useState(m.rewind_to[0]?.step ?? '')
   return (
     <FormDialog
@@ -416,7 +460,19 @@ function RewindDialog({ pane: m, open, busy, onClose, run }: { pane: Pane; open:
   )
 }
 
-function CallOffDialog({ pane: m, open, busy, onClose, run }: { pane: Pane; open: boolean; busy: string | null; onClose: () => void; run: Run }) {
+function CallOffDialog({
+  pane: m,
+  open,
+  busy,
+  onClose,
+  run,
+}: {
+  pane: Pane
+  open: boolean
+  busy: string | null
+  onClose: () => void
+  run: Run
+}) {
   const [reason, setReason] = useState('')
   return (
     <FormDialog
@@ -440,7 +496,19 @@ function CallOffDialog({ pane: m, open, busy, onClose, run }: { pane: Pane; open
   )
 }
 
-function StationsDialog({ pane: m, open, busy, onClose, run }: { pane: Pane; open: boolean; busy: string | null; onClose: () => void; run: Run }) {
+function StationsDialog({
+  pane: m,
+  open,
+  busy,
+  onClose,
+  run,
+}: {
+  pane: Pane
+  open: boolean
+  busy: string | null
+  onClose: () => void
+  run: Run
+}) {
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(m.players.filter((p) => p.id).map((p) => [String(p.id), p.station ?? ''])),
   )

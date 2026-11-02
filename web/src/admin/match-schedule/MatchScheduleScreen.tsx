@@ -258,7 +258,14 @@ export function MatchScheduleScreen() {
         </div>
       )}
       {error && (
-        <Banner tone="error" action={<Button variant="outline" onClick={reload}>Try again</Button>}>
+        <Banner
+          tone="error"
+          action={
+            <Button variant="outline" onClick={reload}>
+              Try again
+            </Button>
+          }
+        >
           {error.message}
         </Banner>
       )}
@@ -303,13 +310,7 @@ export function MatchScheduleScreen() {
           {!phone && (
             <section className="ms-detail" aria-label="Selected match">
               {matchId ? (
-                <MatchPane
-                  matchId={matchId}
-                  board={data}
-                  onChanged={reload}
-                  onGone={() => navigate(backTo)}
-                  closeTo={backTo}
-                />
+                <MatchPane matchId={matchId} board={data} onChanged={reload} onGone={() => navigate(backTo)} closeTo={backTo} />
               ) : (
                 <EmptyState icon="event" title="Pick a match">
                   Its checklist, crew and run buttons open here.
