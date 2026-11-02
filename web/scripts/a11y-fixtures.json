@@ -75,7 +75,7 @@
    "starts_at": "{{now+20m}}",
    "ends_at": "{{now+80m}}",
    "title": "vs Kaizo",
-   "detail": "SMZ3 \u00b7 Round 2"
+   "detail": "SMZ3 · Round 2"
   },
   "today": [
    {
@@ -94,7 +94,7 @@
     "starts_at": "{{now+3h}}",
     "ends_at": "{{now+4h}}",
     "title": "Commentary",
-    "detail": "Ellie vs Marth \u00b7 OoTR Top 8"
+    "detail": "Ellie vs Marth · OoTR Top 8"
    },
    {
     "assignment_id": 7,
@@ -119,7 +119,7 @@
    {
     "kind": "book",
     "title": "Pick a time vs Pidge",
-    "detail": "ALTTPR Open \u00b7 Round 3 \u00b7 Book by Sat 6:00 PM",
+    "detail": "ALTTPR Open · Round 3 · Book by Sat 6:00 PM",
     "match_id": null,
     "request_id": null,
     "bookable": {
@@ -155,7 +155,7 @@
    {
     "kind": "acknowledge",
     "title": "Confirm you can play vs Marth",
-    "detail": "ALTTPR Open \u00b7 Round 2",
+    "detail": "ALTTPR Open · Round 2",
     "match_id": 103,
     "request_id": null,
     "bookable": null,
@@ -185,7 +185,7 @@
     "starts_at": "{{now+20m}}",
     "ends_at": "{{now+80m}}",
     "title": "vs Kaizo",
-    "detail": "SMZ3 \u00b7 Round 2"
+    "detail": "SMZ3 · Round 2"
    },
    {
     "assignment_id": null,
@@ -203,7 +203,7 @@
     "starts_at": "{{now+3h}}",
     "ends_at": "{{now+4h}}",
     "title": "Commentary",
-    "detail": "Ellie vs Marth \u00b7 OoTR Top 8"
+    "detail": "Ellie vs Marth · OoTR Top 8"
    },
    {
     "assignment_id": 7,
@@ -243,7 +243,7 @@
     "starts_at": "{{now+1d}}",
     "ends_at": "{{now+25h}}",
     "title": "vs Marth",
-    "detail": "ALTTPR Open \u00b7 Round 2"
+    "detail": "ALTTPR Open · Round 2"
    },
    {
     "assignment_id": 8,
@@ -611,7 +611,7 @@
    {
     "id": 1,
     "name": "Team channel",
-    "url_masked": "discord.com/api/webhooks/123456\u2026/\u2022\u2022\u2022\u2022",
+    "url_masked": "discord.com/api/webhooks/123456…/••••",
     "discord": true,
     "event_types": [
      "match.created",
@@ -728,14 +728,14 @@
    {
     "slug": "staff-schedule",
     "title": "Running the schedule",
-    "summary": "For staff. Admin \u2192 Match Schedule, creating and editing matches, cancelling one, rewinding a match, stages and stream candidates, and approving crew.",
+    "summary": "For staff. Admin → Match Schedule, creating and editing matches, cancelling one, rewinding a match, stages and stream candidates, and approving crew.",
     "icon": "edit_calendar",
     "for_staff": true
    },
    {
     "slug": "staff-match-day",
     "title": "Match day queues",
-    "summary": "For staff. What's waiting on you on Admin \u2192 Match Schedule: reschedule and cancellation requests, results to confirm, disputes, seeds, race rooms and the room screens.",
+    "summary": "For staff. What's waiting on you on Admin → Match Schedule: reschedule and cancellation requests, results to confirm, disputes, seeds, race rooms and the room screens.",
     "icon": "pending_actions",
     "for_staff": true
    },
@@ -1228,7 +1228,7 @@
      },
      {
       "kind": "text",
-      "text": " at the bottom of Event \u203a Schedule. It lists every bracket match nobody has booked a time for, with the sides it's still waiting on (\"Andy or Benny\", \"Winner of C\", \"TBD\"). Sign up there the same way.",
+      "text": " at the bottom of Event › Schedule. It lists every bracket match nobody has booked a time for, with the sides it's still waiting on (\"Andy or Benny\", \"Winner of C\", \"TBD\"). Sign up there the same way.",
       "href": "",
       "tone": ""
      }
@@ -1519,7 +1519,7 @@
     "spans": [
      {
       "kind": "text",
-      "text": "You pick which tournaments DM you, and how much, under Profile \u2192 Notifications \u2192 Tournaments you follow. ",
+      "text": "You pick which tournaments DM you, and how much, under Profile → Notifications → Tournaments you follow. ",
       "href": "",
       "tone": ""
      },
@@ -2406,7 +2406,7 @@
     "spans": [
      {
       "kind": "text",
-      "text": "SpeedGaming Live 2026 runs Thursday 22 to Sunday 25 October at the DoubleTree by Hilton Washington Dulles Airport in Herndon, Virginia. All times here are Eastern Daylight Time (EDT, UTC\u22124), the venue's local time.",
+      "text": "SpeedGaming Live 2026 runs Thursday 22 to Sunday 25 October at the DoubleTree by Hilton Washington Dulles Airport in Herndon, Virginia. All times here are Eastern Daylight Time (EDT, UTC−4), the venue's local time.",
       "href": "",
       "tone": ""
      }
@@ -3067,7 +3067,7 @@
     "start": "2026-10-26",
     "end": "2026-11-01",
     "title": "Updates",
-    "period": "Oct 26 \u2013 Nov 1, 2026",
+    "period": "Oct 26 – Nov 1, 2026",
     "anchor": "2026-10-26",
     "sections": [
      {
@@ -3081,7 +3081,7 @@
          [
           {
            "kind": "text",
-           "text": "An archived event is read-only: its pages say so under the title, its add buttons and \u22ee menus are gone, and anything that tries to change it is turned away. Staff can unarchive it from the same notice.",
+           "text": "An archived event is read-only: its pages say so under the title, its add buttons and ⋮ menus are gone, and anything that tries to change it is turned away. Staff can unarchive it from the same notice.",
            "href": "",
            "tone": ""
           }
@@ -3105,7 +3105,7 @@
          [
           {
            "kind": "text",
-           "text": "Matches can have broadcasters as well as commentators and trackers. Staff turn them on per event under Event settings \u2192 Crew; anyone in the community can then sign up from the schedule or the crew DM, and staff approve them the same way. Each tournament sets how many it needs (1 by default, 0 for none), and the boards, match editor and crew report gain a Broadcasters column.",
+           "text": "Matches can have broadcasters as well as commentators and trackers. Staff turn them on per event under Event settings → Crew; anyone in the community can then sign up from the schedule or the crew DM, and staff approve them the same way. Each tournament sets how many it needs (1 by default, 0 for none), and the boards, match editor and crew report gain a Broadcasters column.",
            "href": "",
            "tone": ""
           }
@@ -3125,7 +3125,7 @@
           },
           {
            "kind": "text",
-           "text": " at the bottom of Event \u203a Schedule. When the match is booked the signups move onto it, approvals included, and staff hear if an approved person is busy at the booked time.",
+           "text": " at the bottom of Event › Schedule. When the match is booked the signups move onto it, approvals included, and staff hear if an approved person is busy at the booked time.",
            "href": "",
            "tone": ""
           }
@@ -3217,7 +3217,7 @@
          [
           {
            "kind": "text",
-           "text": "A new staff help article, \"Running more than one event\", covers starting next year's event, going live, the default event and archiving. Its help icon is on Admin \u2192 Events.",
+           "text": "A new staff help article, \"Running more than one event\", covers starting next year's event, going live, the default event and archiving. Its help icon is on Admin → Events.",
            "href": "",
            "tone": ""
           }
@@ -3225,7 +3225,7 @@
          [
           {
            "kind": "text",
-           "text": "A community can now run several events. Staff create, copy, take live, archive and set the default one under Admin \u2192 Events, and the event button beside the community name switches between them.",
+           "text": "A community can now run several events. Staff create, copy, take live, archive and set the default one under Admin → Events, and the event button beside the community name switches between them.",
            "href": "",
            "tone": ""
           }
@@ -3233,7 +3233,7 @@
          [
           {
            "kind": "text",
-           "text": "Each event has its own dates, hours, capacity, venue, timezone and volunteer reward tiers under Admin \u2192 Event settings.",
+           "text": "Each event has its own dates, hours, capacity, venue, timezone and volunteer reward tiers under Admin → Event settings.",
            "href": "",
            "tone": ""
           }
@@ -3241,7 +3241,7 @@
          [
           {
            "kind": "text",
-           "text": "My Schedule, My Shifts and Home \u203a Tournaments show every live event you're in, with the event's name on a row once two events share the list, and links back to past events.",
+           "text": "My Schedule, My Shifts and Home › Tournaments show every live event you're in, with the event's name on a row once two events share the list, and links back to past events.",
            "href": "",
            "tone": ""
           }
@@ -3257,7 +3257,7 @@
          [
           {
            "kind": "text",
-           "text": "A Link to the Past matches have an item tracker for restreams. The match's approved trackers, staff and broadcast techs open it from the match sheet, tap items and dungeons as the runner finds them, and see what viewers see after the stream delay. Each runner gets a transparent board to add to OBS as a browser source. Communities turn it on under Admin \u2192 Features.",
+           "text": "A Link to the Past matches have an item tracker for restreams. The match's approved trackers, staff and broadcast techs open it from the match sheet, tap items and dungeons as the runner finds them, and see what viewers see after the stream delay. Each runner gets a transparent board to add to OBS as a browser source. Communities turn it on under Admin → Features.",
            "href": "",
            "tone": ""
           }
@@ -3285,7 +3285,7 @@
          [
           {
            "kind": "text",
-           "text": "Members can set up their own webhooks under Profile \u2192 Webhooks (when the community turns it on): up to three, sending their matches, crew signups, shifts and qualifier runs, or anything else they can see, to a Discord channel or their own app. Each message is checked against what they can see when it's sent, and staff-only details never go out.",
+           "text": "Members can set up their own webhooks under Profile → Webhooks (when the community turns it on): up to three, sending their matches, crew signups, shifts and qualifier runs, or anything else they can see, to a Discord channel or their own app. Each message is checked against what they can see when it's sent, and staff-only details never go out.",
            "href": "",
            "tone": ""
           }
@@ -3421,7 +3421,7 @@
          [
           {
            "kind": "text",
-           "text": "Stream layouts: staff and Broadcast Techs can design each event's broadcast overlay under Admin \u2192 Stream Layouts (start from a stock layout on a plain colour, with the same box positions as the SGL SpeedGaming and FFR layouts, or upload your own art, then place player names, round, commentators, seed code, up next and more on it). Each stage gets an OBS link that follows the match on that stage, and you can download ready-made OBS scenes with every video hole wired to a shared feed, and a match can be pinned from its match sheet. Communities turn it on under Admin \u2192 Features once it's made available.",
+           "text": "Stream layouts: staff and Broadcast Techs can design each event's broadcast overlay under Admin → Stream Layouts (start from a stock layout on a plain colour, with the same box positions as the SGL SpeedGaming and FFR layouts, or upload your own art, then place player names, round, commentators, seed code, up next and more on it). Each stage gets an OBS link that follows the match on that stage, and you can download ready-made OBS scenes with every video hole wired to a shared feed, and a match can be pinned from its match sheet. Communities turn it on under Admin → Features once it's made available.",
            "href": "",
            "tone": ""
           }
@@ -3445,7 +3445,7 @@
          [
           {
            "kind": "text",
-           "text": "Staff can see which apps members connected under Admin \u2192 Settings \u2192 Connected apps, and block one for the whole community.",
+           "text": "Staff can see which apps members connected under Admin → Settings → Connected apps, and block one for the whole community.",
            "href": "",
            "tone": ""
           }
@@ -3489,7 +3489,7 @@
          [
           {
            "kind": "text",
-           "text": "Post-event surveys: staff build one under Admin \u2192 Surveys, starting from a template, and send it by DM to everyone who took part. Each person only gets the parts that fit what they did: one per tournament played, one per volunteer position, plus crew and check-in. Answers can be anonymous. Turn it on under Admin \u2192 Features.",
+           "text": "Post-event surveys: staff build one under Admin → Surveys, starting from a template, and send it by DM to everyone who took part. Each person only gets the parts that fit what they did: one per tournament played, one per volunteer position, plus crew and check-in. Answers can be anonymous. Turn it on under Admin → Features.",
            "href": "",
            "tone": ""
           }
@@ -3505,7 +3505,7 @@
          [
           {
            "kind": "text",
-           "text": "Staff can press Suggest questions on a draft survey section to get a few AI-drafted questions built from what happened at the event. The community uses its own Claude or OpenAI-compatible key under Settings \u2192 Integrations, nothing is sent until someone presses the button, and no names or anything people typed are ever sent.",
+           "text": "Staff can press Suggest questions on a draft survey section to get a few AI-drafted questions built from what happened at the event. The community uses its own Claude or OpenAI-compatible key under Settings → Integrations, nothing is sent until someone presses the button, and no names or anything people typed are ever sent.",
            "href": "",
            "tone": ""
           }
@@ -3545,7 +3545,7 @@
          [
           {
            "kind": "text",
-           "text": "Event \u203a Schedule has a Friends switch: pick your friends once in the Friends filter and one tap shows only their matches, across every tournament. Your list is saved to your account, and friends' names are underlined on the board.",
+           "text": "Event › Schedule has a Friends switch: pick your friends once in the Friends filter and one tap shows only their matches, across every tournament. Your list is saved to your account, and friends' names are underlined on the board.",
            "href": "",
            "tone": ""
           }
@@ -3607,7 +3607,7 @@
           },
           {
            "kind": "strong",
-           "text": "Change close date\u2026",
+           "text": "Change close date…",
            "href": "",
            "tone": ""
           },
@@ -3680,7 +3680,7 @@
          [
           {
            "kind": "text",
-           "text": "When a message link opens your crew slots, your matches or the admin Match Schedule on a single match, a \"One match \u2715\" chip in the filter row says so; tap it to see everything again. Your Withdraw and Sign up buttons on crew cards lost the dashed box around them.",
+           "text": "When a message link opens your crew slots, your matches or the admin Match Schedule on a single match, a \"One match ✕\" chip in the filter row says so; tap it to see everything again. Your Withdraw and Sign up buttons on crew cards lost the dashed box around them.",
            "href": "",
            "tone": ""
           }
@@ -3784,7 +3784,7 @@
          [
           {
            "kind": "text",
-           "text": "1\u20135 and 0\u201310 survey questions are now sliders, so they fit on a phone screen.",
+           "text": "1–5 and 0–10 survey questions are now sliders, so they fit on a phone screen.",
            "href": "",
            "tone": ""
           }
@@ -3920,7 +3920,7 @@
          [
           {
            "kind": "text",
-           "text": "Staff can fix a typo in a sent survey's wording with \"Fix wording\u2026\" in each question's and section's \u22ee. Questions reworded after answers came in are tagged \"Edited\" in results, with the old wording.",
+           "text": "Staff can fix a typo in a sent survey's wording with \"Fix wording…\" in each question's and section's ⋮. Questions reworded after answers came in are tagged \"Edited\" in results, with the old wording.",
            "href": "",
            "tone": ""
           }
@@ -4071,7 +4071,7 @@
     "start": "2026-10-19",
     "end": "2026-10-25",
     "title": "SG Live 2026",
-    "period": "Oct 19 \u2013 25, 2026",
+    "period": "Oct 19 – 25, 2026",
     "anchor": "2026-10-19",
     "sections": [
      {
@@ -4085,7 +4085,7 @@
          [
           {
            "kind": "text",
-           "text": "Staff decide how every message Wizzrobe sends arrives (ping, silent or off) for each kind of recipient, under Admin \u2192 Notifications. On Profile \u2192 Notifications you pick Everything, Only what needs me or Quiet, adjust any single message, and can turn on sixteen extra ones that are off by default.",
+           "text": "Staff decide how every message Wizzrobe sends arrives (ping, silent or off) for each kind of recipient, under Admin → Notifications. On Profile → Notifications you pick Everything, Only what needs me or Quiet, adjust any single message, and can turn on sixteen extra ones that are off by default.",
            "href": "",
            "tone": ""
           }
@@ -4093,7 +4093,7 @@
          [
           {
            "kind": "text",
-           "text": "Messages sent to you, on Profile \u2192 Notifications, lists every message Wizzrobe sent you. The line at the bottom of each notification opens that exact message so you can change how you get it.",
+           "text": "Messages sent to you, on Profile → Notifications, lists every message Wizzrobe sent you. The line at the bottom of each notification opens that exact message so you can change how you get it.",
            "href": "",
            "tone": ""
           }
@@ -4101,7 +4101,7 @@
          [
           {
            "kind": "text",
-           "text": "Staff can see every DM sent in the community and whether it arrived, under Admin \u2192 Reports \u2192 Sent messages, and clicking a name on Admin \u2192 Members opens everything about that person, including how messages reach them.",
+           "text": "Staff can see every DM sent in the community and whether it arrived, under Admin → Reports → Sent messages, and clicking a name on Admin → Members opens everything about that person, including how messages reach them.",
            "href": "",
            "tone": ""
           }
@@ -4149,7 +4149,7 @@
          [
           {
            "kind": "text",
-           "text": "Admin \u2192 Reports \u2192 Exports downloads a tournament's players and matches, and keeps every export for 3 days.",
+           "text": "Admin → Reports → Exports downloads a tournament's players and matches, and keeps every export for 3 days.",
            "href": "",
            "tone": ""
           }
@@ -4165,7 +4165,7 @@
          [
           {
            "kind": "text",
-           "text": "Times now show on the clock your browser prefers: 9:30 PM if it uses 12-hour time, 21:30 if it uses 24-hour, and 9:30 PM when it doesn't say. If the guess is wrong, pick 12-hour or 24-hour under Profile \u2192 Time format, next to Timezone. Discord DMs follow your own Discord setting; email, Telegram and phone notifications, CSV exports and the Watch page use 12-hour.",
+           "text": "Times now show on the clock your browser prefers: 9:30 PM if it uses 12-hour time, 21:30 if it uses 24-hour, and 9:30 PM when it doesn't say. If the guess is wrong, pick 12-hour or 24-hour under Profile → Time format, next to Timezone. Discord DMs follow your own Discord setting; email, Telegram and phone notifications, CSV exports and the Watch page use 12-hour.",
            "href": "",
            "tone": ""
           }
@@ -4181,7 +4181,7 @@
          [
           {
            "kind": "text",
-           "text": "Admin \u2192 Reports \u2192 Staff / Crew Activity has a Crew by tournament table: how many matches each person commentated and tracked, grouped under each tournament. It only counts approved crew on finished matches that went to a stage, and exports to CSV.",
+           "text": "Admin → Reports → Staff / Crew Activity has a Crew by tournament table: how many matches each person commentated and tracked, grouped under each tournament. It only counts approved crew on finished matches that went to a stage, and exports to CSV.",
            "href": "",
            "tone": ""
           }
@@ -4296,7 +4296,7 @@
          [
           {
            "kind": "text",
-           "text": "Tournament admins and crew coordinators now see only their own tournaments on Reports \u2192 Staff / Crew Activity, including Crew by tournament. Staff still see the whole community.",
+           "text": "Tournament admins and crew coordinators now see only their own tournaments on Reports → Staff / Crew Activity, including Crew by tournament. Staff still see the whole community.",
            "href": "",
            "tone": ""
           }
@@ -4304,7 +4304,7 @@
          [
           {
            "kind": "text",
-           "text": "When a player taps Running late on a match that's on a stage, the Broadcast Techs on shift hear about it too (every Broadcast Tech, if none is on shift). Staff can change or mute it on Admin \u203a Notifications under \"Player running late (Broadcast Techs)\".",
+           "text": "When a player taps Running late on a match that's on a stage, the Broadcast Techs on shift hear about it too (every Broadcast Tech, if none is on shift). Staff can change or mute it on Admin › Notifications under \"Player running late (Broadcast Techs)\".",
            "href": "",
            "tone": ""
           }
@@ -4368,7 +4368,7 @@
          [
           {
            "kind": "text",
-           "text": "Match cards on Match Schedule, Proctor Station, Event \u203a Schedule and My Schedule have a new look. A coloured edge and a status word show each match's state at a glance (green live, amber late, blue checked in), and on a phone the time sits on its own line so names get the card's full width.",
+           "text": "Match cards on Match Schedule, Proctor Station, Event › Schedule and My Schedule have a new look. A coloured edge and a status word show each match's state at a glance (green live, amber late, blue checked in), and on a phone the time sits on its own line so names get the card's full width.",
            "href": "",
            "tone": ""
           }
@@ -4491,7 +4491,7 @@
          [
           {
            "kind": "text",
-           "text": "On a phone, the Match Schedule and Event \u203a Schedule cards now say which game of a best-of-three it is (\"Game 2 of 3\"), like the desktop rows, and the estimated end time (\"to ~12:00 PM\") no longer runs into the text beside it.",
+           "text": "On a phone, the Match Schedule and Event › Schedule cards now say which game of a best-of-three it is (\"Game 2 of 3\"), like the desktop rows, and the estimated end time (\"to ~12:00 PM\") no longer runs into the text beside it.",
            "href": "",
            "tone": ""
           }
@@ -5561,80 +5561,80 @@
   "sections": {
    "Anatomy": [
     "Cats have 32 muscles in each ear and can rotate them 180 degrees.",
-    "Cats cannot taste sweetness \u2014 they lack the gene for sweet receptors.",
+    "Cats cannot taste sweetness — they lack the gene for sweet receptors.",
     "A cat's nose print is as unique as a human fingerprint.",
     "Cats have a third eyelid (nictitating membrane) rarely visible in healthy cats.",
     "Cats have a free-floating clavicle, letting them squeeze through any gap their head fits through.",
-    "A cat's heart beats 140\u2013220 bpm \u2014 roughly twice as fast as a human's."
+    "A cat's heart beats 140–220 bpm — roughly twice as fast as a human's."
    ],
    "Senses": [
-    "A cat's field of vision is about 200 degrees \u2014 wider than a human's 180.",
+    "A cat's field of vision is about 200 degrees — wider than a human's 180.",
     "Cats need about one-sixth as much light as we do to see.",
     "The eyeshine is a mirror called the tapetum lucidum, bouncing light back through the retina.",
     "Cats are nearsighted: sharp up close, blurry past about 20 feet.",
-    "Cats see blues and yellows well and reds poorly \u2014 red-green colour blindness, not black and white.",
+    "Cats see blues and yellows well and reds poorly — red-green colour blindness, not black and white.",
     "Cat hearing reaches 64 kHz, nearly two octaves above the human ceiling and a full octave above a dog's."
    ],
    "Motion and balance": [
     "A cat can jump up to six times its own body length in a single leap.",
     "The righting reflex works from as little as a foot of fall and is fully developed by seven weeks.",
-    "A falling cat rotates front half then back half, using its own inertia \u2014 no push-off required.",
+    "A falling cat rotates front half then back half, using its own inertia — no push-off required.",
     "A falling cat tops out near 60 mph, half a human's, and spreads out like a parachute.",
     "A 1987 study of 132 cats that fell from windows found those dropping past seven storeys were often less hurt.",
     "Domestic cats sprint at around 30 mph in short bursts."
    ],
    "Sleep and grooming": [
-    "Cats sleep 12\u201316 hours a day, among the sleepiest mammals on Earth.",
-    "A cat spends about two-thirds of its life asleep \u2014 a 12-year-old cat has been awake for four years.",
+    "Cats sleep 12–16 hours a day, among the sleepiest mammals on Earth.",
+    "A cat spends about two-thirds of its life asleep — a 12-year-old cat has been awake for four years.",
     "Cats are crepuscular, not nocturnal: dawn and dusk are the busy shifts.",
     "Cats dream: Michel Jouvet's 1960s experiments had sleeping cats acting out hunts.",
-    "A cat nap really is short \u2014 bouts run 15 to 100 minutes.",
+    "A cat nap really is short — bouts run 15 to 100 minutes.",
     "Cats spend up to half their waking hours grooming."
    ],
    "How cats talk": [
     "Cats can make around 100 distinct vocalizations; dogs manage about 10.",
     "Adult cats barely meow at each other. The meow is aimed at humans.",
-    "Kittens meow at their mothers, then mostly stop \u2014 except with us.",
-    "A cat's purr vibrates at 25\u2013150 Hz, a frequency shown to aid bone healing.",
+    "Kittens meow at their mothers, then mostly stop — except with us.",
+    "A cat's purr vibrates at 25–150 Hz, a frequency shown to aid bone healing.",
     "Purring isn't only contentment; injured and frightened cats purr too.",
     "The purr comes from laryngeal muscles twitching 25 to 150 times a second."
    ],
    "Behaviour": [
-    "Kneading \u2014 making biscuits \u2014 is nursing behaviour that never got switched off.",
+    "Kneading — making biscuits — is nursing behaviour that never got switched off.",
     "Cats cover their waste to keep their scent off the radar of anything bigger.",
     "Cats bring prey home as provisioning behaviour: you are a very bad hunter who must be fed.",
     "The post-litter-box zoomies have a name in the literature: frenetic random activity periods.",
     "A 2014 study of shelter cats found a cardboard box measurably lowered their stress.",
-    "A 2017 study found cats will sit in a square of tape on the floor \u2014 an outline is box enough."
+    "A 2017 study found cats will sit in a square of tape on the floor — an outline is box enough."
    ],
    "Health and lifespan": [
     "The world's oldest cat, Creme Puff, lived to be 38 years and 3 days old.",
     "Indoor cats typically live 12 to 18 years; outdoor cats average far less.",
-    "Cats are obligate carnivores \u2014 without taurine in the diet, the heart and retinas fail.",
+    "Cats are obligate carnivores — without taurine in the diet, the heart and retinas fail.",
     "Paracetamol and ibuprofen are poisonous to cats; cats lack the liver enzyme to process them.",
     "Every part of a true lily is lethal to cats, pollen included.",
     "Onions, garlic, and chocolate are all toxic to cats."
    ],
    "Ailments, and the good news": [
-    "Feline diabetes often goes into remission \u2014 a low-carb diet gets plenty of cats off insulin entirely.",
+    "Feline diabetes often goes into remission — a low-carb diet gets plenty of cats off insulin entirely.",
     "Hyperthyroidism has an actual cure: one dose of radioactive iodine fixes around 95% of cats, once.",
-    "Chronic kidney disease is manageable rather than terminal \u2014 caught early, cats live years on diet and fluids.",
+    "Chronic kidney disease is manageable rather than terminal — caught early, cats live years on diet and fluids.",
     "GS-441524 turned FIP from a death sentence into a course of treatment most cats walk away from.",
     "Cats with FIV usually live a normal lifespan; it spreads through deep bite wounds, so a settled household stays safe.",
     "Ringworm sounds dreadful and mostly clears on its own; treatment just shortens the wait."
    ],
    "Coats and genetics": [
-    "Almost every calico and tortoiseshell cat is female \u2014 the orange gene rides on the X chromosome.",
+    "Almost every calico and tortoiseshell cat is female — the orange gene rides on the X chromosome.",
     "Male calicos are XXY, about one in 3,000, and nearly always sterile.",
     "Roughly 80% of orange cats are male.",
     "The gene behind orange fur, ARHGAP36, was finally pinned down in 2025.",
-    "Tortoiseshell patterning is X-inactivation made visible \u2014 a mosaic of two cell lineages.",
+    "Tortoiseshell patterning is X-inactivation made visible — a mosaic of two cell lineages.",
     "Siamese points are temperature-sensitive albinism: pigment only forms where the body runs cool."
    ],
    "Breeds": [
     "The CFA recognises about 45 breeds; TICA recognises more than 70.",
     "Most cats on Earth belong to no breed at all.",
-    "The Maine Coon is the largest domestic breed \u2014 the record is just under four feet nose to tail.",
+    "The Maine Coon is the largest domestic breed — the record is just under four feet nose to tail.",
     "The Singapura is the smallest breed, often under five pounds.",
     "The Sphynx isn't hairless; it's covered in fine down and needs regular baths.",
     "Manx taillessness comes from a mutation that can also damage the spine."
@@ -5643,7 +5643,7 @@
     "There are around 40 species in the cat family.",
     "The domestic cat, Felis catus, descends from the African wildcat, Felis lybica.",
     "A 2007 study traced every domestic cat to five maternal lineages from the Fertile Crescent.",
-    "The Scottish wildcat is critically endangered \u2014 mostly by breeding with house cats.",
+    "The Scottish wildcat is critically endangered — mostly by breeding with house cats.",
     "The black-footed cat is the deadliest cat alive: about 60% of its hunts succeed.",
     "The rusty-spotted cat is the smallest wild cat, about the weight of a bag of sugar."
    ],
@@ -5661,7 +5661,7 @@
     "The maneki-neko's raised right paw invites money; the left invites customers.",
     "Freyja's chariot, in Norse myth, is pulled by cats.",
     "Sailors prized polydactyl cats, believing the extra toes helped them keep their footing at sea.",
-    "The Cat S\u00ecth of Highland folklore was a black cat with a white chest that could steal a soul."
+    "The Cat Sìth of Highland folklore was a black cat with a white chest that could steal a soul."
    ],
    "Cats with jobs": [
     "Larry has been Chief Mouser to the Cabinet Office at 10 Downing Street since 2011.",
@@ -5681,7 +5681,7 @@
    ],
    "Records": [
     "A group of cats is called a clowder.",
-    "The loudest recorded purr belongs to Merlin, at 67.8 decibels \u2014 about as loud as a shower.",
+    "The loudest recorded purr belongs to Merlin, at 67.8 decibels — about as loud as a shower.",
     "The longest jump by a cat is seven feet, set by Waffle the Warrior Cat.",
     "The most toes on a cat is 28.",
     "The longest fur on a cat measured just over nine inches.",
@@ -5691,10 +5691,1197 @@
     "A group of kittens is a kindle.",
     "A male cat is a tom; a female is a queen; a neutered male is a gib.",
     "'Cat' comes from Late Latin cattus, and nearly every European language kept the root.",
-    "The ancient Egyptian word for cat was 'miu' \u2014 they named it after the noise.",
+    "The ancient Egyptian word for cat was 'miu' — they named it after the noise.",
     "An ailurophile loves cats. An ailurophobe does not.",
     "Catgut was never made from cats. It's sheep intestine."
    ]
   }
- }
+ },
+ "/api/admin/nav": {
+  "areas": [
+   {
+    "slug": "setup",
+    "label": "Setup",
+    "icon": "checklist",
+    "group": "Run the event",
+    "half": "event",
+    "aliases": []
+   },
+   {
+    "slug": "match-schedule",
+    "label": "Match Schedule",
+    "icon": "view_timeline",
+    "group": "Run the event",
+    "half": "event",
+    "aliases": [
+     "schedule"
+    ]
+   },
+   {
+    "slug": "tournaments",
+    "label": "Tournaments",
+    "icon": "trophy",
+    "group": "Run the event",
+    "half": "event",
+    "aliases": []
+   },
+   {
+    "slug": "stages",
+    "label": "Stages",
+    "icon": "tv",
+    "group": "Run the event",
+    "half": "event",
+    "aliases": []
+   },
+   {
+    "slug": "triforce-texts",
+    "label": "Triforce Texts",
+    "icon": "change_history",
+    "group": "Run the event",
+    "half": "event",
+    "aliases": []
+   },
+   {
+    "slug": "event-settings",
+    "label": "Event settings",
+    "icon": "event",
+    "group": "Run the event",
+    "half": "event",
+    "aliases": []
+   },
+   {
+    "slug": "volunteers",
+    "label": "Volunteers",
+    "icon": "groups",
+    "group": "People",
+    "half": "event",
+    "aliases": [
+     "vol-roster"
+    ]
+   },
+   {
+    "slug": "members",
+    "label": "Members",
+    "icon": "manage_accounts",
+    "group": "Community",
+    "half": "community",
+    "aliases": [
+     "users"
+    ]
+   },
+   {
+    "slug": "events",
+    "label": "Events",
+    "icon": "calendar_month",
+    "group": "Configuration",
+    "half": "community",
+    "aliases": []
+   },
+   {
+    "slug": "settings",
+    "label": "Settings",
+    "icon": "settings",
+    "group": "Configuration",
+    "half": "community",
+    "aliases": []
+   },
+   {
+    "slug": "service-health",
+    "label": "Service Health",
+    "icon": "monitor_heart",
+    "group": "System",
+    "half": "community",
+    "aliases": []
+   },
+   {
+    "slug": "speedgaming",
+    "label": "SpeedGaming",
+    "icon": "sync_alt",
+    "group": "Online play",
+    "half": "event",
+    "aliases": []
+   },
+   {
+    "slug": "racetime",
+    "label": "Racetime",
+    "icon": "flag",
+    "group": "Community",
+    "half": "community",
+    "aliases": []
+   },
+   {
+    "slug": "seed-presets",
+    "label": "Seed Presets",
+    "icon": "tune",
+    "group": "Configuration",
+    "half": "community",
+    "aliases": [
+     "presets"
+    ]
+   }
+  ],
+  "settings_panes": [
+   {
+    "slug": "general",
+    "label": "General",
+    "icon": "tune",
+    "summary": "How the community looks, and the clock it tells time by."
+   }
+  ],
+  "event_settings_panes": [
+   {
+    "slug": "dates",
+    "label": "Dates & hours",
+    "icon": "date_range",
+    "summary": "When the event runs, and the hours matches can start each day."
+   }
+  ],
+  "setup": [
+   {
+    "key": "staff",
+    "label": "Give the community a staff member",
+    "done": true,
+    "hint": "",
+    "tab": "Members",
+    "required": true
+   },
+   {
+    "key": "tournament",
+    "label": "Add a tournament",
+    "done": false,
+    "hint": "Players need something to sign up for.",
+    "tab": "Tournaments",
+    "required": true
+   },
+   {
+    "key": "dates",
+    "label": "Set the event dates",
+    "done": false,
+    "hint": "Schedules and reminders use them.",
+    "tab": "Event settings",
+    "required": false
+   }
+  ],
+  "setup_ready": false
+ },
+ "/api/admin/match-schedule": {
+  "zone": "America/New_York",
+  "days": [
+   "2026-10-22",
+   "2026-10-23",
+   "2026-10-24",
+   "2026-10-25"
+  ],
+  "tournaments": [
+   {
+    "id": 1,
+    "name": "ALTTPR Open"
+   },
+   {
+    "id": 2,
+    "name": "SMZ3"
+   }
+  ],
+  "stages": [
+   {
+    "id": 1,
+    "name": "Stage 1"
+   },
+   {
+    "id": 2,
+    "name": "Stage 2"
+   },
+   {
+    "id": 3,
+    "name": "Stage 3"
+   }
+  ],
+  "scoped_tournaments": null,
+  "can_create": true,
+  "groups": [
+   {
+    "label": "Needs a decision",
+    "folded_by_default": false,
+    "rows": [
+     {
+      "id": 300,
+      "tournament_id": 1,
+      "tournament": "Super Metroid",
+      "tournament_name": "Super Metroid",
+      "bracket": "Round 1",
+      "game": null,
+      "best_of": null,
+      "set_label": null,
+      "scheduled_at": "2026-10-24T17:30:00Z",
+      "started_at": null,
+      "until_at": null,
+      "until_estimated": false,
+      "overrun": false,
+      "state": "Finished",
+      "status": "Played on Challonge",
+      "tone": "pending",
+      "group": "Needs a decision",
+      "players": [
+       {
+        "id": 3001,
+        "user_id": 3001,
+        "name": "Kai",
+        "station": null,
+        "ada": false
+       },
+       {
+        "id": 3002,
+        "user_id": 3002,
+        "name": "Morgan Wu",
+        "station": null,
+        "ada": false
+       }
+      ],
+      "placeholders": [],
+      "stage_id": 2,
+      "stage": "Stage 2",
+      "stream_candidate": false,
+      "seat_line": null,
+      "crew": [],
+      "late": [],
+      "comments": {},
+      "winners": [],
+      "pending_result": null,
+      "next_step": null,
+      "seed_url": null,
+      "seed_code": null,
+      "seed_rolling": false,
+      "seed_error": null,
+      "is_racetime": false,
+      "played_on_site": {
+       "site": "Challonge",
+       "winner": "Kai",
+       "winner_user_id": 3001,
+       "no_winner": false
+      },
+      "racetime_held": null,
+      "needs_review": false,
+      "can": {
+       "edit": true,
+       "run": true,
+       "confirm": true,
+       "stage": true,
+       "crew": true
+      }
+     }
+    ]
+   },
+   {
+    "label": "Live now",
+    "folded_by_default": false,
+    "rows": [
+     {
+      "id": 302,
+      "tournament_id": 1,
+      "tournament": "ALTTPR Open",
+      "tournament_name": "ALTTPR Open",
+      "bracket": "Quarterfinal",
+      "game": null,
+      "best_of": null,
+      "set_label": null,
+      "scheduled_at": "2026-10-24T18:00:00Z",
+      "started_at": "2026-10-24T18:02:00Z",
+      "until_at": null,
+      "until_estimated": false,
+      "overrun": false,
+      "state": "Started",
+      "status": "Live",
+      "tone": "live",
+      "group": "Live now",
+      "players": [
+       {
+        "id": 3021,
+        "user_id": 3021,
+        "name": "Sam Ruiz",
+        "station": null,
+        "ada": false
+       },
+       {
+        "id": 3022,
+        "user_id": 3022,
+        "name": "Alex Chen",
+        "station": null,
+        "ada": false
+       }
+      ],
+      "placeholders": [],
+      "stage_id": 1,
+      "stage": "Stage 1",
+      "stream_candidate": false,
+      "seat_line": null,
+      "crew": [],
+      "late": [],
+      "comments": {},
+      "winners": [
+       {
+        "id": 3021,
+        "name": "Sam Ruiz"
+       },
+       {
+        "id": 3022,
+        "name": "Alex Chen"
+       }
+      ],
+      "pending_result": null,
+      "next_step": null,
+      "seed_url": null,
+      "seed_code": null,
+      "seed_rolling": false,
+      "seed_error": null,
+      "is_racetime": false,
+      "played_on_site": null,
+      "racetime_held": null,
+      "needs_review": false,
+      "can": {
+       "edit": true,
+       "run": true,
+       "confirm": true,
+       "stage": true,
+       "crew": true
+      }
+     }
+    ]
+   },
+   {
+    "label": "Up next",
+    "folded_by_default": false,
+    "rows": [
+     {
+      "id": 301,
+      "tournament_id": 1,
+      "tournament": "SMZ3",
+      "tournament_name": "SMZ3",
+      "bracket": "Round 2",
+      "game": null,
+      "best_of": null,
+      "set_label": null,
+      "scheduled_at": "2026-10-24T18:30:00Z",
+      "started_at": null,
+      "until_at": null,
+      "until_estimated": false,
+      "overrun": false,
+      "state": "Checked In",
+      "status": "Checked in",
+      "tone": "info",
+      "group": "Up next",
+      "players": [
+       {
+        "id": 3011,
+        "user_id": 3011,
+        "name": "Priya N.",
+        "station": null,
+        "ada": false
+       },
+       {
+        "id": 3012,
+        "user_id": 3012,
+        "name": "Jordan Lee",
+        "station": null,
+        "ada": true
+       }
+      ],
+      "placeholders": [],
+      "stage_id": 3,
+      "stage": "Stage 3",
+      "stream_candidate": false,
+      "seat_line": null,
+      "crew": [
+       {
+        "key": "commentators",
+        "label": "Commentary",
+        "count": "1/2",
+        "short": true,
+        "unapproved": false,
+        "approvable": true,
+        "people": [
+         {
+          "id": 71,
+          "name": "Casey M.",
+          "approved": true,
+          "with": null
+         },
+         {
+          "id": 72,
+          "name": "Rin T.",
+          "approved": false,
+          "with": null
+         }
+        ]
+       }
+      ],
+      "late": [
+       {
+        "label": "Jordan Lee ~10 min late · said 1:22 PM",
+        "note": "Bus"
+       }
+      ],
+      "comments": {
+       "player": 1,
+       "staff": 1
+      },
+      "winners": [],
+      "pending_result": null,
+      "next_step": {
+       "event": "start",
+       "label": "Start",
+       "primary": true,
+       "rolling": false
+      },
+      "seed_url": null,
+      "seed_code": null,
+      "seed_rolling": false,
+      "seed_error": null,
+      "is_racetime": false,
+      "played_on_site": null,
+      "racetime_held": null,
+      "needs_review": false,
+      "can": {
+       "edit": true,
+       "run": true,
+       "confirm": true,
+       "stage": true,
+       "crew": true
+      }
+     },
+     {
+      "id": 303,
+      "tournament_id": 1,
+      "tournament": "FF Randomizer",
+      "tournament_name": "FF Randomizer",
+      "bracket": null,
+      "game": null,
+      "best_of": null,
+      "set_label": null,
+      "scheduled_at": "2026-10-24T19:00:00Z",
+      "started_at": null,
+      "until_at": null,
+      "until_estimated": false,
+      "overrun": false,
+      "state": "Scheduled",
+      "status": "Scheduled",
+      "tone": "neutral",
+      "group": "Up next",
+      "players": [
+       {
+        "id": 3031,
+        "user_id": 3031,
+        "name": "Lee",
+        "station": null,
+        "ada": false
+       },
+       {
+        "id": 3032,
+        "user_id": 3032,
+        "name": "Marco P.",
+        "station": null,
+        "ada": false
+       }
+      ],
+      "placeholders": [],
+      "stage_id": null,
+      "stage": null,
+      "stream_candidate": false,
+      "seat_line": "No stations yet",
+      "crew": [],
+      "late": [],
+      "comments": {},
+      "winners": [],
+      "pending_result": null,
+      "next_step": {
+       "event": "seat",
+       "label": "Check in",
+       "primary": false,
+       "rolling": false
+      },
+      "seed_url": null,
+      "seed_code": null,
+      "seed_rolling": false,
+      "seed_error": null,
+      "is_racetime": false,
+      "played_on_site": null,
+      "racetime_held": null,
+      "needs_review": false,
+      "can": {
+       "edit": true,
+       "run": true,
+       "confirm": true,
+       "stage": true,
+       "crew": true
+      }
+     }
+    ]
+   },
+   {
+    "label": "Confirmed",
+    "folded_by_default": true,
+    "rows": [
+     {
+      "id": 304,
+      "tournament_id": 1,
+      "tournament": "OoTR",
+      "tournament_name": "OoTR",
+      "bracket": null,
+      "game": null,
+      "best_of": null,
+      "set_label": null,
+      "scheduled_at": "2026-10-24T16:00:00Z",
+      "started_at": null,
+      "until_at": null,
+      "until_estimated": false,
+      "overrun": false,
+      "state": "Confirmed",
+      "status": "Confirmed",
+      "tone": "ok",
+      "group": "Confirmed",
+      "players": [
+       {
+        "id": 3041,
+        "user_id": 3041,
+        "name": "Riley",
+        "station": null,
+        "ada": false
+       },
+       {
+        "id": 3042,
+        "user_id": 3042,
+        "name": "Dana Ortiz",
+        "station": null,
+        "ada": false
+       }
+      ],
+      "placeholders": [],
+      "stage_id": null,
+      "stage": null,
+      "stream_candidate": false,
+      "seat_line": null,
+      "crew": [],
+      "late": [],
+      "comments": {},
+      "winners": [],
+      "pending_result": null,
+      "next_step": null,
+      "seed_url": null,
+      "seed_code": null,
+      "seed_rolling": false,
+      "seed_error": null,
+      "is_racetime": false,
+      "played_on_site": null,
+      "racetime_held": null,
+      "needs_review": false,
+      "can": {
+       "edit": true,
+       "run": true,
+       "confirm": true,
+       "stage": true,
+       "crew": true
+      }
+     }
+    ]
+   }
+  ]
+ },
+ "/api/admin/match-schedule/matches/301": {
+  "id": 301,
+  "tournament_id": 1,
+  "tournament": "SMZ3",
+  "tournament_name": "SMZ3",
+  "bracket": "Round 2",
+  "game": null,
+  "best_of": null,
+  "set_label": null,
+  "scheduled_at": "2026-10-24T18:30:00Z",
+  "started_at": null,
+  "until_at": null,
+  "until_estimated": false,
+  "overrun": false,
+  "state": "Checked In",
+  "status": "Checked in",
+  "tone": "info",
+  "group": "Up next",
+  "players": [
+   {
+    "id": 3011,
+    "user_id": 3011,
+    "name": "Priya N.",
+    "station": null,
+    "ada": false
+   },
+   {
+    "id": 3012,
+    "user_id": 3012,
+    "name": "Jordan Lee",
+    "station": null,
+    "ada": true
+   }
+  ],
+  "placeholders": [],
+  "stage_id": 3,
+  "stage": "Stage 3",
+  "stream_candidate": false,
+  "seat_line": null,
+  "crew": [
+   {
+    "key": "commentators",
+    "label": "Commentary",
+    "count": "1/2",
+    "short": true,
+    "unapproved": false,
+    "approvable": true,
+    "people": [
+     {
+      "id": 71,
+      "name": "Casey M.",
+      "approved": true,
+      "with": null
+     },
+     {
+      "id": 72,
+      "name": "Rin T.",
+      "approved": false,
+      "with": null
+     }
+    ]
+   }
+  ],
+  "late": [
+   {
+    "label": "Jordan Lee ~10 min late · said 1:22 PM",
+    "note": "Bus"
+   }
+  ],
+  "comments": {
+   "player": 1,
+   "staff": 1
+  },
+  "winners": [],
+  "pending_result": null,
+  "next_step": {
+   "event": "roll",
+   "label": "Roll seed",
+   "primary": true,
+   "rolling": false
+  },
+  "seed_url": null,
+  "seed_code": null,
+  "seed_rolling": false,
+  "seed_error": null,
+  "is_racetime": false,
+  "played_on_site": null,
+  "racetime_held": null,
+  "needs_review": false,
+  "can": {
+   "edit": true,
+   "run": true,
+   "confirm": true,
+   "stage": true,
+   "crew": true
+  },
+  "zone": "America/New_York",
+  "description": null,
+  "state_since": "2026-10-24T18:20:00Z",
+  "checklist": [
+   {
+    "key": "players",
+    "label": "Players confirmed",
+    "ready": true,
+    "detail": "Everyone has confirmed"
+   },
+   {
+    "key": "stations",
+    "label": "Stations",
+    "ready": null,
+    "detail": "Priya N. 4"
+   },
+   {
+    "key": "stage",
+    "label": "Stage",
+    "ready": true,
+    "detail": "Stage 3"
+   },
+   {
+    "key": "seed",
+    "label": "Seed",
+    "ready": false,
+    "detail": "Not rolled"
+   },
+   {
+    "key": "crew",
+    "label": "Crew",
+    "ready": false,
+    "detail": "1 more needed, 1 waiting for approval below"
+   }
+  ],
+  "rewind_to": [
+   {
+    "step": "scheduled",
+    "explanation": "Clears the check-in."
+   }
+  ],
+  "seed_dm_blocked": [],
+  "stage_url": null,
+  "ada_notes": {
+   "3012": "Needs a seat near the aisle."
+  }
+ },
+ "/api/admin/tournaments/board": {
+  "can_create": true,
+  "zone": "America/New_York",
+  "linkable_sites": [
+   {
+    "key": "challonge",
+    "label": "Challonge"
+   },
+   {
+    "key": "startgg",
+    "label": "start.gg"
+   }
+  ],
+  "rows": [
+   {
+    "average_match_duration": 45,
+    "max_match_duration": 60,
+    "bracket": {
+     "site": "challonge",
+     "label": "Challonge",
+     "stage": "Group stage",
+     "unmatched": 1,
+     "url": "https://challonge.com/sgl26alttpr",
+     "synced_at": "{{now-30m}}",
+     "stage_action": {
+      "key": "finalize_groups",
+      "label": "Finish group stage",
+      "confirm": "Challonge moves the top players into the final bracket."
+     }
+    },
+    "bracket_url": null,
+    "can_delete": false,
+    "can_link": true,
+    "can_manage_bracket": true,
+    "has_round_schedule": true,
+    "is_active": true,
+    "is_test": false,
+    "player_count": 3,
+    "players_per_match": 2,
+    "rules_url": "https://example.com/rules",
+    "seed_generator": "alttpr",
+    "signup_state": "open",
+    "signups_close_at": null,
+    "signups_open_at": null,
+    "tournament_format": "Double elimination",
+    "id": 1,
+    "name": "ALTTPR Main"
+   },
+   {
+    "average_match_duration": 45,
+    "max_match_duration": 60,
+    "bracket": null,
+    "bracket_url": null,
+    "can_delete": false,
+    "can_link": true,
+    "can_manage_bracket": true,
+    "has_round_schedule": false,
+    "is_active": true,
+    "is_test": false,
+    "player_count": 0,
+    "players_per_match": 2,
+    "rules_url": null,
+    "seed_generator": "sm",
+    "signup_state": "upcoming",
+    "signups_close_at": null,
+    "signups_open_at": null,
+    "tournament_format": "Double elimination",
+    "id": 2,
+    "name": "Super Metroid"
+   },
+   {
+    "average_match_duration": 45,
+    "max_match_duration": 60,
+    "bracket": null,
+    "bracket_url": null,
+    "can_delete": true,
+    "can_link": true,
+    "can_manage_bracket": true,
+    "has_round_schedule": false,
+    "is_active": false,
+    "is_test": true,
+    "player_count": 0,
+    "players_per_match": 2,
+    "rules_url": null,
+    "seed_generator": "alttpr",
+    "signup_state": "closed",
+    "signups_close_at": null,
+    "signups_open_at": null,
+    "tournament_format": "Double elimination",
+    "id": 3,
+    "name": "Old Showcase"
+   }
+  ]
+ },
+ "/api/tournaments/1": {
+  "id": 1,
+  "name": "ALTTPR Main",
+  "short_name": "ALTTPR",
+  "tournament_format": "Double elimination",
+  "description": "Open bracket.",
+  "seed_generator": "alttpr",
+  "preset_id": null,
+  "is_active": true,
+  "is_test": false,
+  "players_per_match": 2,
+  "average_match_duration": 45,
+  "max_match_duration": 60,
+  "required_commentators": 2,
+  "required_trackers": 1,
+  "required_broadcasters": 1,
+  "allow_player_match_requests": true,
+  "signups_open_at": "{{now-2d}}",
+  "signups_close_at": "{{now+5d}}",
+  "rules_url": "https://example.com/rules",
+  "bracket_url": null,
+  "created_at": "{{now-30d}}",
+  "updated_at": "{{now-1d}}"
+ },
+ "/api/seeds/randomizers": [
+  {
+   "randomizer": "alttpr",
+   "supports_triforce_texts": true
+  },
+  {
+   "randomizer": "sm",
+   "supports_triforce_texts": false
+  }
+ ],
+ "/api/presets/selectable": [
+  {
+   "id": 5,
+   "name": "sgl2026",
+   "randomizer": "alttpr",
+   "settings": {},
+   "created_at": "{{now-30d}}",
+   "updated_at": "{{now-30d}}"
+  }
+ ],
+ "/api/admin/tournaments/1/players": [
+  {
+   "user": {
+    "id": 11,
+    "name": "Ari"
+   },
+   "enrolled_at": "{{now-3d}}"
+  },
+  {
+   "user": {
+    "id": 12,
+    "name": "Bex"
+   },
+   "enrolled_at": "{{now-2d}}"
+  },
+  {
+   "user": {
+    "id": 13,
+    "name": "Cato"
+   },
+   "enrolled_at": "{{now-1d}}"
+  }
+ ],
+ "/api/admin/tournaments/1/people": [
+  {
+   "id": 11,
+   "name": "Ari",
+   "username": "ari"
+  },
+  {
+   "id": 14,
+   "name": "Dee",
+   "username": "deedee"
+  }
+ ],
+ "/api/admin/tournaments/1/bracket/entrants": {
+  "site": "challonge",
+  "label": "Challonge",
+  "entrants": [
+   {
+    "id": 101,
+    "name": "ari_runs",
+    "status": "linked",
+    "user": {
+     "id": 11,
+     "name": "Ari"
+    }
+   },
+   {
+    "id": 102,
+    "name": "DeeSpeed",
+    "status": "suggested",
+    "suggested_user": {
+     "id": 14,
+     "name": "Dee"
+    }
+   },
+   {
+    "id": 103,
+    "name": "mystery",
+    "status": "unmatched"
+   }
+  ]
+ },
+ "/api/tournaments/1/round-schedule": [
+  {
+   "key": "group",
+   "label": "Group stage",
+   "best_of": 1,
+   "booked": 4,
+   "total": 6,
+   "detail": "4 of 6 booked",
+   "placeholder": false,
+   "opens_at": "{{now-2d}}",
+   "closes_at": "{{now+3d}}",
+   "daily_from": "10:00",
+   "daily_until": "22:00"
+  },
+  {
+   "key": "e0",
+   "label": "Final",
+   "best_of": 3,
+   "booked": 0,
+   "total": 0,
+   "detail": "Not drawn yet",
+   "placeholder": true
+  }
+ ],
+ "/api/stages": [
+  {
+   "id": 1,
+   "name": "Main stage",
+   "is_active": true,
+   "stream_url": "https://twitch.tv/speedgaming",
+   "created_at": "{{now-10d}}",
+   "updated_at": "{{now-10d}}"
+  },
+  {
+   "id": 2,
+   "name": "Side stage",
+   "is_active": true,
+   "stream_url": null,
+   "created_at": "{{now-10d}}",
+   "updated_at": "{{now-10d}}"
+  },
+  {
+   "id": 3,
+   "name": "Old stage",
+   "is_active": false,
+   "stream_url": null,
+   "created_at": "{{now-10d}}",
+   "updated_at": "{{now-10d}}"
+  }
+ ],
+ "/api/triforce-texts": [
+  {
+   "id": 1,
+   "tournament_id": 1,
+   "text": "GG FROM\nTHE CROWD\nAT SGL",
+   "author": "Ari",
+   "user_id": 11,
+   "approved": null,
+   "created_at": "{{now-2h}}"
+  },
+  {
+   "id": 2,
+   "tournament_id": 1,
+   "text": "GOOD LUCK\nRUNNERS\n",
+   "author": "Bex",
+   "user_id": 12,
+   "approved": true,
+   "approved_at": "{{now-1h}}",
+   "created_at": "{{now-3h}}"
+  }
+ ],
+ "/api/speedgaming/links": [
+  {
+   "id": 1,
+   "tournament_id": 1,
+   "event_slug": "alttprleague",
+   "content_type": null,
+   "active": true,
+   "sync_interval_minutes": 15,
+   "lookahead_hours": 72,
+   "last_status": "ok",
+   "last_synced_at": "{{now-10m}}",
+   "last_error": null,
+   "created_at": "{{now-10d}}",
+   "updated_at": "{{now-10d}}"
+  },
+  {
+   "id": 2,
+   "tournament_id": 2,
+   "event_slug": "smleague",
+   "active": false,
+   "sync_interval_minutes": 15,
+   "lookahead_hours": 72,
+   "last_status": "error",
+   "last_error": "SpeedGaming didn't answer.",
+   "last_synced_at": "{{now-1d}}",
+   "created_at": "{{now-10d}}",
+   "updated_at": "{{now-10d}}"
+  }
+ ],
+ "/api/speedgaming/links/1/episodes": [
+  {
+   "id": 1,
+   "sg_episode_id": "4812",
+   "title": "Ari vs Bex",
+   "scheduled_at": "{{now+5h}}",
+   "sync_status": "synced",
+   "created_at": "{{now-10d}}",
+   "updated_at": "{{now-10d}}"
+  },
+  {
+   "id": 2,
+   "sg_episode_id": "4813",
+   "title": "Cato vs Dee",
+   "scheduled_at": "{{now+1d}}",
+   "sync_status": "error",
+   "sync_error": "No such player",
+   "created_at": "{{now-10d}}",
+   "updated_at": "{{now-10d}}"
+  }
+ ],
+ "/api/tournaments": [
+  {
+   "id": 1,
+   "name": "ALTTPR Main",
+   "is_active": true,
+   "players_per_match": 2,
+   "required_commentators": 2,
+   "required_trackers": 1,
+   "allow_player_match_requests": true,
+   "created_at": "{{now-10d}}",
+   "updated_at": "{{now-10d}}"
+  },
+  {
+   "id": 2,
+   "name": "Super Metroid",
+   "is_active": true,
+   "players_per_match": 2,
+   "required_commentators": 2,
+   "required_trackers": 1,
+   "allow_player_match_requests": true,
+   "created_at": "{{now-10d}}",
+   "updated_at": "{{now-10d}}"
+  }
+ ],
+ "/api/race-room-profiles": [
+  {
+   "id": 1,
+   "name": "League race",
+   "goal": "Beat the game",
+   "invitational": false,
+   "unlisted": false,
+   "auto_start": true,
+   "allow_comments": true,
+   "allow_midrace_chat": true,
+   "allow_non_entrant_chat": false,
+   "chat_message_delay": 0,
+   "start_delay": 15,
+   "time_limit": 24,
+   "streaming_required": true,
+   "created_at": "{{now-10d}}",
+   "updated_at": "{{now-10d}}"
+  },
+  {
+   "id": 2,
+   "name": "Casual",
+   "goal": null,
+   "invitational": false,
+   "unlisted": false,
+   "auto_start": true,
+   "allow_comments": true,
+   "allow_midrace_chat": true,
+   "allow_non_entrant_chat": false,
+   "chat_message_delay": 0,
+   "start_delay": 15,
+   "time_limit": 24,
+   "streaming_required": true,
+   "created_at": "{{now-10d}}",
+   "updated_at": "{{now-10d}}"
+  }
+ ],
+ "/api/presets": [
+  {
+   "id": 5,
+   "name": "sgl2026",
+   "randomizer": "alttpr",
+   "description": "SGL 2026 standard",
+   "settings": {
+    "goal": "ganon",
+    "mode": "open"
+   },
+   "created_at": "{{now-10d}}",
+   "updated_at": "{{now-10d}}"
+  },
+  {
+   "id": 6,
+   "name": "sgl2026",
+   "randomizer": "ffr",
+   "settings": {
+    "flags": "HACAAAAAAAAAAAA"
+   },
+   "created_at": "{{now-10d}}",
+   "updated_at": "{{now-10d}}"
+  }
+ ],
+ "/api/admin/presets/editor": {
+  "randomizers": [
+   {
+    "slug": "alttpr",
+    "name": "A Link to the Past",
+    "available": true,
+    "rolls_from_flags": false,
+    "paste_field": null,
+    "offers_remote_presets": true,
+    "remote_branches": []
+   },
+   {
+    "slug": "ffr",
+    "name": "Final Fantasy",
+    "available": true,
+    "rolls_from_flags": true,
+    "paste_field": {
+     "key": "flags",
+     "label": "Flag string",
+     "placeholder": "Paste the flags from finalfantasyrandomizer.com",
+     "hint": "Copy them from the site's Share button."
+    },
+    "offers_remote_presets": false,
+    "remote_branches": []
+   }
+  ],
+  "usage": [
+   {
+    "preset_id": 5,
+    "tournaments": [
+     "ALTTPR Main"
+    ]
+   }
+  ]
+ },
+ "/api/admin/presets/check-paste": {
+  "kind": "example",
+  "example": "https://finalfantasyrandomizer.com/Randomize?s=1234&f=HACAAAAAAAAAAAA"
+ },
+ "/api/admin/presets/remote": [
+  {
+   "name": "open",
+   "description": "Open mode"
+  },
+  {
+   "name": "standard",
+   "description": null
+  }
+ ]
 }

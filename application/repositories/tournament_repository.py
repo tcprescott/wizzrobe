@@ -7,6 +7,8 @@ Handles database operations for tournaments.
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional
 
+from tortoise.functions import Count
+
 from application.event_writes import guarded_delete
 from application.repositories._base import EventScopedRepository
 from application.repositories._event import current_event_id, event_scoped, live_event_scoped
@@ -88,6 +90,14 @@ class TournamentRepository(EventScopedRepository[Tournament]):
             query = query.prefetch_related('players', 'players__user')
         
         return await query
+
+    @staticmethod
+    async def list_with_player_counts(only_ids: Optional[List[int]] = None) -> List[Tournament]:
+        """This event's tournaments by name, each with ``player_count`` annotated."""
+        query = event_scoped(Tournament.all())
+        if only_ids is not None:
+            query = query.filter(id__in=only_ids)
+        return await query.annotate(player_count=Count('players')).order_by('name')
 
     @staticmethod
     async def active_in_live_events() -> List[Tournament]:

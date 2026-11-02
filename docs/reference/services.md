@@ -40,6 +40,7 @@ Services are the business-logic layer of the [three-layer architecture](../refac
 
 | Service | Module | Responsibility | Feature doc |
 |---|---|---|---|
+| `AdminScheduleService` | [admin_schedule_service.py](../../application/services/admin_schedule_service.py) | The app's admin Match Schedule as two screen-shaped reads: the board (grouped rows with per-row `can`) and one match's pane (checklist, rewind steps). Resolves the viewer's `MatchBoardAccess` and tournament scope the way `pages/admin.py` does | [rest-api.md](rest-api.md#admin-match-schedule-apiadminmatch-schedule--admin_match_schedulepy) |
 | `AccommodationService` | [accommodation_service.py](../../application/services/accommodation_service.py) | ADA accommodation requests: member self-service, STAFF queue | [ada-accommodations.md](../features/ada-accommodations.md) |
 | `EmergencyContactService` | [emergency_contact_service.py](../../application/services/emergency_contact_service.py) | Members' emergency contacts: self-service, STAFF open-one-at-a-time with an audit row per look | — |
 | `CommunityEventService` | [community_event_service.py](../../application/services/community_event_service.py) | Member-submitted community events: submit, staff review, edits, cancellation, subscriptions | [community-events.md](../features/community-events.md) |
