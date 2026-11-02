@@ -52,6 +52,7 @@ from .admin_tournaments_service import AdminTournamentsService
 from .ai_provider_service import AiProviderService
 from .analytics_service import AnalyticsService
 from .api_token_service import ApiTokenService
+from .app_association_service import AppAssociationService
 from .async_qualifier import (
     AsyncQualifierConfig,
     AsyncQualifierDraw,
@@ -127,6 +128,7 @@ from .mcp_auth_service import McpAuthService
 from .member_details_service import MemberDetails, MemberDetailsService
 from .my_profile_service import MyProfileService
 from .my_timeline_service import MyTimelineService
+from .native_push_service import NativePushService
 from .notification_channel_service import NotificationChannelService
 from .notification_preference_service import NotificationPreferenceService
 from .notification_settings_service import NotificationSettingsService
@@ -223,6 +225,7 @@ __all__ = [
     'AiProviderService',
     'AnalyticsService',
     'ApiTokenService',
+    'AppAssociationService',
     'ArchiveCheck',
     'AsyncQualifierConfig',
     'AsyncQualifierDraw',
@@ -295,6 +298,7 @@ __all__ = [
     'MissingAnswer',
     'MyProfileService',
     'MyTimelineService',
+    'NativePushService',
     'NotFoundError',
     'NotificationChannelService',
     'NotificationPreferenceService',

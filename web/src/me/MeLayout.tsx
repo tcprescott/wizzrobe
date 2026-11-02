@@ -25,6 +25,13 @@ const ICON: Record<string, IconName> = {
 /** Sections every member has, whatever the community runs: they live in the app itself. */
 const APP_SECTIONS = [{ key: 'appearance', title: 'Appearance and sign out', summary: 'Theme, and signing out of this device' }]
 
+/** The reading pages, which open in their own screens rather than beside the list. */
+const HELP_LINKS: { path: string; icon: IconName; title: string; summary: string }[] = [
+  { path: 'help', icon: 'help', title: 'Help', summary: 'How the app works' },
+  { path: 'changelog', icon: 'release_alert', title: "What's new", summary: 'The bigger changes, week by week' },
+  { path: 'about', icon: 'info', title: 'About Wizzrobe', summary: 'Privacy policy, notices, version' },
+]
+
 interface MeContext {
   profile: Profile
   reload: () => void
@@ -72,7 +79,7 @@ export function MeLayout() {
     )
   }
 
-  const list = (
+  const settings = (
     <nav className="me-list" aria-label="Your profile">
       {sections.map((s) => (
         <NavLink key={s.key} to={`${base}/me/${s.key}`} className="me-list__row">
@@ -85,6 +92,23 @@ export function MeLayout() {
         </NavLink>
       ))}
     </nav>
+  )
+  const list = (
+    <div className="me-lists">
+      {settings}
+      <nav className="me-list" aria-label="Help and info">
+        {HELP_LINKS.map((l) => (
+          <NavLink key={l.path} to={`${base}/${l.path}`} className="me-list__row">
+            <Icon name={l.icon} />
+            <span className="me-list__text">
+              <span className="me-list__title">{l.title}</span>
+              <span className="me-list__sub">{l.summary}</span>
+            </span>
+            <Icon name="chevron_right" />
+          </NavLink>
+        ))}
+      </nav>
+    </div>
   )
   const current = sections.find((s) => s.key === section)
 

@@ -14,6 +14,7 @@
  * Usage: npm run build && npm run a11y
  *   A11Y_WIDTHS=360,393,412,440   phone widths to check (default 360)
  *   PW_CHROMIUM=/path/to/chrome   use an already-installed Chromium
+ *   A11Y_ONLY=me-notifications    only targets whose name starts with this
  */
 import { spawn } from 'node:child_process'
 import { mkdirSync, readFileSync } from 'node:fs'
@@ -27,6 +28,8 @@ const root = join(here, '..')
 const require = createRequire(import.meta.url)
 const axeSource = readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8')
 const fixtures = JSON.parse(readFileSync(join(here, 'a11y-fixtures.json'), 'utf8'))
+
+const GUIDE_PDF = readFileSync(join(root, '..', 'application', 'event_info', 'content', 'default', 'Event-Guide-Dev-Fixture.pdf'))
 
 const PORT = 4173
 const BASE = `http://localhost:${PORT}`
@@ -78,12 +81,27 @@ const TARGETS = [
     (s) => ({ name: `me-${s}`, path: `/t/sgl/me/${s}` }),
   ),
   { name: 'me-customize', path: '/t/sgl/me/notifications', act: (p) => p.getByRole('button', { name: 'Show' }).click(), wait: 'role=group' },
+  { name: 'me-notifications-app', path: '/t/sgl/me/notifications', native: 'ios' },
   { name: 'me-send-test', path: '/t/sgl/me/notifications', act: (p) => p.getByRole('button', { name: 'Send a test…' }).click(), wait: 'role=dialog' },
   { name: 'me-block-time', path: '/t/sgl/me/availability', act: (p) => p.getByRole('button', { name: 'Block a time' }).click(), wait: 'role=dialog' },
   { name: 'me-add-webhook', path: '/t/sgl/me/webhooks', act: (p) => p.getByRole('button', { name: 'Add webhook' }).click(), wait: 'role=dialog' },
   { name: 'me-register-app', path: '/t/sgl/me/apps', act: (p) => p.getByRole('button', { name: 'Register an app' }).click(), wait: 'role=dialog' },
   { name: 'me-sign-out', path: '/t/sgl/me/appearance', act: (p) => p.getByRole('button', { name: 'Sign out' }).click(), wait: 'role=dialog' },
   { name: 'picker', path: '/t/sgl/home', act: (p) => p.getByRole('button', { name: /Change event or community/ }).click(), wait: 'role=menu' },
+  { name: 'help', path: '/t/sgl/help' },
+  { name: 'help-article', path: '/t/sgl/help/crew' },
+  { name: 'help-zoom', path: '/t/sgl/help/crew', act: (p) => p.getByRole('button', { name: /^Enlarge/ }).first().click(), wait: 'role=dialog' },
+  { name: 'event-info', path: '/t/sgl/event-info' },
+  { name: 'event-info-article', path: '/t/sgl/event-info/schedule' },
+  { name: 'event-guide', path: '/t/sgl/event-info/guide', wait: '.guide-page', act: async () => {} },
+  { name: 'help-signed-out', path: '/t/sgl/help', signedIn: false },
+  { name: 'help-article-signed-out', path: '/t/sgl/help/crew', signedIn: false },
+  { name: 'changelog', path: '/t/sgl/changelog' },
+  { name: 'about', path: '/t/sgl/about' },
+  { name: 'about-privacy', path: '/t/sgl/about/privacy' },
+  { name: 'about-notices', path: '/t/sgl/about/notices' },
+  { name: 'about-notice', path: '/t/sgl/about/notices', act: (p) => p.locator('.read-notices button').first().click(), wait: 'role=dialog' },
+  { name: 'facts', path: '/t/sgl/facts' },
   { name: 'player-no-work', path: '/t/second/home' },
   { name: 'not-a-member', path: '/t/elsewhere/home' },
   { name: 'not-found', path: '/nowhere' },
@@ -119,10 +137,37 @@ function withTimes(value) {
 async function stubApi(context) {
   await context.route('**/api/**', (route) => {
     const path = new URL(route.request().url()).pathname
+    if (path.endsWith('/guide.pdf')) return route.fulfill({ status: 200, contentType: 'application/pdf', body: GUIDE_PDF })
     const body = fixtures[path]
     if (body === undefined) return route.fulfill({ status: 404, json: { detail: 'Not in the a11y fixtures' } })
     return route.fulfill({ status: 200, json: withTimes(body) })
   })
+}
+
+/** Runs in the page: makes @capacitor/core report a store app, with the native calls the screens make. */
+function nativeShim(platform) {
+  const answers = {
+    App: { addListener: {}, exitApp: {} },
+    Browser: { open: {}, close: {} },
+    Device: { getInfo: { model: 'iPhone 16' } },
+    PushNotifications: {
+      addListener: {},
+      checkPermissions: { receive: 'prompt' },
+      requestPermissions: { receive: 'granted' },
+      register: {},
+      unregister: {},
+      createChannel: {},
+    },
+  }
+  window.CapacitorCustomPlatform = { name: platform, plugins: {} }
+  window.Capacitor = {
+    PluginHeaders: Object.entries(answers).map(([name, methods]) => ({
+      name,
+      methods: Object.keys(methods).map((m) => ({ name: m, rtype: 'promise' })),
+    })),
+    nativePromise: async (plugin, method) => answers[plugin]?.[method] ?? {},
+    nativeCallback: () => '',
+  }
 }
 
 async function check(browser, target, scheme, viewport, label) {
@@ -135,6 +180,7 @@ async function check(browser, target, scheme, viewport, label) {
     },
     [target.signedIn === false ? null : SESSION, scheme],
   )
+  if (target.native) await context.addInitScript(nativeShim, target.native)
   const page = await context.newPage()
   const problems = []
   page.on('pageerror', (err) => problems.push(`page error: ${err.message}`))
@@ -172,7 +218,7 @@ try {
     ...PHONES.map((width) => ({ label: `phone${width}`, viewport: { width, height: 780 } })),
     { label: 'desktop', viewport: DESKTOP },
   ]
-  for (const target of TARGETS) {
+  for (const target of TARGETS.filter((t) => t.name.startsWith(process.env.A11Y_ONLY || ''))) {
     for (const { label, viewport } of viewports) {
       for (const scheme of SCHEMES) {
         const problems = await check(browser, target, scheme, viewport, label)

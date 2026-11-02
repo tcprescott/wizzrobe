@@ -108,6 +108,30 @@ import AddLinkIcon from '@material-symbols/svg-400/outlined/add_link.svg?react'
 import PersonAddIcon from '@material-symbols/svg-400/outlined/person_add.svg?react'
 import PersonRemoveIcon from '@material-symbols/svg-400/outlined/person_remove.svg?react'
 import EventNoteIcon from '@material-symbols/svg-400/outlined/event_note.svg?react'
+import IAttractions from '@material-symbols/svg-400/outlined/attractions.svg?react'
+import ICode from '@material-symbols/svg-400/outlined/code.svg?react'
+import IContactPhone from '@material-symbols/svg-400/outlined/contact_phone.svg?react'
+import IContactSupport from '@material-symbols/svg-400/outlined/contact_support.svg?react'
+import IDescription from '@material-symbols/svg-400/outlined/description.svg?react'
+import IDownload from '@material-symbols/svg-400/outlined/download.svg?react'
+import IHelp from '@material-symbols/svg-400/outlined/help.svg?react'
+import ILightbulb from '@material-symbols/svg-400/outlined/lightbulb.svg?react'
+import IList from '@material-symbols/svg-400/outlined/list.svg?react'
+import IMenuBook from '@material-symbols/svg-400/outlined/menu_book.svg?react'
+import IMusicNote from '@material-symbols/svg-400/outlined/music_note.svg?react'
+import IPendingActions from '@material-symbols/svg-400/outlined/pending_actions.svg?react'
+import IPets from '@material-symbols/svg-400/outlined/pets.svg?react'
+import IPictureAsPdf from '@material-symbols/svg-400/outlined/picture_as_pdf.svg?react'
+import IPictureInPicture from '@material-symbols/svg-400/outlined/picture_in_picture.svg?react'
+import IPrivacyTip from '@material-symbols/svg-400/outlined/privacy_tip.svg?react'
+import IRecordVoiceOver from '@material-symbols/svg-400/outlined/record_voice_over.svg?react'
+import IRefresh from '@material-symbols/svg-400/outlined/refresh.svg?react'
+import ISearch from '@material-symbols/svg-400/outlined/search.svg?react'
+import ISmartToy from '@material-symbols/svg-400/outlined/smart_toy.svg?react'
+import ISupportAgent from '@material-symbols/svg-400/outlined/support_agent.svg?react'
+import IVerified from '@material-symbols/svg-400/outlined/verified.svg?react'
+import IVideogameAsset from '@material-symbols/svg-400/outlined/videogame_asset.svg?react'
+import IReleaseAlert from '@material-symbols/svg-400/outlined/release_alert.svg?react'
 
 type Svg = FC<SVGProps<SVGSVGElement>>
 
@@ -214,6 +238,30 @@ export const ICONS = {
   person_add: PersonAddIcon,
   person_remove: PersonRemoveIcon,
   event_note: EventNoteIcon,
+  attractions: IAttractions,
+  code: ICode,
+  contact_phone: IContactPhone,
+  contact_support: IContactSupport,
+  description: IDescription,
+  download: IDownload,
+  help: IHelp,
+  lightbulb: ILightbulb,
+  list: IList,
+  menu_book: IMenuBook,
+  music_note: IMusicNote,
+  pending_actions: IPendingActions,
+  pets: IPets,
+  picture_as_pdf: IPictureAsPdf,
+  picture_in_picture: IPictureInPicture,
+  privacy_tip: IPrivacyTip,
+  record_voice_over: IRecordVoiceOver,
+  refresh: IRefresh,
+  search: ISearch,
+  smart_toy: ISmartToy,
+  support_agent: ISupportAgent,
+  verified: IVerified,
+  videogame_asset: IVideogameAsset,
+  release_alert: IReleaseAlert,
 } satisfies Record<string, Svg>
 
 export const FILLED: Partial<Record<IconName, Svg>> = {
