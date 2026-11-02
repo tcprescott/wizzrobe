@@ -11,6 +11,7 @@ from api import graphql
 from api.dependencies import require_feature, tenant_context_scope
 from api.rate_limit import rate_limit
 from api.routers import (
+    admin_nav,
     async_qualifier_live_races,
     async_qualifiers,
     audit,
@@ -30,7 +31,6 @@ from api.routers import (
     memberships,
     my_developer,
     my_notifications,
-    admin_nav,
     my_profile,
     my_schedule,
     notification_settings,
