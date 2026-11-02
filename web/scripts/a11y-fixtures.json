@@ -6980,6 +6980,191 @@
    "can_delete": true
   }
  ],
+ "/api/admin/match-schedule/form": {
+  "match_id": null,
+  "synced_from_speedgaming": false,
+  "tournaments": [
+   {
+    "id": 1,
+    "name": "ALTTPR Open",
+    "enrolled": [
+     3001,
+     3002,
+     3003,
+     3004
+    ],
+    "players_per_match": 2
+   },
+   {
+    "id": 2,
+    "name": "SMZ3",
+    "enrolled": [
+     3005,
+     3006
+    ],
+    "players_per_match": 2
+   }
+  ],
+  "stages": [
+   {
+    "id": 1,
+    "name": "Stage 1"
+   },
+   {
+    "id": 2,
+    "name": "Stage 2"
+   },
+   {
+    "id": 3,
+    "name": "Stage 3"
+   }
+  ],
+  "people": [
+   {
+    "id": 3001,
+    "name": "Kai"
+   },
+   {
+    "id": 3002,
+    "name": "Morgan Wu"
+   },
+   {
+    "id": 3003,
+    "name": "Ana B."
+   },
+   {
+    "id": 3004,
+    "name": "Theo K."
+   },
+   {
+    "id": 3005,
+    "name": "Priya N."
+   },
+   {
+    "id": 3006,
+    "name": "Jordan Lee"
+   },
+   {
+    "id": 3010,
+    "name": "Casey M."
+   }
+  ],
+  "broadcasters": false,
+  "values": {
+   "tournament_id": null,
+   "stage_id": null,
+   "scheduled_at": null,
+   "player_ids": [],
+   "commentator_ids": [],
+   "tracker_ids": [],
+   "broadcaster_ids": [],
+   "title": "",
+   "description": "",
+   "comment": "",
+   "is_stream_candidate": false
+  }
+ },
+ "/api/admin/match-schedule/unbooked": [
+  {
+   "source": "challonge",
+   "source_label": "Challonge",
+   "key": 11,
+   "tournament_id": 1,
+   "tournament": "ALTTPR Open",
+   "round_label": "Quarterfinal",
+   "players": [
+    "Ana B.",
+    "Theo K."
+   ],
+   "player_ids": [
+    3003,
+    3004
+   ],
+   "state": "ready",
+   "unlinked": [],
+   "window_text": null,
+   "best_of": 1,
+   "games_booked": 0,
+   "link_candidates": [
+    {
+     "id": 303,
+     "scheduled_at": "2026-10-24T18:00:00Z",
+     "stage": "Stage 1"
+    }
+   ],
+   "bracket_url": "https://challonge.com/alttpr26"
+  },
+  {
+   "source": "challonge",
+   "source_label": "Challonge",
+   "key": 12,
+   "tournament_id": 1,
+   "tournament": "ALTTPR Open",
+   "round_label": "Quarterfinal",
+   "players": [
+    "Kai",
+    "Rin T."
+   ],
+   "player_ids": [
+    3001
+   ],
+   "state": "needs_account",
+   "unlinked": [
+    "Rin T."
+   ],
+   "window_text": null,
+   "best_of": 1,
+   "games_booked": 0,
+   "link_candidates": [],
+   "bracket_url": null
+  },
+  {
+   "source": "challonge",
+   "source_label": "Challonge",
+   "key": 13,
+   "tournament_id": 1,
+   "tournament": "ALTTPR Open",
+   "round_label": "Semifinal",
+   "players": [],
+   "player_ids": [],
+   "state": "tbd",
+   "unlinked": [],
+   "window_text": null,
+   "best_of": 1,
+   "games_booked": 0,
+   "link_candidates": [],
+   "bracket_url": null
+  },
+  {
+   "source": "bracket",
+   "source_label": "Wizzrobe bracket",
+   "key": 21,
+   "tournament_id": 2,
+   "tournament": "SMZ3",
+   "round_label": "Round 3",
+   "players": [
+    "Priya N.",
+    "Jordan Lee"
+   ],
+   "player_ids": [
+    3005,
+    3006
+   ],
+   "state": "ready",
+   "unlinked": [],
+   "window_text": "Round 3 books Fri 18:00 to Sat 22:00",
+   "best_of": 3,
+   "games_booked": 1,
+   "link_candidates": [],
+   "bracket_url": null
+  }
+ ],
+ "/api/admin/match-schedule/check-time": {
+  "window": null,
+  "clashes": [
+   "Theo K. plays SMZ3 Round 2 at 15:30"
+  ]
+ },
  "/api/admin/notifications": {
   "cards": [
    {
