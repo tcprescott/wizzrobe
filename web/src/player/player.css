@@ -209,41 +209,6 @@
   gap: var(--space-2) var(--space-3);
   margin-bottom: var(--space-3);
 }
-.filter-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-.filter-chips input {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
-}
-.filter-chips label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 32px;
-  padding: 0 12px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-pill);
-  font-size: var(--text-sm);
-  font-weight: 700;
-  color: var(--fg-secondary);
-  cursor: pointer;
-}
-.filter-chips input:checked + label {
-  background: var(--accent-soft);
-  border-color: var(--accent);
-  color: var(--link);
-}
-.filter-chips input:focus-visible + label {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-.filter-chips__n {
-  font-weight: 400;
-}
 
 /* Dialog bodies */
 .pick-time {

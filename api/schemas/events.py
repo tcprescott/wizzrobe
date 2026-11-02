@@ -60,3 +60,11 @@ class EventArchiveRequest(BaseModel):
 class EventSettingResponse(BaseModel):
     name: str
     value: str
+
+
+class EventSummaryResponse(BaseModel):
+    tournaments: int
+    matches: int
+    open_matches: int = Field(..., description="Matches not finished or called off. Archiving leaves them as they are.")
+    future_shifts: int = Field(..., description="Volunteer shifts still to come.")
+    open_race_rooms: int = Field(..., description="Race rooms archiving would close.")
