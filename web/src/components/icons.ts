@@ -101,6 +101,9 @@ import Groups2Icon from '@material-symbols/svg-400/outlined/groups_2.svg?react'
 import ChairIcon from '@material-symbols/svg-400/outlined/chair.svg?react'
 import PodcastsIcon from '@material-symbols/svg-400/outlined/podcasts.svg?react'
 import MilitaryTechIcon from '@material-symbols/svg-400/outlined/military_tech.svg?react'
+import Search from '@material-symbols/svg-400/outlined/search.svg?react'
+import Videocam from '@material-symbols/svg-400/outlined/videocam.svg?react'
+import Casino from '@material-symbols/svg-400/outlined/casino.svg?react'
 
 type Svg = FC<SVGProps<SVGSVGElement>>
 
@@ -132,6 +135,9 @@ export const ICONS = {
   event_available: EventAvailable,
   swap_horiz: SwapHoriz,
   schedule: Schedule,
+  search: Search,
+  videocam: Videocam,
+  casino: Casino,
   tv: Tv,
   open_in_new: OpenInNew,
   sports_esports: SportsEsports,
