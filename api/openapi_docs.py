@@ -137,6 +137,7 @@ TAG_GROUPS: List[tuple[str, List[tuple[str, str]]]] = [
         ('Admin: Match Schedule', "The staff run sheet as the app's admin Match Schedule draws it: grouped rows and one match's pane."),
         ('Crew', 'Commentator, tracker and broadcaster signups, approval and acknowledgement.'),
         ('Reschedule requests', 'Players asking to move or call off a match, and staff answering.'),
+        ('Match comments', 'Notes on a match: players to staff, staff notes, and staff to players.'),
         ('Volunteers', 'Volunteer positions, shifts, assignments, availability and hours.'),
         ('Check-in', 'The event check-in desk: roster, check-in, walk-ups and account matching.'),
         ('Equipment', 'Lending equipment out and getting it back.'),

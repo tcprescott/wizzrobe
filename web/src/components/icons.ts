@@ -114,6 +114,9 @@ import Casino from '@material-symbols/svg-400/outlined/casino.svg?react'
 import QrCode2Icon from '@material-symbols/svg-400/outlined/qr_code_2.svg?react'
 import PrintIcon from '@material-symbols/svg-400/outlined/print.svg?react'
 import NotificationsOffIcon from '@material-symbols/svg-400/outlined/notifications_off.svg?react'
+import PriorityHigh from '@material-symbols/svg-400/outlined/priority_high.svg?react'
+import Inbox from '@material-symbols/svg-400/outlined/inbox.svg?react'
+import Lock from '@material-symbols/svg-400/outlined/lock.svg?react'
 import IAttractions from '@material-symbols/svg-400/outlined/attractions.svg?react'
 import ICode from '@material-symbols/svg-400/outlined/code.svg?react'
 import IContactPhone from '@material-symbols/svg-400/outlined/contact_phone.svg?react'
@@ -171,6 +174,9 @@ export const ICONS = {
   search: Search,
   videocam: Videocam,
   casino: Casino,
+  inbox: Inbox,
+  priority_high: PriorityHigh,
+  lock: Lock,
   tv: Tv,
   open_in_new: OpenInNew,
   sports_esports: SportsEsports,

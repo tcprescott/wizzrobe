@@ -15,6 +15,8 @@ import {
 import { effectiveZone, formatDayTime, formatTime } from '../../lib/time'
 import { actions, usePane, type Board, type Pane } from './data'
 import { matchupText, metaText } from './MatchScheduleScreen'
+import { Comments } from './Comments'
+import { RequestDialog, requestDetail, requestTitle, type RequestMode } from './NeedsYou'
 
 interface PaneProps {
   matchId: number
@@ -40,6 +42,7 @@ export function MatchPane({ matchId, board, onChanged, onGone, closeTo, standalo
   const [busy, setBusy] = useState<string | null>(null)
   const [failure, setFailure] = useState<string | null>(null)
   const [dialog, setDialog] = useState<null | 'rewind' | 'calloff' | 'delete' | 'stations'>(null)
+  const [requestMode, setRequestMode] = useState<RequestMode | null>(null)
 
   if (error && !data) {
     return (
@@ -84,6 +87,7 @@ export function MatchPane({ matchId, board, onChanged, onGone, closeTo, standalo
   }
 
   const when = m.scheduled_at ? formatDayTime(m.scheduled_at, zone) : 'No time yet'
+  const request = board?.needs_you.find((n) => n.kind === 'request' && n.match_id === m.id)?.request ?? null
   const title = matchupText(m)
 
   return (
@@ -139,6 +143,18 @@ export function MatchPane({ matchId, board, onChanged, onGone, closeTo, standalo
             ADA, {m.players.find((p) => String(p.user_id) === uid)?.name}: {note}
           </p>
         ))}
+        {request && (
+          <Banner
+            tone="warning"
+            action={
+              <Button variant="outline" size="sm" onClick={() => setRequestMode('review')}>
+                Review
+              </Button>
+            }
+          >
+            {requestTitle(request)}. {requestDetail(request, zone)}.
+          </Banner>
+        )}
         {failure && <Banner tone="error">{failure}</Banner>}
         <Primary pane={m} busy={busy} run={run} />
       </header>
@@ -226,13 +242,21 @@ export function MatchPane({ matchId, board, onChanged, onGone, closeTo, standalo
             })}
           </>
         )}
-        {(m.comments?.player || m.comments?.staff) && (
-          <p className="ms-note">
-            {(m.comments?.player ?? 0) + (m.comments?.staff ?? 0)} comments on this match. Reading and writing them here is
-            coming next.
-          </p>
-        )}
+        {m.can.run && <Comments matchId={m.id} zone={zone} canWrite={m.can.run} onChanged={onChanged} />}
       </div>
+      {request && requestMode && (
+        <RequestDialog
+          request={request}
+          mode={requestMode}
+          zone={zone}
+          onClose={() => setRequestMode(null)}
+          onDone={() => {
+            setRequestMode(null)
+            reload()
+            onChanged()
+          }}
+        />
+      )}
 
       <RewindDialog pane={m} open={dialog === 'rewind'} busy={busy} onClose={() => setDialog(null)} run={run} />
       <CallOffDialog pane={m} open={dialog === 'calloff'} busy={busy} onClose={() => setDialog(null)} run={run} />

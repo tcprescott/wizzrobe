@@ -33,6 +33,7 @@ from api.routers import (
     feedback,
     health,
     match_actions,
+    match_comments,
     matches,
     me,
     memberships,
@@ -81,6 +82,7 @@ router.include_router(reading.event_info_router)
 router.include_router(reading.app_router)
 router.include_router(matches.router)
 router.include_router(match_actions.router)
+router.include_router(match_comments.router)
 router.include_router(crew.router)
 # Before the /{request_id} routes: FastAPI resolves in declaration order.
 router.include_router(reschedule_requests.router)
