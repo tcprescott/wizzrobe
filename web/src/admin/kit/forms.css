@@ -32,6 +32,7 @@
   align-items: flex-start;
   gap: var(--space-3);
   flex-wrap: wrap;
+  margin-bottom: var(--space-3);
 }
 .detail-head__text {
   flex: 1;

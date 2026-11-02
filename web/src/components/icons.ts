@@ -11,6 +11,8 @@ import AdminPanelSettingsIcon from '@material-symbols/svg-400/outlined/admin_pan
 import AnalyticsIcon from '@material-symbols/svg-400/outlined/analytics.svg?react'
 import AppsIcon from '@material-symbols/svg-400/outlined/apps.svg?react'
 import ArrowBack from '@material-symbols/svg-400/outlined/arrow_back.svg?react'
+import ArrowDownwardIcon from '@material-symbols/svg-400/outlined/arrow_downward.svg?react'
+import ArrowUpwardIcon from '@material-symbols/svg-400/outlined/arrow_upward.svg?react'
 import IAttractions from '@material-symbols/svg-400/outlined/attractions.svg?react'
 import Badge from '@material-symbols/svg-400/outlined/badge.svg?react'
 import BadgeFill from '@material-symbols/svg-400/outlined/badge-fill.svg?react'
@@ -54,6 +56,7 @@ import ExtensionIcon from '@material-symbols/svg-400/outlined/extension.svg?reac
 import FactCheckIcon from '@material-symbols/svg-400/outlined/fact_check.svg?react'
 import Feedback from '@material-symbols/svg-400/outlined/feedback.svg?react'
 import FlagIcon from '@material-symbols/svg-400/outlined/flag.svg?react'
+import FormatListNumberedIcon from '@material-symbols/svg-400/outlined/format_list_numbered.svg?react'
 import ForumIcon from '@material-symbols/svg-400/outlined/forum.svg?react'
 import GroupAddIcon from '@material-symbols/svg-400/outlined/group_add.svg?react'
 import Groups from '@material-symbols/svg-400/outlined/groups.svg?react'
@@ -69,6 +72,7 @@ import Info from '@material-symbols/svg-400/outlined/info.svg?react'
 import Inventory2 from '@material-symbols/svg-400/outlined/inventory_2.svg?react'
 import KeyIcon from '@material-symbols/svg-400/outlined/key.svg?react'
 import KeyboardArrowDown from '@material-symbols/svg-400/outlined/keyboard_arrow_down.svg?react'
+import LeaderboardIcon from '@material-symbols/svg-400/outlined/leaderboard.svg?react'
 import LightMode from '@material-symbols/svg-400/outlined/light_mode.svg?react'
 import ILightbulb from '@material-symbols/svg-400/outlined/lightbulb.svg?react'
 import LinkIcon from '@material-symbols/svg-400/outlined/link.svg?react'
@@ -77,6 +81,7 @@ import IList from '@material-symbols/svg-400/outlined/list.svg?react'
 import LiveTvIcon from '@material-symbols/svg-400/outlined/live_tv.svg?react'
 import LocationOn from '@material-symbols/svg-400/outlined/location_on.svg?react'
 import Lock from '@material-symbols/svg-400/outlined/lock.svg?react'
+import LockOpenIcon from '@material-symbols/svg-400/outlined/lock_open.svg?react'
 import Login from '@material-symbols/svg-400/outlined/login.svg?react'
 import Logout from '@material-symbols/svg-400/outlined/logout.svg?react'
 import MailIcon from '@material-symbols/svg-400/outlined/mail.svg?react'
@@ -121,6 +126,7 @@ import SchemaIcon from '@material-symbols/svg-400/outlined/schema.svg?react'
 import Search from '@material-symbols/svg-400/outlined/search.svg?react'
 import SendIcon from '@material-symbols/svg-400/outlined/send.svg?react'
 import SettingsIcon from '@material-symbols/svg-400/outlined/settings.svg?react'
+import ShuffleIcon from '@material-symbols/svg-400/outlined/shuffle.svg?react'
 import SkipNextIcon from '@material-symbols/svg-400/outlined/skip_next.svg?react'
 import ISmartToy from '@material-symbols/svg-400/outlined/smart_toy.svg?react'
 import SportsEsports from '@material-symbols/svg-400/outlined/sports_esports.svg?react'
@@ -129,6 +135,7 @@ import StadiumFill from '@material-symbols/svg-400/outlined/stadium-fill.svg?rea
 import StarIcon from '@material-symbols/svg-400/outlined/star.svg?react'
 import ISupportAgent from '@material-symbols/svg-400/outlined/support_agent.svg?react'
 import SwapHoriz from '@material-symbols/svg-400/outlined/swap_horiz.svg?react'
+import SwapVertIcon from '@material-symbols/svg-400/outlined/swap_vert.svg?react'
 import SyncIcon from '@material-symbols/svg-400/outlined/sync.svg?react'
 import SyncAltIcon from '@material-symbols/svg-400/outlined/sync_alt.svg?react'
 import TaskAlt from '@material-symbols/svg-400/outlined/task_alt.svg?react'
@@ -143,8 +150,10 @@ import UploadIcon from '@material-symbols/svg-400/outlined/upload.svg?react'
 import IVerified from '@material-symbols/svg-400/outlined/verified.svg?react'
 import Videocam from '@material-symbols/svg-400/outlined/videocam.svg?react'
 import IVideogameAsset from '@material-symbols/svg-400/outlined/videogame_asset.svg?react'
+import ViewColumnIcon from '@material-symbols/svg-400/outlined/view_column.svg?react'
 import ViewTimelineIcon from '@material-symbols/svg-400/outlined/view_timeline.svg?react'
 import VisibilityIcon from '@material-symbols/svg-400/outlined/visibility.svg?react'
+import VisibilityOffIcon from '@material-symbols/svg-400/outlined/visibility_off.svg?react'
 import VolunteerActivismIcon from '@material-symbols/svg-400/outlined/volunteer_activism.svg?react'
 import Warning from '@material-symbols/svg-400/outlined/warning.svg?react'
 import Webhook from '@material-symbols/svg-400/outlined/webhook.svg?react'
@@ -160,6 +169,8 @@ export const ICONS = {
   analytics: AnalyticsIcon,
   apps: AppsIcon,
   arrow_back: ArrowBack,
+  arrow_downward: ArrowDownwardIcon,
+  arrow_upward: ArrowUpwardIcon,
   attractions: IAttractions,
   badge: Badge,
   block: BlockIcon,
@@ -201,6 +212,7 @@ export const ICONS = {
   fact_check: FactCheckIcon,
   feedback: Feedback,
   flag: FlagIcon,
+  format_list_numbered: FormatListNumberedIcon,
   forum: ForumIcon,
   group_add: GroupAddIcon,
   groups: Groups,
@@ -215,6 +227,7 @@ export const ICONS = {
   inventory_2: Inventory2,
   key: KeyIcon,
   keyboard_arrow_down: KeyboardArrowDown,
+  leaderboard: LeaderboardIcon,
   light_mode: LightMode,
   lightbulb: ILightbulb,
   link: LinkIcon,
@@ -223,6 +236,7 @@ export const ICONS = {
   live_tv: LiveTvIcon,
   location_on: LocationOn,
   lock: Lock,
+  lock_open: LockOpenIcon,
   login: Login,
   logout: Logout,
   mail: MailIcon,
@@ -266,6 +280,7 @@ export const ICONS = {
   search: Search,
   send: SendIcon,
   settings: SettingsIcon,
+  shuffle: ShuffleIcon,
   skip_next: SkipNextIcon,
   smart_toy: ISmartToy,
   sports_esports: SportsEsports,
@@ -273,6 +288,7 @@ export const ICONS = {
   star: StarIcon,
   support_agent: ISupportAgent,
   swap_horiz: SwapHoriz,
+  swap_vert: SwapVertIcon,
   sync: SyncIcon,
   sync_alt: SyncAltIcon,
   task_alt: TaskAlt,
@@ -287,8 +303,10 @@ export const ICONS = {
   verified: IVerified,
   videocam: Videocam,
   videogame_asset: IVideogameAsset,
+  view_column: ViewColumnIcon,
   view_timeline: ViewTimelineIcon,
   visibility: VisibilityIcon,
+  visibility_off: VisibilityOffIcon,
   volunteer_activism: VolunteerActivismIcon,
   warning: Warning,
   webhook: Webhook,

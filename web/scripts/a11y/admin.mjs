@@ -35,6 +35,22 @@ export const fixtures = {
         "aliases": []
       },
       {
+        "slug": "brackets",
+        "label": "Brackets",
+        "icon": "schema",
+        "group": "Run the event",
+        "half": "event",
+        "aliases": []
+      },
+      {
+        "slug": "qualifiers",
+        "label": "Qualifiers",
+        "icon": "timer",
+        "group": "Run the event",
+        "half": "event",
+        "aliases": []
+      },
+      {
         "slug": "stages",
         "label": "Stages",
         "icon": "tv",

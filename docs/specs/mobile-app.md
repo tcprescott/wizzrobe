@@ -225,6 +225,15 @@ in TypeScript.
   Each area registers itself from `web/src/admin/<area>/routes.tsx`; which areas
   a viewer may open comes from `GET /api/admin/nav`, whose gates
   `tests/test_admin_nav_drift.py` holds to the website's admin drawer.
+- 2026-11-02 — Step 9 (Work tab): Thomas's general preference is the side list,
+  so Work is layout A: the areas your roles open (check-in desk, volunteer
+  schedule, your volunteer availability, Proctor Station, Admin), each with a
+  live line, beside the open area on desktop and as their own screens on a
+  phone. Part 1 builds the desk, the schedule grid and availability; Proctor
+  Station follows on the Event tab's run sheet. Until the live stream exists the
+  desk and grid re-read on a timer and after every action. Mockups:
+  `/mnt/project-files/mobile-app/work-mockups/`.
+
 - 2026-11-02 — Admin Match Schedule: Thomas picked layout C, list and detail side by
   side (the run sheet on the left with its groups, the selected match in a pane
   beside it; on a phone the match opens as its own screen with a back link), and
