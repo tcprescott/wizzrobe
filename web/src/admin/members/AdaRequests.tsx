@@ -28,9 +28,9 @@ export function AdaList({ base, zone }: { base: string; zone: string | null | un
   return (
     <div className="admin-stack">
       <div className="admin-toolbar">
-        <label className="switch">
-          <input type="checkbox" checked={withdrawn} onChange={(e) => setWithdrawn(e.target.checked)} />
+        <label className="admin-switch">
           <span>Show withdrawn</span>
+          <input type="checkbox" role="switch" className="switch" checked={withdrawn} onChange={(e) => setWithdrawn(e.target.checked)} />
         </label>
       </div>
       {error && !data ? (

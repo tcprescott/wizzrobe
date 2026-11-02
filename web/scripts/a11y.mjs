@@ -69,6 +69,9 @@ const TARGETS = [
   { name: 'admin-member-menu', path: '/t/sgl/admin/members/2', act: (p) => p.getByRole('button', { name: 'More for Kirby' }).click(), wait: 'role=menu' },
   { name: 'admin-members-ada', path: '/t/sgl/admin/members/ada' },
   { name: 'admin-members-ada-request', path: '/t/sgl/admin/members/ada/6' },
+  { name: 'admin-meetups', path: '/t/sgl/admin/meetups' },
+  { name: 'admin-meetup', path: '/t/sgl/admin/meetups/21' },
+  { name: 'admin-meetup-edit', path: '/t/sgl/admin/meetups/21', act: (p) => p.getByRole('button', { name: 'More for Speedrun trivia night' }).click().then(() => p.getByRole('menuitem', { name: 'Edit…' }).click()), wait: 'role=dialog' },
   ...['about', 'notifications', 'availability', 'accounts', 'staff-alerts', 'equipment', 'accommodation', 'emergency-contact', 'feedback', 'webhooks', 'apps', 'tokens', 'appearance'].map(
     (s) => ({ name: `me-${s}`, path: `/t/sgl/me/${s}` }),
   ),
