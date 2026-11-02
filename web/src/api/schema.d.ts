@@ -4,6 +4,223 @@
  */
 
 export interface paths {
+    "/api/admin/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The reports you can open, and the default date range
+         * @description Lists the reports this viewer gets in display order, whether they get the Overview, the event's dates (the default range) and range shortcuts. A volunteer coordinator who isn't otherwise an admin gets only Volunteer Coverage and Exports, and no Overview.
+         *
+         *     **Who can call this:** Staff, tournament admins, crew coordinators, volunteer coordinators.
+         *
+         *     **App scope:** `staff:read`
+         */
+        get: operations["reports_menu_api_admin_reports_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/reports/activity-extent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The first and last days with any activity
+         * @description Where Insights & Trends should open so its charts have data in them. Both null for a community with no history.
+         *
+         *     **Who can call this:** Staff, tournament admins, crew coordinators.
+         *
+         *     **App scope:** `staff:read`
+         */
+        get: operations["activity_extent_api_admin_reports_activity_extent_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/reports/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The Audit Log as the report shows it
+         * @description One page of audit entries newest first, each described in words (what, about whom, what changed) with the names of members, stages and tournaments it mentions resolved. Filter by local-date range, area, person or a search over the action and details. The raw rows are `GET /audit-logs`.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **App scope:** `staff:read`
+         */
+        get: operations["audit_api_admin_reports_audit_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/reports/capacity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Players at once across a date range, point by point
+         * @description The Capacity Forecast chart: players in matches at each point, split on and off stage, with the configured capacity. Points are 15, 30 or 60 minutes apart depending on the range.
+         *
+         *     **Who can call this:** Staff, tournament admins, crew coordinators.
+         *
+         *     **App scope:** `staff:read`
+         */
+        get: operations["capacity_api_admin_reports_capacity_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/reports/exportable-tournaments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Tournaments you can export, with counts
+         * @description The Exports picker: each tournament you may export with its player and match counts and where its bracket lives. Queue an export with `POST /exports/tournaments`.
+         *
+         *     **Who can call this:** Staff and tournament admins (their own tournaments).
+         *
+         *     **App scope:** `staff:read`
+         */
+        get: operations["exportable_tournaments_api_admin_reports_exportable_tournaments_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/reports/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The Overview: four headline numbers for a date range
+         * @description Peak players against capacity, peak stages used, matches (in flight and finished) and stream candidate crew coverage, each naming the report behind it.
+         *
+         *     **Who can call this:** Staff, tournament admins, crew coordinators.
+         *
+         *     **App scope:** `staff:read`
+         */
+        get: operations["overview_api_admin_reports_overview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/reports/stage-bookings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Each stage's bookings across a date range
+         * @description The Stage Utilization timeline: every match booked on each active stage, clipped to the range. Totals, gaps and unplaced candidates come from `GET /reports/stage-utilization`.
+         *
+         *     **Who can call this:** Staff, tournament admins, crew coordinators.
+         *
+         *     **App scope:** `staff:read`
+         */
+        get: operations["stage_bookings_api_admin_reports_stage_bookings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/reports/telemetry-events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The engagement telemetry log, one page at a time
+         * @description Telemetry rows newest first with the total matching the same filters, for the Engagement Telemetry event log. Leaderboards come from `GET /telemetry/top`.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **App scope:** `staff:read`
+         */
+        get: operations["telemetry_events_api_admin_reports_telemetry_events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/reports/volunteer-coverage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Filled vs needed for every volunteer shift in a date range
+         * @description One row per shift that overlaps the range, flagging understaffed ones. Drafts count as filled; `drafts` and `acknowledged` break that down.
+         *
+         *     **Who can call this:** Staff, tournament admins, crew coordinators, volunteer coordinators.
+         *
+         *     **App scope:** `staff:read`
+         *     **Feature:** only works when the community has **Volunteer Scheduling** turned on; otherwise every call answers `404`.
+         */
+        get: operations["volunteer_coverage_api_admin_reports_volunteer_coverage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/async-qualifiers": {
         parameters: {
             query?: never;
@@ -9799,6 +10016,19 @@ export interface components {
              */
             total: number;
         };
+        /** ActivityExtentResponse */
+        ActivityExtentResponse: {
+            /**
+             * First
+             * @description Earliest local date with any activity; null with no history.
+             */
+            first?: string | null;
+            /**
+             * Last
+             * @description Latest local date with any activity; null with no history.
+             */
+            last?: string | null;
+        };
         /** ActivityTrendsResponse */
         ActivityTrendsResponse: {
             /**
@@ -10408,6 +10638,29 @@ export interface components {
          * @enum {string}
          */
         AsyncQualifierRunStatus: "pending" | "in_progress" | "finished" | "forfeit" | "disqualified";
+        /** AuditAreaResponse */
+        AuditAreaResponse: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+        };
+        /** AuditChangeResponse */
+        AuditChangeResponse: {
+            /** After */
+            after?: string | null;
+            /** Before */
+            before?: string | null;
+            /** Field */
+            field: string;
+        };
+        /** AuditFact */
+        AuditFact: {
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
+        };
         /** AuditLogEntry */
         AuditLogEntry: {
             /**
@@ -10459,6 +10712,89 @@ export interface components {
              * @description Entries matching the filters, across all pages.
              */
             total: number;
+        };
+        /** AuditPageResponse */
+        AuditPageResponse: {
+            /**
+             * Areas
+             * @description The Area filter choices.
+             */
+            areas: components["schemas"]["AuditAreaResponse"][];
+            /** Items */
+            items: components["schemas"]["AuditRowResponse"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** AuditRowResponse */
+        AuditRowResponse: {
+            /**
+             * Action
+             * @description The raw `verb.object` action.
+             */
+            action: string;
+            /** Actor Id */
+            actor_id?: number | null;
+            /**
+             * Actor Name
+             * @description Who did it, or `Member #<id>` for a removed account.
+             */
+            actor_name: string;
+            /**
+             * Area
+             * @description The area it belongs to, e.g. `Matches`.
+             */
+            area?: string | null;
+            /**
+             * Changed Fields
+             * @description Fields changed when values were not recorded.
+             */
+            changed_fields?: string[];
+            /**
+             * Changes
+             * @description Before/after per changed field.
+             */
+            changes?: components["schemas"]["AuditChangeResponse"][];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Facts
+             * @description Other details, labelled.
+             */
+            facts?: components["schemas"]["AuditFact"][];
+            /** Id */
+            id: number;
+            /**
+             * Label
+             * @description The action in words, e.g. `Match rescheduled`.
+             */
+            label: string;
+            /** Match Id */
+            match_id?: number | null;
+            /**
+             * Raw
+             * @description The stored details, pretty-printed.
+             * @default
+             */
+            raw: string;
+            /**
+             * Subject
+             * @description What it was about, e.g. `Match #412` or a member name.
+             * @default
+             */
+            subject: string;
+            /**
+             * Summary
+             * @description One line of what happened.
+             * @default
+             */
+            summary: string;
         };
         /**
          * AvailabilityWindowInput
@@ -11357,6 +11693,39 @@ export interface components {
              * @description Players expected to be playing at that moment.
              */
             players: number;
+        };
+        /** CapacitySeriesResponse */
+        CapacitySeriesResponse: {
+            /**
+             * Interval Minutes
+             * @description Spacing between points: 15, 30 or 60 depending on the range.
+             */
+            interval_minutes: number;
+            /**
+             * Max Capacity
+             * @description The configured player capacity, drawn as a line.
+             */
+            max_capacity: number;
+            /**
+             * Off Stream
+             * @description Of those, players in matches off stage.
+             */
+            off_stream: number[];
+            /**
+             * On Stream
+             * @description Of those, players in matches on a stage.
+             */
+            on_stream: number[];
+            /**
+             * Players
+             * @description Players at once at each point.
+             */
+            players: number[];
+            /**
+             * Times
+             * @description Each point (UTC).
+             */
+            times: string[];
         };
         /** ChallongeLinkRequest */
         ChallongeLinkRequest: {
@@ -13173,6 +13542,28 @@ export interface components {
             /** Items */
             items: components["schemas"]["ExportInfo"][];
         };
+        /** ExportableTournament */
+        ExportableTournament: {
+            /** Active */
+            active: boolean;
+            /**
+             * Bracket Site
+             * @description Where its bracket lives, when it has one.
+             */
+            bracket_site?: string | null;
+            /** Finished */
+            finished: number;
+            /** Id */
+            id: number;
+            /** Matches */
+            matches: number;
+            /** Name */
+            name: string;
+            /** Players */
+            players: number;
+            /** Test */
+            test: boolean;
+        };
         /** ExtendToSetRequest */
         ExtendToSetRequest: {
             /**
@@ -14869,6 +15260,33 @@ export interface components {
             /** Redirect Uris */
             redirect_uris?: string[] | null;
         };
+        /** OverviewKpiResponse */
+        OverviewKpiResponse: {
+            /**
+             * Detail
+             * @description The line under it. For `peak_players`, the peak time as UTC ISO 8601 (empty when no matches).
+             */
+            detail: string;
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /**
+             * Report
+             * @description The report this number links to.
+             */
+            report: string;
+            /**
+             * Tone
+             * @description `neutral`, `ok`, `pending` or `bad`.
+             */
+            tone: string;
+            /**
+             * Value
+             * @description The number as shown, e.g. `212 / 240` or `78%`.
+             */
+            value: string;
+        };
         /** PayoutLineRequest */
         PayoutLineRequest: {
             /**
@@ -16223,6 +16641,24 @@ export interface components {
              */
             supports_triforce_texts: boolean;
         };
+        /** RangeJumpResponse */
+        RangeJumpResponse: {
+            /**
+             * End
+             * Format: date
+             */
+            end: string;
+            /**
+             * Label
+             * @description `Whole event`, or a day such as `Sat 10-24`.
+             */
+            label: string;
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+        };
         /** ReattemptRequest */
         ReattemptRequest: {
             /**
@@ -16302,6 +16738,23 @@ export interface components {
              */
             reason?: string | null;
         };
+        /** ReportEntryResponse */
+        ReportEntryResponse: {
+            /** Description */
+            description: string;
+            /**
+             * Icon
+             * @description Material Symbols icon name.
+             */
+            icon: string;
+            /**
+             * Key
+             * @description The report, as `?report=` names it: `capacity`, `stages`, `audit`, ...
+             */
+            key: string;
+            /** Title */
+            title: string;
+        };
         /** ReportResultRequest */
         ReportResultRequest: {
             /**
@@ -16325,6 +16778,36 @@ export interface components {
              * @description The winning entry. Must be one of the matchup's two entries.
              */
             winner_entry_id: number;
+        };
+        /** ReportsMenuResponse */
+        ReportsMenuResponse: {
+            /**
+             * Event End
+             * Format: date
+             * @description The event's last day, the default range end.
+             */
+            event_end: string;
+            /**
+             * Event Start
+             * Format: date
+             * @description The event's first day, the default range start.
+             */
+            event_start: string;
+            /**
+             * Jumps
+             * @description Range shortcuts: the whole event, then each day of a week-or-shorter event.
+             */
+            jumps: components["schemas"]["RangeJumpResponse"][];
+            /**
+             * Overview
+             * @description Whether this viewer gets the Overview (a volunteer coordinator does not).
+             */
+            overview: boolean;
+            /**
+             * Reports
+             * @description The reports this viewer may open, in display order.
+             */
+            reports: components["schemas"]["ReportEntryResponse"][];
         };
         /** RescheduleApproveRequest */
         RescheduleApproveRequest: {
@@ -17357,6 +17840,35 @@ export interface components {
              */
             best_of: 1 | 3 | 5;
         };
+        /** StageBookingResponse */
+        StageBookingResponse: {
+            /**
+             * End
+             * Format: date-time
+             * @description Booking end, clipped to the range (UTC).
+             */
+            end: string;
+            /** Match Id */
+            match_id: number;
+            /**
+             * Start
+             * Format: date-time
+             * @description Booking start, clipped to the range (UTC).
+             */
+            start: string;
+            /** Tournament Name */
+            tournament_name: string;
+        };
+        /** StageBookingsResponse */
+        StageBookingsResponse: {
+            /**
+             * Stages
+             * @description Bookings per stage id, in start order.
+             */
+            stages: {
+                [key: string]: components["schemas"]["StageBookingResponse"][];
+            };
+        };
         /** StageCreateRequest */
         StageCreateRequest: {
             /**
@@ -18193,6 +18705,51 @@ export interface components {
              * @description Open it in Telegram and press Start; the connection shows up a few seconds later.
              */
             url: string;
+        };
+        /** TelemetryEventPage */
+        TelemetryEventPage: {
+            /** Items */
+            items: components["schemas"]["TelemetryEventRow"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /**
+             * Total
+             * @description Events matching the filters, across all pages.
+             */
+            total: number;
+        };
+        /** TelemetryEventRow */
+        TelemetryEventRow: {
+            /**
+             * Category
+             * @description `page`, `interaction`, `event`, ...
+             */
+            category: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Details
+             * @description The stored details as text (usually JSON).
+             */
+            details?: string | null;
+            /** Event Type */
+            event_type: string;
+            /** Id */
+            id: number;
+            /** Path */
+            path?: string | null;
+            /** User Id */
+            user_id?: number | null;
+            /**
+             * User Name
+             * @description The person's display name, when the row has one.
+             */
+            user_name?: string | null;
         };
         /** TelemetrySummaryResponse */
         TelemetrySummaryResponse: {
@@ -19633,6 +20190,38 @@ export interface components {
          * @enum {string}
          */
         VolunteerAvailabilityStatus: "available" | "unavailable" | "preferred";
+        /** VolunteerCoverageRow */
+        VolunteerCoverageRow: {
+            /** Acknowledged */
+            acknowledged: number;
+            /** Drafts */
+            drafts: number;
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+            /**
+             * Filled
+             * @description Assigned, drafts included.
+             */
+            filled: number;
+            /** Label */
+            label: string;
+            /** Needed */
+            needed: number;
+            /** Position */
+            position: string;
+            /** Shift Id */
+            shift_id: number;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /** Understaffed */
+            understaffed: boolean;
+        };
         /** VolunteerExportRequest */
         VolunteerExportRequest: {
             /**
@@ -20405,6 +20994,662 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    reports_menu_api_admin_reports_get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportsMenuResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    activity_extent_api_admin_reports_activity_extent_get: {
+        parameters: {
+            query?: {
+                /** @description Only this tournament (matches only). */
+                tournament_id?: number | null;
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityExtentResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    audit_api_admin_reports_audit_get: {
+        parameters: {
+            query: {
+                /** @description First day of the range, on the community clock (YYYY-MM-DD). */
+                start: string;
+                /** @description Last day of the range, inclusive (YYYY-MM-DD). */
+                end: string;
+                /** @description Only this person's actions. */
+                user_id?: number | null;
+                /** @description Only this area, by key (see `areas`). */
+                area?: string | null;
+                /** @description Text to find in the action or its details. */
+                search?: string | null;
+                limit?: number;
+                offset?: number;
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditPageResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    capacity_api_admin_reports_capacity_get: {
+        parameters: {
+            query: {
+                /** @description First day of the range, on the community clock (YYYY-MM-DD). */
+                start: string;
+                /** @description Last day of the range, inclusive (YYYY-MM-DD). */
+                end: string;
+                /** @description Only this tournament. */
+                tournament_id?: number | null;
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CapacitySeriesResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    exportable_tournaments_api_admin_reports_exportable_tournaments_get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportableTournament"][];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    overview_api_admin_reports_overview_get: {
+        parameters: {
+            query: {
+                /** @description First day of the range, on the community clock (YYYY-MM-DD). */
+                start: string;
+                /** @description Last day of the range, inclusive (YYYY-MM-DD). */
+                end: string;
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OverviewKpiResponse"][];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    stage_bookings_api_admin_reports_stage_bookings_get: {
+        parameters: {
+            query: {
+                /** @description First day of the range, on the community clock (YYYY-MM-DD). */
+                start: string;
+                /** @description Last day of the range, inclusive (YYYY-MM-DD). */
+                end: string;
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StageBookingsResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    telemetry_events_api_admin_reports_telemetry_events_get: {
+        parameters: {
+            query?: {
+                /** @description Only rows at or after this time (UTC ISO 8601). */
+                start?: string | null;
+                /** @description Only rows before this time (UTC ISO 8601). */
+                end?: string | null;
+                /** @description Only this category, e.g. `page`. */
+                category?: string | null;
+                /** @description Only this person's rows. */
+                user_id?: number | null;
+                /** @description Only rows whose path contains this text. */
+                path_contains?: string | null;
+                limit?: number;
+                offset?: number;
+                /** @description Only records from this event, by its slug (see `GET /api/events`). Leave it out for the whole community, every event and the records that belong to none. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TelemetryEventPage"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    volunteer_coverage_api_admin_reports_volunteer_coverage_get: {
+        parameters: {
+            query: {
+                /** @description First day of the range, on the community clock (YYYY-MM-DD). */
+                start: string;
+                /** @description Last day of the range, inclusive (YYYY-MM-DD). */
+                end: string;
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VolunteerCoverageRow"][];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     list_qualifiers_api_async_qualifiers_get: {
         parameters: {
             query?: {

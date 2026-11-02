@@ -162,6 +162,38 @@
         "title": "ActivityCategory",
         "type": "object"
       },
+      "ActivityExtentResponse": {
+        "properties": {
+          "first": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Earliest local date with any activity; null with no history.",
+            "title": "First"
+          },
+          "last": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Latest local date with any activity; null with no history.",
+            "title": "Last"
+          }
+        },
+        "title": "ActivityExtentResponse",
+        "type": "object"
+      },
       "ActivityTrendsResponse": {
         "properties": {
           "bucket": {
@@ -1164,6 +1196,77 @@
         "title": "AsyncQualifierRunStatus",
         "type": "string"
       },
+      "AuditAreaResponse": {
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label"
+        ],
+        "title": "AuditAreaResponse",
+        "type": "object"
+      },
+      "AuditChangeResponse": {
+        "properties": {
+          "after": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "After"
+          },
+          "before": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Before"
+          },
+          "field": {
+            "title": "Field",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field"
+        ],
+        "title": "AuditChangeResponse",
+        "type": "object"
+      },
+      "AuditFact": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "value"
+        ],
+        "title": "AuditFact",
+        "type": "object"
+      },
       "AuditLogEntry": {
         "properties": {
           "action": {
@@ -1246,6 +1349,159 @@
           "items"
         ],
         "title": "AuditLogPage",
+        "type": "object"
+      },
+      "AuditPageResponse": {
+        "properties": {
+          "areas": {
+            "description": "The Area filter choices.",
+            "items": {
+              "$ref": "#/components/schemas/AuditAreaResponse"
+            },
+            "title": "Areas",
+            "type": "array"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AuditRowResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "limit",
+          "offset",
+          "areas",
+          "items"
+        ],
+        "title": "AuditPageResponse",
+        "type": "object"
+      },
+      "AuditRowResponse": {
+        "properties": {
+          "action": {
+            "description": "The raw `verb.object` action.",
+            "title": "Action",
+            "type": "string"
+          },
+          "actor_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Id"
+          },
+          "actor_name": {
+            "description": "Who did it, or `Member #<id>` for a removed account.",
+            "title": "Actor Name",
+            "type": "string"
+          },
+          "area": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The area it belongs to, e.g. `Matches`.",
+            "title": "Area"
+          },
+          "changed_fields": {
+            "description": "Fields changed when values were not recorded.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "changes": {
+            "description": "Before/after per changed field.",
+            "items": {
+              "$ref": "#/components/schemas/AuditChangeResponse"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "facts": {
+            "description": "Other details, labelled.",
+            "items": {
+              "$ref": "#/components/schemas/AuditFact"
+            },
+            "title": "Facts",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "label": {
+            "description": "The action in words, e.g. `Match rescheduled`.",
+            "title": "Label",
+            "type": "string"
+          },
+          "match_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Match Id"
+          },
+          "raw": {
+            "default": "",
+            "description": "The stored details, pretty-printed.",
+            "title": "Raw",
+            "type": "string"
+          },
+          "subject": {
+            "default": "",
+            "description": "What it was about, e.g. `Match #412` or a member name.",
+            "title": "Subject",
+            "type": "string"
+          },
+          "summary": {
+            "default": "",
+            "description": "One line of what happened.",
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "created_at",
+          "actor_name",
+          "action",
+          "label"
+        ],
+        "title": "AuditRowResponse",
         "type": "object"
       },
       "AvailabilityWindowInput": {
@@ -2849,6 +3105,63 @@
           "players"
         ],
         "title": "CapacityPeak",
+        "type": "object"
+      },
+      "CapacitySeriesResponse": {
+        "properties": {
+          "interval_minutes": {
+            "description": "Spacing between points: 15, 30 or 60 depending on the range.",
+            "title": "Interval Minutes",
+            "type": "integer"
+          },
+          "max_capacity": {
+            "description": "The configured player capacity, drawn as a line.",
+            "title": "Max Capacity",
+            "type": "integer"
+          },
+          "off_stream": {
+            "description": "Of those, players in matches off stage.",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Off Stream",
+            "type": "array"
+          },
+          "on_stream": {
+            "description": "Of those, players in matches on a stage.",
+            "items": {
+              "type": "integer"
+            },
+            "title": "On Stream",
+            "type": "array"
+          },
+          "players": {
+            "description": "Players at once at each point.",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Players",
+            "type": "array"
+          },
+          "times": {
+            "description": "Each point (UTC).",
+            "items": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "title": "Times",
+            "type": "array"
+          }
+        },
+        "required": [
+          "interval_minutes",
+          "max_capacity",
+          "times",
+          "players",
+          "on_stream",
+          "off_stream"
+        ],
+        "title": "CapacitySeriesResponse",
         "type": "object"
       },
       "ChallongeLinkRequest": {
@@ -6152,6 +6465,61 @@
           "items"
         ],
         "title": "ExportList",
+        "type": "object"
+      },
+      "ExportableTournament": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "bracket_site": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Where its bracket lives, when it has one.",
+            "title": "Bracket Site"
+          },
+          "finished": {
+            "title": "Finished",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "matches": {
+            "title": "Matches",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "players": {
+            "title": "Players",
+            "type": "integer"
+          },
+          "test": {
+            "title": "Test",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "active",
+          "test",
+          "players",
+          "matches",
+          "finished"
+        ],
+        "title": "ExportableTournament",
         "type": "object"
       },
       "ExtendToSetRequest": {
@@ -9463,6 +9831,48 @@
         "title": "OAuthAppUpdate",
         "type": "object"
       },
+      "OverviewKpiResponse": {
+        "properties": {
+          "detail": {
+            "description": "The line under it. For `peak_players`, the peak time as UTC ISO 8601 (empty when no matches).",
+            "title": "Detail",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "report": {
+            "description": "The report this number links to.",
+            "title": "Report",
+            "type": "string"
+          },
+          "tone": {
+            "description": "`neutral`, `ok`, `pending` or `bad`.",
+            "title": "Tone",
+            "type": "string"
+          },
+          "value": {
+            "description": "The number as shown, e.g. `212 / 240` or `78%`.",
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "value",
+          "detail",
+          "tone",
+          "report"
+        ],
+        "title": "OverviewKpiResponse",
+        "type": "object"
+      },
       "PayoutLineRequest": {
         "properties": {
           "amount": {
@@ -12120,6 +12530,32 @@
         "title": "RandomizerResponse",
         "type": "object"
       },
+      "RangeJumpResponse": {
+        "properties": {
+          "end": {
+            "format": "date",
+            "title": "End",
+            "type": "string"
+          },
+          "label": {
+            "description": "`Whole event`, or a day such as `Sat 10-24`.",
+            "title": "Label",
+            "type": "string"
+          },
+          "start": {
+            "format": "date",
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "start",
+          "end"
+        ],
+        "title": "RangeJumpResponse",
+        "type": "object"
+      },
       "ReattemptRequest": {
         "properties": {
           "reason": {
@@ -12233,6 +12669,36 @@
         "title": "ReleaseAssignmentRequest",
         "type": "object"
       },
+      "ReportEntryResponse": {
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "icon": {
+            "description": "Material Symbols icon name.",
+            "title": "Icon",
+            "type": "string"
+          },
+          "key": {
+            "description": "The report, as `?report=` names it: `capacity`, `stages`, `audit`, ...",
+            "title": "Key",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "title",
+          "icon",
+          "description"
+        ],
+        "title": "ReportEntryResponse",
+        "type": "object"
+      },
       "ReportResultRequest": {
         "properties": {
           "entry1_score": {
@@ -12275,6 +12741,52 @@
           "winner_entry_id"
         ],
         "title": "ReportResultRequest",
+        "type": "object"
+      },
+      "ReportsMenuResponse": {
+        "properties": {
+          "event_end": {
+            "description": "The event's last day, the default range end.",
+            "format": "date",
+            "title": "Event End",
+            "type": "string"
+          },
+          "event_start": {
+            "description": "The event's first day, the default range start.",
+            "format": "date",
+            "title": "Event Start",
+            "type": "string"
+          },
+          "jumps": {
+            "description": "Range shortcuts: the whole event, then each day of a week-or-shorter event.",
+            "items": {
+              "$ref": "#/components/schemas/RangeJumpResponse"
+            },
+            "title": "Jumps",
+            "type": "array"
+          },
+          "overview": {
+            "description": "Whether this viewer gets the Overview (a volunteer coordinator does not).",
+            "title": "Overview",
+            "type": "boolean"
+          },
+          "reports": {
+            "description": "The reports this viewer may open, in display order.",
+            "items": {
+              "$ref": "#/components/schemas/ReportEntryResponse"
+            },
+            "title": "Reports",
+            "type": "array"
+          }
+        },
+        "required": [
+          "overview",
+          "reports",
+          "event_start",
+          "event_end",
+          "jumps"
+        ],
+        "title": "ReportsMenuResponse",
         "type": "object"
       },
       "RescheduleApproveRequest": {
@@ -14168,6 +14680,58 @@
         "title": "StageBestOfRequest",
         "type": "object"
       },
+      "StageBookingResponse": {
+        "properties": {
+          "end": {
+            "description": "Booking end, clipped to the range (UTC).",
+            "format": "date-time",
+            "title": "End",
+            "type": "string"
+          },
+          "match_id": {
+            "title": "Match Id",
+            "type": "integer"
+          },
+          "start": {
+            "description": "Booking start, clipped to the range (UTC).",
+            "format": "date-time",
+            "title": "Start",
+            "type": "string"
+          },
+          "tournament_name": {
+            "title": "Tournament Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "match_id",
+          "tournament_name",
+          "start",
+          "end"
+        ],
+        "title": "StageBookingResponse",
+        "type": "object"
+      },
+      "StageBookingsResponse": {
+        "properties": {
+          "stages": {
+            "additionalProperties": {
+              "items": {
+                "$ref": "#/components/schemas/StageBookingResponse"
+              },
+              "type": "array"
+            },
+            "description": "Bookings per stage id, in start order.",
+            "title": "Stages",
+            "type": "object"
+          }
+        },
+        "required": [
+          "stages"
+        ],
+        "title": "StageBookingsResponse",
+        "type": "object"
+      },
       "StageCreateRequest": {
         "properties": {
           "is_active": {
@@ -15636,6 +16200,114 @@
           "url"
         ],
         "title": "TelegramLinkResponse",
+        "type": "object"
+      },
+      "TelemetryEventPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TelemetryEventRow"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "description": "Events matching the filters, across all pages.",
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "limit",
+          "offset",
+          "items"
+        ],
+        "title": "TelemetryEventPage",
+        "type": "object"
+      },
+      "TelemetryEventRow": {
+        "properties": {
+          "category": {
+            "description": "`page`, `interaction`, `event`, ...",
+            "title": "Category",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "details": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The stored details as text (usually JSON).",
+            "title": "Details"
+          },
+          "event_type": {
+            "title": "Event Type",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          },
+          "user_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The person's display name, when the row has one.",
+            "title": "User Name"
+          }
+        },
+        "required": [
+          "id",
+          "created_at",
+          "category",
+          "event_type"
+        ],
+        "title": "TelemetryEventRow",
         "type": "object"
       },
       "TelemetrySummaryResponse": {
@@ -18382,6 +19054,67 @@
         "title": "VolunteerAvailabilityStatus",
         "type": "string"
       },
+      "VolunteerCoverageRow": {
+        "properties": {
+          "acknowledged": {
+            "title": "Acknowledged",
+            "type": "integer"
+          },
+          "drafts": {
+            "title": "Drafts",
+            "type": "integer"
+          },
+          "ends_at": {
+            "format": "date-time",
+            "title": "Ends At",
+            "type": "string"
+          },
+          "filled": {
+            "description": "Assigned, drafts included.",
+            "title": "Filled",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "needed": {
+            "title": "Needed",
+            "type": "integer"
+          },
+          "position": {
+            "title": "Position",
+            "type": "string"
+          },
+          "shift_id": {
+            "title": "Shift Id",
+            "type": "integer"
+          },
+          "starts_at": {
+            "format": "date-time",
+            "title": "Starts At",
+            "type": "string"
+          },
+          "understaffed": {
+            "title": "Understaffed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "shift_id",
+          "position",
+          "label",
+          "starts_at",
+          "ends_at",
+          "filled",
+          "needed",
+          "understaffed",
+          "drafts",
+          "acknowledged"
+        ],
+        "title": "VolunteerCoverageRow",
+        "type": "object"
+      },
       "VolunteerExportRequest": {
         "properties": {
           "end": {
@@ -19778,6 +20511,1284 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/admin/reports": {
+      "get": {
+        "description": "Lists the reports this viewer gets in display order, whether they get the Overview, the event's dates (the default range) and range shortcuts. A volunteer coordinator who isn't otherwise an admin gets only Volunteer Coverage and Exports, and no Overview.\n\n**Who can call this:** Staff, tournament admins, crew coordinators, volunteer coordinators.\n\n**App scope:** `staff:read`",
+        "operationId": "reports_menu_api_admin_reports_get",
+        "parameters": [
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportsMenuResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "The reports you can open, and the default date range",
+        "tags": [
+          "Reports"
+        ]
+      }
+    },
+    "/api/admin/reports/activity-extent": {
+      "get": {
+        "description": "Where Insights & Trends should open so its charts have data in them. Both null for a community with no history.\n\n**Who can call this:** Staff, tournament admins, crew coordinators.\n\n**App scope:** `staff:read`",
+        "operationId": "activity_extent_api_admin_reports_activity_extent_get",
+        "parameters": [
+          {
+            "description": "Only this tournament (matches only).",
+            "in": "query",
+            "name": "tournament_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only this tournament (matches only).",
+              "title": "Tournament Id"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivityExtentResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "The first and last days with any activity",
+        "tags": [
+          "Reports"
+        ]
+      }
+    },
+    "/api/admin/reports/audit": {
+      "get": {
+        "description": "One page of audit entries newest first, each described in words (what, about whom, what changed) with the names of members, stages and tournaments it mentions resolved. Filter by local-date range, area, person or a search over the action and details. The raw rows are `GET /audit-logs`.\n\n**Who can call this:** Staff.\n\n**App scope:** `staff:read`",
+        "operationId": "audit_api_admin_reports_audit_get",
+        "parameters": [
+          {
+            "description": "First day of the range, on the community clock (YYYY-MM-DD).",
+            "in": "query",
+            "name": "start",
+            "required": true,
+            "schema": {
+              "description": "First day of the range, on the community clock (YYYY-MM-DD).",
+              "format": "date",
+              "title": "Start",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Last day of the range, inclusive (YYYY-MM-DD).",
+            "in": "query",
+            "name": "end",
+            "required": true,
+            "schema": {
+              "description": "Last day of the range, inclusive (YYYY-MM-DD).",
+              "format": "date",
+              "title": "End",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Only this person's actions.",
+            "in": "query",
+            "name": "user_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only this person's actions.",
+              "title": "User Id"
+            }
+          },
+          {
+            "description": "Only this area, by key (see `areas`).",
+            "in": "query",
+            "name": "area",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only this area, by key (see `areas`).",
+              "title": "Area"
+            }
+          },
+          {
+            "description": "Text to find in the action or its details.",
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Text to find in the action or its details.",
+              "title": "Search"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditPageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "The Audit Log as the report shows it",
+        "tags": [
+          "Reports"
+        ]
+      }
+    },
+    "/api/admin/reports/capacity": {
+      "get": {
+        "description": "The Capacity Forecast chart: players in matches at each point, split on and off stage, with the configured capacity. Points are 15, 30 or 60 minutes apart depending on the range.\n\n**Who can call this:** Staff, tournament admins, crew coordinators.\n\n**App scope:** `staff:read`",
+        "operationId": "capacity_api_admin_reports_capacity_get",
+        "parameters": [
+          {
+            "description": "First day of the range, on the community clock (YYYY-MM-DD).",
+            "in": "query",
+            "name": "start",
+            "required": true,
+            "schema": {
+              "description": "First day of the range, on the community clock (YYYY-MM-DD).",
+              "format": "date",
+              "title": "Start",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Last day of the range, inclusive (YYYY-MM-DD).",
+            "in": "query",
+            "name": "end",
+            "required": true,
+            "schema": {
+              "description": "Last day of the range, inclusive (YYYY-MM-DD).",
+              "format": "date",
+              "title": "End",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Only this tournament.",
+            "in": "query",
+            "name": "tournament_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only this tournament.",
+              "title": "Tournament Id"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CapacitySeriesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "Players at once across a date range, point by point",
+        "tags": [
+          "Reports"
+        ]
+      }
+    },
+    "/api/admin/reports/exportable-tournaments": {
+      "get": {
+        "description": "The Exports picker: each tournament you may export with its player and match counts and where its bracket lives. Queue an export with `POST /exports/tournaments`.\n\n**Who can call this:** Staff and tournament admins (their own tournaments).\n\n**App scope:** `staff:read`",
+        "operationId": "exportable_tournaments_api_admin_reports_exportable_tournaments_get",
+        "parameters": [
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ExportableTournament"
+                  },
+                  "title": "Response Exportable Tournaments Api Admin Reports Exportable Tournaments Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "Tournaments you can export, with counts",
+        "tags": [
+          "Reports"
+        ]
+      }
+    },
+    "/api/admin/reports/overview": {
+      "get": {
+        "description": "Peak players against capacity, peak stages used, matches (in flight and finished) and stream candidate crew coverage, each naming the report behind it.\n\n**Who can call this:** Staff, tournament admins, crew coordinators.\n\n**App scope:** `staff:read`",
+        "operationId": "overview_api_admin_reports_overview_get",
+        "parameters": [
+          {
+            "description": "First day of the range, on the community clock (YYYY-MM-DD).",
+            "in": "query",
+            "name": "start",
+            "required": true,
+            "schema": {
+              "description": "First day of the range, on the community clock (YYYY-MM-DD).",
+              "format": "date",
+              "title": "Start",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Last day of the range, inclusive (YYYY-MM-DD).",
+            "in": "query",
+            "name": "end",
+            "required": true,
+            "schema": {
+              "description": "Last day of the range, inclusive (YYYY-MM-DD).",
+              "format": "date",
+              "title": "End",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OverviewKpiResponse"
+                  },
+                  "title": "Response Overview Api Admin Reports Overview Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "The Overview: four headline numbers for a date range",
+        "tags": [
+          "Reports"
+        ]
+      }
+    },
+    "/api/admin/reports/stage-bookings": {
+      "get": {
+        "description": "The Stage Utilization timeline: every match booked on each active stage, clipped to the range. Totals, gaps and unplaced candidates come from `GET /reports/stage-utilization`.\n\n**Who can call this:** Staff, tournament admins, crew coordinators.\n\n**App scope:** `staff:read`",
+        "operationId": "stage_bookings_api_admin_reports_stage_bookings_get",
+        "parameters": [
+          {
+            "description": "First day of the range, on the community clock (YYYY-MM-DD).",
+            "in": "query",
+            "name": "start",
+            "required": true,
+            "schema": {
+              "description": "First day of the range, on the community clock (YYYY-MM-DD).",
+              "format": "date",
+              "title": "Start",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Last day of the range, inclusive (YYYY-MM-DD).",
+            "in": "query",
+            "name": "end",
+            "required": true,
+            "schema": {
+              "description": "Last day of the range, inclusive (YYYY-MM-DD).",
+              "format": "date",
+              "title": "End",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StageBookingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "Each stage's bookings across a date range",
+        "tags": [
+          "Reports"
+        ]
+      }
+    },
+    "/api/admin/reports/telemetry-events": {
+      "get": {
+        "description": "Telemetry rows newest first with the total matching the same filters, for the Engagement Telemetry event log. Leaderboards come from `GET /telemetry/top`.\n\n**Who can call this:** Staff.\n\n**App scope:** `staff:read`",
+        "operationId": "telemetry_events_api_admin_reports_telemetry_events_get",
+        "parameters": [
+          {
+            "description": "Only rows at or after this time (UTC ISO 8601).",
+            "in": "query",
+            "name": "start",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only rows at or after this time (UTC ISO 8601).",
+              "title": "Start"
+            }
+          },
+          {
+            "description": "Only rows before this time (UTC ISO 8601).",
+            "in": "query",
+            "name": "end",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only rows before this time (UTC ISO 8601).",
+              "title": "End"
+            }
+          },
+          {
+            "description": "Only this category, e.g. `page`.",
+            "in": "query",
+            "name": "category",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only this category, e.g. `page`.",
+              "title": "Category"
+            }
+          },
+          {
+            "description": "Only this person's rows.",
+            "in": "query",
+            "name": "user_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only this person's rows.",
+              "title": "User Id"
+            }
+          },
+          {
+            "description": "Only rows whose path contains this text.",
+            "in": "query",
+            "name": "path_contains",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only rows whose path contains this text.",
+              "title": "Path Contains"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Only records from this event, by its slug (see `GET /api/events`). Leave it out for the whole community, every event and the records that belong to none.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only records from this event, by its slug (see `GET /api/events`). Leave it out for the whole community, every event and the records that belong to none.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TelemetryEventPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "The engagement telemetry log, one page at a time",
+        "tags": [
+          "Reports"
+        ]
+      }
+    },
+    "/api/admin/reports/volunteer-coverage": {
+      "get": {
+        "description": "One row per shift that overlaps the range, flagging understaffed ones. Drafts count as filled; `drafts` and `acknowledged` break that down.\n\n**Who can call this:** Staff, tournament admins, crew coordinators, volunteer coordinators.\n\n**App scope:** `staff:read`  \n**Feature:** only works when the community has **Volunteer Scheduling** turned on; otherwise every call answers `404`.",
+        "operationId": "volunteer_coverage_api_admin_reports_volunteer_coverage_get",
+        "parameters": [
+          {
+            "description": "First day of the range, on the community clock (YYYY-MM-DD).",
+            "in": "query",
+            "name": "start",
+            "required": true,
+            "schema": {
+              "description": "First day of the range, on the community clock (YYYY-MM-DD).",
+              "format": "date",
+              "title": "Start",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Last day of the range, inclusive (YYYY-MM-DD).",
+            "in": "query",
+            "name": "end",
+            "required": true,
+            "schema": {
+              "description": "Last day of the range, inclusive (YYYY-MM-DD).",
+              "format": "date",
+              "title": "End",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/VolunteerCoverageRow"
+                  },
+                  "title": "Response Volunteer Coverage Api Admin Reports Volunteer Coverage Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "Filled vs needed for every volunteer shift in a date range",
+        "tags": [
+          "Reports"
+        ]
+      }
+    },
     "/api/async-qualifiers": {
       "get": {
         "description": "The qualifiers you administer, newest first, including each one's internal `config`. Staff and Qualifier admins see every qualifier in the community; a qualifier admin sees only the ones that list them. Anyone who administers none is refused.\n\n**Who can call this:** Staff, Qualifier admin, or admins of at least one qualifier.\n\n**App scope:** `staff:read`  \n**Feature:** only works when the community has **Async Qualifiers** turned on; otherwise every call answers `404`.",

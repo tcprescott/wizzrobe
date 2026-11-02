@@ -11,6 +11,7 @@ from api import graphql
 from api.dependencies import require_feature, tenant_context_scope
 from api.rate_limit import rate_limit
 from api.routers import (
+    admin_reports,
     async_qualifier_live_races,
     async_qualifiers,
     audit,
@@ -109,6 +110,7 @@ router.include_router(
 )
 router.include_router(discord_role_mappings.router)
 router.include_router(reports.router)
+router.include_router(admin_reports.router)
 router.include_router(telemetry.router)
 router.include_router(
     equipment.router,
