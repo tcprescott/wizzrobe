@@ -11,6 +11,7 @@ from api import graphql
 from api.dependencies import require_feature, tenant_context_scope
 from api.rate_limit import rate_limit
 from api.routers import (
+    admin_brackets,
     admin_check_in,
     admin_equipment,
     admin_match_schedule,
@@ -18,6 +19,7 @@ from api.routers import (
     admin_members,
     admin_nav,
     admin_presets,
+    admin_qualifiers,
     admin_tournaments,
     async_qualifier_live_races,
     async_qualifiers,
@@ -100,6 +102,10 @@ router.include_router(work.router)
 router.include_router(community_settings.router)
 router.include_router(my_profile.router)
 router.include_router(admin_tournaments.router)
+router.include_router(
+    admin_brackets.router,
+    dependencies=[Depends(require_feature(FeatureFlag.BRACKETS))],
+)
 router.include_router(admin_presets.router)
 router.include_router(admin_match_schedule.router)
 router.include_router(my_notifications.router)
@@ -196,6 +202,10 @@ router.include_router(
 router.include_router(
     admin_meetups.router,
     dependencies=[Depends(require_feature(FeatureFlag.COMMUNITY_EVENTS))],
+)
+router.include_router(
+    admin_qualifiers.router,
+    dependencies=[Depends(require_feature(FeatureFlag.ASYNC_QUALIFIERS))],
 )
 
 __all__ = ['router']
