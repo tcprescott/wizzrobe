@@ -1447,6 +1447,85 @@
         "title": "AvailabilityWindowInput",
         "type": "object"
       },
+      "BadgeResponse": {
+        "properties": {
+          "claimed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Claimed At"
+          },
+          "code": {
+            "description": "What the check-in desk scans.",
+            "title": "Code",
+            "type": "string"
+          },
+          "comp_refund_cents": {
+            "default": 0,
+            "title": "Comp Refund Cents",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "owner_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Id"
+          },
+          "owner_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Name"
+          },
+          "price_cents": {
+            "title": "Price Cents",
+            "type": "integer"
+          },
+          "status": {
+            "description": "`pending`, `valid`, `void` or `refunded`.",
+            "title": "Status",
+            "type": "string"
+          },
+          "ticket_type_id": {
+            "title": "Ticket Type Id",
+            "type": "integer"
+          },
+          "ticket_type_name": {
+            "title": "Ticket Type Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "ticket_type_id",
+          "ticket_type_name",
+          "status",
+          "code",
+          "price_cents"
+        ],
+        "title": "BadgeResponse",
+        "type": "object"
+      },
       "BlockOut": {
         "properties": {
           "alt": {
@@ -3754,6 +3833,90 @@
         "title": "CheckInSyncResponse",
         "type": "object"
       },
+      "CheckInTierLanyard": {
+        "description": "The lanyard a Matcherino badge type earns at the check-in desk.\n\nStaff pick one per badge type. ``Staff`` and ``Volunteer`` lanyards aren't\nhere: those come from a comp role or a volunteer assignment, and outrank\nany badge (``check_in_rules.lanyard_for``).",
+        "enum": [
+          "vip",
+          "base",
+          "day_pass"
+        ],
+        "title": "CheckInTierLanyard",
+        "type": "string"
+      },
+      "CheckoutRequest": {
+        "properties": {
+          "provider": {
+            "$ref": "#/components/schemas/TicketProvider"
+          },
+          "quantities": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "Badge type id → how many.",
+            "title": "Quantities",
+            "type": "object"
+          }
+        },
+        "required": [
+          "provider",
+          "quantities"
+        ],
+        "title": "CheckoutRequest",
+        "type": "object"
+      },
+      "CheckoutResponse": {
+        "properties": {
+          "checkout_url": {
+            "description": "Send the buyer here to pay.",
+            "title": "Checkout Url",
+            "type": "string"
+          },
+          "order_id": {
+            "title": "Order Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "order_id",
+          "checkout_url"
+        ],
+        "title": "CheckoutResponse",
+        "type": "object"
+      },
+      "ClaimPreviewResponse": {
+        "properties": {
+          "buyer_name": {
+            "title": "Buyer Name",
+            "type": "string"
+          },
+          "claimable": {
+            "title": "Claimable",
+            "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "ticket_type_name": {
+            "title": "Ticket Type Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ticket_type_name",
+          "buyer_name",
+          "claimable"
+        ],
+        "title": "ClaimPreviewResponse",
+        "type": "object"
+      },
       "ClockUpdate": {
         "properties": {
           "hour_cycle": {
@@ -4236,6 +4399,162 @@
         "title": "CommunityUpdateRequest",
         "type": "object"
       },
+      "CompRefundRequest": {
+        "properties": {
+          "ticket_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 200,
+            "minItems": 1,
+            "title": "Ticket Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ticket_ids"
+        ],
+        "title": "CompRefundRequest",
+        "type": "object"
+      },
+      "CompRefundResultResponse": {
+        "properties": {
+          "amount_cents": {
+            "title": "Amount Cents",
+            "type": "integer"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "ticket_id": {
+            "title": "Ticket Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ticket_id",
+          "ok",
+          "amount_cents"
+        ],
+        "title": "CompRefundResultResponse",
+        "type": "object"
+      },
+      "CompRefundRow": {
+        "properties": {
+          "amount_cents": {
+            "description": "What a refund sends back: up to the comp badge's price.",
+            "title": "Amount Cents",
+            "type": "integer"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "paid_cents": {
+            "title": "Paid Cents",
+            "type": "integer"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "reasons": {
+            "description": "Why they're comped: role names, or Volunteer.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "scheduled_hours": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Volunteer hours scheduled in the event window.",
+            "title": "Scheduled Hours"
+          },
+          "ticket_id": {
+            "title": "Ticket Id",
+            "type": "integer"
+          },
+          "ticket_type_name": {
+            "title": "Ticket Type Name",
+            "type": "string"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "integer"
+          },
+          "user_name": {
+            "title": "User Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ticket_id",
+          "user_id",
+          "user_name",
+          "ticket_type_name",
+          "reasons",
+          "paid_cents",
+          "amount_cents",
+          "currency",
+          "provider"
+        ],
+        "title": "CompRefundRow",
+        "type": "object"
+      },
+      "CompRefundsResponse": {
+        "properties": {
+          "comp_type_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The badge type a comp covers; empty until staff pick one.",
+            "title": "Comp Type Id"
+          },
+          "has_comp_rules": {
+            "description": "False when no check-in event comps anyone, so nobody can be owed.",
+            "title": "Has Comp Rules",
+            "type": "boolean"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/CompRefundRow"
+            },
+            "title": "Rows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "rows",
+          "has_comp_rules"
+        ],
+        "title": "CompRefundsResponse",
+        "type": "object"
+      },
       "CompleteStageRequest": {
         "description": "Optional tie resolutions applied while writing ``final_rank``.\n\n``{entry_id: rank}`` for entries the standings pass left sharing a rank.",
         "properties": {
@@ -4334,6 +4653,22 @@
           "value"
         ],
         "title": "ConfigValueUpdate",
+        "type": "object"
+      },
+      "ConnectStoreRequest": {
+        "properties": {
+          "secret": {
+            "description": "For Stripe, a restricted key (`rk_live_…` or `rk_test_…`) with write access to Checkout Sessions, Refunds and Webhook Endpoints.",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Secret",
+            "type": "string"
+          }
+        },
+        "required": [
+          "secret"
+        ],
+        "title": "ConnectStoreRequest",
         "type": "object"
       },
       "ConnectedAccountResponse": {
@@ -6575,6 +6910,30 @@
           "later_games"
         ],
         "title": "ExtendToSetRequest",
+        "type": "object"
+      },
+      "ExtraBadgeResponse": {
+        "properties": {
+          "badge": {
+            "$ref": "#/components/schemas/BadgeResponse"
+          },
+          "claim_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "In-app path of the claim link while nobody has claimed it.",
+            "title": "Claim Path"
+          }
+        },
+        "required": [
+          "badge"
+        ],
+        "title": "ExtraBadgeResponse",
         "type": "object"
       },
       "Facts": {
@@ -8979,6 +9338,30 @@
         "title": "MoveRequest",
         "type": "object"
       },
+      "MyBadgesResponse": {
+        "properties": {
+          "extras": {
+            "items": {
+              "$ref": "#/components/schemas/ExtraBadgeResponse"
+            },
+            "title": "Extras",
+            "type": "array"
+          },
+          "own": {
+            "items": {
+              "$ref": "#/components/schemas/BadgeResponse"
+            },
+            "title": "Own",
+            "type": "array"
+          }
+        },
+        "required": [
+          "own",
+          "extras"
+        ],
+        "title": "MyBadgesResponse",
+        "type": "object"
+      },
       "MyCheckoutResponse": {
         "description": "One asset the caller currently holds.",
         "properties": {
@@ -10253,6 +10636,112 @@
           }
         },
         "title": "OAuthAppUpdate",
+        "type": "object"
+      },
+      "OnSaleResponse": {
+        "properties": {
+          "providers": {
+            "description": "The stores a buyer can pay with: `stripe`, `paypal`.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Providers",
+            "type": "array"
+          },
+          "types": {
+            "items": {
+              "$ref": "#/components/schemas/TicketTypeResponse"
+            },
+            "title": "Types",
+            "type": "array"
+          }
+        },
+        "required": [
+          "types",
+          "providers"
+        ],
+        "title": "OnSaleResponse",
+        "type": "object"
+      },
+      "OrderResponse": {
+        "properties": {
+          "badges": {
+            "items": {
+              "$ref": "#/components/schemas/BadgeResponse"
+            },
+            "title": "Badges",
+            "type": "array"
+          },
+          "buyer_id": {
+            "title": "Buyer Id",
+            "type": "integer"
+          },
+          "buyer_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Buyer Name"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "paid_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paid At"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "refunded_cents": {
+            "title": "Refunded Cents",
+            "type": "integer"
+          },
+          "status": {
+            "description": "`pending`, `paid`, `expired` or `refunded`.",
+            "title": "Status",
+            "type": "string"
+          },
+          "total_cents": {
+            "title": "Total Cents",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "buyer_id",
+          "provider",
+          "status",
+          "total_cents",
+          "refunded_cents",
+          "currency",
+          "created_at",
+          "badges"
+        ],
+        "title": "OrderResponse",
         "type": "object"
       },
       "PayoutLineRequest": {
@@ -15437,6 +15926,50 @@
         "title": "StationSuggestionResponse",
         "type": "object"
       },
+      "StoreResponse": {
+        "properties": {
+          "account_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The account's business name, when the key may read it.",
+            "title": "Account Label"
+          },
+          "connected_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Who pasted the key.",
+            "title": "Connected By"
+          },
+          "provider": {
+            "description": "`stripe` or `paypal`.",
+            "title": "Provider",
+            "type": "string"
+          },
+          "test_mode": {
+            "description": "True for a test-mode key: no real money moves.",
+            "title": "Test Mode",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "provider",
+          "test_mode"
+        ],
+        "title": "StoreResponse",
+        "type": "object"
+      },
       "StreamCandidateRequest": {
         "properties": {
           "flag": {
@@ -16569,6 +17102,390 @@
           "graphql_users"
         ],
         "title": "TelemetrySummaryResponse",
+        "type": "object"
+      },
+      "TicketProvider": {
+        "description": "A store a community connects its own account from to sell badges.",
+        "enum": [
+          "stripe",
+          "paypal"
+        ],
+        "title": "TicketProvider",
+        "type": "string"
+      },
+      "TicketTypeCreate": {
+        "properties": {
+          "covers_comp": {
+            "default": false,
+            "title": "Covers Comp",
+            "type": "boolean"
+          },
+          "currency": {
+            "default": "usd",
+            "maxLength": 3,
+            "minLength": 3,
+            "title": "Currency",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "is_active": {
+            "default": true,
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "lanyard": {
+            "$ref": "#/components/schemas/CheckInTierLanyard",
+            "default": "base"
+          },
+          "max_per_order": {
+            "default": 10,
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Max Per Order",
+            "type": "integer"
+          },
+          "name": {
+            "maxLength": 100,
+            "title": "Name",
+            "type": "string"
+          },
+          "price_cents": {
+            "minimum": 50.0,
+            "title": "Price Cents",
+            "type": "integer"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quantity"
+          },
+          "sales_close_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sales Close At"
+          },
+          "sales_open_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sales Open At"
+          },
+          "sort_order": {
+            "default": 0,
+            "title": "Sort Order",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "price_cents"
+        ],
+        "title": "TicketTypeCreate",
+        "type": "object"
+      },
+      "TicketTypeResponse": {
+        "properties": {
+          "covers_comp": {
+            "description": "The badge a comp stands in for; a comped buyer is owed up to its price.",
+            "title": "Covers Comp",
+            "type": "boolean"
+          },
+          "currency": {
+            "description": "Three-letter code, lower case.",
+            "title": "Currency",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "lanyard": {
+            "description": "The lanyard the check-in desk hands out for it.",
+            "title": "Lanyard",
+            "type": "string"
+          },
+          "max_per_order": {
+            "title": "Max Per Order",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "not_on_sale_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why not, when it isn't: sold out, sales closed, and so on.",
+            "title": "Not On Sale Reason"
+          },
+          "on_sale": {
+            "description": "Whether a member can buy it right now.",
+            "title": "On Sale",
+            "type": "boolean"
+          },
+          "price_cents": {
+            "description": "Price in the currency's smallest unit (cents).",
+            "title": "Price Cents",
+            "type": "integer"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How many exist; empty for no limit.",
+            "title": "Quantity"
+          },
+          "remaining": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Left to sell, counting checkouts in progress; empty for no limit.",
+            "title": "Remaining"
+          },
+          "sales_close_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sales Close At"
+          },
+          "sales_open_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sales Open At"
+          },
+          "sold": {
+            "description": "Badges paid for.",
+            "title": "Sold",
+            "type": "integer"
+          },
+          "sort_order": {
+            "title": "Sort Order",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "price_cents",
+          "currency",
+          "sold",
+          "on_sale",
+          "max_per_order",
+          "lanyard",
+          "covers_comp",
+          "is_active",
+          "sort_order"
+        ],
+        "title": "TicketTypeResponse",
+        "type": "object"
+      },
+      "TicketTypeUpdate": {
+        "properties": {
+          "covers_comp": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Covers Comp"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "is_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Active"
+          },
+          "lanyard": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CheckInTierLanyard"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "max_per_order": {
+            "anyOf": [
+              {
+                "maximum": 20.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Per Order"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "price_cents": {
+            "anyOf": [
+              {
+                "minimum": 50.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Cents"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quantity"
+          },
+          "sales_close_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sales Close At"
+          },
+          "sales_open_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sales Open At"
+          },
+          "sort_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Order"
+          }
+        },
+        "title": "TicketTypeUpdate",
         "type": "object"
       },
       "TimeCheckResponse": {
@@ -44014,6 +44931,219 @@
         ]
       }
     },
+    "/api/me/tickets": {
+      "get": {
+        "description": "Your own badges, and each extra you bought with its claim link until someone claims it.\n\n**Who can call this:** any member.\n\n**App scope:** `profile`  \n**Feature:** only works when the community has **Ticket Sales** turned on; otherwise every call answers `404`.",
+        "operationId": "my_badges_api_me_tickets_get",
+        "parameters": [
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyBadgesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "profile"
+            ]
+          }
+        ],
+        "summary": "Your badges, and extras you bought",
+        "tags": [
+          "Tickets"
+        ]
+      }
+    },
+    "/api/me/tickets/orders/{order_id}": {
+      "get": {
+        "description": "For the page the store sends you back to: `pending` until the store confirms.\n\n**Who can call this:** any member.\n\n**App scope:** `profile`  \n**Feature:** only works when the community has **Ticket Sales** turned on; otherwise every call answers `404`.",
+        "operationId": "my_order_api_me_tickets_orders__order_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "title": "Order Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "profile"
+            ]
+          }
+        ],
+        "summary": "One of your orders",
+        "tags": [
+          "Tickets"
+        ]
+      }
+    },
     "/api/me/webhooks": {
       "get": {
         "description": "Your webhooks, plus the areas and events this community lets you subscribe to.\n\n**Who can call this:** Any member, where the community allows personal webhooks.\n\n**App scope:** `profile`",
@@ -57016,6 +58146,1714 @@
         ]
       }
     },
+    "/api/tickets/checkout": {
+      "post": {
+        "description": "Holds the badges for 30 minutes and returns the store's checkout page. The order is paid only when the store confirms; poll `GET /api/me/tickets/orders/{order_id}` on the way back.\n\nFails with 400 when a badge is sold out, off sale or over the per-order limit.\n\n**Who can call this:** any member.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `profile:write`  \n**Feature:** only works when the community has **Ticket Sales** turned on; otherwise every call answers `404`.",
+        "operationId": "checkout_api_tickets_checkout_post",
+        "parameters": [
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckoutRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "profile:write"
+            ]
+          }
+        ],
+        "summary": "Hold badges and open the store's checkout",
+        "tags": [
+          "Tickets"
+        ]
+      }
+    },
+    "/api/tickets/claims/{token}": {
+      "get": {
+        "description": "Who sent it, which badge, and whether you can take it.\n\n**Who can call this:** any member.\n\n**App scope:** `profile`  \n**Feature:** only works when the community has **Ticket Sales** turned on; otherwise every call answers `404`.",
+        "operationId": "preview_claim_api_tickets_claims__token__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "title": "Token",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimPreviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "profile"
+            ]
+          }
+        ],
+        "summary": "What a claim link would give you",
+        "tags": [
+          "Tickets"
+        ]
+      },
+      "post": {
+        "description": "A link works once. Fails with 400 when it's already claimed, refunded or your own.\n\n**Who can call this:** any member.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `profile:write`  \n**Feature:** only works when the community has **Ticket Sales** turned on; otherwise every call answers `404`.",
+        "operationId": "claim_api_tickets_claims__token__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "title": "Token",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BadgeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "profile:write"
+            ]
+          }
+        ],
+        "summary": "Claim a badge someone bought for you",
+        "tags": [
+          "Tickets"
+        ]
+      }
+    },
+    "/api/tickets/comp-refunds": {
+      "get": {
+        "description": "Everyone the check-in comp rules comp who also bought their own badge and hasn't been refunded, with what a refund would send back (up to the comp badge's price).\n\n**Who can call this:** Staff.\n\n**App scope:** `staff:read`  \n**Feature:** only works when the community has **Ticket Sales** turned on; otherwise every call answers `404`.",
+        "operationId": "comp_refunds_api_tickets_comp_refunds_get",
+        "parameters": [
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompRefundsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "Comped people who paid for their own badge",
+        "tags": [
+          "Tickets"
+        ]
+      },
+      "post": {
+        "description": "Refunds each named badge through its store and DMs its holder. One failure doesn't stop the rest; each result says how it went.\n\n**Who can call this:** Staff.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `staff:write`  \n**Feature:** only works when the community has **Ticket Sales** turned on; otherwise every call answers `404`.",
+        "operationId": "send_comp_refunds_api_tickets_comp_refunds_post",
+        "parameters": [
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompRefundRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CompRefundResultResponse"
+                  },
+                  "title": "Response Send Comp Refunds Api Tickets Comp Refunds Post",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:write"
+            ]
+          }
+        ],
+        "summary": "Send comp refunds",
+        "tags": [
+          "Tickets"
+        ]
+      }
+    },
+    "/api/tickets/on-sale": {
+      "get": {
+        "description": "Active badge types with what's left, and the stores to pay with. Empty until staff connect a store.\n\n**Who can call this:** any member.\n\n**App scope:** `schedule:read`  \n**Feature:** only works when the community has **Ticket Sales** turned on; otherwise every call answers `404`.",
+        "operationId": "on_sale_api_tickets_on_sale_get",
+        "parameters": [
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnSaleResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "schedule:read"
+            ]
+          }
+        ],
+        "summary": "Badges a member can buy now",
+        "tags": [
+          "Tickets"
+        ]
+      }
+    },
+    "/api/tickets/orders": {
+      "get": {
+        "description": "The latest 200 orders for this event.\n\n**Who can call this:** Staff.\n\n**App scope:** `staff:read`  \n**Feature:** only works when the community has **Ticket Sales** turned on; otherwise every call answers `404`.",
+        "operationId": "list_orders_api_tickets_orders_get",
+        "parameters": [
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OrderResponse"
+                  },
+                  "title": "Response List Orders Api Tickets Orders Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "Paid and refunded orders, newest first",
+        "tags": [
+          "Tickets"
+        ]
+      }
+    },
+    "/api/tickets/orders/{order_id}/refund": {
+      "post": {
+        "description": "Refunds what's left of it through its store and voids its badges.\n\n**Who can call this:** Staff.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `staff:write`  \n**Feature:** only works when the community has **Ticket Sales** turned on; otherwise every call answers `404`.",
+        "operationId": "refund_order_api_tickets_orders__order_id__refund_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "title": "Order Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:write"
+            ]
+          }
+        ],
+        "summary": "Refund an order",
+        "tags": [
+          "Tickets"
+        ]
+      }
+    },
+    "/api/tickets/stores": {
+      "get": {
+        "description": "Each connected store: provider, account name, test mode and who connected it. Never the key.\n\n**Who can call this:** Staff.\n\n**Apps:** can't call this; it needs a personal API token.  \n**Feature:** only works when the community has **Ticket Sales** turned on; otherwise every call answers `404`.",
+        "operationId": "list_stores_api_tickets_stores_get",
+        "parameters": [
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/StoreResponse"
+                  },
+                  "title": "Response List Stores Api Tickets Stores Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "The store accounts badges sell through",
+        "tags": [
+          "Tickets"
+        ]
+      }
+    },
+    "/api/tickets/stores/{provider}": {
+      "delete": {
+        "description": "Forgets the key and removes Wizzrobe's webhook from the account. Paid orders stay paid.\n\n**Who can call this:** Staff.\n\n**Token:** needs a token that isn't read-only.  \n**Apps:** can't call this; it needs a personal API token.  \n**Feature:** only works when the community has **Ticket Sales** turned on; otherwise every call answers `404`.",
+        "operationId": "disconnect_store_api_tickets_stores__provider__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/TicketProvider"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Disconnect a store account",
+        "tags": [
+          "Tickets"
+        ]
+      },
+      "put": {
+        "description": "Connects the community's own account with a pasted key and registers Wizzrobe's webhook on it. Reconnecting replaces the old key.\n\nFails with 400 when the key is the wrong kind or the store refuses it.\n\n**Who can call this:** Staff.\n\n**Token:** needs a token that isn't read-only.  \n**Apps:** can't call this; it needs a personal API token.  \n**Feature:** only works when the community has **Ticket Sales** turned on; otherwise every call answers `404`.",
+        "operationId": "connect_store_api_tickets_stores__provider__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/TicketProvider"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConnectStoreRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoreResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Connect a store account",
+        "tags": [
+          "Tickets"
+        ]
+      }
+    },
+    "/api/tickets/types": {
+      "get": {
+        "description": "All badge types, on sale or not, with sold and remaining counts.\n\n**Who can call this:** Staff.\n\n**App scope:** `staff:read`  \n**Feature:** only works when the community has **Ticket Sales** turned on; otherwise every call answers `404`.",
+        "operationId": "list_types_api_tickets_types_get",
+        "parameters": [
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TicketTypeResponse"
+                  },
+                  "title": "Response List Types Api Tickets Types Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "Every badge type this event sells",
+        "tags": [
+          "Tickets"
+        ]
+      },
+      "post": {
+        "description": "Fails with 400 when a field is out of range.\n\n**Who can call this:** Staff.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `staff:write`  \n**Feature:** only works when the community has **Ticket Sales** turned on; otherwise every call answers `404`.",
+        "operationId": "create_type_api_tickets_types_post",
+        "parameters": [
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TicketTypeCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketTypeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:write"
+            ]
+          }
+        ],
+        "summary": "Add a badge type",
+        "tags": [
+          "Tickets"
+        ]
+      }
+    },
+    "/api/tickets/types/{type_id}": {
+      "delete": {
+        "description": "Only one nobody has ordered; take a sold one off sale instead.\n\n**Who can call this:** Staff.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `staff:write`  \n**Feature:** only works when the community has **Ticket Sales** turned on; otherwise every call answers `404`.",
+        "operationId": "delete_type_api_tickets_types__type_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "type_id",
+            "required": true,
+            "schema": {
+              "title": "Type Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:write"
+            ]
+          }
+        ],
+        "summary": "Delete a badge type",
+        "tags": [
+          "Tickets"
+        ]
+      },
+      "patch": {
+        "description": "Badges already sold keep the price they were bought at.\n\n**Who can call this:** Staff.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `staff:write`  \n**Feature:** only works when the community has **Ticket Sales** turned on; otherwise every call answers `404`.",
+        "operationId": "update_type_api_tickets_types__type_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "type_id",
+            "required": true,
+            "schema": {
+              "title": "Type Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TicketTypeUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketTypeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:write"
+            ]
+          }
+        ],
+        "summary": "Change a badge type",
+        "tags": [
+          "Tickets"
+        ]
+      }
+    },
     "/api/tokens": {
       "get": {
         "description": "Returns your tokens that haven't been revoked: the ones made in this community plus any app connections that work across communities. The secret is never included.\n\n**Who can call this:** Any member.\n\n**Apps:** can't call this; it needs a personal API token.",
@@ -66725,6 +69563,10 @@
       "name": "Payouts"
     },
     {
+      "description": "Event badges sold through the community's own Stripe or PayPal account: stores, badge types, checkout, claims and refunds.",
+      "name": "Tickets"
+    },
+    {
       "description": "Outbound webhooks that POST to your server when events happen.",
       "name": "Webhooks"
     },
@@ -68487,6 +71329,7 @@
         "Events",
         "Tournaments",
         "Payouts",
+        "Tickets",
         "Webhooks",
         "Discord role mappings",
         "System config",

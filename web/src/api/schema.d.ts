@@ -4614,6 +4614,56 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/tickets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your badges, and extras you bought
+         * @description Your own badges, and each extra you bought with its claim link until someone claims it.
+         *
+         *     **Who can call this:** any member.
+         *
+         *     **App scope:** `profile`
+         *     **Feature:** only works when the community has **Ticket Sales** turned on; otherwise every call answers `404`.
+         */
+        get: operations["my_badges_api_me_tickets_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/tickets/orders/{order_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One of your orders
+         * @description For the page the store sends you back to: `pending` until the store confirms.
+         *
+         *     **Who can call this:** any member.
+         *
+         *     **App scope:** `profile`
+         *     **Feature:** only works when the community has **Ticket Sales** turned on; otherwise every call answers `404`.
+         */
+        get: operations["my_order_api_me_tickets_orders__order_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me/webhooks": {
         parameters: {
             query?: never;
@@ -7067,6 +7117,314 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/tickets/checkout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Hold badges and open the store's checkout
+         * @description Holds the badges for 30 minutes and returns the store's checkout page. The order is paid only when the store confirms; poll `GET /api/me/tickets/orders/{order_id}` on the way back.
+         *
+         *     Fails with 400 when a badge is sold out, off sale or over the per-order limit.
+         *
+         *     **Who can call this:** any member.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **App scope:** `profile:write`
+         *     **Feature:** only works when the community has **Ticket Sales** turned on; otherwise every call answers `404`.
+         */
+        post: operations["checkout_api_tickets_checkout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tickets/claims/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What a claim link would give you
+         * @description Who sent it, which badge, and whether you can take it.
+         *
+         *     **Who can call this:** any member.
+         *
+         *     **App scope:** `profile`
+         *     **Feature:** only works when the community has **Ticket Sales** turned on; otherwise every call answers `404`.
+         */
+        get: operations["preview_claim_api_tickets_claims__token__get"];
+        put?: never;
+        /**
+         * Claim a badge someone bought for you
+         * @description A link works once. Fails with 400 when it's already claimed, refunded or your own.
+         *
+         *     **Who can call this:** any member.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **App scope:** `profile:write`
+         *     **Feature:** only works when the community has **Ticket Sales** turned on; otherwise every call answers `404`.
+         */
+        post: operations["claim_api_tickets_claims__token__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tickets/comp-refunds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Comped people who paid for their own badge
+         * @description Everyone the check-in comp rules comp who also bought their own badge and hasn't been refunded, with what a refund would send back (up to the comp badge's price).
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **App scope:** `staff:read`
+         *     **Feature:** only works when the community has **Ticket Sales** turned on; otherwise every call answers `404`.
+         */
+        get: operations["comp_refunds_api_tickets_comp_refunds_get"];
+        put?: never;
+        /**
+         * Send comp refunds
+         * @description Refunds each named badge through its store and DMs its holder. One failure doesn't stop the rest; each result says how it went.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **App scope:** `staff:write`
+         *     **Feature:** only works when the community has **Ticket Sales** turned on; otherwise every call answers `404`.
+         */
+        post: operations["send_comp_refunds_api_tickets_comp_refunds_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tickets/on-sale": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Badges a member can buy now
+         * @description Active badge types with what's left, and the stores to pay with. Empty until staff connect a store.
+         *
+         *     **Who can call this:** any member.
+         *
+         *     **App scope:** `schedule:read`
+         *     **Feature:** only works when the community has **Ticket Sales** turned on; otherwise every call answers `404`.
+         */
+        get: operations["on_sale_api_tickets_on_sale_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tickets/orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Paid and refunded orders, newest first
+         * @description The latest 200 orders for this event.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **App scope:** `staff:read`
+         *     **Feature:** only works when the community has **Ticket Sales** turned on; otherwise every call answers `404`.
+         */
+        get: operations["list_orders_api_tickets_orders_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tickets/orders/{order_id}/refund": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refund an order
+         * @description Refunds what's left of it through its store and voids its badges.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **App scope:** `staff:write`
+         *     **Feature:** only works when the community has **Ticket Sales** turned on; otherwise every call answers `404`.
+         */
+        post: operations["refund_order_api_tickets_orders__order_id__refund_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tickets/stores": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The store accounts badges sell through
+         * @description Each connected store: provider, account name, test mode and who connected it. Never the key.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Apps:** can't call this; it needs a personal API token.
+         *     **Feature:** only works when the community has **Ticket Sales** turned on; otherwise every call answers `404`.
+         */
+        get: operations["list_stores_api_tickets_stores_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tickets/stores/{provider}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Connect a store account
+         * @description Connects the community's own account with a pasted key and registers Wizzrobe's webhook on it. Reconnecting replaces the old key.
+         *
+         *     Fails with 400 when the key is the wrong kind or the store refuses it.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **Apps:** can't call this; it needs a personal API token.
+         *     **Feature:** only works when the community has **Ticket Sales** turned on; otherwise every call answers `404`.
+         */
+        put: operations["connect_store_api_tickets_stores__provider__put"];
+        post?: never;
+        /**
+         * Disconnect a store account
+         * @description Forgets the key and removes Wizzrobe's webhook from the account. Paid orders stay paid.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **Apps:** can't call this; it needs a personal API token.
+         *     **Feature:** only works when the community has **Ticket Sales** turned on; otherwise every call answers `404`.
+         */
+        delete: operations["disconnect_store_api_tickets_stores__provider__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tickets/types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every badge type this event sells
+         * @description All badge types, on sale or not, with sold and remaining counts.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **App scope:** `staff:read`
+         *     **Feature:** only works when the community has **Ticket Sales** turned on; otherwise every call answers `404`.
+         */
+        get: operations["list_types_api_tickets_types_get"];
+        put?: never;
+        /**
+         * Add a badge type
+         * @description Fails with 400 when a field is out of range.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **App scope:** `staff:write`
+         *     **Feature:** only works when the community has **Ticket Sales** turned on; otherwise every call answers `404`.
+         */
+        post: operations["create_type_api_tickets_types_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tickets/types/{type_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a badge type
+         * @description Only one nobody has ordered; take a sold one off sale instead.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **App scope:** `staff:write`
+         *     **Feature:** only works when the community has **Ticket Sales** turned on; otherwise every call answers `404`.
+         */
+        delete: operations["delete_type_api_tickets_types__type_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Change a badge type
+         * @description Badges already sold keep the price they were bought at.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **App scope:** `staff:write`
+         *     **Feature:** only works when the community has **Ticket Sales** turned on; otherwise every call answers `404`.
+         */
+        patch: operations["update_type_api_tickets_types__type_id__patch"];
         trace?: never;
     };
     "/api/tokens": {
@@ -10892,6 +11250,38 @@ export interface components {
             /** @default available */
             status: components["schemas"]["VolunteerAvailabilityStatus"];
         };
+        /** BadgeResponse */
+        BadgeResponse: {
+            /** Claimed At */
+            claimed_at?: string | null;
+            /**
+             * Code
+             * @description What the check-in desk scans.
+             */
+            code: string;
+            /**
+             * Comp Refund Cents
+             * @default 0
+             */
+            comp_refund_cents: number;
+            /** Id */
+            id: number;
+            /** Owner Id */
+            owner_id?: number | null;
+            /** Owner Name */
+            owner_name?: string | null;
+            /** Price Cents */
+            price_cents: number;
+            /**
+             * Status
+             * @description `pending`, `valid`, `void` or `refunded`.
+             */
+            status: string;
+            /** Ticket Type Id */
+            ticket_type_id: number;
+            /** Ticket Type Name */
+            ticket_type_name: string;
+        };
         /** BlockOut */
         BlockOut: {
             /** Alt */
@@ -12159,6 +12549,48 @@ export interface components {
              */
             withdrawn: number;
         };
+        /**
+         * CheckInTierLanyard
+         * @description The lanyard a Matcherino badge type earns at the check-in desk.
+         *
+         *     Staff pick one per badge type. ``Staff`` and ``Volunteer`` lanyards aren't
+         *     here: those come from a comp role or a volunteer assignment, and outrank
+         *     any badge (``check_in_rules.lanyard_for``).
+         * @enum {string}
+         */
+        CheckInTierLanyard: "vip" | "base" | "day_pass";
+        /** CheckoutRequest */
+        CheckoutRequest: {
+            provider: components["schemas"]["TicketProvider"];
+            /**
+             * Quantities
+             * @description Badge type id → how many.
+             */
+            quantities: {
+                [key: string]: number;
+            };
+        };
+        /** CheckoutResponse */
+        CheckoutResponse: {
+            /**
+             * Checkout Url
+             * @description Send the buyer here to pay.
+             */
+            checkout_url: string;
+            /** Order Id */
+            order_id: number;
+        };
+        /** ClaimPreviewResponse */
+        ClaimPreviewResponse: {
+            /** Buyer Name */
+            buyer_name: string;
+            /** Claimable */
+            claimable: boolean;
+            /** Reason */
+            reason?: string | null;
+            /** Ticket Type Name */
+            ticket_type_name: string;
+        };
         /** ClockUpdate */
         ClockUpdate: {
             /**
@@ -12436,6 +12868,69 @@ export interface components {
              */
             slug?: string | null;
         };
+        /** CompRefundRequest */
+        CompRefundRequest: {
+            /** Ticket Ids */
+            ticket_ids: number[];
+        };
+        /** CompRefundResultResponse */
+        CompRefundResultResponse: {
+            /** Amount Cents */
+            amount_cents: number;
+            /** Error */
+            error?: string | null;
+            /** Ok */
+            ok: boolean;
+            /** Ticket Id */
+            ticket_id: number;
+        };
+        /** CompRefundRow */
+        CompRefundRow: {
+            /**
+             * Amount Cents
+             * @description What a refund sends back: up to the comp badge's price.
+             */
+            amount_cents: number;
+            /** Currency */
+            currency: string;
+            /** Paid Cents */
+            paid_cents: number;
+            /** Provider */
+            provider: string;
+            /**
+             * Reasons
+             * @description Why they're comped: role names, or Volunteer.
+             */
+            reasons: string[];
+            /**
+             * Scheduled Hours
+             * @description Volunteer hours scheduled in the event window.
+             */
+            scheduled_hours?: number | null;
+            /** Ticket Id */
+            ticket_id: number;
+            /** Ticket Type Name */
+            ticket_type_name: string;
+            /** User Id */
+            user_id: number;
+            /** User Name */
+            user_name: string;
+        };
+        /** CompRefundsResponse */
+        CompRefundsResponse: {
+            /**
+             * Comp Type Id
+             * @description The badge type a comp covers; empty until staff pick one.
+             */
+            comp_type_id?: number | null;
+            /**
+             * Has Comp Rules
+             * @description False when no check-in event comps anyone, so nobody can be owed.
+             */
+            has_comp_rules: boolean;
+            /** Rows */
+            rows: components["schemas"]["CompRefundRow"][];
+        };
         /**
          * CompleteStageRequest
          * @description Optional tie resolutions applied while writing ``final_rank``.
@@ -12490,6 +12985,14 @@ export interface components {
              * @description New value for the setting, as a string. It's checked and normalised for the key, for example `yes` becomes `true` on a switch.
              */
             value: string;
+        };
+        /** ConnectStoreRequest */
+        ConnectStoreRequest: {
+            /**
+             * Secret
+             * @description For Stripe, a restricted key (`rk_live_…` or `rk_test_…`) with write access to Checkout Sessions, Refunds and Webhook Endpoints.
+             */
+            secret: string;
         };
         /** ConnectedAccountResponse */
         ConnectedAccountResponse: {
@@ -13711,6 +14214,15 @@ export interface components {
              * @description Games 2 and up, in order. Two entries make a best-of-3, four a best-of-5.
              */
             later_games: components["schemas"]["SetGameTime"][];
+        };
+        /** ExtraBadgeResponse */
+        ExtraBadgeResponse: {
+            badge: components["schemas"]["BadgeResponse"];
+            /**
+             * Claim Path
+             * @description In-app path of the claim link while nobody has claimed it.
+             */
+            claim_path?: string | null;
         };
         /** Facts */
         Facts: {
@@ -14951,6 +15463,13 @@ export interface components {
              */
             step: number;
         };
+        /** MyBadgesResponse */
+        MyBadgesResponse: {
+            /** Extras */
+            extras: components["schemas"]["ExtraBadgeResponse"][];
+            /** Own */
+            own: components["schemas"]["BadgeResponse"][];
+        };
         /**
          * MyCheckoutResponse
          * @description One asset the caller currently holds.
@@ -15548,6 +16067,47 @@ export interface components {
             name?: string | null;
             /** Redirect Uris */
             redirect_uris?: string[] | null;
+        };
+        /** OnSaleResponse */
+        OnSaleResponse: {
+            /**
+             * Providers
+             * @description The stores a buyer can pay with: `stripe`, `paypal`.
+             */
+            providers: string[];
+            /** Types */
+            types: components["schemas"]["TicketTypeResponse"][];
+        };
+        /** OrderResponse */
+        OrderResponse: {
+            /** Badges */
+            badges: components["schemas"]["BadgeResponse"][];
+            /** Buyer Id */
+            buyer_id: number;
+            /** Buyer Name */
+            buyer_name?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Currency */
+            currency: string;
+            /** Id */
+            id: number;
+            /** Paid At */
+            paid_at?: string | null;
+            /** Provider */
+            provider: string;
+            /** Refunded Cents */
+            refunded_cents: number;
+            /**
+             * Status
+             * @description `pending`, `paid`, `expired` or `refunded`.
+             */
+            status: string;
+            /** Total Cents */
+            total_cents: number;
         };
         /** PayoutLineRequest */
         PayoutLineRequest: {
@@ -18323,6 +18883,29 @@ export interface components {
              */
             relaxations?: string[];
         };
+        /** StoreResponse */
+        StoreResponse: {
+            /**
+             * Account Label
+             * @description The account's business name, when the key may read it.
+             */
+            account_label?: string | null;
+            /**
+             * Connected By
+             * @description Who pasted the key.
+             */
+            connected_by?: string | null;
+            /**
+             * Provider
+             * @description `stripe` or `paypal`.
+             */
+            provider: string;
+            /**
+             * Test Mode
+             * @description True for a test-mode key: no real money moves.
+             */
+            test_mode: boolean;
+        };
         /** StreamCandidateRequest */
         StreamCandidateRequest: {
             /**
@@ -18960,6 +19543,142 @@ export interface components {
              * @description Distinct signed-in people seen in the window.
              */
             unique_users: number;
+        };
+        /**
+         * TicketProvider
+         * @description A store a community connects its own account from to sell badges.
+         * @enum {string}
+         */
+        TicketProvider: "stripe" | "paypal";
+        /** TicketTypeCreate */
+        TicketTypeCreate: {
+            /**
+             * Covers Comp
+             * @default false
+             */
+            covers_comp: boolean;
+            /**
+             * Currency
+             * @default usd
+             */
+            currency: string;
+            /** Description */
+            description?: string | null;
+            /**
+             * Is Active
+             * @default true
+             */
+            is_active: boolean;
+            /** @default base */
+            lanyard: components["schemas"]["CheckInTierLanyard"];
+            /**
+             * Max Per Order
+             * @default 10
+             */
+            max_per_order: number;
+            /** Name */
+            name: string;
+            /** Price Cents */
+            price_cents: number;
+            /** Quantity */
+            quantity?: number | null;
+            /** Sales Close At */
+            sales_close_at?: string | null;
+            /** Sales Open At */
+            sales_open_at?: string | null;
+            /**
+             * Sort Order
+             * @default 0
+             */
+            sort_order: number;
+        };
+        /** TicketTypeResponse */
+        TicketTypeResponse: {
+            /**
+             * Covers Comp
+             * @description The badge a comp stands in for; a comped buyer is owed up to its price.
+             */
+            covers_comp: boolean;
+            /**
+             * Currency
+             * @description Three-letter code, lower case.
+             */
+            currency: string;
+            /** Description */
+            description?: string | null;
+            /** Id */
+            id: number;
+            /** Is Active */
+            is_active: boolean;
+            /**
+             * Lanyard
+             * @description The lanyard the check-in desk hands out for it.
+             */
+            lanyard: string;
+            /** Max Per Order */
+            max_per_order: number;
+            /** Name */
+            name: string;
+            /**
+             * Not On Sale Reason
+             * @description Why not, when it isn't: sold out, sales closed, and so on.
+             */
+            not_on_sale_reason?: string | null;
+            /**
+             * On Sale
+             * @description Whether a member can buy it right now.
+             */
+            on_sale: boolean;
+            /**
+             * Price Cents
+             * @description Price in the currency's smallest unit (cents).
+             */
+            price_cents: number;
+            /**
+             * Quantity
+             * @description How many exist; empty for no limit.
+             */
+            quantity?: number | null;
+            /**
+             * Remaining
+             * @description Left to sell, counting checkouts in progress; empty for no limit.
+             */
+            remaining?: number | null;
+            /** Sales Close At */
+            sales_close_at?: string | null;
+            /** Sales Open At */
+            sales_open_at?: string | null;
+            /**
+             * Sold
+             * @description Badges paid for.
+             */
+            sold: number;
+            /** Sort Order */
+            sort_order: number;
+        };
+        /** TicketTypeUpdate */
+        TicketTypeUpdate: {
+            /** Covers Comp */
+            covers_comp?: boolean | null;
+            /** Description */
+            description?: string | null;
+            /** Is Active */
+            is_active?: boolean | null;
+            lanyard?: components["schemas"]["CheckInTierLanyard"] | null;
+            /** Max Per Order */
+            max_per_order?: number | null;
+            /** Name */
+            name?: string | null;
+            /** Price Cents */
+            price_cents?: number | null;
+            /** Quantity */
+            quantity?: number | null;
+            /** Sales Close At */
+            sales_close_at?: string | null;
+            /** Sales Open At */
+            sales_open_at?: string | null;
+            /** Sort Order */
+            sort_order?: number | null;
         };
         /** TimeCheckResponse */
         TimeCheckResponse: {
@@ -36559,6 +37278,144 @@ export interface operations {
             };
         };
     };
+    my_badges_api_me_tickets_get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyBadgesResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    my_order_api_me_tickets_orders__order_id__get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                order_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     list_hooks_api_me_webhooks_get: {
         parameters: {
             query?: never;
@@ -45111,6 +45968,1137 @@ export interface operations {
                 };
                 content: {
                     "application/json": (components["schemas"]["TopPathRow"] | components["schemas"]["TopEventTypeRow"] | components["schemas"]["TopUserRow"] | components["schemas"]["TopControlRow"] | components["schemas"]["TopApiCallRow"] | components["schemas"]["TopApiUserRow"])[];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    checkout_api_tickets_checkout_post: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CheckoutRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckoutResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    preview_claim_api_tickets_claims__token__get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClaimPreviewResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    claim_api_tickets_claims__token__post: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BadgeResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    comp_refunds_api_tickets_comp_refunds_get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompRefundsResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    send_comp_refunds_api_tickets_comp_refunds_post: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompRefundRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompRefundResultResponse"][];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    on_sale_api_tickets_on_sale_get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OnSaleResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_orders_api_tickets_orders_get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderResponse"][];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    refund_order_api_tickets_orders__order_id__refund_post: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                order_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_stores_api_tickets_stores_get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoreResponse"][];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    connect_store_api_tickets_stores__provider__put: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                provider: components["schemas"]["TicketProvider"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConnectStoreRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoreResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    disconnect_store_api_tickets_stores__provider__delete: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                provider: components["schemas"]["TicketProvider"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_types_api_tickets_types_get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketTypeResponse"][];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_type_api_tickets_types_post: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TicketTypeCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketTypeResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_type_api_tickets_types__type_id__delete: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                type_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_type_api_tickets_types__type_id__patch: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                type_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TicketTypeUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketTypeResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description No token, or the token is unknown, expired or revoked. */
