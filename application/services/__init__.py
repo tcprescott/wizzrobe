@@ -183,6 +183,10 @@ from .tenant_membership_service import TenantMembershipService
 from .tenant_service import TenantService
 from .tenant_setup_service import SetupStep, TenantSetupService
 from .tenant_theme_service import TenantThemeService
+from .ticket_checkout_service import CheckoutStart, TicketCheckoutService
+from .ticket_comp_refund_service import TicketCompRefundService
+from .ticket_service import TicketService
+from .ticket_store_service import TicketStoreService
 from .timezone_service import TimezoneService
 from .tournament_config import TournamentConfig, validate_tournament_config
 from .tournament_notification_service import TournamentNotificationService
@@ -232,6 +236,7 @@ __all__ = [
     'ChallongeService',
     'CheckInDeskService',
     'CheckInService',
+    'CheckoutStart',
     'CommentInbox',
     'CommentaryInviteService',
     'CommunityEventService',
@@ -352,6 +357,10 @@ __all__ = [
     'TenantService',
     'TenantSetupService',
     'TenantThemeService',
+    'TicketCheckoutService',
+    'TicketCompRefundService',
+    'TicketService',
+    'TicketStoreService',
     'TimezoneService',
     'TournamentConfig',
     'TournamentNotificationService',

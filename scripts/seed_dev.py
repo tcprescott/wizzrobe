@@ -113,6 +113,7 @@ from scripts.seed_support import (
     fixture_discord_id,
 )
 from scripts.seed_surveys import seed_surveys_for_tenant
+from scripts.seed_tickets import seed_tickets_for_tenant
 from scripts.seed_tokens import seed_tokens_for_tenant
 from scripts.seed_venue import seed_venue_for_tenant
 from scripts.seed_volunteers import seed_volunteers_for_tenant
@@ -371,6 +372,7 @@ async def seed_for_tenant(
         print(f"    [{tenant.slug}] on-site tournament ok")
 
         await seed_payouts_for_tenant(tenant, players)
+        await seed_tickets_for_tenant(tenant, players[0])
 
         racers = players + [users[name] for name, _display, _full in RACER_SPECS]
         await seed_play_in_for_tenant(tenant, tournament, staff, racers, now)

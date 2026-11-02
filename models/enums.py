@@ -132,6 +132,7 @@ class FeatureFlag(str, Enum):
     ITEM_TRACKER = 'item_tracker'
     THIRD_PARTY_APPS = 'third_party_apps'
     SURVEYS = 'surveys'
+    TICKET_SALES = 'ticket_sales'
 
 
 class BracketFormat(str, Enum):
@@ -791,3 +792,32 @@ class DataExportStatus(str, Enum):
     @classmethod
     def pending(cls) -> frozenset['DataExportStatus']:
         return frozenset({cls.QUEUED, cls.RUNNING})
+
+
+class TicketProvider(str, Enum):
+    """A store a community connects its own account from to sell badges."""
+
+    STRIPE = 'stripe'
+    PAYPAL = 'paypal'
+
+    @property
+    def label(self) -> str:
+        return {'stripe': 'Stripe', 'paypal': 'PayPal'}[self.value]
+
+
+class TicketOrderStatus(str, Enum):
+    """Where a badge order is: waiting on the store, paid, lapsed, or refunded."""
+
+    PENDING = 'pending'
+    PAID = 'paid'
+    EXPIRED = 'expired'
+    REFUNDED = 'refunded'
+
+
+class TicketStatus(str, Enum):
+    """One badge: held while its order is pending, then valid, void or refunded."""
+
+    PENDING = 'pending'
+    VALID = 'valid'
+    VOID = 'void'
+    REFUNDED = 'refunded'

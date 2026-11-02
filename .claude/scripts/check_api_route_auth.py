@@ -43,7 +43,9 @@ NON_ACTOR = {"require_feature"}
 #   version  — the build version, also printed on the public /about page.
 #   rotate   — a push service reissued an endpoint; the caller proves itself by
 #              knowing the old endpoint and auth, and has no token to send.
-ALLOWLIST = {("health", "health"), ("version", "version"), ("web_push", "rotate")}
+#   store_webhook — Stripe/PayPal post it; the store's signature, checked
+#              against that store's sealed secret, is the proof.
+ALLOWLIST = {("health", "health"), ("version", "version"), ("web_push", "rotate"), ("tickets", "store_webhook")}
 
 
 def is_write_dep(name: str) -> bool:
