@@ -13,12 +13,12 @@ from api.dependencies import (
     require_admin,
     require_api_actor,
     require_identity,
-    resolve_identity,
     require_staff,
     require_staff_write,
     require_super_admin,
     require_super_admin_write,
     require_volunteer_admin,
+    resolve_identity,
     resolve_token,
     tenant_context_scope,
 )
