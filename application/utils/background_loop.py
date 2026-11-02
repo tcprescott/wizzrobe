@@ -136,6 +136,10 @@ class BackgroundLoop:
     def interval(self) -> float:
         return self._interval
 
+    @property
+    def tick_timeout(self) -> float:
+        return self._tick_timeout
+
     async def run_once(self) -> bool:
         """Run one tick with the loop's timeout, failure handling and metrics.
 
