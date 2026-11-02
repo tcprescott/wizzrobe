@@ -9,7 +9,7 @@ date range. It also carries the chart series the existing REST reshapes away
 
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from application.services.audit_service import AuditService
 from application.services.auth_service import AuthService
@@ -250,14 +250,14 @@ class ReportsScreenService:
 
     @classmethod
     async def audit_page(
-        cls, actor: Optional[User], start: date, end: date, *,
+        cls, actor: User, start: date, end: date, *,
         user_id: Optional[int] = None, area: Optional[str] = None, search: Optional[str] = None,
         limit: int = 50, offset: int = 0,
     ) -> AuditPage:
         """One page of the Audit Log as the report shows it: each row described in plain words."""
         lo, hi = cls._bounds(start, end)
         service = AuditService()
-        query = dict(
+        query: Dict[str, Any] = dict(
             actor=actor, start=lo, end=hi, user_id=user_id,
             area=area if area_by_key(area) else None, search=(search or '').strip() or None,
         )

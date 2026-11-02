@@ -4,7 +4,7 @@ never had (volunteer coverage by date, the exports picker, the telemetry log).
 """
 
 from datetime import date, datetime
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, Query
 
@@ -190,7 +190,7 @@ async def telemetry_events(
     event_id: Optional[int] = Depends(event_filter),
 ):
     service = TelemetryService()
-    filters = dict(
+    filters: Dict[str, Any] = dict(
         start=start, end=end, event_id=event_id, category=category, user_id=user_id, path_contains=path_contains,
     )
     total = await service.count_events(actor, **filters)
@@ -199,7 +199,7 @@ async def telemetry_events(
         total=total, limit=limit, offset=offset,
         items=[
             TelemetryEventRow(
-                id=r.id, created_at=r.created_at, user_id=r.user_id,
+                id=r.id, created_at=r.created_at, user_id=r.user_id,  # type: ignore[attr-defined]
                 user_name=r.user.preferred_name if r.user else None,
                 category=r.category, event_type=r.event_type, path=r.path, details=r.details,
             )
