@@ -4,6 +4,102 @@
  */
 
 export interface paths {
+    "/api/about": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the About page
+         * @description What Wizzrobe is, its licence, which build is running, and how many notices it ships.
+         *
+         *     **Who can call this:** Anyone; no token or community needed.
+         *
+         *     **Token:** not needed.
+         */
+        get: operations["about_api_about_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/about/notice": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a third-party notice
+         * @description One library's licence and copyright notice in full.
+         *
+         *     **Who can call this:** Anyone; no token or community needed.
+         *
+         *     **Token:** not needed.
+         */
+        get: operations["notice_api_about_notice_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/about/notices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List third-party notices
+         * @description The open-source software Wizzrobe ships, grouped, with each one's licence name.
+         *
+         *     **Who can call this:** Anyone; no token or community needed.
+         *
+         *     **Token:** not needed.
+         */
+        get: operations["notices_api_about_notices_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/about/privacy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the privacy policy
+         * @description The privacy policy as blocks, and when it last changed.
+         *
+         *     **Who can call this:** Anyone; no token or community needed.
+         *
+         *     **Token:** not needed.
+         */
+        get: operations["privacy_api_about_privacy_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/async-qualifiers": {
         parameters: {
             query?: never;
@@ -1670,6 +1766,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/changelog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get What's new
+         * @description The bigger changes to Wizzrobe, a week per entry, newest first, each week grouped into New, Improved, Fixed and so on.
+         *
+         *     **Who can call this:** Anyone; no token or community needed.
+         *
+         *     **Token:** not needed.
+         */
+        get: operations["changelog_api_changelog_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/check-in/entrants/{entrant_id}/check-in": {
         parameters: {
             query?: never;
@@ -2341,6 +2461,81 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/event-info": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List event information
+         * @description The event handbook's articles for this community's event, and its PDF guide when it has one. Pages written for crew or staff are listed only for people holding those roles.
+         *
+         *     **Who can call this:** Anyone, signed in or not. Name the community in the `X-Wizzrobe-Community` header (a personal token's own community is used instead). Signed in as a member, you also get the articles your roles open.
+         *
+         *     **Token:** not needed.
+         *     **Feature:** only works when the community has **Event Information** turned on; otherwise every call answers `404`.
+         */
+        get: operations["list_event_info_api_event_info_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/event-info/guide.pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download the event guide
+         * @description The organisers' event guide, as a PDF.
+         *
+         *     **Who can call this:** Anyone, signed in or not. Name the community in the `X-Wizzrobe-Community` header (a personal token's own community is used instead). Signed in as a member, you also get the articles your roles open.
+         *
+         *     **Token:** not needed.
+         *     **Feature:** only works when the community has **Event Information** turned on; otherwise every call answers `404`.
+         */
+        get: operations["event_guide_api_event_info_guide_pdf_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/event-info/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get an event information article
+         * @description One handbook article as blocks. An article with a `tournaments` embed also carries the live tournament list it draws, and the venue's clock that list's times read on. `404` for an article that doesn't exist or isn't for you.
+         *
+         *     **Who can call this:** Anyone, signed in or not. Name the community in the `X-Wizzrobe-Community` header (a personal token's own community is used instead). Signed in as a member, you also get the articles your roles open.
+         *
+         *     **Token:** not needed.
+         *     **Feature:** only works when the community has **Event Information** turned on; otherwise every call answers `404`.
+         */
+        get: operations["event_info_article_api_event_info__slug__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/event/hub": {
         parameters: {
             query?: never;
@@ -2759,6 +2954,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/facts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the facts
+         * @description Every fact the app hides in empty lists and spinners, for this season's topic.
+         *
+         *     **Who can call this:** Anyone; no token or community needed.
+         *
+         *     **Token:** not needed.
+         */
+        get: operations["facts_api_facts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/feedback": {
         parameters: {
             query?: never;
@@ -2889,6 +3108,78 @@ export interface paths {
          *     **Token:** not needed.
          */
         get: operations["health_api_health_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/help": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List help articles
+         * @description The help articles this community offers you, the "For staff" group last. An article about a feature the community has turned off isn't listed. `q` keeps only the articles containing every word of it.
+         *
+         *     **Who can call this:** Anyone, signed in or not. Name the community in the `X-Wizzrobe-Community` header (a personal token's own community is used instead). Signed in as a member, you also get the articles your roles open.
+         *
+         *     **Token:** not needed.
+         */
+        get: operations["list_help_api_help_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/help/snippets/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a help snippet
+         * @description The few lines a help icon shows, cut from an article, with a link to the rest. `404` when the article isn't offered to you here.
+         *
+         *     **Who can call this:** Anyone, signed in or not. Name the community in the `X-Wizzrobe-Community` header (a personal token's own community is used instead). Signed in as a member, you also get the articles your roles open.
+         *
+         *     **Token:** not needed.
+         */
+        get: operations["help_snippet_api_help_snippets__name__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/help/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a help article
+         * @description One help article as blocks. Links to articles you couldn't open here are already taken out. `404` for an article that doesn't exist, is about a feature that's off, or isn't for you; the three look the same on purpose.
+         *
+         *     **Who can call this:** Anyone, signed in or not. Name the community in the `X-Wizzrobe-Community` header (a personal token's own community is used instead). Signed in as a member, you also get the articles your roles open.
+         *
+         *     **Token:** not needed.
+         */
+        get: operations["help_article_api_help__slug__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -9840,6 +10131,21 @@ export interface webhooks {
 }
 export interface components {
     schemas: {
+        /** AboutPage */
+        AboutPage: {
+            /** Built With Claude */
+            built_with_claude: string;
+            /** Commit Short */
+            commit_short: string | null;
+            /** Intro */
+            intro: components["schemas"]["BlockOut"][];
+            /** Notice Count */
+            notice_count: number;
+            /** Source Url */
+            source_url: string;
+            /** Version */
+            version: string;
+        };
         /** AccommodationResponse */
         AccommodationResponse: {
             /**
@@ -10070,6 +10376,61 @@ export interface components {
              * @description The first characters of the secret, to tell tokens apart.
              */
             token_prefix: string;
+        };
+        /** Article */
+        Article: {
+            /** Blocks */
+            blocks: components["schemas"]["BlockOut"][];
+            /**
+             * For Staff
+             * @description Listed under "For staff" (help only).
+             */
+            for_staff: boolean;
+            /**
+             * Headings
+             * @description The On this page list: every top-level heading.
+             */
+            headings: components["schemas"]["Heading"][];
+            /**
+             * Icon
+             * @description A Material Symbols icon name.
+             */
+            icon: string;
+            /** Slug */
+            slug: string;
+            /** Summary */
+            summary: string;
+            /** Title */
+            title: string;
+            /**
+             * Tournaments
+             * @description Handbook articles with a `tournaments` embed: the live list it draws.
+             */
+            tournaments?: components["schemas"]["HandbookTournamentOut"][] | null;
+            /**
+             * Venue Timezone
+             * @description The clock the article states times on (IANA name). Handbook articles only.
+             */
+            venue_timezone?: string | null;
+        };
+        /** ArticleSummary */
+        ArticleSummary: {
+            /**
+             * For Staff
+             * @description Listed under "For staff" (help only).
+             */
+            for_staff: boolean;
+            /**
+             * Icon
+             * @description A Material Symbols icon name.
+             */
+            icon: string;
+            /** Slug */
+            slug: string;
+            /** Summary */
+            summary: string;
+            /** Title */
+            title: string;
         };
         /** AssignRequest */
         AssignRequest: {
@@ -10602,6 +10963,56 @@ export interface components {
             starts_at: string;
             /** @default available */
             status: components["schemas"]["VolunteerAvailabilityStatus"];
+        };
+        /** BlockOut */
+        BlockOut: {
+            /** Alt */
+            alt: string;
+            /**
+             * Anchor
+             * @description A heading's fragment id, for On this page links.
+             */
+            anchor: string;
+            /**
+             * Headers
+             * @description Table header cells.
+             */
+            headers: components["schemas"]["SpanOut"][][];
+            /**
+             * Items
+             * @description List items.
+             */
+            items: components["schemas"]["SpanOut"][][];
+            /**
+             * Kind
+             * @description One of `heading`, `para`, `bullets`, `numbers`, `table`, `note`, `image`, `embed`.
+             */
+            kind: string;
+            /**
+             * Level
+             * @description Heading level, 2 to 4.
+             */
+            level: number;
+            /**
+             * Name
+             * @description An embed's name; `tournaments` draws the article's `tournaments` list in place.
+             */
+            name: string;
+            /**
+             * Rows
+             * @description Table rows of cells.
+             */
+            rows: components["schemas"]["SpanOut"][][][];
+            /**
+             * Spans
+             * @description Heading, paragraph or note text; an image's caption.
+             */
+            spans: components["schemas"]["SpanOut"][];
+            /**
+             * Src
+             * @description An image's path on the server, under `/static/help/`.
+             */
+            src: string;
         };
         /** BookRequest */
         BookRequest: {
@@ -11495,6 +11906,50 @@ export interface components {
             counts: {
                 [key: string]: unknown;
             };
+        };
+        /** Changelog */
+        Changelog: {
+            /**
+             * Weeks
+             * @description Newest first.
+             */
+            weeks: components["schemas"]["ChangelogWeek"][];
+        };
+        /** ChangelogSectionOut */
+        ChangelogSectionOut: {
+            /** Blocks */
+            blocks: components["schemas"]["BlockOut"][];
+            /**
+             * Category
+             * @description `New`, `Improved`, `Fixed`, `Security` or `Behind the scenes`.
+             */
+            category: string;
+            /** Count */
+            count: number;
+        };
+        /** ChangelogWeek */
+        ChangelogWeek: {
+            /** Anchor */
+            anchor: string;
+            /**
+             * End
+             * Format: date
+             */
+            end: string;
+            /**
+             * Period
+             * @description The dates, written out: `26 Oct – 1 Nov`.
+             */
+            period: string;
+            /** Sections */
+            sections: components["schemas"]["ChangelogSectionOut"][];
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+            /** Title */
+            title: string;
         };
         /** ChannelTestRequest */
         ChannelTestRequest: {
@@ -13226,6 +13681,13 @@ export interface components {
              */
             zone?: string | null;
         };
+        /** EventInfoIndex */
+        EventInfoIndex: {
+            /** Articles */
+            articles: components["schemas"]["ArticleSummary"][];
+            /** @description The organisers' PDF guide, when there is one. */
+            guide?: components["schemas"]["GuideInfo"] | null;
+        };
         /** EventResponse */
         EventResponse: {
             /** Ends On */
@@ -13374,6 +13836,26 @@ export interface components {
              * @description Games 2 and up, in order. Two entries make a best-of-3, four a best-of-5.
              */
             later_games: components["schemas"]["SetGameTime"][];
+        };
+        /** Facts */
+        Facts: {
+            /**
+             * Another
+             * @description The shuffle button's label.
+             */
+            another: string;
+            /** Icon */
+            icon: string;
+            /** Noun */
+            noun: string;
+            /** Sections */
+            sections: {
+                [key: string]: string[];
+            };
+            /** Title */
+            title: string;
+            /** Total */
+            total: number;
         };
         /** FeatureGroupAssignRequest */
         FeatureGroupAssignRequest: {
@@ -13648,10 +14130,56 @@ export interface components {
             /** Errors */
             errors?: components["schemas"]["GraphQLErrorOut"][] | null;
         };
+        /** GuideInfo */
+        GuideInfo: {
+            /** Filename */
+            filename: string;
+            /** Size Bytes */
+            size_bytes: number;
+            /**
+             * Size Label
+             * @description Such as `4.2 MB`.
+             */
+            size_label: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** HandbookTournamentOut */
+        HandbookTournamentOut: {
+            /**
+             * Bracket Url
+             * @description A site path for a bracket Wizzrobe shows, else an outside link, else empty.
+             */
+            bracket_url: string;
+            /** Format */
+            format: string;
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Prize Synced At */
+            prize_synced_at?: string | null;
+            /** Prize Total */
+            prize_total?: string | null;
+            /** Rules Url */
+            rules_url: string;
+            /**
+             * Signups
+             * @description `upcoming`, `open` or `closed`.
+             */
+            signups: string;
+            /** Signups Close At */
+            signups_close_at: string | null;
+        };
+        /** Heading */
+        Heading: {
+            /** Anchor */
+            anchor: string;
+            /** Text */
+            text: string;
         };
         /** HealthResponse */
         HealthResponse: {
@@ -13660,6 +14188,14 @@ export interface components {
              * @description Always `ok` when the app is up and can reach its database.
              */
             status: string;
+        };
+        /** HelpIndex */
+        HelpIndex: {
+            /**
+             * Articles
+             * @description Every article you may open, "For staff" last.
+             */
+            articles: components["schemas"]["ArticleSummary"][];
         };
         /** HomeResponse */
         HomeResponse: {
@@ -14845,6 +15381,17 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** NoticeGroupOut */
+        NoticeGroupOut: {
+            /** Blurb */
+            blurb: string;
+            /** Heading */
+            heading: string;
+            /** Key */
+            key: string;
+            /** Notices */
+            notices: components["schemas"]["NoticeOut"][];
+        };
         /** NoticeInfo */
         NoticeInfo: {
             /**
@@ -14887,6 +15434,42 @@ export interface components {
              * @description The message's name.
              */
             title: string;
+        };
+        /** NoticeOut */
+        NoticeOut: {
+            /** Key */
+            key: string;
+            /** License */
+            license: string;
+            /** Name */
+            name: string;
+            /** Url */
+            url: string | null;
+            /** Version */
+            version: string;
+        };
+        /** NoticeText */
+        NoticeText: {
+            /** Key */
+            key: string;
+            /** License */
+            license: string;
+            /** Name */
+            name: string;
+            /**
+             * Text
+             * @description The licence and copyright notice, as plain text.
+             */
+            text: string;
+            /** Url */
+            url: string | null;
+            /** Version */
+            version: string;
+        };
+        /** Notices */
+        Notices: {
+            /** Groups */
+            groups: components["schemas"]["NoticeGroupOut"][];
         };
         /**
          * NotificationMode
@@ -15598,6 +16181,16 @@ export interface components {
             settings?: {
                 [key: string]: unknown;
             } | null;
+        };
+        /** PrivacyPolicy */
+        PrivacyPolicy: {
+            /** Blocks */
+            blocks: components["schemas"]["BlockOut"][];
+            /**
+             * Updated
+             * Format: date
+             */
+            updated: string;
         };
         /** PrizePoolRequest */
         PrizePoolRequest: {
@@ -17372,6 +17965,45 @@ export interface components {
              * @default false
              */
             undecided: boolean;
+        };
+        /** Snippet */
+        Snippet: {
+            /** Blocks */
+            blocks: components["schemas"]["BlockOut"][];
+            /** Heading */
+            heading: string;
+            /**
+             * Href
+             * @description The article, at the heading the snippet sits under.
+             */
+            href: string;
+            /** Name */
+            name: string;
+            /**
+             * Title
+             * @description The article it comes from.
+             */
+            title: string;
+        };
+        /** SpanOut */
+        SpanOut: {
+            /**
+             * Href
+             * @description Links only. Already checked safe: a site path (`/help/crew`), `#anchor`, `https://` or `mailto:`.
+             */
+            href: string;
+            /**
+             * Kind
+             * @description One of `text`, `strong`, `em`, `code`, `link`, `chip`, `state`.
+             */
+            kind: string;
+            /** Text */
+            text: string;
+            /**
+             * Tone
+             * @description Chips only: `ok`, `pending`, `live`, `neutral`, `cancelled`, `candidate` or `new`.
+             */
+            tone: string;
         };
         /**
          * SpeedGamingEpisodeResponse
@@ -20815,6 +21447,170 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    about_api_about_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AboutPage"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    notice_api_about_notice_get: {
+        parameters: {
+            query: {
+                /** @description The notice's `key`, from the list, such as `web:react`. */
+                key: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoticeText"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    notices_api_about_notices_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Notices"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    privacy_api_about_privacy_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrivacyPolicy"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     list_qualifiers_api_async_qualifiers_get: {
         parameters: {
             query?: {
@@ -26611,6 +27407,44 @@ export interface operations {
             };
         };
     };
+    changelog_api_changelog_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Changelog"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     check_in_api_check_in_entrants__entrant_id__check_in_post: {
         parameters: {
             query?: {
@@ -28845,6 +29679,158 @@ export interface operations {
             };
         };
     };
+    list_event_info_api_event_info_get: {
+        parameters: {
+            query?: {
+                /** @description The event to read about, by its slug (see `GET /api/events`). Leave it out for the community's default event. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventInfoIndex"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    event_guide_api_event_info_guide_pdf_get: {
+        parameters: {
+            query?: {
+                /** @description The event to read about, by its slug (see `GET /api/events`). Leave it out for the community's default event. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The guide. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": unknown;
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    event_info_article_api_event_info__slug__get: {
+        parameters: {
+            query?: {
+                /** @description The event to read about, by its slug (see `GET /api/events`). Leave it out for the community's default event. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Article"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     event_hub_api_event_hub_get: {
         parameters: {
             query?: {
@@ -30230,6 +31216,44 @@ export interface operations {
             };
         };
     };
+    facts_api_facts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Facts"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     list_feedback_api_feedback_get: {
         parameters: {
             query?: {
@@ -30624,6 +31648,162 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HealthResponse"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_help_api_help_get: {
+        parameters: {
+            query?: {
+                /** @description Words to search for. */
+                q?: string | null;
+                /** @description The event to read about, by its slug (see `GET /api/events`). Leave it out for the community's default event. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HelpIndex"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    help_snippet_api_help_snippets__name__get: {
+        parameters: {
+            query?: {
+                /** @description The event to read about, by its slug (see `GET /api/events`). Leave it out for the community's default event. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Snippet"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    help_article_api_help__slug__get: {
+        parameters: {
+            query?: {
+                /** @description The event to read about, by its slug (see `GET /api/events`). Leave it out for the community's default event. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Article"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
             /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */

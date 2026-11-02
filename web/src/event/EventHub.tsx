@@ -4,6 +4,7 @@ import { Banner, Button, EmptyState, Icon, PageHeader, Panel, Spinner } from '..
 import { useCommunity } from '../community/CommunityProvider'
 import { effectiveZone } from '../lib/time'
 import { useFlash } from '../player/HomeScreen'
+import { useEventInfo } from '../reading/data'
 import { useHub } from './data'
 import { RunSheetRow, StageCard, TournamentCardView } from './parts'
 import './event.css'
@@ -12,6 +13,8 @@ import './event.css'
 export function EventHub() {
   const { event, base } = useCommunity()
   const { data, error, loading, reload } = useHub()
+  const info = useEventInfo()
+  const hasInfo = !!info.data && (info.data.articles.length > 0 || !!info.data.guide)
   const [flash, setFlash] = useFlash()
   const done = useCallback(
     (msg: string) => {
@@ -32,6 +35,16 @@ export function EventHub() {
         </Banner>
       )}
       {loading && !data && <Spinner label="Loading the event" />}
+      {hasInfo && (
+        <Link to={`${base}/event-info`} className="hub-info">
+          <Icon name="menu_book" size={22} />
+          <span className="hub-info__text">
+            <strong>Event information</strong>
+            <span>The organisers' handbook for this event</span>
+          </span>
+          <Icon name="chevron_right" size={20} />
+        </Link>
+      )}
       {data && (
         <>
           <section aria-labelledby="hub-now">

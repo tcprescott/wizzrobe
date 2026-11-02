@@ -29,6 +29,8 @@ const require = createRequire(import.meta.url)
 const axeSource = readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8')
 const fixtures = JSON.parse(readFileSync(join(here, 'a11y-fixtures.json'), 'utf8'))
 
+const GUIDE_PDF = readFileSync(join(root, '..', 'application', 'event_info', 'content', 'default', 'Event-Guide-Dev-Fixture.pdf'))
+
 const PORT = 4173
 const BASE = `http://localhost:${PORT}`
 const PHONES = (process.env.A11Y_WIDTHS || '360').split(',').map((w) => Number(w.trim()))
@@ -72,6 +74,20 @@ const TARGETS = [
   { name: 'me-register-app', path: '/t/sgl/me/apps', act: (p) => p.getByRole('button', { name: 'Register an app' }).click(), wait: 'role=dialog' },
   { name: 'me-sign-out', path: '/t/sgl/me/appearance', act: (p) => p.getByRole('button', { name: 'Sign out' }).click(), wait: 'role=dialog' },
   { name: 'picker', path: '/t/sgl/home', act: (p) => p.getByRole('button', { name: /Change event or community/ }).click(), wait: 'role=menu' },
+  { name: 'help', path: '/t/sgl/help' },
+  { name: 'help-article', path: '/t/sgl/help/crew' },
+  { name: 'help-zoom', path: '/t/sgl/help/crew', act: (p) => p.getByRole('button', { name: /^Enlarge/ }).first().click(), wait: 'role=dialog' },
+  { name: 'event-info', path: '/t/sgl/event-info' },
+  { name: 'event-info-article', path: '/t/sgl/event-info/schedule' },
+  { name: 'event-guide', path: '/t/sgl/event-info/guide', wait: '.guide-page', act: async () => {} },
+  { name: 'help-signed-out', path: '/t/sgl/help', signedIn: false },
+  { name: 'help-article-signed-out', path: '/t/sgl/help/crew', signedIn: false },
+  { name: 'changelog', path: '/t/sgl/changelog' },
+  { name: 'about', path: '/t/sgl/about' },
+  { name: 'about-privacy', path: '/t/sgl/about/privacy' },
+  { name: 'about-notices', path: '/t/sgl/about/notices' },
+  { name: 'about-notice', path: '/t/sgl/about/notices', act: (p) => p.locator('.read-notices button').first().click(), wait: 'role=dialog' },
+  { name: 'facts', path: '/t/sgl/facts' },
   { name: 'player-no-work', path: '/t/second/home' },
   { name: 'not-a-member', path: '/t/elsewhere/home' },
   { name: 'not-found', path: '/nowhere' },
@@ -110,6 +126,7 @@ async function stubApi(context) {
   )
   await context.route('**/api/**', (route) => {
     const path = new URL(route.request().url()).pathname
+    if (path.endsWith('/guide.pdf')) return route.fulfill({ status: 200, contentType: 'application/pdf', body: GUIDE_PDF })
     const body = fixtures[path]
     if (body === undefined) return route.fulfill({ status: 404, json: { detail: 'Not in the a11y fixtures' } })
     return route.fulfill({ status: 200, json: withTimes(body) })

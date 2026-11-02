@@ -1,10 +1,8 @@
 import { createBrowserRouter, Navigate, RouterProvider, type RouteObject } from 'react-router-dom'
 import { AuthProvider, RequireAuth } from './auth/AuthProvider'
 import { TooltipProvider } from './components'
-import { CommunityProvider } from './community/CommunityProvider'
 import { CallbackScreen } from './screens/CallbackScreen'
 import { CommunityIndex } from './screens/CommunityIndex'
-import { CommunityMissing } from './screens/CommunityMissing'
 import { KitScreen } from './screens/KitScreen'
 import { MeLayout } from './me/MeLayout'
 import { MeSection } from './me/sections'
@@ -18,6 +16,8 @@ import { EventHub } from './event/EventHub'
 import { RunSheetScreen } from './event/RunSheetScreen'
 import { WatchScreen } from './event/WatchScreen'
 import { AppShell } from './shell/AppShell'
+import { ReadingFrame } from './reading/ReadingFrame'
+import { readingRoutes } from './reading/routes'
 import { ThemeProvider } from './theme/ThemeProvider'
 import { startNativeBridge } from './native/bridge'
 
@@ -31,14 +31,14 @@ const tabRoutes: RouteObject[] = [
   { path: 'event/tournament/:tournamentId', element: <BracketScreen /> },
   { path: 'work', element: <WorkScreen /> },
   { path: 'me', element: <MeLayout />, children: [{ path: ':section', element: <MeSection /> }] },
+  ...readingRoutes,
 ]
 
+// The reading pages (help, event info…) open signed out too; ReadingFrame picks the frame.
 const shell = (
-  <RequireAuth>
-    <CommunityProvider fallback={(state) => <CommunityMissing {...state} />}>
-      <AppShell />
-    </CommunityProvider>
-  </RequireAuth>
+  <ReadingFrame>
+    <AppShell />
+  </ReadingFrame>
 )
 
 // /t/<slug>/… and /t/<slug>/e/<event>/… keep the shape links in sent DMs already use.
