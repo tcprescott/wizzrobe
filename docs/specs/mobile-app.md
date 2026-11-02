@@ -218,3 +218,15 @@ in TypeScript.
   accounts and "Use my Discord email" still open the website's sign-in pages in
   a tab, and device push waits for the service worker (step 12). Mockups:
   `/mnt/project-files/mobile-app/profile-mockups/`.
+- 2026-11-02 — Step 12: Thomas picked APNs direct for iPhones and FCM for
+  Android (official Capacitor push plugin, no Firebase SDK in the iOS app).
+- 2026-11-02 — Step 12: Thomas picked bundling the built app inside the store
+  apps rather than loading the live website.
+- 2026-11-02 — Step 12: the app id stays a placeholder (`org.speedgaming.wizzrobe`,
+  `web/src/native/appId.ts`); Thomas confirms the real one before the first
+  store upload.
+- 2026-11-02 — Step 12: the service worker caches the app's own files and
+  handles push; API data is never cached (Thomas's pick).
+- 2026-11-02 — Step 12: CI does compile checks only (Android debug on every
+  `web/` pull request, unsigned iOS simulator build on demand); signing and
+  TestFlight / Play uploads follow once the developer accounts exist.
