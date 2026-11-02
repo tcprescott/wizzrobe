@@ -19,7 +19,7 @@ class StageActionResponse(_Attrs):
     confirm: str = Field(..., description="What to show before running it: it changes the bracket on Challonge.")
 
 
-class BracketResponse(_Attrs):
+class TournamentBracketResponse(_Attrs):
     site: str = Field(..., description="`challonge` or `startgg`.")
     label: str = Field(..., description="The site's name as people see it.")
     stage: Optional[str] = Field(None, description="Where a Challonge bracket stands, such as `Group stage`.")
@@ -29,7 +29,7 @@ class BracketResponse(_Attrs):
     stage_action: Optional[StageActionResponse] = Field(None, description="The next Challonge stage step, if any.")
 
 
-class BoardRowResponse(_Attrs):
+class TournamentBoardRowResponse(_Attrs):
     id: int
     name: str
     tournament_format: Optional[str] = None
@@ -43,7 +43,7 @@ class BoardRowResponse(_Attrs):
     signups_open_at: Optional[datetime] = None
     signups_close_at: Optional[datetime] = None
     signup_state: SignupWindow
-    bracket: Optional[BracketResponse] = Field(None, description="The bracket site it follows, if linked.")
+    bracket: Optional[TournamentBracketResponse] = Field(None, description="The bracket site it follows, if linked.")
     bracket_url: Optional[str] = None
     rules_url: Optional[str] = None
     has_round_schedule: bool = Field(..., description="Whether Round schedule applies (a linked bracket).")
@@ -57,8 +57,8 @@ class BracketSiteResponse(_Attrs):
     label: str
 
 
-class BoardResponse(_Attrs):
-    rows: List[BoardRowResponse]
+class TournamentBoardResponse(_Attrs):
+    rows: List[TournamentBoardRowResponse]
     can_create: bool = Field(..., description="Add tournament is offered (staff only).")
     linkable_sites: List[BracketSiteResponse] = Field(..., description="Sites a tournament can be linked to here.")
     zone: Optional[str] = Field(None, description="The zone to print times in; null means the device's own.")
@@ -131,7 +131,7 @@ class ConfirmedResponse(BaseModel):
     confirmed: int
 
 
-class SyncResultResponse(_Attrs):
+class BracketSyncResultResponse(_Attrs):
     tournament_id: int
     tournament_name: str
     source_label: str

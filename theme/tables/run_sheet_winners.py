@@ -4,22 +4,9 @@ The tap is held behind Undo (``application.pending_actions``), so while it is
 held the line says so in place of the buttons, on every open board.
 """
 
-from application import pending_actions
+from application.run_sheet import stamp_winners, winner_choices
 
-
-def winner_choices(row: dict) -> list[dict]:
-    """The two players a live head-to-head can be won by, or none."""
-    players = row.get('players') or []
-    if (row.get('state') != 'Started' or len(players) != 2 or row.get('placeholders')
-            or row.get('is_racetime') or row.get('played_on_site')
-            or not all(p.get('id') for p in players)):
-        return []
-    return [{'id': p['id'], 'name': p.get('name') or ''} for p in players]
-
-
-def stamp_winners(row: dict) -> None:
-    row['_winners'] = winner_choices(row)
-    row['_pending_result'] = pending_actions.pending_label(('result', row.get('id')))
+__all__ = ['stamp_winners', 'winner_buttons', 'winner_choices']
 
 
 def winner_buttons(run: str = 'true', *, inline: bool = False) -> str:

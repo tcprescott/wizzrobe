@@ -11,8 +11,7 @@ from fastapi import APIRouter, Depends, status
 
 from api.dependencies import ServiceErrorRoute, event_binding, require_api_actor, require_write_actor
 from api.schemas.admin_tournaments import (
-    BoardResponse,
-    BoardRowResponse,
+    BracketSyncResultResponse,
     ConfirmedResponse,
     DeletionPreviewResponse,
     DropPlanResponse,
@@ -28,7 +27,8 @@ from api.schemas.admin_tournaments import (
     StageActionRequest,
     StartggSettingsResponse,
     StartggSettingsUpdate,
-    SyncResultResponse,
+    TournamentBoardResponse,
+    TournamentBoardRowResponse,
 )
 from application.services import AdminTournamentsService
 from models import Tournament, User
@@ -45,7 +45,7 @@ _STAFF = "**Who can call this:** Staff."
 
 
 @router.get(
-    '/board', response_model=BoardResponse, summary='The Tournaments board',
+    '/board', response_model=TournamentBoardResponse, summary='The Tournaments board',
     description=(
         "Every tournament in this event the caller runs, by name, with signups, bracket site, seed, "
         "match length and player count, plus which actions each row offers. Staff see all of them; "
@@ -57,7 +57,7 @@ async def board(actor: User = Depends(require_api_actor)):
 
 
 @router.post(
-    '/sync', response_model=List[SyncResultResponse], summary='Sync every linked bracket',
+    '/sync', response_model=List[BracketSyncResultResponse], summary='Sync every linked bracket',
     description=(
         "Pulls every linked tournament on the board from its bracket site. One that fails is "
         "reported in its own `error` and doesn't stop the rest.\n\n"
@@ -68,7 +68,7 @@ async def sync_all(actor: User = Depends(require_write_actor)):
     return await AdminTournamentsService().sync_all(actor)
 
 
-@router.get('/{tournament_id}', response_model=BoardRowResponse, summary="One tournament's board row",
+@router.get('/{tournament_id}', response_model=TournamentBoardRowResponse, summary="One tournament's board row",
             description="The same row the board shows, after a change.\n\n" + _WHO)
 async def row(tournament_id: int, actor: User = Depends(require_api_actor)):
     return await AdminTournamentsService().row(tournament_id, actor)
@@ -119,7 +119,7 @@ async def drop(tournament_id: int, user_id: int, body: DropRequest, actor: User 
     )
 
 
-@router.post('/{tournament_id}/bracket/sync', response_model=SyncResultResponse, summary='Sync the bracket now',
+@router.post('/{tournament_id}/bracket/sync', response_model=BracketSyncResultResponse, summary='Sync the bracket now',
              description="Pulls the latest entrants and matches from the linked site.\n\n" + _WHO)
 async def sync(tournament_id: int, actor: User = Depends(require_write_actor)):
     return await AdminTournamentsService().sync(tournament_id, actor)
@@ -149,7 +149,7 @@ async def unlink(tournament_id: int, actor: User = Depends(require_write_actor))
 
 
 @router.post(
-    '/{tournament_id}/bracket/stage', response_model=BoardRowResponse, summary='Run the next Challonge stage step',
+    '/{tournament_id}/bracket/stage', response_model=TournamentBoardRowResponse, summary='Run the next Challonge stage step',
     description=(
         "Starts the group stage, the final stage, or finalizes, on Challonge, then re-syncs. Needs the "
         "Challonge connection's stage scope. Fails with 400 when that isn't the next step any more.\n\n" + _WHO

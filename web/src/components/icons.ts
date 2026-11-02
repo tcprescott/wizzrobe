@@ -108,6 +108,9 @@ import AddLinkIcon from '@material-symbols/svg-400/outlined/add_link.svg?react'
 import PersonAddIcon from '@material-symbols/svg-400/outlined/person_add.svg?react'
 import PersonRemoveIcon from '@material-symbols/svg-400/outlined/person_remove.svg?react'
 import EventNoteIcon from '@material-symbols/svg-400/outlined/event_note.svg?react'
+import Search from '@material-symbols/svg-400/outlined/search.svg?react'
+import Videocam from '@material-symbols/svg-400/outlined/videocam.svg?react'
+import Casino from '@material-symbols/svg-400/outlined/casino.svg?react'
 import IAttractions from '@material-symbols/svg-400/outlined/attractions.svg?react'
 import ICode from '@material-symbols/svg-400/outlined/code.svg?react'
 import IContactPhone from '@material-symbols/svg-400/outlined/contact_phone.svg?react'
@@ -126,7 +129,6 @@ import IPictureInPicture from '@material-symbols/svg-400/outlined/picture_in_pic
 import IPrivacyTip from '@material-symbols/svg-400/outlined/privacy_tip.svg?react'
 import IRecordVoiceOver from '@material-symbols/svg-400/outlined/record_voice_over.svg?react'
 import IRefresh from '@material-symbols/svg-400/outlined/refresh.svg?react'
-import ISearch from '@material-symbols/svg-400/outlined/search.svg?react'
 import ISmartToy from '@material-symbols/svg-400/outlined/smart_toy.svg?react'
 import ISupportAgent from '@material-symbols/svg-400/outlined/support_agent.svg?react'
 import IVerified from '@material-symbols/svg-400/outlined/verified.svg?react'
@@ -163,6 +165,9 @@ export const ICONS = {
   event_available: EventAvailable,
   swap_horiz: SwapHoriz,
   schedule: Schedule,
+  search: Search,
+  videocam: Videocam,
+  casino: Casino,
   tv: Tv,
   open_in_new: OpenInNew,
   sports_esports: SportsEsports,
@@ -256,7 +261,6 @@ export const ICONS = {
   privacy_tip: IPrivacyTip,
   record_voice_over: IRecordVoiceOver,
   refresh: IRefresh,
-  search: ISearch,
   smart_toy: ISmartToy,
   support_agent: ISupportAgent,
   verified: IVerified,

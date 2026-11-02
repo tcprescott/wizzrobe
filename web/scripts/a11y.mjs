@@ -77,6 +77,10 @@ const TARGETS = [
   { name: 'admin-presets', path: '/t/sgl/admin/seed-presets/5' },
   { name: 'admin-presets-paste', path: '/t/sgl/admin/seed-presets/6' },
   { name: 'admin-presets-import', path: '/t/sgl/admin/seed-presets', act: async (p) => { await p.getByRole('button', { name: 'Actions' }).first().click(); await p.getByRole('menuitem', { name: /Import from/ }).click() }, wait: 'role=dialog' },
+  { name: 'admin-schedule', path: '/t/sgl/admin/match-schedule?day=2026-10-24' },
+  { name: 'admin-schedule-match', path: '/t/sgl/admin/match-schedule/301?day=2026-10-24' },
+  { name: 'admin-schedule-rewind', path: '/t/sgl/admin/match-schedule/301?day=2026-10-24', act: (p) => p.getByRole('button', { name: /^More for / }).click().then(() => p.getByRole('menuitem', { name: 'Rewind…' }).click()), wait: 'role=dialog' },
+  { name: 'admin-schedule-stations', path: '/t/sgl/admin/match-schedule/301?day=2026-10-24', act: (p) => p.getByRole('button', { name: 'Assign' }).click(), wait: 'role=dialog' },
   ...['about', 'notifications', 'availability', 'accounts', 'staff-alerts', 'equipment', 'accommodation', 'emergency-contact', 'feedback', 'webhooks', 'apps', 'tokens', 'appearance'].map(
     (s) => ({ name: `me-${s}`, path: `/t/sgl/me/${s}` }),
   ),

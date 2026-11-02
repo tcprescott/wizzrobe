@@ -1633,119 +1633,41 @@
         "title": "BlockOut",
         "type": "object"
       },
-      "BoardResponse": {
+      "BoardGroup": {
         "properties": {
-          "can_create": {
-            "description": "Add tournament is offered (staff only).",
-            "title": "Can Create",
+          "folded_by_default": {
+            "title": "Folded By Default",
             "type": "boolean"
           },
-          "linkable_sites": {
-            "description": "Sites a tournament can be linked to here.",
-            "items": {
-              "$ref": "#/components/schemas/BracketSiteResponse"
-            },
-            "title": "Linkable Sites",
-            "type": "array"
+          "label": {
+            "title": "Label",
+            "type": "string"
           },
           "rows": {
             "items": {
-              "$ref": "#/components/schemas/BoardRowResponse"
+              "$ref": "#/components/schemas/BoardRow"
             },
             "title": "Rows",
             "type": "array"
-          },
-          "zone": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "The zone to print times in; null means the device's own.",
-            "title": "Zone"
           }
         },
         "required": [
-          "rows",
-          "can_create",
-          "linkable_sites"
+          "label",
+          "folded_by_default",
+          "rows"
         ],
-        "title": "BoardResponse",
+        "title": "BoardGroup",
         "type": "object"
       },
-      "BoardRowResponse": {
+      "BoardPlayer": {
         "properties": {
-          "average_match_duration": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Minutes.",
-            "title": "Average Match Duration"
-          },
-          "bracket": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/api__schemas__admin_tournaments__BracketResponse"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "The bracket site it follows, if linked."
-          },
-          "bracket_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Bracket Url"
-          },
-          "can_delete": {
-            "description": "Delete is offered: staff, and the tournament is inactive.",
-            "title": "Can Delete",
-            "type": "boolean"
-          },
-          "can_link": {
-            "description": "Link or unlink a bracket is offered (staff only).",
-            "title": "Can Link",
-            "type": "boolean"
-          },
-          "can_manage_bracket": {
-            "description": "Sync, stage step and entrant matching are offered.",
-            "title": "Can Manage Bracket",
-            "type": "boolean"
-          },
-          "has_round_schedule": {
-            "description": "Whether Round schedule applies (a linked bracket).",
-            "title": "Has Round Schedule",
+          "ada": {
+            "default": false,
+            "description": "Staff arranged an ADA accommodation for this player.",
+            "title": "Ada",
             "type": "boolean"
           },
           "id": {
-            "title": "Id",
-            "type": "integer"
-          },
-          "is_active": {
-            "title": "Is Active",
-            "type": "boolean"
-          },
-          "is_test": {
-            "description": "Hidden from the event info page only.",
-            "title": "Is Test",
-            "type": "boolean"
-          },
-          "max_match_duration": {
             "anyOf": [
               {
                 "type": "integer"
@@ -1754,22 +1676,14 @@
                 "type": "null"
               }
             ],
-            "description": "Minutes.",
-            "title": "Max Match Duration"
+            "description": "The player's match-player id: what `POST /matches/{id}/result` names as the winner.",
+            "title": "Id"
           },
           "name": {
             "title": "Name",
             "type": "string"
           },
-          "player_count": {
-            "title": "Player Count",
-            "type": "integer"
-          },
-          "players_per_match": {
-            "title": "Players Per Match",
-            "type": "integer"
-          },
-          "rules_url": {
+          "station": {
             "anyOf": [
               {
                 "type": "string"
@@ -1778,9 +1692,106 @@
                 "type": "null"
               }
             ],
-            "title": "Rules Url"
+            "description": "The player's station, once assigned.",
+            "title": "Station"
           },
-          "seed_generator": {
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "BoardPlayer",
+        "type": "object"
+      },
+      "BoardResponse": {
+        "properties": {
+          "can_create": {
+            "title": "Can Create",
+            "type": "boolean"
+          },
+          "days": {
+            "description": "The event's days, for the day switch; empty for a long event.",
+            "items": {
+              "format": "date",
+              "type": "string"
+            },
+            "title": "Days",
+            "type": "array"
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/BoardGroup"
+            },
+            "title": "Groups",
+            "type": "array"
+          },
+          "scoped_tournaments": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set when the board shows only the viewer's own tournaments.",
+            "title": "Scoped Tournaments"
+          },
+          "stages": {
+            "items": {
+              "$ref": "#/components/schemas/Named"
+            },
+            "title": "Stages",
+            "type": "array"
+          },
+          "tournaments": {
+            "items": {
+              "$ref": "#/components/schemas/Named"
+            },
+            "title": "Tournaments",
+            "type": "array"
+          },
+          "zone": {
+            "description": "The IANA zone the days are cut on and times print in.",
+            "title": "Zone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "zone",
+          "days",
+          "tournaments",
+          "stages",
+          "can_create",
+          "groups"
+        ],
+        "title": "BoardResponse",
+        "type": "object"
+      },
+      "BoardRow": {
+        "properties": {
+          "best_of": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best Of"
+          },
+          "bracket": {
             "anyOf": [
               {
                 "type": "string"
@@ -1789,12 +1800,127 @@
                 "type": "null"
               }
             ],
-            "title": "Seed Generator"
+            "description": "The bracket stage the match is a game of.",
+            "title": "Bracket"
           },
-          "signup_state": {
-            "$ref": "#/components/schemas/SignupWindow"
+          "can": {
+            "$ref": "#/components/schemas/RowCaps"
           },
-          "signups_close_at": {
+          "comments": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "Comment counts by `player` and `staff`.",
+            "title": "Comments",
+            "type": "object"
+          },
+          "crew": {
+            "items": {
+              "$ref": "#/components/schemas/CrewRole"
+            },
+            "title": "Crew",
+            "type": "array"
+          },
+          "game": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game"
+          },
+          "group": {
+            "title": "Group",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "is_racetime": {
+            "default": false,
+            "title": "Is Racetime",
+            "type": "boolean"
+          },
+          "late": {
+            "items": {
+              "$ref": "#/components/schemas/LateTag"
+            },
+            "title": "Late",
+            "type": "array"
+          },
+          "needs_review": {
+            "default": false,
+            "title": "Needs Review",
+            "type": "boolean"
+          },
+          "next_step": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NextStep"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "overrun": {
+            "default": false,
+            "description": "A live match already past its estimated end.",
+            "title": "Overrun",
+            "type": "boolean"
+          },
+          "pending_result": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A result held behind Undo, as its label.",
+            "title": "Pending Result"
+          },
+          "placeholders": {
+            "description": "Undecided sides, such as `Winner of QF1`.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Placeholders",
+            "type": "array"
+          },
+          "played_on_site": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SiteResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "players": {
+            "items": {
+              "$ref": "#/components/schemas/BoardPlayer"
+            },
+            "title": "Players",
+            "type": "array"
+          },
+          "racetime_held": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HeldResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "scheduled_at": {
             "anyOf": [
               {
                 "format": "date-time",
@@ -1804,9 +1930,92 @@
                 "type": "null"
               }
             ],
-            "title": "Signups Close At"
+            "title": "Scheduled At"
           },
-          "signups_open_at": {
+          "seat_line": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Where the players sit, in a few words.",
+            "title": "Seat Line"
+          },
+          "seed_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seed Code"
+          },
+          "seed_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seed Error"
+          },
+          "seed_rolling": {
+            "default": false,
+            "title": "Seed Rolling",
+            "type": "boolean"
+          },
+          "seed_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seed Url"
+          },
+          "set_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Set Label"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage"
+          },
+          "stage_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage Id"
+          },
+          "started_at": {
             "anyOf": [
               {
                 "format": "date-time",
@@ -1816,34 +2025,89 @@
                 "type": "null"
               }
             ],
-            "title": "Signups Open At"
+            "title": "Started At"
           },
-          "tournament_format": {
+          "state": {
+            "description": "`Scheduled`, `Checked In`, `Started`, `Finished` or `Confirmed`.",
+            "title": "State",
+            "type": "string"
+          },
+          "status": {
+            "description": "The line's status word, ready to print (`Late`, `To confirm`, `Played on Challonge`).",
+            "title": "Status",
+            "type": "string"
+          },
+          "stream_candidate": {
+            "default": false,
+            "title": "Stream Candidate",
+            "type": "boolean"
+          },
+          "tone": {
+            "description": "The status chip's tone: `neutral`, `info`, `live`, `pending`, `ok` or `cancelled`.",
+            "title": "Tone",
+            "type": "string"
+          },
+          "tournament": {
+            "description": "The tournament's short name, else its name.",
+            "title": "Tournament",
+            "type": "string"
+          },
+          "tournament_id": {
             "anyOf": [
               {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tournament Id"
+          },
+          "tournament_name": {
+            "title": "Tournament Name",
+            "type": "string"
+          },
+          "until_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Tournament Format"
+            "description": "When it finished, or while it runs, the estimated end.",
+            "title": "Until At"
+          },
+          "until_estimated": {
+            "default": false,
+            "title": "Until Estimated",
+            "type": "boolean"
+          },
+          "winners": {
+            "description": "The one-tap winner buttons on a live head-to-head.",
+            "items": {
+              "$ref": "#/components/schemas/Winner"
+            },
+            "title": "Winners",
+            "type": "array"
           }
         },
         "required": [
           "id",
-          "name",
-          "is_active",
-          "is_test",
-          "players_per_match",
-          "player_count",
-          "signup_state",
-          "has_round_schedule",
-          "can_manage_bracket",
-          "can_link",
-          "can_delete"
+          "tournament",
+          "tournament_name",
+          "state",
+          "status",
+          "tone",
+          "group",
+          "players",
+          "crew",
+          "late",
+          "can"
         ],
-        "title": "BoardRowResponse",
+        "title": "BoardRow",
         "type": "object"
       },
       "BookRequest": {
@@ -2779,6 +3043,75 @@
         "title": "BracketPoolResponse",
         "type": "object"
       },
+      "BracketResponse": {
+        "properties": {
+          "config": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Per-stage settings as a JSON object. Known keys include `grand_final_reset`, `default_best_of`, `swiss_rounds`, `group_count`, `win_points`, `draw_points`, `loss_points`, `bye_points`, `tiebreakers`, `rounds` and `advancement`; unknown keys are rejected.",
+            "title": "Config"
+          },
+          "created_at": {
+            "description": "When the stage was created (UTC).",
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "format": {
+            "$ref": "#/components/schemas/BracketFormat",
+            "description": "Bracket format: `single_elim`, `double_elim`, `swiss` or `round_robin`."
+          },
+          "id": {
+            "description": "Bracket (stage) id.",
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "description": "Stage name, such as \"Groups\" or \"Top 8\".",
+            "title": "Name",
+            "type": "string"
+          },
+          "stage_order": {
+            "description": "Position in the tournament's stage sequence, starting at 0.",
+            "title": "Stage Order",
+            "type": "integer"
+          },
+          "state": {
+            "$ref": "#/components/schemas/BracketState",
+            "description": "Stage state: `draft` (being set up, staff-only), `active` (running), `complete` (final ranks written) or `cancelled` (abandoned, staff-only)."
+          },
+          "tournament_id": {
+            "description": "The tournament this stage belongs to.",
+            "title": "Tournament Id",
+            "type": "integer"
+          },
+          "updated_at": {
+            "description": "When the stage last changed (UTC).",
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tournament_id",
+          "name",
+          "format",
+          "state",
+          "stage_order",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "BracketResponse",
+        "type": "object"
+      },
       "BracketSetResponse": {
         "properties": {
           "best_of": {
@@ -3100,6 +3433,46 @@
         "title": "BracketState",
         "type": "string"
       },
+      "BracketSyncResultResponse": {
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "source_label": {
+            "title": "Source Label",
+            "type": "string"
+          },
+          "summary": {
+            "description": "What changed, ready to print.",
+            "title": "Summary",
+            "type": "string"
+          },
+          "tournament_id": {
+            "title": "Tournament Id",
+            "type": "integer"
+          },
+          "tournament_name": {
+            "title": "Tournament Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tournament_id",
+          "tournament_name",
+          "source_label",
+          "summary"
+        ],
+        "title": "BracketSyncResultResponse",
+        "type": "object"
+      },
       "BracketUpdateRequest": {
         "description": "Edit a DRAFT bracket's definition. Omitted fields are left alone.",
         "properties": {
@@ -3272,6 +3645,19 @@
           }
         },
         "title": "CallOffRequest",
+        "type": "object"
+      },
+      "CancelRequest": {
+        "properties": {
+          "reason": {
+            "default": "",
+            "description": "Told to the players and crew.",
+            "maxLength": 500,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "title": "CancelRequest",
         "type": "object"
       },
       "CapacityForecastResponse": {
@@ -4009,6 +4395,41 @@
           "comped"
         ],
         "title": "CheckInSyncResponse",
+        "type": "object"
+      },
+      "ChecklistItem": {
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "ready": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "True or false for what a match needs; null for information only.",
+            "title": "Ready"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "detail"
+        ],
+        "title": "ChecklistItem",
         "type": "object"
       },
       "ClockUpdate": {
@@ -5159,6 +5580,99 @@
           "totals"
         ],
         "title": "CrewParticipationTrendsResponse",
+        "type": "object"
+      },
+      "CrewPerson": {
+        "properties": {
+          "approved": {
+            "title": "Approved",
+            "type": "boolean"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The crew signup id, for `POST /crew/{crew_type}/{crew_id}/approval`.",
+            "title": "Id"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "with": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The partner a commentator was invited with.",
+            "title": "With"
+          }
+        },
+        "required": [
+          "name",
+          "approved"
+        ],
+        "title": "CrewPerson",
+        "type": "object"
+      },
+      "CrewRole": {
+        "properties": {
+          "approvable": {
+            "description": "The match is still open for crew approval.",
+            "title": "Approvable",
+            "type": "boolean"
+          },
+          "count": {
+            "description": "Signups against need, ready to print (`1/2`).",
+            "title": "Count",
+            "type": "string"
+          },
+          "key": {
+            "description": "`commentators`, `trackers` or `broadcasters`.",
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "people": {
+            "items": {
+              "$ref": "#/components/schemas/CrewPerson"
+            },
+            "title": "People",
+            "type": "array"
+          },
+          "short": {
+            "description": "Fewer signups than the match needs, while that can still be fixed.",
+            "title": "Short",
+            "type": "boolean"
+          },
+          "unapproved": {
+            "description": "Enough signups, but some wait for approval.",
+            "title": "Unapproved",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "count",
+          "short",
+          "unapproved",
+          "approvable",
+          "people"
+        ],
+        "title": "CrewRole",
         "type": "object"
       },
       "CrewSignupInfo": {
@@ -7760,6 +8274,40 @@
         "title": "HealthResponse",
         "type": "object"
       },
+      "HeldResult": {
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "required": [
+          "reason",
+          "label",
+          "detail"
+        ],
+        "title": "HeldResult",
+        "type": "object"
+      },
       "HelpIndex": {
         "properties": {
           "articles": {
@@ -7893,6 +8441,30 @@
           "created_at"
         ],
         "title": "JoinRequestResponse",
+        "type": "object"
+      },
+      "LateTag": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "required": [
+          "label"
+        ],
+        "title": "LateTag",
         "type": "object"
       },
       "LeaderboardEntryResponse": {
@@ -8894,6 +9466,409 @@
           "player_count"
         ],
         "title": "MatchOperationsRow",
+        "type": "object"
+      },
+      "MatchPaneResponse": {
+        "properties": {
+          "ada_notes": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Staff ADA notes by user id; withheld from proctors.",
+            "title": "Ada Notes",
+            "type": "object"
+          },
+          "best_of": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best Of"
+          },
+          "bracket": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The bracket stage the match is a game of.",
+            "title": "Bracket"
+          },
+          "can": {
+            "$ref": "#/components/schemas/RowCaps"
+          },
+          "checklist": {
+            "items": {
+              "$ref": "#/components/schemas/ChecklistItem"
+            },
+            "title": "Checklist",
+            "type": "array"
+          },
+          "comments": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "Comment counts by `player` and `staff`.",
+            "title": "Comments",
+            "type": "object"
+          },
+          "crew": {
+            "items": {
+              "$ref": "#/components/schemas/CrewRole"
+            },
+            "title": "Crew",
+            "type": "array"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "game": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game"
+          },
+          "group": {
+            "title": "Group",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "is_racetime": {
+            "default": false,
+            "title": "Is Racetime",
+            "type": "boolean"
+          },
+          "late": {
+            "items": {
+              "$ref": "#/components/schemas/LateTag"
+            },
+            "title": "Late",
+            "type": "array"
+          },
+          "needs_review": {
+            "default": false,
+            "title": "Needs Review",
+            "type": "boolean"
+          },
+          "next_step": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NextStep"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "overrun": {
+            "default": false,
+            "description": "A live match already past its estimated end.",
+            "title": "Overrun",
+            "type": "boolean"
+          },
+          "pending_result": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A result held behind Undo, as its label.",
+            "title": "Pending Result"
+          },
+          "placeholders": {
+            "description": "Undecided sides, such as `Winner of QF1`.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Placeholders",
+            "type": "array"
+          },
+          "played_on_site": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SiteResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "players": {
+            "items": {
+              "$ref": "#/components/schemas/BoardPlayer"
+            },
+            "title": "Players",
+            "type": "array"
+          },
+          "racetime_held": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HeldResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rewind_to": {
+            "items": {
+              "$ref": "#/components/schemas/RewindTarget"
+            },
+            "title": "Rewind To",
+            "type": "array"
+          },
+          "scheduled_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scheduled At"
+          },
+          "seat_line": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Where the players sit, in a few words.",
+            "title": "Seat Line"
+          },
+          "seed_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seed Code"
+          },
+          "seed_dm_blocked": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Seed Dm Blocked",
+            "type": "array"
+          },
+          "seed_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seed Error"
+          },
+          "seed_rolling": {
+            "default": false,
+            "title": "Seed Rolling",
+            "type": "boolean"
+          },
+          "seed_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seed Url"
+          },
+          "set_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Set Label"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage"
+          },
+          "stage_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage Id"
+          },
+          "stage_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage Url"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "state": {
+            "description": "`Scheduled`, `Checked In`, `Started`, `Finished` or `Confirmed`.",
+            "title": "State",
+            "type": "string"
+          },
+          "state_since": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State Since"
+          },
+          "status": {
+            "description": "The line's status word, ready to print (`Late`, `To confirm`, `Played on Challonge`).",
+            "title": "Status",
+            "type": "string"
+          },
+          "stream_candidate": {
+            "default": false,
+            "title": "Stream Candidate",
+            "type": "boolean"
+          },
+          "tone": {
+            "description": "The status chip's tone: `neutral`, `info`, `live`, `pending`, `ok` or `cancelled`.",
+            "title": "Tone",
+            "type": "string"
+          },
+          "tournament": {
+            "description": "The tournament's short name, else its name.",
+            "title": "Tournament",
+            "type": "string"
+          },
+          "tournament_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tournament Id"
+          },
+          "tournament_name": {
+            "title": "Tournament Name",
+            "type": "string"
+          },
+          "until_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When it finished, or while it runs, the estimated end.",
+            "title": "Until At"
+          },
+          "until_estimated": {
+            "default": false,
+            "title": "Until Estimated",
+            "type": "boolean"
+          },
+          "winners": {
+            "description": "The one-tap winner buttons on a live head-to-head.",
+            "items": {
+              "$ref": "#/components/schemas/Winner"
+            },
+            "title": "Winners",
+            "type": "array"
+          },
+          "zone": {
+            "title": "Zone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tournament",
+          "tournament_name",
+          "state",
+          "status",
+          "tone",
+          "group",
+          "players",
+          "crew",
+          "late",
+          "can",
+          "zone",
+          "checklist",
+          "rewind_to",
+          "seed_dm_blocked"
+        ],
+        "title": "MatchPaneResponse",
         "type": "object"
       },
       "MatchRequestCreate": {
@@ -9978,6 +10953,24 @@
         "title": "MyQualifierRunResponse",
         "type": "object"
       },
+      "Named": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "Named",
+        "type": "object"
+      },
       "NativeDeviceRegisterRequest": {
         "properties": {
           "device_name": {
@@ -10156,6 +11149,41 @@
           "detail"
         ],
         "title": "NeedResponse",
+        "type": "object"
+      },
+      "NextStep": {
+        "properties": {
+          "event": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`seat`, `roll`, `start`, `winner` or `finish`; none while a seed rolls.",
+            "title": "Event"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "primary": {
+            "title": "Primary",
+            "type": "boolean"
+          },
+          "rolling": {
+            "default": false,
+            "title": "Rolling",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "label",
+          "primary"
+        ],
+        "title": "NextStep",
         "type": "object"
       },
       "NoticeGroupOut": {
@@ -14255,6 +15283,38 @@
         "title": "ReviewRequest",
         "type": "object"
       },
+      "RewindRequest": {
+        "properties": {
+          "to_step": {
+            "description": "A step from the pane's `rewind_to`: `scheduled`, `checked_in`, `started` or `finished`.",
+            "title": "To Step",
+            "type": "string"
+          }
+        },
+        "required": [
+          "to_step"
+        ],
+        "title": "RewindRequest",
+        "type": "object"
+      },
+      "RewindTarget": {
+        "properties": {
+          "explanation": {
+            "title": "Explanation",
+            "type": "string"
+          },
+          "step": {
+            "title": "Step",
+            "type": "string"
+          }
+        },
+        "required": [
+          "step",
+          "explanation"
+        ],
+        "title": "RewindTarget",
+        "type": "object"
+      },
       "Role": {
         "enum": [
           "staff",
@@ -14516,6 +15576,44 @@
           "stages"
         ],
         "title": "RoundScheduleUpdate",
+        "type": "object"
+      },
+      "RowCaps": {
+        "properties": {
+          "confirm": {
+            "description": "Record, change or confirm the result.",
+            "title": "Confirm",
+            "type": "boolean"
+          },
+          "crew": {
+            "description": "Approve or decline crew signups.",
+            "title": "Crew",
+            "type": "boolean"
+          },
+          "edit": {
+            "description": "Edit, delete, rewind or call off the match.",
+            "title": "Edit",
+            "type": "boolean"
+          },
+          "run": {
+            "description": "Check in, roll the seed, start, finish, assign stations.",
+            "title": "Run",
+            "type": "boolean"
+          },
+          "stage": {
+            "description": "Put the match on a stage or take it off.",
+            "title": "Stage",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "edit",
+          "run",
+          "confirm",
+          "stage",
+          "crew"
+        ],
+        "title": "RowCaps",
         "type": "object"
       },
       "RunningLateRequest": {
@@ -15437,6 +16535,47 @@
           "site"
         ],
         "title": "SiteLabelResponse",
+        "type": "object"
+      },
+      "SiteResult": {
+        "properties": {
+          "no_winner": {
+            "default": false,
+            "title": "No Winner",
+            "type": "boolean"
+          },
+          "site": {
+            "description": "`Challonge` or `start.gg`.",
+            "title": "Site",
+            "type": "string"
+          },
+          "winner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Winner"
+          },
+          "winner_user_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Winner User Id"
+          }
+        },
+        "required": [
+          "site"
+        ],
+        "title": "SiteResult",
         "type": "object"
       },
       "Snippet": {
@@ -17586,6 +18725,51 @@
         "title": "SurveyUpdateRequest",
         "type": "object"
       },
+      "SyncResultResponse": {
+        "description": "Tally returned by an on-demand sync (``SyncResult.as_dict()``).",
+        "properties": {
+          "auto_finished": {
+            "description": "Matches marked finished because they were more than four hours past their start.",
+            "title": "Auto Finished",
+            "type": "integer"
+          },
+          "cancelled": {
+            "description": "Episodes gone from SpeedGaming, whose matches were detached.",
+            "title": "Cancelled",
+            "type": "integer"
+          },
+          "errors": {
+            "description": "Episodes that failed to import, or 1 when the fetch itself failed.",
+            "title": "Errors",
+            "type": "integer"
+          },
+          "imported": {
+            "description": "Episodes created or refreshed as matches.",
+            "title": "Imported",
+            "type": "integer"
+          },
+          "skipped": {
+            "description": "Episodes left alone because their match is finished, in progress or has a race room.",
+            "title": "Skipped",
+            "type": "integer"
+          },
+          "unchanged": {
+            "description": "Episodes whose content hadn't changed.",
+            "title": "Unchanged",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "imported",
+          "unchanged",
+          "skipped",
+          "cancelled",
+          "auto_finished",
+          "errors"
+        ],
+        "title": "SyncResultResponse",
+        "type": "object"
+      },
       "TelegramLinkResponse": {
         "properties": {
           "url": {
@@ -18074,22 +19258,168 @@
         "title": "TournamentBase",
         "type": "object"
       },
-      "TournamentBracketResponse": {
+      "TournamentBoardResponse": {
         "properties": {
-          "entrants": {
-            "items": {
-              "$ref": "#/components/schemas/BracketEntrantSummary"
-            },
-            "title": "Entrants",
-            "type": "array"
-          },
-          "filtered": {
-            "default": false,
-            "description": "True when filters trimmed the phases, pools or sets.",
-            "title": "Filtered",
+          "can_create": {
+            "description": "Add tournament is offered (staff only).",
+            "title": "Can Create",
             "type": "boolean"
           },
-          "last_synced_at": {
+          "linkable_sites": {
+            "description": "Sites a tournament can be linked to here.",
+            "items": {
+              "$ref": "#/components/schemas/BracketSiteResponse"
+            },
+            "title": "Linkable Sites",
+            "type": "array"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/TournamentBoardRowResponse"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "zone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The zone to print times in; null means the device's own.",
+            "title": "Zone"
+          }
+        },
+        "required": [
+          "rows",
+          "can_create",
+          "linkable_sites"
+        ],
+        "title": "TournamentBoardResponse",
+        "type": "object"
+      },
+      "TournamentBoardRowResponse": {
+        "properties": {
+          "average_match_duration": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Minutes.",
+            "title": "Average Match Duration"
+          },
+          "bracket": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/api__schemas__admin_tournaments__TournamentBracketResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The bracket site it follows, if linked."
+          },
+          "bracket_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bracket Url"
+          },
+          "can_delete": {
+            "description": "Delete is offered: staff, and the tournament is inactive.",
+            "title": "Can Delete",
+            "type": "boolean"
+          },
+          "can_link": {
+            "description": "Link or unlink a bracket is offered (staff only).",
+            "title": "Can Link",
+            "type": "boolean"
+          },
+          "can_manage_bracket": {
+            "description": "Sync, stage step and entrant matching are offered.",
+            "title": "Can Manage Bracket",
+            "type": "boolean"
+          },
+          "has_round_schedule": {
+            "description": "Whether Round schedule applies (a linked bracket).",
+            "title": "Has Round Schedule",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "is_test": {
+            "description": "Hidden from the event info page only.",
+            "title": "Is Test",
+            "type": "boolean"
+          },
+          "max_match_duration": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Minutes.",
+            "title": "Max Match Duration"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "player_count": {
+            "title": "Player Count",
+            "type": "integer"
+          },
+          "players_per_match": {
+            "title": "Players Per Match",
+            "type": "integer"
+          },
+          "rules_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rules Url"
+          },
+          "seed_generator": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seed Generator"
+          },
+          "signup_state": {
+            "$ref": "#/components/schemas/SignupWindow"
+          },
+          "signups_close_at": {
             "anyOf": [
               {
                 "format": "date-time",
@@ -18099,30 +19429,21 @@
                 "type": "null"
               }
             ],
-            "description": "When the start.gg or Challonge mirror last synced (UTC).",
-            "title": "Last Synced At"
+            "title": "Signups Close At"
           },
-          "phases": {
-            "items": {
-              "$ref": "#/components/schemas/BracketPhaseResponse"
-            },
-            "title": "Phases",
-            "type": "array"
+          "signups_open_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signups Open At"
           },
-          "source": {
-            "description": "`native`, `startgg` or `challonge`.",
-            "title": "Source",
-            "type": "string"
-          },
-          "tournament": {
-            "title": "Tournament",
-            "type": "string"
-          },
-          "tournament_id": {
-            "title": "Tournament Id",
-            "type": "integer"
-          },
-          "url": {
+          "tournament_format": {
             "anyOf": [
               {
                 "type": "string"
@@ -18131,18 +19452,23 @@
                 "type": "null"
               }
             ],
-            "description": "The bracket's page on its site (a Wizzrobe path for native).",
-            "title": "Url"
+            "title": "Tournament Format"
           }
         },
         "required": [
-          "tournament_id",
-          "tournament",
-          "source",
-          "phases",
-          "entrants"
+          "id",
+          "name",
+          "is_active",
+          "is_test",
+          "players_per_match",
+          "player_count",
+          "signup_state",
+          "has_round_schedule",
+          "can_manage_bracket",
+          "can_link",
+          "can_delete"
         ],
-        "title": "TournamentBracketResponse",
+        "title": "TournamentBoardRowResponse",
         "type": "object"
       },
       "TournamentCreateRequest": {
@@ -21727,6 +23053,24 @@
         "title": "WebhookUpdate",
         "type": "object"
       },
+      "Winner": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "Winner",
+        "type": "object"
+      },
       "api__schemas__admin_nav__SetupStepResponse": {
         "properties": {
           "done": {
@@ -21766,7 +23110,7 @@
         "title": "SetupStepResponse",
         "type": "object"
       },
-      "api__schemas__admin_tournaments__BracketResponse": {
+      "api__schemas__admin_tournaments__TournamentBracketResponse": {
         "properties": {
           "label": {
             "description": "The site's name as people see it.",
@@ -21837,12 +23181,58 @@
           "label",
           "unmatched"
         ],
-        "title": "BracketResponse",
+        "title": "TournamentBracketResponse",
         "type": "object"
       },
-      "api__schemas__admin_tournaments__SyncResultResponse": {
+      "api__schemas__bracket_overview__TournamentBracketResponse": {
         "properties": {
-          "error": {
+          "entrants": {
+            "items": {
+              "$ref": "#/components/schemas/BracketEntrantSummary"
+            },
+            "title": "Entrants",
+            "type": "array"
+          },
+          "filtered": {
+            "default": false,
+            "description": "True when filters trimmed the phases, pools or sets.",
+            "title": "Filtered",
+            "type": "boolean"
+          },
+          "last_synced_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the start.gg or Challonge mirror last synced (UTC).",
+            "title": "Last Synced At"
+          },
+          "phases": {
+            "items": {
+              "$ref": "#/components/schemas/BracketPhaseResponse"
+            },
+            "title": "Phases",
+            "type": "array"
+          },
+          "source": {
+            "description": "`native`, `startgg` or `challonge`.",
+            "title": "Source",
+            "type": "string"
+          },
+          "tournament": {
+            "title": "Tournament",
+            "type": "string"
+          },
+          "tournament_id": {
+            "title": "Tournament Id",
+            "type": "integer"
+          },
+          "url": {
             "anyOf": [
               {
                 "type": "string"
@@ -21851,102 +23241,18 @@
                 "type": "null"
               }
             ],
-            "title": "Error"
-          },
-          "source_label": {
-            "title": "Source Label",
-            "type": "string"
-          },
-          "summary": {
-            "description": "What changed, ready to print.",
-            "title": "Summary",
-            "type": "string"
-          },
-          "tournament_id": {
-            "title": "Tournament Id",
-            "type": "integer"
-          },
-          "tournament_name": {
-            "title": "Tournament Name",
-            "type": "string"
+            "description": "The bracket's page on its site (a Wizzrobe path for native).",
+            "title": "Url"
           }
         },
         "required": [
           "tournament_id",
-          "tournament_name",
-          "source_label",
-          "summary"
+          "tournament",
+          "source",
+          "phases",
+          "entrants"
         ],
-        "title": "SyncResultResponse",
-        "type": "object"
-      },
-      "api__schemas__brackets__BracketResponse": {
-        "properties": {
-          "config": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Per-stage settings as a JSON object. Known keys include `grand_final_reset`, `default_best_of`, `swiss_rounds`, `group_count`, `win_points`, `draw_points`, `loss_points`, `bye_points`, `tiebreakers`, `rounds` and `advancement`; unknown keys are rejected.",
-            "title": "Config"
-          },
-          "created_at": {
-            "description": "When the stage was created (UTC).",
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "format": {
-            "$ref": "#/components/schemas/BracketFormat",
-            "description": "Bracket format: `single_elim`, `double_elim`, `swiss` or `round_robin`."
-          },
-          "id": {
-            "description": "Bracket (stage) id.",
-            "title": "Id",
-            "type": "integer"
-          },
-          "name": {
-            "description": "Stage name, such as \"Groups\" or \"Top 8\".",
-            "title": "Name",
-            "type": "string"
-          },
-          "stage_order": {
-            "description": "Position in the tournament's stage sequence, starting at 0.",
-            "title": "Stage Order",
-            "type": "integer"
-          },
-          "state": {
-            "$ref": "#/components/schemas/BracketState",
-            "description": "Stage state: `draft` (being set up, staff-only), `active` (running), `complete` (final ranks written) or `cancelled` (abandoned, staff-only)."
-          },
-          "tournament_id": {
-            "description": "The tournament this stage belongs to.",
-            "title": "Tournament Id",
-            "type": "integer"
-          },
-          "updated_at": {
-            "description": "When the stage last changed (UTC).",
-            "format": "date-time",
-            "title": "Updated At",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "tournament_id",
-          "name",
-          "format",
-          "state",
-          "stage_order",
-          "created_at",
-          "updated_at"
-        ],
-        "title": "BracketResponse",
+        "title": "TournamentBracketResponse",
         "type": "object"
       },
       "api__schemas__platform__SetupStepResponse": {
@@ -21985,51 +23291,6 @@
           "hint"
         ],
         "title": "SetupStepResponse",
-        "type": "object"
-      },
-      "api__schemas__speedgaming__SyncResultResponse": {
-        "description": "Tally returned by an on-demand sync (``SyncResult.as_dict()``).",
-        "properties": {
-          "auto_finished": {
-            "description": "Matches marked finished because they were more than four hours past their start.",
-            "title": "Auto Finished",
-            "type": "integer"
-          },
-          "cancelled": {
-            "description": "Episodes gone from SpeedGaming, whose matches were detached.",
-            "title": "Cancelled",
-            "type": "integer"
-          },
-          "errors": {
-            "description": "Episodes that failed to import, or 1 when the fetch itself failed.",
-            "title": "Errors",
-            "type": "integer"
-          },
-          "imported": {
-            "description": "Episodes created or refreshed as matches.",
-            "title": "Imported",
-            "type": "integer"
-          },
-          "skipped": {
-            "description": "Episodes left alone because their match is finished, in progress or has a race room.",
-            "title": "Skipped",
-            "type": "integer"
-          },
-          "unchanged": {
-            "description": "Episodes whose content hadn't changed.",
-            "title": "Unchanged",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "imported",
-          "unchanged",
-          "skipped",
-          "cancelled",
-          "auto_finished",
-          "errors"
-        ],
-        "title": "SyncResultResponse",
         "type": "object"
       }
     },
@@ -22258,6 +23519,317 @@
         "summary": "Get the privacy policy",
         "tags": [
           "About the app"
+        ]
+      }
+    },
+    "/api/admin/match-schedule": {
+      "get": {
+        "description": "Every match on a day (or every day), grouped as the run sheet draws them: needs a decision, live now, up next, waiting for players, confirmed. Each row says what you may do to it in `can`.\n\n**Who can call this:** Staff, Broadcast tech, or Admins and crew coordinators of a tournament (who see only their tournaments' matches).\n\n**App scope:** `staff:read`",
+        "operationId": "board_api_admin_match_schedule_get",
+        "parameters": [
+          {
+            "description": "A day on the board's clock; leave out for every day.",
+            "in": "query",
+            "name": "day",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "A day on the board's clock; leave out for every day.",
+              "title": "Day"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tournament_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tournament Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "stage_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Stage Id"
+            }
+          },
+          {
+            "description": "Matches players, tournament or stage.",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "description": "Matches players, tournament or stage.",
+              "maxLength": 100,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The device's IANA zone, used when neither the community nor you pin one.",
+            "in": "query",
+            "name": "tz",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The device's IANA zone, used when neither the community nor you pin one.",
+              "title": "Tz"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "The Match Schedule board",
+        "tags": [
+          "Admin: Match Schedule"
+        ]
+      }
+    },
+    "/api/admin/match-schedule/matches/{match_id}": {
+      "get": {
+        "description": "The board's line for the match plus its pane: what it still needs before it can start, where it can be rewound to, and when it reached its current step.\n\n**Who can call this:** Staff, Broadcast tech, or Admins and crew coordinators of a tournament (who see only their tournaments' matches).\n\n**App scope:** `staff:read`",
+        "operationId": "match_pane_api_admin_match_schedule_matches__match_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "match_id",
+            "required": true,
+            "schema": {
+              "title": "Match Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tz",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tz"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatchPaneResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "One match on the Match Schedule",
+        "tags": [
+          "Admin: Match Schedule"
         ]
       }
     },
@@ -22964,7 +24536,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/BoardResponse"
+                  "$ref": "#/components/schemas/TournamentBoardResponse"
                 }
               }
             },
@@ -23067,7 +24639,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/api__schemas__admin_tournaments__SyncResultResponse"
+                    "$ref": "#/components/schemas/BracketSyncResultResponse"
                   },
                   "title": "Response Sync All Api Admin Tournaments Sync Post",
                   "type": "array"
@@ -23191,7 +24763,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/BoardRowResponse"
+                  "$ref": "#/components/schemas/TournamentBoardRowResponse"
                 }
               }
             },
@@ -24164,7 +25736,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/BoardRowResponse"
+                  "$ref": "#/components/schemas/TournamentBoardRowResponse"
                 }
               }
             },
@@ -24525,7 +26097,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/api__schemas__admin_tournaments__SyncResultResponse"
+                  "$ref": "#/components/schemas/BracketSyncResultResponse"
                 }
               }
             },
@@ -30674,7 +32246,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/api__schemas__brackets__BracketResponse"
+                    "$ref": "#/components/schemas/BracketResponse"
                   },
                   "title": "Response List Brackets Api Brackets Get",
                   "type": "array"
@@ -30787,7 +32359,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/api__schemas__brackets__BracketResponse"
+                  "$ref": "#/components/schemas/BracketResponse"
                 }
               }
             },
@@ -30920,7 +32492,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/api__schemas__brackets__BracketResponse"
+                  "$ref": "#/components/schemas/BracketResponse"
                 }
               }
             },
@@ -33133,7 +34705,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/api__schemas__brackets__BracketResponse"
+                  "$ref": "#/components/schemas/BracketResponse"
                 }
               }
             },
@@ -33252,7 +34824,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/api__schemas__brackets__BracketResponse"
+                  "$ref": "#/components/schemas/BracketResponse"
                 }
               }
             },
@@ -33373,7 +34945,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/api__schemas__brackets__BracketResponse"
+                  "$ref": "#/components/schemas/BracketResponse"
                 }
               }
             },
@@ -33511,7 +35083,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/api__schemas__brackets__BracketResponse"
+                  "$ref": "#/components/schemas/BracketResponse"
                 }
               }
             },
@@ -34116,7 +35688,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/api__schemas__brackets__BracketResponse"
+                  "$ref": "#/components/schemas/BracketResponse"
                 }
               }
             },
@@ -34487,7 +36059,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/api__schemas__brackets__BracketResponse"
+                  "$ref": "#/components/schemas/BracketResponse"
                 }
               }
             },
@@ -41980,6 +43552,130 @@
         ]
       }
     },
+    "/api/matches/{match_id}/cancel": {
+      "post": {
+        "description": "Cancels the match and DMs its players, crew and watchers, with your reason. A bracket slot the match held is freed so it can be booked again.\n\n**Who can call this:** Staff or Admins of this tournament.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `staff:write`",
+        "operationId": "cancel_match_api_matches__match_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "match_id",
+            "required": true,
+            "schema": {
+              "title": "Match Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:write"
+            ]
+          }
+        ],
+        "summary": "Call a match off",
+        "tags": [
+          "Matches"
+        ]
+      }
+    },
     "/api/matches/{match_id}/confirm": {
       "post": {
         "description": "Makes the recorded result official and clears any review flag. Players, approved crew and watchers are DMed, the result is pushed to Challonge when the match is linked to it, and a linked bracket advances. Fails with 400 when the match isn't finished, is already confirmed, has no result recorded, or someone else changed it first.\n\n**Who can call this:** Staff or Admins of this tournament.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `staff:write`",
@@ -43221,6 +44917,137 @@
           }
         ],
         "summary": "Flag or clear a result review",
+        "tags": [
+          "Matches"
+        ]
+      }
+    },
+    "/api/matches/{match_id}/rewind": {
+      "post": {
+        "description": "Takes the match back to `to_step` (`scheduled`, `checked_in`, `started` or `finished`), clearing every later step together. Fails with 400 when the match hasn't gone past that step.\n\n**Who can call this:** Staff or Admins of this tournament.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `staff:write`",
+        "operationId": "rewind_match_api_matches__match_id__rewind_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "match_id",
+            "required": true,
+            "schema": {
+              "title": "Match Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RewindRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:write"
+            ]
+          }
+        ],
+        "summary": "Rewind a match to an earlier step",
         "tags": [
           "Matches"
         ]
@@ -58148,7 +59975,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/api__schemas__speedgaming__SyncResultResponse"
+                  "$ref": "#/components/schemas/SyncResultResponse"
                 }
               }
             },
@@ -62730,7 +64557,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TournamentBracketResponse"
+                  "$ref": "#/components/schemas/api__schemas__bracket_overview__TournamentBracketResponse"
                 }
               }
             },
@@ -71129,6 +72956,10 @@
       "name": "Matches"
     },
     {
+      "description": "The staff run sheet as the app's admin Match Schedule draws it: grouped rows and one match's pane.",
+      "name": "Admin: Match Schedule"
+    },
+    {
       "description": "Commentator, tracker and broadcaster signups, approval and acknowledgement.",
       "name": "Crew"
     },
@@ -72950,6 +74781,7 @@
         "My schedule",
         "Admin shell",
         "Matches",
+        "Admin: Match Schedule",
         "Crew",
         "Reschedule requests",
         "Volunteers",

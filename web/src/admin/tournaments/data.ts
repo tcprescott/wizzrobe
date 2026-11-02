@@ -1,8 +1,8 @@
 import { api, unwrap, type Schemas } from '../../api/client'
 import { useAdminQuery } from '../kit/useAdminQuery'
 
-export type Board = Schemas['BoardResponse']
-export type BoardRow = Schemas['BoardRowResponse']
+export type Board = Schemas['TournamentBoardResponse']
+export type BoardRow = Schemas['TournamentBoardRowResponse']
 export type Tournament = Schemas['TournamentResponse']
 export type Player = Schemas['PlayerResponse']
 export type Person = Schemas['PersonResponse']
