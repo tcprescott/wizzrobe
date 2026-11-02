@@ -230,3 +230,7 @@ in TypeScript.
 - 2026-11-02 — Step 12: CI does compile checks only (Android debug on every
   `web/` pull request, unsigned iOS simulator build on demand); signing and
   TestFlight / Play uploads follow once the developer accounts exist.
+- 2026-11-02 — Step 12: Thomas picked layout A for Me › Notifications in the
+  store app: a "This phone" row with Turn on, and phones listed with the other
+  devices, tagged "Wizzrobe app". Mockups:
+  `/mnt/project-files/mobile-app/native-push-mockups/`.
