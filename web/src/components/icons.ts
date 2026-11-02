@@ -101,13 +101,19 @@ import Groups2Icon from '@material-symbols/svg-400/outlined/groups_2.svg?react'
 import ChairIcon from '@material-symbols/svg-400/outlined/chair.svg?react'
 import PodcastsIcon from '@material-symbols/svg-400/outlined/podcasts.svg?react'
 import MilitaryTechIcon from '@material-symbols/svg-400/outlined/military_tech.svg?react'
+import AccountTreeIcon from '@material-symbols/svg-400/outlined/account_tree.svg?react'
+import SyncIcon from '@material-symbols/svg-400/outlined/sync.svg?react'
+import SkipNextIcon from '@material-symbols/svg-400/outlined/skip_next.svg?react'
+import AddLinkIcon from '@material-symbols/svg-400/outlined/add_link.svg?react'
+import PersonAddIcon from '@material-symbols/svg-400/outlined/person_add.svg?react'
+import PersonRemoveIcon from '@material-symbols/svg-400/outlined/person_remove.svg?react'
+import EventNoteIcon from '@material-symbols/svg-400/outlined/event_note.svg?react'
 import Search from '@material-symbols/svg-400/outlined/search.svg?react'
 import Videocam from '@material-symbols/svg-400/outlined/videocam.svg?react'
 import Casino from '@material-symbols/svg-400/outlined/casino.svg?react'
 import PriorityHigh from '@material-symbols/svg-400/outlined/priority_high.svg?react'
 import Inbox from '@material-symbols/svg-400/outlined/inbox.svg?react'
 import Lock from '@material-symbols/svg-400/outlined/lock.svg?react'
-import IAccountTree from '@material-symbols/svg-400/outlined/account_tree.svg?react'
 import IAttractions from '@material-symbols/svg-400/outlined/attractions.svg?react'
 import ICode from '@material-symbols/svg-400/outlined/code.svg?react'
 import IContactPhone from '@material-symbols/svg-400/outlined/contact_phone.svg?react'
@@ -236,7 +242,13 @@ export const ICONS = {
   chair: ChairIcon,
   podcasts: PodcastsIcon,
   military_tech: MilitaryTechIcon,
-  account_tree: IAccountTree,
+  account_tree: AccountTreeIcon,
+  sync: SyncIcon,
+  skip_next: SkipNextIcon,
+  add_link: AddLinkIcon,
+  person_add: PersonAddIcon,
+  person_remove: PersonRemoveIcon,
+  event_note: EventNoteIcon,
   attractions: IAttractions,
   code: ICode,
   contact_phone: IContactPhone,
