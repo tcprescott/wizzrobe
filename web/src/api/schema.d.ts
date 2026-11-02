@@ -3853,6 +3853,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/match-comments/{comment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a comment
+         * @description **Who can call this:** The comment's author, or whoever may run the match.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **App scope:** `play`
+         */
+        delete: operations["delete_comment_api_match_comments__comment_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/matches": {
         parameters: {
             query?: never;
@@ -4021,6 +4044,39 @@ export interface paths {
          *     **App scope:** `staff:write`
          */
         post: operations["cancel_match_api_matches__match_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/matches/{match_id}/comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The comments you may read on a match
+         * @description Oldest first. Whoever may run the match reads every comment. A player reads their own comments and what staff sent the players. Anyone else gets an empty list.
+         *
+         *     **Who can call this:** Any member.
+         *
+         *     **App scope:** `play`
+         */
+        get: operations["list_comments_api_matches__match_id__comments_get"];
+        put?: never;
+        /**
+         * Comment on a match
+         * @description A `player` comment DMs the admin on duty and the tournament's admins; a `staff_to_players` message DMs the players who want those; a `staff_private` note DMs nobody. Fails with 400 when the body is empty or too long, you aren't allowed that kind on this match, or a player posts more than 10 in a minute.
+         *
+         *     **Who can call this:** The match's players (`player`), or whoever may run the match.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **App scope:** `play`
+         */
+        post: operations["add_comment_api_matches__match_id__comments_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -11767,6 +11823,11 @@ export interface components {
             /** Groups */
             groups: components["schemas"]["BoardGroup"][];
             /**
+             * Needs You
+             * @description Work waiting on you, in the order to show it.
+             */
+            needs_you: components["schemas"]["Need"][];
+            /**
              * Scoped Tournaments
              * @description Set when the board shows only the viewer's own tournaments.
              */
@@ -15588,6 +15649,49 @@ export interface components {
              */
             user_id: number;
         };
+        /** MatchCommentCreate */
+        MatchCommentCreate: {
+            /** Body */
+            body: string;
+            /** @description `player` for a player in the match; `staff_private` or `staff_to_players` for whoever may run it. */
+            kind: components["schemas"]["MatchCommentKind"];
+        };
+        /**
+         * MatchCommentKind
+         * @description Who wrote a match comment, and so who may read it.
+         *
+         *     A player's comment goes to staff only; their opponent never sees it. Staff
+         *     pick one of two paths: a private note other staff and proctors read, or a
+         *     message the match's players see as well.
+         * @enum {string}
+         */
+        MatchCommentKind: "player" | "staff_private" | "staff_to_players";
+        /** MatchCommentResponse */
+        MatchCommentResponse: {
+            /** Author */
+            author: string;
+            /** Body */
+            body: string;
+            /** Can Delete */
+            can_delete: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Id */
+            id: number;
+            /**
+             * Kind
+             * @description `player` (a player to staff), `staff_private` (a note only staff and proctors read) or `staff_to_players` (staff to the match's players).
+             */
+            kind: string;
+            /**
+             * Own
+             * @description You wrote it.
+             */
+            own: boolean;
+        };
         /** MatchCreateRequest */
         MatchCreateRequest: {
             /**
@@ -16578,6 +16682,25 @@ export interface components {
              * @description `ios` or `android`.
              */
             platform: string;
+        };
+        /** Need */
+        Need: {
+            /**
+             * Has Result
+             * @description For `result`: a winner is recorded.
+             */
+            has_result?: boolean | null;
+            /**
+             * Kind
+             * @description `request` (a player asked to move or call off a match), `site` (the bracket site already has a result), `held` (the racetime room bot held a result), `result` (finished, not confirmed) or `late` (past its time and nobody checked in).
+             */
+            kind: string;
+            /**
+             * Match Id
+             * @description The match; for anything but `request` it is a row on this board.
+             */
+            match_id: number;
+            request?: components["schemas"]["RescheduleNeed"] | null;
         };
         /** NeedResponse */
         NeedResponse: {
@@ -18631,6 +18754,45 @@ export interface components {
              * @description Why the request was refused. Required: a bare 'no' is what this feature exists to replace.
              */
             note: string;
+        };
+        /** RescheduleNeed */
+        RescheduleNeed: {
+            /**
+             * Clashes
+             * @description Why the proposed time might not work. Approving anyway is allowed.
+             */
+            clashes: string[];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * @description The request, for `POST /reschedule-requests/{id}/approve` or `/decline`.
+             */
+            id: number;
+            /**
+             * Kind
+             * @description `reschedule` or `cancel`.
+             */
+            kind: string;
+            /** Opponent Agreed */
+            opponent_agreed: boolean;
+            /** Players */
+            players: string[];
+            /** Proposed At */
+            proposed_at?: string | null;
+            /** Reason */
+            reason: string;
+            /** Requested By */
+            requested_by: string;
+            /** Scheduled At */
+            scheduled_at?: string | null;
+            /** Title */
+            title?: string | null;
+            /** Tournament */
+            tournament: string;
         };
         /** RescheduleRequestCreate */
         RescheduleRequestCreate: {
@@ -35607,6 +35769,83 @@ export interface operations {
             };
         };
     };
+    delete_comment_api_match_comments__comment_id__delete: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                comment_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     get_matches_api_matches_get: {
         parameters: {
             query?: {
@@ -36250,6 +36489,159 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_comments_api_matches__match_id__comments_get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                match_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchCommentResponse"][];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    add_comment_api_matches__match_id__comments_post: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                match_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MatchCommentCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchCommentResponse"];
+                };
             };
             /** @description A rule refused the request. `detail` says which. */
             400: {

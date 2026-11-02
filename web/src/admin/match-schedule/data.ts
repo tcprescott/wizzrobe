@@ -8,6 +8,10 @@ export type Board = Schemas['BoardResponse']
 export type BoardRow = Schemas['BoardRow']
 export type Pane = Schemas['MatchPaneResponse']
 export type CrewRole = Schemas['CrewRole']
+export type Need = Schemas['Need']
+export type RescheduleNeed = Schemas['RescheduleNeed']
+export type Comment = Schemas['MatchCommentResponse']
+export type CommentKind = Schemas['MatchCommentCreate']['kind']
 
 export interface BoardFilters {
   day: string | null
@@ -57,6 +61,16 @@ export function usePane(matchId: number | null) {
       .GET('/api/admin/match-schedule/matches/{match_id}', {
         params: { path: { match_id: matchId as number }, query: { ...event, tz: deviceZone() } },
       })
+      .then(unwrap),
+  )
+}
+
+export function useComments(matchId: number) {
+  const { community } = useCommunity()
+  const event = useEventQuery()
+  return useQuery(`admin/schedule/comments@${community.slug}/${matchId}`, () =>
+    api
+      .GET('/api/matches/{match_id}/comments', { params: { path: { match_id: matchId }, query: event } })
       .then(unwrap),
   )
 }
@@ -111,5 +125,24 @@ export const actions = {
         params: { path: { crew_type: CREW_TYPE[role] ?? role, crew_id: crewId } },
         body: { approved },
       })
+      .then(unwrap),
+  comment: (id: number, body: string, kind: CommentKind) =>
+    api
+      .POST('/api/matches/{match_id}/comments', { params: { path: { match_id: id } }, body: { body, kind } })
+      .then(unwrap),
+  deleteComment: (commentId: number) =>
+    api.DELETE('/api/match-comments/{comment_id}', { params: { path: { comment_id: commentId } } }).then((r) => {
+      if (!r.response.ok) unwrap(r)
+    }),
+  approveRequest: (requestId: number, scheduledAt: string | null = null) =>
+    api
+      .POST('/api/reschedule-requests/{request_id}/approve', {
+        params: { path: { request_id: requestId } },
+        body: { scheduled_at: scheduledAt, note: null },
+      })
+      .then(unwrap),
+  declineRequest: (requestId: number, note: string) =>
+    api
+      .POST('/api/reschedule-requests/{request_id}/decline', { params: { path: { request_id: requestId } }, body: { note } })
       .then(unwrap),
 }
