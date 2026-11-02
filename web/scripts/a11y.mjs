@@ -14,7 +14,7 @@
  * Usage: npm run build && npm run a11y
  *   A11Y_WIDTHS=360,393,412,440   phone widths to check (default 360)
  *   PW_CHROMIUM=/path/to/chrome   use an already-installed Chromium
- *   A11Y_ONLY=platform            only targets whose name starts with this
+ *   A11Y_ONLY=me-notifications    only targets whose name starts with this
  */
 import { spawn } from 'node:child_process'
 import { mkdirSync, readFileSync } from 'node:fs'
@@ -63,6 +63,7 @@ const TARGETS = [
     (s) => ({ name: `me-${s}`, path: `/t/sgl/me/${s}` }),
   ),
   { name: 'me-customize', path: '/t/sgl/me/notifications', act: (p) => p.getByRole('button', { name: 'Show' }).click(), wait: 'role=group' },
+  { name: 'me-notifications-app', path: '/t/sgl/me/notifications', native: 'ios' },
   { name: 'me-send-test', path: '/t/sgl/me/notifications', act: (p) => p.getByRole('button', { name: 'Send a test…' }).click(), wait: 'role=dialog' },
   { name: 'me-block-time', path: '/t/sgl/me/availability', act: (p) => p.getByRole('button', { name: 'Block a time' }).click(), wait: 'role=dialog' },
   { name: 'me-add-webhook', path: '/t/sgl/me/webhooks', act: (p) => p.getByRole('button', { name: 'Add webhook' }).click(), wait: 'role=dialog' },
@@ -121,6 +122,32 @@ async function stubApi(context) {
   })
 }
 
+/** Runs in the page: makes @capacitor/core report a store app, with the native calls the screens make. */
+function nativeShim(platform) {
+  const answers = {
+    App: { addListener: {}, exitApp: {} },
+    Browser: { open: {}, close: {} },
+    Device: { getInfo: { model: 'iPhone 16' } },
+    PushNotifications: {
+      addListener: {},
+      checkPermissions: { receive: 'prompt' },
+      requestPermissions: { receive: 'granted' },
+      register: {},
+      unregister: {},
+      createChannel: {},
+    },
+  }
+  window.CapacitorCustomPlatform = { name: platform, plugins: {} }
+  window.Capacitor = {
+    PluginHeaders: Object.entries(answers).map(([name, methods]) => ({
+      name,
+      methods: Object.keys(methods).map((m) => ({ name: m, rtype: 'promise' })),
+    })),
+    nativePromise: async (plugin, method) => answers[plugin]?.[method] ?? {},
+    nativeCallback: () => '',
+  }
+}
+
 async function check(browser, target, scheme, viewport, label) {
   const context = await browser.newContext({ viewport, colorScheme: scheme, reducedMotion: 'reduce' })
   await stubApi(context)
@@ -131,6 +158,7 @@ async function check(browser, target, scheme, viewport, label) {
     },
     [target.signedIn === false ? null : SESSION, scheme],
   )
+  if (target.native) await context.addInitScript(nativeShim, target.native)
   const page = await context.newPage()
   const problems = []
   page.on('pageerror', (err) => problems.push(`page error: ${err.message}`))
@@ -168,7 +196,7 @@ try {
     ...PHONES.map((width) => ({ label: `phone${width}`, viewport: { width, height: 780 } })),
     { label: 'desktop', viewport: DESKTOP },
   ]
-  for (const target of TARGETS.filter((t) => !process.env.A11Y_ONLY || t.name.startsWith(process.env.A11Y_ONLY))) {
+  for (const target of TARGETS.filter((t) => t.name.startsWith(process.env.A11Y_ONLY || ''))) {
     for (const { label, viewport } of viewports) {
       for (const scheme of SCHEMES) {
         const problems = await check(browser, target, scheme, viewport, label)

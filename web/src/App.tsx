@@ -18,6 +18,7 @@ import { ScheduleScreen } from './player/ScheduleScreen'
 import { EventScreen, WorkScreen } from './screens/TabScreens'
 import { AppShell } from './shell/AppShell'
 import { ThemeProvider } from './theme/ThemeProvider'
+import { startNativeBridge } from './native/bridge'
 
 const tabRoutes: RouteObject[] = [
   { index: true, element: <Navigate to="home" replace /> },
@@ -64,6 +65,7 @@ export const routes: RouteObject[] = [
 ]
 
 const router = createBrowserRouter(routes)
+startNativeBridge((to) => void router.navigate(to))
 
 export function App() {
   return (

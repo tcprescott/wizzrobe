@@ -65,6 +65,8 @@ _ROUTES: Dict[RouteScope, tuple[str, ...]] = {
         'DELETE /me/emergency-contact',
         'POST /me/channels/devices',
         'DELETE /me/channels/devices/{device_id}',
+        'POST /me/channels/native-devices',
+        'DELETE /me/channels/native-devices/{device_id}',
         'POST /me/channels/email',
         'POST /me/channels/email/confirm',
         'DELETE /me/channels/email',
