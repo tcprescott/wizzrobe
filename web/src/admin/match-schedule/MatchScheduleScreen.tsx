@@ -7,6 +7,7 @@ import { dayKey, effectiveZone, formatDay, formatTime } from '../../lib/time'
 import { readStored, writeStored } from '../../lib/storage'
 import { useBoard, type Board, type BoardFilters, type BoardRow } from './data'
 import { MatchPane } from './MatchPane'
+import { NeedsYou } from './NeedsYou'
 import './schedule.css'
 
 const ALL = 'all'
@@ -273,6 +274,7 @@ export function MatchScheduleScreen() {
       {data && (
         <div className={phone ? 'ms-phone' : 'ms-split'}>
           <section className="ms-list" aria-label={`Matches, ${count}`}>
+            <NeedsYou board={data} zone={zone} linkFor={linkFor} onChanged={reload} />
             {count === 0 && (
               <EmptyState icon="calendar_month" title="No matches here">
                 {filters.q || filters.tournament || filters.stage

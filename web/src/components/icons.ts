@@ -111,6 +111,9 @@ import EventNoteIcon from '@material-symbols/svg-400/outlined/event_note.svg?rea
 import Search from '@material-symbols/svg-400/outlined/search.svg?react'
 import Videocam from '@material-symbols/svg-400/outlined/videocam.svg?react'
 import Casino from '@material-symbols/svg-400/outlined/casino.svg?react'
+import PriorityHigh from '@material-symbols/svg-400/outlined/priority_high.svg?react'
+import Inbox from '@material-symbols/svg-400/outlined/inbox.svg?react'
+import Lock from '@material-symbols/svg-400/outlined/lock.svg?react'
 import IAttractions from '@material-symbols/svg-400/outlined/attractions.svg?react'
 import ICode from '@material-symbols/svg-400/outlined/code.svg?react'
 import IContactPhone from '@material-symbols/svg-400/outlined/contact_phone.svg?react'
@@ -143,7 +146,6 @@ import PublicIcon from '@material-symbols/svg-400/outlined/public.svg?react'
 import PlayCircleIcon from '@material-symbols/svg-400/outlined/play_circle.svg?react'
 import StarIcon from '@material-symbols/svg-400/outlined/star.svg?react'
 import UnarchiveIcon from '@material-symbols/svg-400/outlined/unarchive.svg?react'
-import LockIcon from '@material-symbols/svg-400/outlined/lock.svg?react'
 
 type Svg = FC<SVGProps<SVGSVGElement>>
 
@@ -178,6 +180,9 @@ export const ICONS = {
   search: Search,
   videocam: Videocam,
   casino: Casino,
+  inbox: Inbox,
+  priority_high: PriorityHigh,
+  lock: Lock,
   tv: Tv,
   open_in_new: OpenInNew,
   sports_esports: SportsEsports,
@@ -285,7 +290,6 @@ export const ICONS = {
   play_circle: PlayCircleIcon,
   star: StarIcon,
   unarchive: UnarchiveIcon,
-  lock: LockIcon,
 } satisfies Record<string, Svg>
 
 export const FILLED: Partial<Record<IconName, Svg>> = {
