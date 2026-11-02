@@ -1,18 +1,20 @@
 """Dev seed for ticket sales.
 
-Three badge types in the default event (Weekend covers comps, VIP is capped at 50,
-Sunday is off sale), and one paid Stripe order for
-``player_one``: their own Weekend badge plus an unclaimed extra, so My badges,
-the claim link and the comp-refunds panel all have something to show.
-
-# seed-exempt: TicketStore — it holds a sealed store key; connect a test-mode Stripe key by hand, or run with MOCK_STRIPE=1.
+A test-mode Stripe store (a fake restricted key: run with ``MOCK_STRIPE=1`` to
+buy against it, or paste a real ``rk_test_`` key on Admin → Tickets), three
+badge types in the default event (Weekend covers comps, VIP is capped at 50,
+Sunday is off sale), and four orders for ``player_one``: a paid one with their
+own Weekend badge plus an unclaimed extra, one mid-checkout, one that lapsed
+and one refunded. So My badges, the claim link, the orders list and the
+comp-refunds panel all have something to show.
 """
 
 import secrets
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from application.services.event_service import EventService
 from application.services.ticket_service import CLAIM_PURPOSE, claim_lookup
+from application.services.ticket_store_service import HOOK_SEAL_PURPOSE, STORE_SEAL_PURPOSE
 from application.utils.secret_box import seal
 from models import (
     CheckInTierLanyard,
@@ -22,6 +24,7 @@ from models import (
     TicketOrderStatus,
     TicketProvider,
     TicketStatus,
+    TicketStore,
     TicketType,
     User,
 )
@@ -38,6 +41,14 @@ async def seed_tickets_for_tenant(tenant: Tenant, buyer: User) -> None:
     event_id = await EventService.default_event_id(tenant.id)
     if event_id is None:
         return
+    context = str(tenant.id)
+    await TicketStore.get_or_create(
+        tenant=tenant, provider=TicketProvider.STRIPE,
+        defaults={'account_label': 'Seed Stripe account (test mode)',
+                  'secret': seal('rk_test_seed', purpose=STORE_SEAL_PURPOSE, context=context),
+                  'webhook_secret': seal('whsec_seed', purpose=HOOK_SEAL_PURPOSE, context=context),
+                  'webhook_id': 'we_seed', 'webhook_token': f'seed-{tenant.slug}', 'test_mode': True},
+    )
     types = {}
     for name, description, price, quantity, lanyard, covers_comp, order in _TYPES:
         row, _ = await TicketType.get_or_create(
@@ -68,4 +79,21 @@ async def seed_tickets_for_tenant(tenant: Tenant, buyer: User) -> None:
         price_cents=weekend.price_cents, code=f'SEEX{tenant.id:04d}',
         claim_token=seal(token, purpose=CLAIM_PURPOSE, context=str(tenant.id)), claim_lookup=claim_lookup(token),
     )
+    vip = types['VIP badge']
+    for status, ticket_status, hold, suffix in (
+        (TicketOrderStatus.PENDING, TicketStatus.PENDING, now + timedelta(minutes=30), 'P'),
+        (TicketOrderStatus.EXPIRED, TicketStatus.VOID, now - timedelta(days=1), 'X'),
+        (TicketOrderStatus.REFUNDED, TicketStatus.REFUNDED, now - timedelta(days=2), 'R'),
+    ):
+        paid = status is TicketOrderStatus.REFUNDED
+        other = await TicketOrder.create(
+            tenant=tenant, event_id=event_id, buyer=buyer, provider=TicketProvider.STRIPE, status=status,
+            total_cents=vip.price_cents, refunded_cents=vip.price_cents if paid else 0, currency='usd',
+            provider_ref=f'{ref}_{suffix.lower()}', payment_ref=f'pi_seed_{tenant.slug}_{suffix.lower()}' if paid else None,
+            hold_expires_at=hold, paid_at=hold if paid else None,
+        )
+        await Ticket.create(
+            tenant=tenant, event_id=event_id, order=other, ticket_type=vip, status=ticket_status,
+            price_cents=vip.price_cents, code=f'SE{suffix}{tenant.id:05d}', refunded_at=now if paid else None,
+        )
     print(f'    [{tenant.slug}] tickets ok (claim link /badges/claim/{token})')

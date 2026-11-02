@@ -33,6 +33,7 @@ import secrets
 import time
 from dataclasses import dataclass
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
+from urllib.parse import urlencode
 
 import httpx
 
@@ -173,13 +174,14 @@ class StripeClient:
 
     async def _call(self, method: str, path: str, data: Optional[Mapping[str, Any]] = None,
                     *, idempotency_key: Optional[str] = None) -> Dict[str, Any]:
-        headers = {'Authorization': f'Bearer {self._key}', 'Stripe-Version': '2024-06-20'}
+        headers = {'Authorization': f'Bearer {self._key}', 'Stripe-Version': '2024-06-20',
+                   'Content-Type': 'application/x-www-form-urlencoded'}
         if idempotency_key:
             headers['Idempotency-Key'] = idempotency_key
         try:
             async with httpx.AsyncClient(base_url=API_BASE, timeout=TIMEOUT) as client:
                 response = await client.request(
-                    method, path, headers=headers, data=_flatten(data) if data else None,
+                    method, path, headers=headers, content=urlencode(_flatten(data)) if data else None,
                 )
         except httpx.HTTPError as exc:
             raise StripeError("Couldn't reach Stripe. Try again in a minute.") from exc
@@ -263,7 +265,7 @@ class MockStripeClient(StripeClient):
     async def delete_webhook(self, endpoint_id: str) -> None:
         return None
 
-    async def create_checkout(self, *, order_id: int, success_url: str, **_: Any) -> CheckoutSession:  # type: ignore[override]
+    async def create_checkout(self, *, order_id: int, success_url: str, **_: Any) -> CheckoutSession:
         return CheckoutSession(f'cs_mock_{order_id}', success_url)
 
     async def refund(self, payment_ref: str, amount: int, *, idempotency_key: str) -> str:

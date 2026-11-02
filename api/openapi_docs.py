@@ -157,6 +157,7 @@ TAG_GROUPS: List[tuple[str, List[tuple[str, str]]]] = [
         ('Events', 'The community\'s events, from draft to live to archived, and each one\'s settings.'),
         ('Tournaments', 'Tournaments, their admins and crew coordinators, and signing up.'),
         ('Payouts', 'Prize pools and payouts per tournament.'),
+        ('Tickets', "Event badges sold through the community's own Stripe or PayPal account: stores, badge types, checkout, claims and refunds."),
         ('Webhooks', 'Outbound webhooks that POST to your server when events happen.'),
         ('Discord role mappings', 'Discord roles granted to people with a given Wizzrobe role.'),
         ('System config', 'Community settings stored as key/value pairs.'),

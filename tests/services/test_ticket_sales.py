@@ -14,7 +14,7 @@ from application.services.ticket_gateways import GatewaySignatureError
 from application.services.ticket_service import TicketService
 from application.services.ticket_store_service import HOOK_SEAL_PURPOSE, TicketStoreService
 from application.utils.clients import stripe_client as stripe_module
-from application.utils.clients.stripe_client import sign, verify_signature
+from application.utils.clients.stripe_client import StripeSignatureError, sign, verify_signature
 from application.utils.secret_box import open_
 from models import (
     AuditLog,
@@ -207,7 +207,7 @@ async def test_a_dashboard_refund_voids_the_badges(buyer, store, weekend):
 def test_signature_check_matches_stripes_scheme():
     body = b'{"x":1}'
     verify_signature(body, sign(body, 'whsec_1'), 'whsec_1')
-    with pytest.raises(Exception):
+    with pytest.raises(StripeSignatureError):
         verify_signature(body, sign(body, 'whsec_1'), 'whsec_2')
 
 

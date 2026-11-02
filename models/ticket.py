@@ -117,6 +117,8 @@ class TicketOrder(Model):
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
+    tickets: fields.ReverseRelation['Ticket']
+
     class Meta:
         table = 'ticket_order'
         indexes = (('provider', 'provider_ref'), ('event', 'status'))
