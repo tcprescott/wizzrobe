@@ -98,6 +98,12 @@ import ExtensionIcon from '@material-symbols/svg-400/outlined/extension.svg?reac
 import ToggleOnIcon from '@material-symbols/svg-400/outlined/toggle_on.svg?react'
 import DateRangeIcon from '@material-symbols/svg-400/outlined/date_range.svg?react'
 import Groups2Icon from '@material-symbols/svg-400/outlined/groups_2.svg?react'
+import TrendingUpIcon from '@material-symbols/svg-400/outlined/trending_up.svg?react'
+import ShowChartIcon from '@material-symbols/svg-400/outlined/show_chart.svg?react'
+import QueryStatsIcon from '@material-symbols/svg-400/outlined/query_stats.svg?react'
+import DownloadIcon from '@material-symbols/svg-400/outlined/download.svg?react'
+import DashboardIcon from '@material-symbols/svg-400/outlined/dashboard.svg?react'
+import RefreshIcon from '@material-symbols/svg-400/outlined/refresh.svg?react'
 import ChairIcon from '@material-symbols/svg-400/outlined/chair.svg?react'
 import PodcastsIcon from '@material-symbols/svg-400/outlined/podcasts.svg?react'
 import MilitaryTechIcon from '@material-symbols/svg-400/outlined/military_tech.svg?react'
@@ -206,6 +212,12 @@ export const ICONS = {
   chair: ChairIcon,
   podcasts: PodcastsIcon,
   military_tech: MilitaryTechIcon,
+  trending_up: TrendingUpIcon,
+  show_chart: ShowChartIcon,
+  query_stats: QueryStatsIcon,
+  download: DownloadIcon,
+  dashboard: DashboardIcon,
+  refresh: RefreshIcon,
 } satisfies Record<string, Svg>
 
 export const FILLED: Partial<Record<IconName, Svg>> = {

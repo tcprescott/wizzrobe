@@ -19,6 +19,7 @@ from application.services.reporting_shared import ensure_report_reader, ensure_v
 from application.services.reports_service import ReportsService
 from application.services.system_config_service import SystemConfigService
 from application.services.volunteer.volunteer_schedule_service import VolunteerScheduleService
+from application.timezone_context import current_timezone_name
 from application.utils.audit_display import AREAS, AuditDescription, area_by_key, describe
 from application.utils.serialization import decode_json_details
 from application.utils.timezone import local_day_bounds
@@ -72,6 +73,7 @@ class ReportsMenu:
     event_start: date
     event_end: date
     jumps: Tuple[RangeJump, ...]
+    zone: str
 
 
 @dataclass(frozen=True)
@@ -143,7 +145,7 @@ class ReportsScreenService:
             for offset in range(days):
                 day = start + timedelta(days=offset)
                 jumps.append(RangeJump(day.strftime('%a %m-%d'), day, day))
-        return ReportsMenu(overview, reports, start, end, tuple(jumps))
+        return ReportsMenu(overview, reports, start, end, tuple(jumps), current_timezone_name())
 
     @staticmethod
     def _bounds(start: date, end: date) -> Tuple[datetime, datetime]:

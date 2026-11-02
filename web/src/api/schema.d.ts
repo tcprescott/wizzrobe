@@ -17439,6 +17439,11 @@ export interface components {
              * @description The reports this viewer may open, in display order.
              */
             reports: components["schemas"]["ReportEntryResponse"][];
+            /**
+             * Zone
+             * @description The IANA timezone the date parameters are read in and the report days follow.
+             */
+            zone: string;
         };
         /** RescheduleApproveRequest */
         RescheduleApproveRequest: {

@@ -14,6 +14,7 @@
  * Usage: npm run build && npm run a11y
  *   A11Y_WIDTHS=360,393,412,440   phone widths to check (default 360)
  *   PW_CHROMIUM=/path/to/chrome   use an already-installed Chromium
+ *   A11Y_ONLY=admin-reports       only targets whose name starts with this
  */
 import { spawn } from 'node:child_process'
 import { mkdirSync, readFileSync } from 'node:fs'
@@ -37,6 +38,10 @@ const OUT = join(root, 'a11y-report')
 mkdirSync(OUT, { recursive: true })
 
 const SESSION = JSON.stringify({ access: 'fixture-access', refresh: 'fixture-refresh', expiresAt: 4102444800000 })
+
+/** Waits until every report chart has drawn and dropped its spinner. */
+const chartsDrawn = (p) =>
+  p.locator('.report-chart__canvas svg').first().waitFor().then(() => p.locator('.report-chart__wait').first().waitFor({ state: 'detached' }))
 
 /** `signedIn: false` loads with no session; `act` puts the page in a state worth checking. */
 const TARGETS = [
@@ -62,6 +67,18 @@ const TARGETS = [
   { name: 'admin-schedule-match', path: '/t/sgl/admin/match-schedule/301?day=2026-10-24' },
   { name: 'admin-schedule-rewind', path: '/t/sgl/admin/match-schedule/301?day=2026-10-24', act: (p) => p.getByRole('button', { name: /^More for / }).click().then(() => p.getByRole('menuitem', { name: 'Rewind…' }).click()), wait: 'role=dialog' },
   { name: 'admin-schedule-stations', path: '/t/sgl/admin/match-schedule/301?day=2026-10-24', act: (p) => p.getByRole('button', { name: 'Assign' }).click(), wait: 'role=dialog' },
+  { name: 'admin-reports', path: '/t/sgl/admin/reports' },
+  { name: 'admin-reports-capacity', path: '/t/sgl/admin/reports/capacity', act: chartsDrawn, wait: '.report-chart__canvas svg' },
+  { name: 'admin-reports-insights', path: '/t/sgl/admin/reports/insights', act: chartsDrawn, wait: '.report-chart__canvas svg' },
+  { name: 'admin-reports-match-ops', path: '/t/sgl/admin/reports/match_ops', act: chartsDrawn, wait: '.report-chart__canvas svg' },
+  { name: 'admin-reports-crew', path: '/t/sgl/admin/reports/crew' },
+  { name: 'admin-reports-stages', path: '/t/sgl/admin/reports/stages', act: chartsDrawn, wait: '.report-chart__canvas svg' },
+  { name: 'admin-reports-volunteers', path: '/t/sgl/admin/reports/volunteers' },
+  { name: 'admin-reports-audit', path: '/t/sgl/admin/reports/audit', act: (p) => p.getByText('Match rescheduled').click(), wait: '.report-changes' },
+  { name: 'admin-reports-telemetry', path: '/t/sgl/admin/reports/telemetry' },
+  { name: 'admin-reports-messages', path: '/t/sgl/admin/reports/messages', act: (p) => p.getByText('Rae').click(), wait: 'details[open] .report-message' },
+  { name: 'admin-reports-exports', path: '/t/sgl/admin/reports/exports' },
+  { name: 'admin-reports-dates', path: '/t/sgl/admin/reports/volunteers', act: (p) => p.getByRole('button', { name: 'Other dates' }).click(), wait: 'input[type=date]' },
   ...['about', 'notifications', 'availability', 'accounts', 'staff-alerts', 'equipment', 'accommodation', 'emergency-contact', 'feedback', 'webhooks', 'apps', 'tokens', 'appearance'].map(
     (s) => ({ name: `me-${s}`, path: `/t/sgl/me/${s}` }),
   ),
@@ -160,7 +177,7 @@ try {
     ...PHONES.map((width) => ({ label: `phone${width}`, viewport: { width, height: 780 } })),
     { label: 'desktop', viewport: DESKTOP },
   ]
-  for (const target of TARGETS) {
+  for (const target of TARGETS.filter((t) => t.name.startsWith(process.env.A11Y_ONLY || ''))) {
     for (const { label, viewport } of viewports) {
       for (const scheme of SCHEMES) {
         const problems = await check(browser, target, scheme, viewport, label)

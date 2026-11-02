@@ -17,6 +17,7 @@ async def test_staff_get_every_report_and_the_overview(db, app):
     keys = [r['key'] for r in body['reports']]
     assert keys[:2] == ['insights', 'capacity'] and {'audit', 'telemetry', 'messages', 'exports'} <= set(keys)
     assert body['jumps'][0]['label'] == 'Whole event'
+    assert body['zone']
 
 
 async def test_a_crew_coordinator_skips_the_staff_only_reports(db, app):

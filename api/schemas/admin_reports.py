@@ -25,6 +25,7 @@ class ReportsMenuResponse(BaseModel):
     event_start: date = Field(..., description="The event's first day, the default range start.")
     event_end: date = Field(..., description="The event's last day, the default range end.")
     jumps: List[RangeJumpResponse] = Field(..., description='Range shortcuts: the whole event, then each day of a week-or-shorter event.')
+    zone: str = Field(..., description='The IANA timezone the date parameters are read in and the report days follow.')
 
 
 class OverviewKpiResponse(BaseModel):

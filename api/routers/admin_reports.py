@@ -68,6 +68,7 @@ async def reports_menu(actor: User = Depends(require_api_actor)):
         reports=[ReportEntryResponse(key=r.key, title=r.title, icon=r.icon, description=r.description) for r in menu.reports],
         event_start=menu.event_start, event_end=menu.event_end,
         jumps=[RangeJumpResponse(label=j.label, start=j.start, end=j.end) for j in menu.jumps],
+        zone=menu.zone,
     )
 
 
