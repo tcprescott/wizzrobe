@@ -176,6 +176,7 @@ from .tournament import (
 from .user import (
     ApiToken,
     ContactVerification,
+    DevicePushToken,
     DiscordRoleMapping,
     DiscordTournamentGrant,
     User,
@@ -255,6 +256,7 @@ __all__ = [
     'DataExport',
     'DataExportKind',
     'DataExportStatus',
+    'DevicePushToken',
     'DiscordEventSource',
     'DiscordRoleGrant',
     'DiscordRoleMapping',

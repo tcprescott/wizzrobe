@@ -75,6 +75,10 @@ def browser_origin(uri: str) -> Optional[str]:
     return f'{scheme}://{host}' + (f':{port}' if port and port != default else '')
 
 
+# The pages of the Capacitor store apps run on these origins (iOS, then Android).
+NATIVE_APP_ORIGINS = frozenset({'capacitor://localhost', 'https://localhost'})
+
+
 def hash_secret(value: str) -> str:
     return hashlib.sha256(value.encode()).hexdigest()
 
@@ -288,6 +292,11 @@ class OAuthAppService:
                 origin = browser_origin(uri)
                 if origin:
                     origins.add(origin)
+        # Our own store apps redirect to an app scheme, and their pages call from the webview's origin.
+        for uris in await self.repository.first_party_redirect_uris():
+            if any(uri and browser_origin(uri) is None and not uri.lower().startswith('http') for uri in uris or []):
+                origins.update(NATIVE_APP_ORIGINS)
+                break
         return frozenset(origins)
 
     async def list_my_apps(self, actor: User) -> List[OAuthApp]:

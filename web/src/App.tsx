@@ -3,10 +3,8 @@ import { AdminAreaScreen } from './admin/AdminAreaScreen'
 import { AdminLayout } from './admin/AdminLayout'
 import { AuthProvider, RequireAuth } from './auth/AuthProvider'
 import { TooltipProvider } from './components'
-import { CommunityProvider } from './community/CommunityProvider'
 import { CallbackScreen } from './screens/CallbackScreen'
 import { CommunityIndex } from './screens/CommunityIndex'
-import { CommunityMissing } from './screens/CommunityMissing'
 import { KitScreen } from './screens/KitScreen'
 import { MeLayout } from './me/MeLayout'
 import { MeSection } from './me/sections'
@@ -21,7 +19,10 @@ import { ProctorScreen } from './work/ProctorScreen'
 import { VolunteerScheduleScreen } from './work/VolunteerScheduleScreen'
 import { WorkLayout } from './work/WorkLayout'
 import { AppShell } from './shell/AppShell'
+import { ReadingFrame } from './reading/ReadingFrame'
+import { readingRoutes } from './reading/routes'
 import { ThemeProvider } from './theme/ThemeProvider'
+import { startNativeBridge } from './native/bridge'
 
 const tabRoutes: RouteObject[] = [
   { index: true, element: <Navigate to="home" replace /> },
@@ -41,14 +42,14 @@ const tabRoutes: RouteObject[] = [
   },
   { path: 'me', element: <MeLayout />, children: [{ path: ':section', element: <MeSection /> }] },
   { path: 'admin', element: <AdminLayout />, children: [{ path: ':area/*', element: <AdminAreaScreen /> }] },
+  ...readingRoutes,
 ]
 
+// The reading pages (help, event info…) open signed out too; ReadingFrame picks the frame.
 const shell = (
-  <RequireAuth>
-    <CommunityProvider fallback={(state) => <CommunityMissing {...state} />}>
-      <AppShell />
-    </CommunityProvider>
-  </RequireAuth>
+  <ReadingFrame>
+    <AppShell />
+  </ReadingFrame>
 )
 
 // /t/<slug>/… and /t/<slug>/e/<event>/… keep the shape links in sent DMs already use.
@@ -70,6 +71,7 @@ export const routes: RouteObject[] = [
 ]
 
 const router = createBrowserRouter(routes)
+startNativeBridge((to) => void router.navigate(to))
 
 export function App() {
   return (

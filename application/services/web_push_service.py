@@ -34,6 +34,7 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from application.errors import NotFoundError
 from application.repositories import WebPushRepository
 from application.services.audit_service import AuditActions, AuditService
+from application.services.native_push_service import NativePushService
 from application.services.sent_message_service import SentMessageRef, SentMessageService
 from application.utils import web_push as protocol
 from application.utils.environment import get_base_url, is_production
@@ -284,44 +285,46 @@ class WebPushService:
         self, discord_id: int, message: str, navigate: Optional[str] = None,
         silent: bool = False, ref: Optional[SentMessageRef] = None,
     ) -> None:
-        """Mirror a Discord DM to the recipient's subscribed devices.
+        """Mirror a Discord DM to the recipient's devices: browsers and store apps.
 
         Enqueued fire-and-forget from the DM chokepoint onto the event
         dispatch worker; must never raise and must stay cheap when the user
-        has no subscriptions (one indexed query).
+        has no devices (one indexed query per transport).
 
         ``navigate`` is the DM's call-to-action URL, so a notification that asks
         for something opens the control that does it. Without it the reader lands
         on whatever page the app happened to leave them on.
         """
         try:
-            if not self.is_configured():
-                return
-            subscriptions = await self.repository.list_for_discord_id(discord_id)
-            if not subscriptions:
-                return
-            sent = await self._send_to_subscriptions(
-                subscriptions,
-                title='Wizzrobe',
-                body=self._plain_text(message),
-                navigate=navigate,
-                silent=silent,
+            body = self._plain_text(message)
+            sent = 0
+            tried = False
+            if self.is_configured():
+                subscriptions = await self.repository.list_for_discord_id(discord_id)
+                if subscriptions:
+                    tried = True
+                    sent += await self._send_to_subscriptions(
+                        subscriptions, title='Wizzrobe', body=body, navigate=navigate, silent=silent,
+                    )
+            sent += await NativePushService().send_to_discord_id(
+                discord_id, title='Wizzrobe', body=body, navigate=navigate, silent=silent,
             )
-            if ref is not None:
+            if ref is not None and (sent or tried):
                 await SentMessageService().record_push(ref, sent)
         except Exception:
-            logger.exception('web push DM mirror failed for discord id %s', discord_id)
+            logger.exception('device push DM mirror failed for discord id %s', discord_id)
 
     async def send_test(self, user: User, message: str, navigate: Optional[str] = None) -> bool:
         """Send ``message`` to every device ``user`` has. ``True`` if any took it."""
-        if not self.is_configured():
-            return False
-        subscriptions = await self.repository.list_for_user(user)
-        if not subscriptions:
-            return False
-        sent = await self._send_to_subscriptions(
-            subscriptions, title='Wizzrobe', body=self._plain_text(message), navigate=navigate,
-        )
+        body = self._plain_text(message)
+        sent = 0
+        if self.is_configured():
+            subscriptions = await self.repository.list_for_user(user)
+            if subscriptions:
+                sent += await self._send_to_subscriptions(
+                    subscriptions, title='Wizzrobe', body=body, navigate=navigate,
+                )
+        sent += await NativePushService().send_to_user(user, title='Wizzrobe', body=body, navigate=navigate)
         return sent > 0
 
     def _plain_text(self, message: str) -> str:
