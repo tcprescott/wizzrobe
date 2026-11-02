@@ -8,6 +8,7 @@ import { CallbackScreen } from './screens/CallbackScreen'
 import { CommunityIndex } from './screens/CommunityIndex'
 import { CommunityMissing } from './screens/CommunityMissing'
 import { KitScreen } from './screens/KitScreen'
+import { PlatformShell } from './platform/PlatformShell'
 import { MeLayout } from './me/MeLayout'
 import { MeSection } from './me/sections'
 import { NotFoundScreen } from './screens/NotFoundScreen'
@@ -46,6 +47,14 @@ export const routes: RouteObject[] = [
     element: (
       <RequireAuth>
         <CommunityIndex />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: '/platform/:section?',
+    element: (
+      <RequireAuth>
+        <PlatformShell />
       </RequireAuth>
     ),
   },

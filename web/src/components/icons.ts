@@ -101,6 +101,11 @@ import Groups2Icon from '@material-symbols/svg-400/outlined/groups_2.svg?react'
 import ChairIcon from '@material-symbols/svg-400/outlined/chair.svg?react'
 import PodcastsIcon from '@material-symbols/svg-400/outlined/podcasts.svg?react'
 import MilitaryTechIcon from '@material-symbols/svg-400/outlined/military_tech.svg?react'
+import SmartToyIcon from '@material-symbols/svg-400/outlined/smart_toy.svg?react'
+import BugReportIcon from '@material-symbols/svg-400/outlined/bug_report.svg?react'
+import SearchIcon from '@material-symbols/svg-400/outlined/search.svg?react'
+import RefreshIcon from '@material-symbols/svg-400/outlined/refresh.svg?react'
+import PersonOffIcon from '@material-symbols/svg-400/outlined/person_off.svg?react'
 
 type Svg = FC<SVGProps<SVGSVGElement>>
 
@@ -200,6 +205,11 @@ export const ICONS = {
   chair: ChairIcon,
   podcasts: PodcastsIcon,
   military_tech: MilitaryTechIcon,
+  smart_toy: SmartToyIcon,
+  bug_report: BugReportIcon,
+  search: SearchIcon,
+  refresh: RefreshIcon,
+  person_off: PersonOffIcon,
 } satisfies Record<string, Svg>
 
 export const FILLED: Partial<Record<IconName, Svg>> = {

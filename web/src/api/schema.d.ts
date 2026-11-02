@@ -4202,6 +4202,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/platform": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Whether I may open platform administration
+         * @description Lets the app decide whether to offer a Platform link. Needs no community header.
+         *
+         *     **Who can call this:** Any signed-in person, with Wizzrobe's own app or a personal token.
+         *
+         *     **Apps:** can't call this; it needs a personal API token.
+         */
+        get: operations["my_platform_access_api_me_platform_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me/profile": {
         parameters: {
             query?: never;
@@ -5059,6 +5083,30 @@ export interface paths {
          *     **Apps:** can't call this; it needs a personal API token.
          */
         patch: operations["update_feature_group_api_platform_feature_groups__group_id__patch"];
+        trace?: never;
+    };
+    "/api/platform/features": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List every feature a group can make available
+         * @description Every per-community feature, in the order the platform page lists them.
+         *
+         *     **Who can call this:** Super admins only (platform).
+         *
+         *     **Apps:** can't call this; it needs a personal API token.
+         */
+        get: operations["list_feature_catalog_api_platform_features_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/platform/log-levels": {
@@ -11998,7 +12046,7 @@ export interface components {
         CommunityCreateRequest: {
             /**
              * Discord Guild Id
-             * @description Discord server id. One server may back several communities.
+             * @description Discord server id. One server may back several communities. A string of digits is accepted too.
              */
             discord_guild_id?: number | null;
             /**
@@ -12027,9 +12075,14 @@ export interface components {
             created_at: string;
             /**
              * Discord Guild Id
-             * @description Discord server id. One server may back several communities. Null when unlinked.
+             * @description Discord server id. One server may back several communities. A string of digits is accepted too. Null when unlinked.
              */
             discord_guild_id?: number | null;
+            /**
+             * Discord Guild Id Str
+             * @description The same id as a string, for clients (JavaScript) whose numbers can't hold a Discord id exactly.
+             */
+            discord_guild_id_str?: string | null;
             /**
              * Domain
              * @description Custom domain the community is served on, such as `example.com`. No scheme or path. Null when unset.
@@ -12144,9 +12197,14 @@ export interface components {
             created_at: string;
             /**
              * Discord Guild Id
-             * @description Discord server id. One server may back several communities. Null when unlinked.
+             * @description Discord server id. One server may back several communities. A string of digits is accepted too. Null when unlinked.
              */
             discord_guild_id?: number | null;
+            /**
+             * Discord Guild Id Str
+             * @description The same id as a string, for clients (JavaScript) whose numbers can't hold a Discord id exactly.
+             */
+            discord_guild_id_str?: string | null;
             /**
              * Domain
              * @description Custom domain the community is served on, such as `example.com`. No scheme or path. Null when unset.
@@ -12200,7 +12258,7 @@ export interface components {
         CommunityUpdateRequest: {
             /**
              * Discord Guild Id
-             * @description Discord server id. One server may back several communities.
+             * @description Discord server id. One server may back several communities. A string of digits is accepted too.
              */
             discord_guild_id?: number | null;
             /**
@@ -13492,6 +13550,29 @@ export interface components {
              * @description Games 2 and up, in order. Two entries make a best-of-3, four a best-of-5.
              */
             later_games: components["schemas"]["SetGameTime"][];
+        };
+        /** FeatureCatalogResponse */
+        FeatureCatalogResponse: {
+            /**
+             * Category
+             * @description Group it's listed under.
+             */
+            category: string;
+            /**
+             * Description
+             * @description What turning it on gives a community.
+             */
+            description: string;
+            /**
+             * Flag
+             * @description Feature key, as used in feature groups and overrides.
+             */
+            flag: string;
+            /**
+             * Label
+             * @description Display name.
+             */
+            label: string;
         };
         /** FeatureGroupAssignRequest */
         FeatureGroupAssignRequest: {
@@ -14844,6 +14925,19 @@ export interface components {
             messages: components["schemas"]["MyNotificationResponse"][];
             /** @description Your starting point: `everything`, `needs_me` (ping only when you have something to do) or `quiet` (ping only what can't wait). */
             preset: components["schemas"]["NotificationPreset"];
+        };
+        /** MyPlatformAccess */
+        MyPlatformAccess: {
+            /**
+             * Super Admin
+             * @description Whether you hold the platform super-admin role, so may open `/platform`.
+             */
+            super_admin: boolean;
+            /**
+             * User Id
+             * @description Your account id.
+             */
+            user_id: number;
         };
         /**
          * MyQualifierRunResponse
@@ -35330,6 +35424,62 @@ export interface operations {
             };
         };
     };
+    my_platform_access_api_me_platform_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyPlatformAccess"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     my_profile_api_me_profile_get: {
         parameters: {
             query?: {
@@ -38019,6 +38169,62 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_feature_catalog_api_platform_features_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeatureCatalogResponse"][];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */

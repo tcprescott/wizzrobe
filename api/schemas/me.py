@@ -20,3 +20,8 @@ class MyCommunity(BaseModel):
     name: str
     roles: List[str] = Field(..., description="The roles you hold here, by value.")
     events: List[MyCommunityEvent] = Field(..., description="The events here you can open, drafts only if you're getting one ready.")
+
+
+class MyPlatformAccess(BaseModel):
+    user_id: int = Field(..., description="Your account id.")
+    super_admin: bool = Field(..., description="Whether you hold the platform super-admin role, so may open `/platform`.")

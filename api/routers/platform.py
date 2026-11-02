@@ -29,6 +29,7 @@ from api.schemas.platform import (
     CommunityFeatureResponse,
     CommunityResponse,
     CommunityUpdateRequest,
+    FeatureCatalogResponse,
     FeatureGroupAssignRequest,
     FeatureGroupCreateRequest,
     FeatureGroupResponse,
@@ -43,6 +44,7 @@ from api.schemas.platform import (
     UserActivationRequest,
 )
 from application.errors import require_found
+from application.feature_flags import all_specs
 from application.services import (
     BrowserMonitoringService,
     FeatureFlagService,
@@ -279,6 +281,20 @@ async def _group(actor: User, group_id: int) -> FeatureGroupResponse:
     rows = await FeatureFlagService().list_groups_with_counts(actor)
     row = require_found(next((r for r in rows if r['id'] == group_id), None), 'Feature group')
     return FeatureGroupResponse(**row, community_count=row['tenant_count'])
+
+
+@router.get(
+    "/features",
+    tags=_GROUPS,
+    response_model=List[FeatureCatalogResponse],
+    summary="List every feature a group can make available",
+    description="Every per-community feature, in the order the platform page lists them." + _WHO,
+)
+async def list_feature_catalog(actor: User = Depends(require_super_admin)):
+    return [
+        FeatureCatalogResponse(flag=s.flag.value, label=s.label, description=s.description, category=s.category)
+        for s in all_specs()
+    ]
 
 
 @router.get(

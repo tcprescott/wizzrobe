@@ -171,5 +171,7 @@ async def test_platform_routes_need_no_community_and_stay_super_admin_only():
         resp = await http.get('/api/platform/communities')
         assert resp.status_code == 200, resp.text
         assert (await http.get('/api/platform/apps')).status_code == 200
+        assert (await http.get('/api/me/platform')).json() == {'user_id': root.id, 'super_admin': True}
     async with client(member_tokens['access_token']) as http:
         assert (await http.get('/api/platform/communities')).status_code == 403
+        assert (await http.get('/api/me/platform')).json() == {'user_id': member.id, 'super_admin': False}

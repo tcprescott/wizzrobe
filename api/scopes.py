@@ -389,6 +389,7 @@ _ROUTES: Dict[RouteScope, tuple[str, ...]] = {
     ),
     PAT_ONLY: (
         'GET /me/communities',
+        'GET /me/platform',
         'GET /events/{slug}/settings',
         'PUT /events/{slug}/settings/{key}',
         'GET /tokens',
@@ -439,6 +440,7 @@ _ROUTES: Dict[RouteScope, tuple[str, ...]] = {
         'GET /platform/users',
         'GET /platform/users/{user_id}',
         'PUT /platform/users/{user_id}/active',
+        'GET /platform/features',
         'GET /platform/feature-groups',
         'POST /platform/feature-groups',
         'PATCH /platform/feature-groups/{group_id}',

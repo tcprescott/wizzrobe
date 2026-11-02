@@ -3671,7 +3671,7 @@
                 "type": "null"
               }
             ],
-            "description": "Discord server id. One server may back several communities.",
+            "description": "Discord server id. One server may back several communities. A string of digits is accepted too.",
             "title": "Discord Guild Id"
           },
           "domain": {
@@ -3721,8 +3721,20 @@
                 "type": "null"
               }
             ],
-            "description": "Discord server id. One server may back several communities. Null when unlinked.",
+            "description": "Discord server id. One server may back several communities. A string of digits is accepted too. Null when unlinked.",
             "title": "Discord Guild Id"
+          },
+          "discord_guild_id_str": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The same id as a string, for clients (JavaScript) whose numbers can't hold a Discord id exactly.",
+            "title": "Discord Guild Id Str"
           },
           "domain": {
             "anyOf": [
@@ -3909,8 +3921,20 @@
                 "type": "null"
               }
             ],
-            "description": "Discord server id. One server may back several communities. Null when unlinked.",
+            "description": "Discord server id. One server may back several communities. A string of digits is accepted too. Null when unlinked.",
             "title": "Discord Guild Id"
+          },
+          "discord_guild_id_str": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The same id as a string, for clients (JavaScript) whose numbers can't hold a Discord id exactly.",
+            "title": "Discord Guild Id Str"
           },
           "domain": {
             "anyOf": [
@@ -4006,7 +4030,7 @@
                 "type": "null"
               }
             ],
-            "description": "Discord server id. One server may back several communities.",
+            "description": "Discord server id. One server may back several communities. A string of digits is accepted too.",
             "title": "Discord Guild Id"
           },
           "domain": {
@@ -6373,6 +6397,38 @@
           "later_games"
         ],
         "title": "ExtendToSetRequest",
+        "type": "object"
+      },
+      "FeatureCatalogResponse": {
+        "properties": {
+          "category": {
+            "description": "Group it's listed under.",
+            "title": "Category",
+            "type": "string"
+          },
+          "description": {
+            "description": "What turning it on gives a community.",
+            "title": "Description",
+            "type": "string"
+          },
+          "flag": {
+            "description": "Feature key, as used in feature groups and overrides.",
+            "title": "Flag",
+            "type": "string"
+          },
+          "label": {
+            "description": "Display name.",
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "flag",
+          "label",
+          "description",
+          "category"
+        ],
+        "title": "FeatureCatalogResponse",
         "type": "object"
       },
       "FeatureGroupAssignRequest": {
@@ -8952,6 +9008,26 @@
           "messages"
         ],
         "title": "MyNotificationsResponse",
+        "type": "object"
+      },
+      "MyPlatformAccess": {
+        "properties": {
+          "super_admin": {
+            "description": "Whether you hold the platform super-admin role, so may open `/platform`.",
+            "title": "Super Admin",
+            "type": "boolean"
+          },
+          "user_id": {
+            "description": "Your account id.",
+            "title": "User Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "user_id",
+          "super_admin"
+        ],
+        "title": "MyPlatformAccess",
         "type": "object"
       },
       "MyQualifierRunResponse": {
@@ -42197,6 +42273,73 @@
         ]
       }
     },
+    "/api/me/platform": {
+      "get": {
+        "description": "Lets the app decide whether to offer a Platform link. Needs no community header.\n\n**Who can call this:** Any signed-in person, with Wizzrobe's own app or a personal token.\n\n**Apps:** can't call this; it needs a personal API token.",
+        "operationId": "my_platform_access_api_me_platform_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyPlatformAccess"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Whether I may open platform administration",
+        "tags": [
+          "Users"
+        ]
+      }
+    },
     "/api/me/profile": {
       "get": {
         "description": "Your name, pronouns and clock, plus one line on each section of your profile this community has (notifications, availability, accounts and so on).\n\n**Who can call this:** Any member.\n\n**App scope:** `profile`",
@@ -45890,6 +46033,77 @@
           }
         ],
         "summary": "Update a feature group",
+        "tags": [
+          "Feature groups"
+        ]
+      }
+    },
+    "/api/platform/features": {
+      "get": {
+        "description": "Every per-community feature, in the order the platform page lists them.\n\n**Who can call this:** Super admins only (platform).\n\n**Apps:** can't call this; it needs a personal API token.",
+        "operationId": "list_feature_catalog_api_platform_features_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/FeatureCatalogResponse"
+                  },
+                  "title": "Response List Feature Catalog Api Platform Features Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List every feature a group can make available",
         "tags": [
           "Feature groups"
         ]

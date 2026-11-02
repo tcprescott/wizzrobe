@@ -225,3 +225,9 @@ in TypeScript.
   Each area registers itself from `web/src/admin/<area>/routes.tsx`; which areas
   a viewer may open comes from `GET /api/admin/nav`, whose gates
   `tests/test_admin_nav_drift.py` holds to the website's admin drawer.
+- 2026-11-02 — Step 11 (Platform): side list, like Admin and Me (Thomas: "I like the side
+  list format"). `/platform/<section>` sits outside any community, reached from
+  Platform administration in the community menu; the eight sections are grouped
+  Communities and people / Connections / Operations. Super-admin routes now bind no
+  community, so the app calls them without the header. Mockups:
+  `/mnt/project-files/mobile-app/platform-mockups/`.

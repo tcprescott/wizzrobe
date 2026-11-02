@@ -16,7 +16,7 @@ from models import User
 
 _SLUG = "URL slug, as in `/t/<slug>`: lowercase letters, digits and hyphens."
 _DOMAIN = "Custom domain the community is served on, such as `example.com`. No scheme or path."
-_GUILD = "Discord server id. One server may back several communities."
+_GUILD = "Discord server id. One server may back several communities. A string of digits is accepted too."
 
 
 class SetupStepResponse(BaseModel):
@@ -45,6 +45,10 @@ class CommunityResponse(BaseModel):
     slug: str = Field(..., description=_SLUG)
     domain: Optional[str] = Field(None, description=_DOMAIN + " Null when unset.")
     discord_guild_id: Optional[int] = Field(None, description=_GUILD + " Null when unlinked.")
+    discord_guild_id_str: Optional[str] = Field(
+        None,
+        description="The same id as a string, for clients (JavaScript) whose numbers can't hold a Discord id exactly.",
+    )
     is_active: bool = Field(..., description="Whether the community is switched on. An inactive one is hidden everywhere.")
     feature_group_id: Optional[int] = Field(
         None, description="Feature group (tier) the community is on. Null means the default group."
@@ -59,7 +63,9 @@ class CommunityResponse(BaseModel):
         tenant = overview.tenant
         return cls(
             id=tenant.id, name=tenant.name, slug=tenant.slug, domain=tenant.domain,
-            discord_guild_id=tenant.discord_guild_id, is_active=tenant.is_active,
+            discord_guild_id=tenant.discord_guild_id,
+            discord_guild_id_str=str(tenant.discord_guild_id) if tenant.discord_guild_id is not None else None,
+            is_active=tenant.is_active,
             feature_group_id=tenant.feature_group_id,  # type: ignore[attr-defined]
             feature_group=overview.feature_group,
             setup_ready=overview.setup_ready, setup_missing=overview.setup_missing,
@@ -236,3 +242,10 @@ class IgnoreRuleResponse(BaseModel):
 class IgnoreRuleCreateRequest(BaseModel):
     pattern: str = Field(..., max_length=200, description="A distinctive part of the error, 3 to 200 characters.")
     match: str = Field("message", description="`message` or `url`.")
+
+
+class FeatureCatalogResponse(BaseModel):
+    flag: str = Field(..., description="Feature key, as used in feature groups and overrides.")
+    label: str = Field(..., description="Display name.")
+    description: str = Field(..., description="What turning it on gives a community.")
+    category: str = Field(..., description="Group it's listed under.")

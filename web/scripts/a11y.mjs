@@ -14,6 +14,7 @@
  * Usage: npm run build && npm run a11y
  *   A11Y_WIDTHS=360,393,412,440   phone widths to check (default 360)
  *   PW_CHROMIUM=/path/to/chrome   use an already-installed Chromium
+ *   A11Y_ONLY=platform            only targets whose name starts with this
  */
 import { spawn } from 'node:child_process'
 import { mkdirSync, readFileSync } from 'node:fs'
@@ -68,6 +69,15 @@ const TARGETS = [
   { name: 'me-register-app', path: '/t/sgl/me/apps', act: (p) => p.getByRole('button', { name: 'Register an app' }).click(), wait: 'role=dialog' },
   { name: 'me-sign-out', path: '/t/sgl/me/appearance', act: (p) => p.getByRole('button', { name: 'Sign out' }).click(), wait: 'role=dialog' },
   { name: 'picker', path: '/t/sgl/home', act: (p) => p.getByRole('button', { name: /Change event or community/ }).click(), wait: 'role=menu' },
+  { name: 'platform', path: '/platform' },
+  ...['communities', 'users', 'features', 'bots', 'apps', 'health', 'logging', 'monitoring'].map((s) => ({ name: `platform-${s}`, path: `/platform/${s}` })),
+  { name: 'platform-new-community', path: '/platform/communities', act: (p) => p.getByRole('button', { name: 'New community' }).click(), wait: 'role=dialog' },
+  { name: 'platform-features', path: '/platform/communities', act: (p) => p.getByRole('button', { name: 'Features' }).first().click(), wait: 'role=dialog' },
+  { name: 'platform-staff', path: '/platform/communities', act: async (p) => { await p.getByRole('button', { name: 'More for SpeedGaming Live' }).click(); await p.getByRole('menuitem', { name: 'Staff' }).click() }, wait: 'role=dialog' },
+  { name: 'platform-group', path: '/platform/features', act: (p) => p.getByRole('button', { name: 'Edit Standard' }).click(), wait: 'role=dialog' },
+  { name: 'platform-bot-grants', path: '/platform/bots', act: (p) => p.getByRole('button', { name: 'Communities for ALTTPR bot' }).click(), wait: 'role=dialog' },
+  { name: 'platform-disable-app', path: '/platform/apps', act: (p) => p.getByRole('button', { name: 'Disable Stream Deck' }).click(), wait: 'role=dialog' },
+  { name: 'platform-ignore', path: '/platform/monitoring', act: (p) => p.getByRole('button', { name: 'Ignore an error' }).click(), wait: 'role=dialog' },
   { name: 'player-no-work', path: '/t/second/home' },
   { name: 'not-a-member', path: '/t/elsewhere/home' },
   { name: 'not-found', path: '/nowhere' },
@@ -156,7 +166,7 @@ try {
     ...PHONES.map((width) => ({ label: `phone${width}`, viewport: { width, height: 780 } })),
     { label: 'desktop', viewport: DESKTOP },
   ]
-  for (const target of TARGETS) {
+  for (const target of TARGETS.filter((t) => !process.env.A11Y_ONLY || t.name.startsWith(process.env.A11Y_ONLY))) {
     for (const { label, viewport } of viewports) {
       for (const scheme of SCHEMES) {
         const problems = await check(browser, target, scheme, viewport, label)

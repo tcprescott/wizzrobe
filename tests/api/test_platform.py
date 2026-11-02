@@ -322,3 +322,21 @@ class TestBrowserMonitoring:
             assert short.status_code == 400
             rows = (await c.delete(f"/api/platform/browser-monitoring/rules/{added[0]['id']}")).json()
             assert not [r for r in rows if not r['builtin']]
+
+
+async def test_feature_catalog_lists_every_flag(db, app):
+    _, raw = await _super()
+    async with client_for(app, raw) as c:
+        rows = (await c.get('/api/platform/features')).json()
+    assert {r['flag'] for r in rows} == {f.value for f in FeatureFlag}
+    assert all(r['label'] for r in rows)
+
+
+async def test_guild_id_round_trips_as_a_string(db, app):
+    _, raw = await _super()
+    guild = '1234567890123456789'
+    async with client_for(app, raw) as c:
+        resp = await c.post('/api/platform/communities', json={'name': 'Big', 'slug': 'big', 'discord_guild_id': guild})
+        assert resp.status_code in (200, 201), resp.text
+        assert resp.json()['discord_guild_id_str'] == guild
+    assert (await Tenant.get(slug='big')).discord_guild_id == int(guild)
