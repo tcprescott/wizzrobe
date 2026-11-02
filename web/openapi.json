@@ -21014,7 +21014,7 @@
   "paths": {
     "/api/admin/presets/check-paste": {
       "post": {
-        "description": "Reads a Wind Waker permalink, an FFR flags link or a flag string the way a roll will, without saving anything. Fails with 400 and the reason when it can't be read.\n\n**Who can call this:** Staff or Preset manager.\n\n**App scope:** `staff:read`",
+        "description": "Reads a Wind Waker permalink, an FFR flags link or a flag string the way a roll will, without saving anything. Fails with 400 and the reason when it can't be read.\n\n**Who can call this:** Staff or Preset manager.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `staff:write`",
         "operationId": "check_paste_api_admin_presets_check_paste_post",
         "parameters": [
           {
@@ -21124,7 +21124,7 @@
           },
           {
             "WizzrobeApps": [
-              "staff:read"
+              "staff:write"
             ]
           }
         ],

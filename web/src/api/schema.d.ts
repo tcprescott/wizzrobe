@@ -19,7 +19,8 @@ export interface paths {
          *
          *     **Who can call this:** Staff or Preset manager.
          *
-         *     **App scope:** `staff:read`
+         *     **Token:** needs a token that isn't read-only.
+         *     **App scope:** `staff:write`
          */
         post: operations["check_paste_api_admin_presets_check_paste_post"];
         delete?: never;
