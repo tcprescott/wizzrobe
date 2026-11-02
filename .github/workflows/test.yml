@@ -122,7 +122,6 @@ jobs:
       postgres: ${{ steps.diff.outputs.postgres }}
       a11y: ${{ steps.diff.outputs.a11y }}
       web: ${{ steps.diff.outputs.web }}
-      api_schema: ${{ steps.diff.outputs.api_schema }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -134,7 +133,7 @@ jobs:
         # a broken `changes` job can never turn a skipped check into a green one.
         run: |
           run_all() {
-            for job in swiss postgres a11y web api_schema; do echo "$job=true" >> "$GITHUB_OUTPUT"; done
+            for job in swiss postgres a11y web; do echo "$job=true" >> "$GITHUB_OUTPUT"; done
             exit 0
           }
           [ "${{ github.event_name }}" = "pull_request" ] || run_all
@@ -164,16 +163,17 @@ jobs:
             echo "a11y=$(touches '^(pages/|theme/|static/|application/(help|content|about|event_info)/|scripts/ui_|scripts/seed_dev\.py$|main\.py$|middleware/|poetry\.lock$|pyproject\.toml$|\.github/)')"
 
             # The new app (web/). Its typed client is generated from the REST
-            # schema, so anything that can change a route or a response model
-            # re-checks the committed copy.
-            echo "web=$(touches '^(web/|\.github/)')"
-            echo "api_schema=$(touches '^(api/|application/|models/|web/|scripts/export_openapi\.py$|poetry\.lock$|pyproject\.toml$|\.github/)')"
+            # schema on every run, so anything that can change a route or a
+            # response model re-typechecks it.
+            echo "web=$(touches '^(api/|application/|models/|web/|scripts/export_openapi\.py$|poetry\.lock$|pyproject\.toml$|\.github/)')"
           } >> "$GITHUB_OUTPUT"
 
   web:
-    # The new app in web/ (docs/specs/mobile-app.md): typecheck, unit tests,
-    # build, then axe + contrast + phone overflow on every screen in light and
-    # dark against stubbed API fixtures, so no backend is booted.
+    # The new app in web/ (docs/specs/mobile-app.md): generate the typed API
+    # client from the routers (web/openapi.json and src/api/schema.d.ts are
+    # not committed), typecheck, unit tests, build, then axe + contrast +
+    # phone overflow on every screen in light and dark against stubbed API
+    # fixtures, so no backend is booted.
     needs: changes
     if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
@@ -184,6 +184,24 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Install Poetry
+        run: pipx install poetry==${{ env.POETRY_VERSION }}
+
+      - name: Cache Poetry virtualenv
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pypoetry/virtualenvs
+          key: poetry-full-3.12-${{ hashFiles('poetry.lock') }}
+
+      - name: Install Python dependencies
+        working-directory: .
+        run: poetry install --no-interaction
+
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
@@ -192,6 +210,9 @@ jobs:
 
       - name: Install
         run: npm ci
+
+      - name: Generate the API client
+        run: npm run gen:api
 
       - name: Typecheck
         run: npm run typecheck
@@ -217,51 +238,6 @@ jobs:
           name: web-a11y-screenshots
           path: web/a11y-report/
           if-no-files-found: warn
-
-  web-api-client:
-    # web/src/api/schema.d.ts is generated from the REST schema. A route or
-    # response model change without `npm run gen:api` fails here.
-    needs: changes
-    if: needs.changes.outputs.api_schema == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Set up Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: '3.12'
-
-      - name: Install Poetry
-        run: pipx install poetry==${{ env.POETRY_VERSION }}
-
-      - name: Cache Poetry virtualenv
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pypoetry/virtualenvs
-          key: poetry-full-3.12-${{ hashFiles('poetry.lock') }}
-
-      - name: Install dependencies
-        run: poetry install --no-interaction
-
-      - uses: actions/setup-node@v5
-        with:
-          node-version: '22'
-          cache: npm
-          cache-dependency-path: web/package-lock.json
-
-      - name: Regenerate the schema and the client
-        run: |
-          poetry run python scripts/export_openapi.py web/openapi.json
-          cd web && npm ci && npm run gen:api
-
-      - name: Committed copy matches
-        run: |
-          if ! git diff --exit-code -- web/openapi.json web/src/api/schema.d.ts; then
-            echo "::error::The REST schema changed. Run: poetry run python scripts/export_openapi.py && (cd web && npm run gen:api), and commit both files."
-            exit 1
-          fi
 
   swiss-crossvalidation:
     # Cross-validate our Swiss engine against bbpPairings (a real FIDE-grade

@@ -130,7 +130,18 @@ responses are `no-store` and `noindex` except the art.
 - **Match sheet** on Admin → Match Schedule: **Pin to overlay** for a match on a
   stage, when `MatchBoardAccess.pin_overlay` (Staff or Broadcast Tech, flag live).
 
-No REST router or MCP tool exists yet.
+- **The new app** (`web/src/admin/stream-layouts/`): stages and layouts in one
+  side list (Thomas picked A, 2026-11-02). A stage opens on "On the overlay now"
+  (a live thumbnail, the match, up next) with Pin a match… / Back to automatic /
+  Copy OBS link, then its layout picker. A layout opens on its preview and box
+  list; **Edit layout** (desktop only; phones are told to use a computer) opens
+  the full-width editor with drag, corner resize, arrow-key nudge, a settings
+  panel, Add box, Preview with a match, Undo and Save.
+- **REST** `/api/admin/stream-layouts/*` (`api/routers/admin_stream_layouts.py`
+  over `AdminStreamLayoutsService`): board, stage preview, pin/unpin, stage
+  layout, renew link, OBS scenes as JSON text, layout CRUD, boxes (stale-save
+  check via `expected_updated_at`), previews, art upload (the raw image as the
+  request body) and plain background. No MCP tool yet.
 
 ## Not built
 

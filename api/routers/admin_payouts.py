@@ -7,7 +7,7 @@ for editing in place. The pool and split themselves save through
 
 from fastapi import APIRouter, Depends
 
-from api.dependencies import ServiceErrorRoute, event_binding, require_api_actor
+from api.dependencies import ServiceErrorRoute, event_binding, require_api_actor, require_write_actor
 from api.schemas.admin_payouts import (
     PayoutBoardResponse,
     PayoutDetailResponse,
@@ -49,7 +49,7 @@ async def sglive_links(actor: User = Depends(require_api_actor)):
     '/sglive', status_code=204, summary='Link sglive games to tournaments',
     description="Saves which tournament each sglive game pays into, then fills the newly linked pools.\n\n" + _WHO,
 )
-async def set_sglive_links(body: SgliveLinksRequest, actor: User = Depends(require_api_actor)):
+async def set_sglive_links(body: SgliveLinksRequest, actor: User = Depends(require_write_actor)):
     await AdminPayoutsService().set_sglive_links(actor, body.links)
 
 
@@ -57,7 +57,7 @@ async def set_sglive_links(body: SgliveLinksRequest, actor: User = Depends(requi
     '/sglive/sync', response_model=SgliveSyncResponse, summary='Sync pools from sglive now',
     description="Reads sglive now instead of waiting for the 15-minute sync.\n\n" + _WHO,
 )
-async def sync_sglive(actor: User = Depends(require_api_actor)):
+async def sync_sglive(actor: User = Depends(require_write_actor)):
     return SgliveSyncResponse(missing=await AdminPayoutsService().sync_sglive(actor))
 
 
@@ -81,5 +81,5 @@ async def export(tournament_id: int, actor: User = Depends(require_api_actor)):
     '/{tournament_id}/sglive', status_code=204, summary='Stop syncing a pool from sglive',
     description="The pool keeps its last synced amount and can be typed again.\n\n" + _WHO,
 )
-async def unlink_sglive(tournament_id: int, actor: User = Depends(require_api_actor)):
+async def unlink_sglive(tournament_id: int, actor: User = Depends(require_write_actor)):
     await AdminPayoutsService().unlink_sglive(actor, tournament_id)
