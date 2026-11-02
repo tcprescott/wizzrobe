@@ -34,3 +34,27 @@ async def test_non_staff_are_refused(db, app):
     async with client_for(app, raw) as c:
         resp = await c.put('/api/notification-settings/player_comment/staff-alerts', json={'choice': 'off'})
     assert resp.status_code == 403
+
+
+async def test_admin_screen_groups_cards_and_folds_staff(db, app):
+    _, raw = await create_user_token(username='boss', roles=[Role.STAFF])
+    async with client_for(app, raw) as c:
+        await c.put('/api/notification-settings/player_comment/admins', json={'mode': 'ping'})
+        await c.put('/api/notification-settings/player_comment/on_duty', json={'mode': 'off'})
+        body = (await c.get('/api/admin/notifications')).json()
+    first = body['cards'][0]
+    assert (first['group'], first['section']) == ('Matches', 'Booking')
+    assert first['columns'][0] == 'players'
+    messages = {m['notice']: m for card in body['cards'] for m in card['messages']}
+    staff = [c for c in messages['player_comment']['cells'] if c['column'] == 'staff_alerts']
+    assert len(staff) == 1 and staff[0]['staff_choice'] is None and staff[0]['staff_label'] == 'Custom'
+    assert [o['choice'] for o in staff[0]['staff_options']] == ['ping_all', 'ping_on_duty', 'silent', 'off']
+    assert 'On shift: Off' in staff[0]['staff_mix']
+    assert not any(c['column'] in ('on_duty', 'admins', 'staff') for m in messages.values() for c in m['cells'])
+    assert messages['player_comment']['changed'] and body['changed'] == 1
+
+
+async def test_admin_screen_is_staff_only(db, app):
+    _, raw = await create_user_token(username='plain', roles=[Role.PROCTOR])
+    async with client_for(app, raw) as c:
+        assert (await c.get('/api/admin/notifications')).status_code == 403

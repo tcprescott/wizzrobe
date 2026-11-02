@@ -11,6 +11,7 @@ from api import graphql
 from api.dependencies import require_feature, tenant_context_scope
 from api.rate_limit import rate_limit
 from api.routers import (
+    admin_notifications,
     async_qualifier_live_races,
     async_qualifiers,
     audit,
@@ -102,6 +103,7 @@ router.include_router(sent_messages.router)
 router.include_router(exports.router)
 router.include_router(system_config.router)
 router.include_router(notification_settings.router)
+router.include_router(admin_notifications.router)
 router.include_router(tokens.router)
 router.include_router(
     volunteers.router,

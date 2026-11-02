@@ -210,6 +210,28 @@
         "title": "ActivityTrendsResponse",
         "type": "object"
       },
+      "AdminNotificationsResponse": {
+        "properties": {
+          "cards": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationCardResponse"
+            },
+            "title": "Cards",
+            "type": "array"
+          },
+          "changed": {
+            "description": "How many cells differ from the default, counting a Staff column once.",
+            "title": "Changed",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cards",
+          "changed"
+        ],
+        "title": "AdminNotificationsResponse",
+        "type": "object"
+      },
       "AdminRequest": {
         "properties": {
           "user_id": {
@@ -9022,6 +9044,165 @@
         "title": "NoticeInfo",
         "type": "object"
       },
+      "NotificationCardResponse": {
+        "properties": {
+          "columns": {
+            "description": "The recipient columns any of its messages use, in display order.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Columns",
+            "type": "array"
+          },
+          "group": {
+            "description": "The area, e.g. `Matches`.",
+            "title": "Group",
+            "type": "string"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationMessageResponse"
+            },
+            "title": "Messages",
+            "type": "array"
+          },
+          "section": {
+            "default": "",
+            "description": "The subheading inside it, e.g. `Match day`; empty when the group has none.",
+            "title": "Section",
+            "type": "string"
+          }
+        },
+        "required": [
+          "group",
+          "columns",
+          "messages"
+        ],
+        "title": "NotificationCardResponse",
+        "type": "object"
+      },
+      "NotificationCellResponse": {
+        "properties": {
+          "changed": {
+            "description": "Whether the community chose something other than the default.",
+            "title": "Changed",
+            "type": "boolean"
+          },
+          "column": {
+            "description": "The recipient column: `players`, `crew`, `watchers`, `followers`, `volunteers`, `members`, or `staff_alerts` for the one Staff setting that folds on shift, admins and all staff together.",
+            "title": "Column",
+            "type": "string"
+          },
+          "default": {
+            "$ref": "#/components/schemas/NotificationMode"
+          },
+          "label": {
+            "description": "The column as the screen names it.",
+            "title": "Label",
+            "type": "string"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/NotificationMode",
+            "description": "What it is now. On the Staff column, the mode its choice sends with (`silent` for a custom mix)."
+          },
+          "staff_choice": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StaffChoice"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Staff column only: the current choice, null for a custom mix."
+          },
+          "staff_default": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StaffChoice"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Staff column only: the default choice."
+          },
+          "staff_label": {
+            "default": "",
+            "description": "Staff column only: the current choice as the screen names it (`Custom` for a mix).",
+            "title": "Staff Label",
+            "type": "string"
+          },
+          "staff_mix": {
+            "default": "",
+            "description": "Staff column only: each staff recipient and its mode, for a custom mix.",
+            "title": "Staff Mix",
+            "type": "string"
+          },
+          "staff_options": {
+            "description": "Staff column only: the choices this message offers, in order.",
+            "items": {
+              "$ref": "#/components/schemas/StaffChoiceOptionResponse"
+            },
+            "title": "Staff Options",
+            "type": "array"
+          },
+          "who": {
+            "default": "",
+            "description": "Who it means for this message, when the label alone would mislead.",
+            "title": "Who",
+            "type": "string"
+          }
+        },
+        "required": [
+          "column",
+          "label",
+          "mode",
+          "default",
+          "changed"
+        ],
+        "title": "NotificationCellResponse",
+        "type": "object"
+      },
+      "NotificationMessageResponse": {
+        "properties": {
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationCellResponse"
+            },
+            "title": "Cells",
+            "type": "array"
+          },
+          "changed": {
+            "description": "Whether any of its cells differs from the default.",
+            "title": "Changed",
+            "type": "boolean"
+          },
+          "notice": {
+            "description": "The message's key, e.g. `match_scheduled`.",
+            "title": "Notice",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "when": {
+            "description": "What sends it.",
+            "title": "When",
+            "type": "string"
+          }
+        },
+        "required": [
+          "notice",
+          "title",
+          "when",
+          "changed",
+          "cells"
+        ],
+        "title": "NotificationMessageResponse",
+        "type": "object"
+      },
       "NotificationMode": {
         "description": "How one kind of recipient gets one notification.\n\n``OFF`` sends nothing on any channel; ``SILENT`` delivers without a ping or\nphone buzz (Discord's @silent; email can't be quiet); ``PING`` is a normal\nmessage.",
         "enum": [
@@ -14057,6 +14238,30 @@
         ],
         "title": "StaffChoice",
         "type": "string"
+      },
+      "StaffChoiceOptionResponse": {
+        "properties": {
+          "choice": {
+            "$ref": "#/components/schemas/StaffChoice"
+          },
+          "help": {
+            "description": "One line on who that choice reaches.",
+            "title": "Help",
+            "type": "string"
+          },
+          "label": {
+            "description": "The choice as the Staff dropdown names it for this message.",
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "choice",
+          "label",
+          "help"
+        ],
+        "title": "StaffChoiceOptionResponse",
+        "type": "object"
       },
       "StaffGrantRequest": {
         "properties": {
@@ -19778,6 +19983,78 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/admin/notifications": {
+      "get": {
+        "description": "One card per subheading of the catalogue, each listing its messages with a cell per kind of recipient. The on-shift, admins and all-staff recipients fold into one `staff_alerts` cell carrying the Staff choice and the options it offers. Change a cell with `PUT /notification-settings/{notice}/{recipient}`, or the Staff cell with `PUT /notification-settings/{notice}/staff-alerts`.\n\n**Who can call this:** Staff.\n\n**App scope:** `staff:read`",
+        "operationId": "admin_notifications_api_admin_notifications_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminNotificationsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "Notification settings as the admin screen shows them",
+        "tags": [
+          "Notification settings"
+        ]
+      }
+    },
     "/api/async-qualifiers": {
       "get": {
         "description": "The qualifiers you administer, newest first, including each one's internal `config`. Staff and Qualifier admins see every qualifier in the community; a qualifier admin sees only the ones that list them. Anyone who administers none is refused.\n\n**Who can call this:** Staff, Qualifier admin, or admins of at least one qualifier.\n\n**App scope:** `staff:read`  \n**Feature:** only works when the community has **Async Qualifiers** turned on; otherwise every call answers `404`.",

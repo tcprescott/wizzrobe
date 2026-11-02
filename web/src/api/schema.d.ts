@@ -4,6 +4,30 @@
  */
 
 export interface paths {
+    "/api/admin/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Notification settings as the admin screen shows them
+         * @description One card per subheading of the catalogue, each listing its messages with a cell per kind of recipient. The on-shift, admins and all-staff recipients fold into one `staff_alerts` cell carrying the Staff choice and the options it offers. Change a cell with `PUT /notification-settings/{notice}/{recipient}`, or the Staff cell with `PUT /notification-settings/{notice}/staff-alerts`.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **App scope:** `staff:read`
+         */
+        get: operations["admin_notifications_api_admin_notifications_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/async-qualifiers": {
         parameters: {
             query?: never;
@@ -9827,6 +9851,16 @@ export interface components {
              */
             total: number;
         };
+        /** AdminNotificationsResponse */
+        AdminNotificationsResponse: {
+            /** Cards */
+            cards: components["schemas"]["NotificationCardResponse"][];
+            /**
+             * Changed
+             * @description How many cells differ from the default, counting a Staff column once.
+             */
+            changed: number;
+        };
         /** AdminRequest */
         AdminRequest: {
             /**
@@ -14666,6 +14700,97 @@ export interface components {
              */
             title: string;
         };
+        /** NotificationCardResponse */
+        NotificationCardResponse: {
+            /**
+             * Columns
+             * @description The recipient columns any of its messages use, in display order.
+             */
+            columns: string[];
+            /**
+             * Group
+             * @description The area, e.g. `Matches`.
+             */
+            group: string;
+            /** Messages */
+            messages: components["schemas"]["NotificationMessageResponse"][];
+            /**
+             * Section
+             * @description The subheading inside it, e.g. `Match day`; empty when the group has none.
+             * @default
+             */
+            section: string;
+        };
+        /** NotificationCellResponse */
+        NotificationCellResponse: {
+            /**
+             * Changed
+             * @description Whether the community chose something other than the default.
+             */
+            changed: boolean;
+            /**
+             * Column
+             * @description The recipient column: `players`, `crew`, `watchers`, `followers`, `volunteers`, `members`, or `staff_alerts` for the one Staff setting that folds on shift, admins and all staff together.
+             */
+            column: string;
+            default: components["schemas"]["NotificationMode"];
+            /**
+             * Label
+             * @description The column as the screen names it.
+             */
+            label: string;
+            /** @description What it is now. On the Staff column, the mode its choice sends with (`silent` for a custom mix). */
+            mode: components["schemas"]["NotificationMode"];
+            /** @description Staff column only: the current choice, null for a custom mix. */
+            staff_choice?: components["schemas"]["StaffChoice"] | null;
+            /** @description Staff column only: the default choice. */
+            staff_default?: components["schemas"]["StaffChoice"] | null;
+            /**
+             * Staff Label
+             * @description Staff column only: the current choice as the screen names it (`Custom` for a mix).
+             * @default
+             */
+            staff_label: string;
+            /**
+             * Staff Mix
+             * @description Staff column only: each staff recipient and its mode, for a custom mix.
+             * @default
+             */
+            staff_mix: string;
+            /**
+             * Staff Options
+             * @description Staff column only: the choices this message offers, in order.
+             */
+            staff_options?: components["schemas"]["StaffChoiceOptionResponse"][];
+            /**
+             * Who
+             * @description Who it means for this message, when the label alone would mislead.
+             * @default
+             */
+            who: string;
+        };
+        /** NotificationMessageResponse */
+        NotificationMessageResponse: {
+            /** Cells */
+            cells: components["schemas"]["NotificationCellResponse"][];
+            /**
+             * Changed
+             * @description Whether any of its cells differs from the default.
+             */
+            changed: boolean;
+            /**
+             * Notice
+             * @description The message's key, e.g. `match_scheduled`.
+             */
+            notice: string;
+            /** Title */
+            title: string;
+            /**
+             * When
+             * @description What sends it.
+             */
+            when: string;
+        };
         /**
          * NotificationMode
          * @description How one kind of recipient gets one notification.
@@ -17299,6 +17424,20 @@ export interface components {
          * @enum {string}
          */
         StaffChoice: "ping_all" | "ping_on_duty" | "silent" | "off";
+        /** StaffChoiceOptionResponse */
+        StaffChoiceOptionResponse: {
+            choice: components["schemas"]["StaffChoice"];
+            /**
+             * Help
+             * @description One line on who that choice reaches.
+             */
+            help: string;
+            /**
+             * Label
+             * @description The choice as the Staff dropdown names it for this message.
+             */
+            label: string;
+        };
         /** StaffGrantRequest */
         StaffGrantRequest: {
             /**
@@ -20405,6 +20544,62 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    admin_notifications_api_admin_notifications_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminNotificationsResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     list_qualifiers_api_async_qualifiers_get: {
         parameters: {
             query?: {
