@@ -8883,6 +8883,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/surveys/{survey_id}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Close a survey
+         * @description Stops taking answers. Anything saved but not sent stays unsent.
+         *
+         *     **Who can call this:** Staff, from the Wizzrobe app only. Personal tokens and other apps get a 403.
+         *
+         *     **Apps:** can't call this; it needs a personal API token.
+         *     **Feature:** only works when the community has **Surveys** turned on; otherwise every call answers `404`.
+         */
+        post: operations["close_api_surveys__survey_id__close_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/surveys/{survey_id}/comment-tags": {
         parameters: {
             query?: never;
@@ -9062,6 +9087,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/surveys/{survey_id}/remind": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remind people who have not answered
+         * @description DMs everyone still waiting who didn't say "Not interested". Once a day, two in all; the second is a last call.
+         *
+         *     **Who can call this:** Staff, from the Wizzrobe app only. Personal tokens and other apps get a 403.
+         *
+         *     **Apps:** can't call this; it needs a personal API token.
+         *     **Feature:** only works when the community has **Surveys** turned on; otherwise every call answers `404`.
+         */
+        post: operations["remind_api_surveys__survey_id__remind_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/surveys/{survey_id}/responses": {
         parameters: {
             query?: never;
@@ -9132,6 +9182,31 @@ export interface paths {
          *     **Feature:** only works when the community has **Surveys** turned on; otherwise every call answers `404`.
          */
         post: operations["add_section_api_surveys__survey_id__sections_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/surveys/{survey_id}/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a survey
+         * @description Opens the draft and DMs everyone who took part in its event. Refused with no questions, nobody to send to, or a close time in the past.
+         *
+         *     **Who can call this:** Staff, from the Wizzrobe app only. Personal tokens and other apps get a 403.
+         *
+         *     **Apps:** can't call this; it needs a personal API token.
+         *     **Feature:** only works when the community has **Surveys** turned on; otherwise every call answers `404`.
+         */
+        post: operations["send_api_surveys__survey_id__send_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -22078,6 +22153,22 @@ export interface components {
              */
             url?: string | null;
         };
+        /** SendRequest */
+        SendRequest: {
+            /**
+             * Closes At
+             * @description When it stops taking answers (UTC); leave out to keep it open.
+             */
+            closes_at?: string | null;
+        };
+        /** SendResult */
+        SendResult: {
+            /**
+             * People
+             * @description How many people it went to (send) or how many DMs were queued (remind).
+             */
+            people: number;
+        };
         /** SentContextResponse */
         SentContextResponse: {
             /**
@@ -23408,11 +23499,28 @@ export interface components {
              */
             intro: string;
             /**
+             * Next Reminder At
+             * @description While open: the earliest a reminder can go (UTC); in the past means now.
+             */
+            next_reminder_at?: string | null;
+            /**
              * Recipients
              * @description How many people it was sent to.
              * @default 0
              */
             recipients: number;
+            /**
+             * Reminders Left
+             * @description Reminders still allowed; the last one goes out as a last call.
+             * @default 0
+             */
+            reminders_left: number;
+            /**
+             * Reminders Sent
+             * @description Reminder DMs sent so far.
+             * @default 0
+             */
+            reminders_sent: number;
             /** Sections */
             sections?: components["schemas"]["SurveySectionResponse"][];
             /**
@@ -23534,11 +23642,28 @@ export interface components {
              */
             id: number;
             /**
+             * Next Reminder At
+             * @description While open: the earliest a reminder can go (UTC); in the past means now.
+             */
+            next_reminder_at?: string | null;
+            /**
              * Recipients
              * @description How many people it was sent to.
              * @default 0
              */
             recipients: number;
+            /**
+             * Reminders Left
+             * @description Reminders still allowed; the last one goes out as a last call.
+             * @default 0
+             */
+            reminders_left: number;
+            /**
+             * Reminders Sent
+             * @description Reminder DMs sent so far.
+             * @default 0
+             */
+            reminders_sent: number;
             /**
              * Sent At
              * @description When it was sent (UTC).
@@ -56395,6 +56520,85 @@ export interface operations {
             };
         };
     };
+    close_api_surveys__survey_id__close_post: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                survey_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SurveySummaryResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     add_tag_api_surveys__survey_id__comment_tags_post: {
         parameters: {
             query?: {
@@ -56931,6 +57135,85 @@ export interface operations {
             };
         };
     };
+    remind_api_surveys__survey_id__remind_post: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                survey_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SendResult"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     list_responses_api_surveys__survey_id__responses_get: {
         parameters: {
             query?: {
@@ -57101,6 +57384,89 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SurveySectionResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    send_api_surveys__survey_id__send_post: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                survey_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SendRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SendResult"];
                 };
             };
             /** @description A rule refused the request. `detail` says which. */

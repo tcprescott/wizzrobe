@@ -1,26 +1,42 @@
 """The app's survey builder and preview: the time box and checks, AI suggestions, comment tags.
 
-Staff only, behind the Surveys flag (the services check both again). Like the
-rest of ``/surveys``, nothing here DMs anyone.
+Staff only, behind the Surveys flag (the services check both again). Send,
+remind and close DM people, so only Wizzrobe's own app may call them: a
+personal token or another app gets a 403 (Thomas's call).
 """
 
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query, status
 
-from api.dependencies import ServiceErrorRoute, event_binding, require_feature, require_staff, require_staff_write
+from api.dependencies import (
+    ServiceErrorRoute,
+    event_binding,
+    require_app_staff_write,
+    require_feature,
+    require_staff,
+    require_staff_write,
+)
 from api.schemas.my_surveys import PreviewPathResponse, RespondentSurvey, preview_out
 from api.schemas.survey_builder import (
     BuilderResponse,
     KeepRequest,
     PlaceRequest,
+    SendRequest,
+    SendResult,
     SentContextResponse,
     SuggestionBatchResponse,
     TagRequest,
     batch_out,
     builder_out,
 )
-from api.schemas.surveys import SurveyCommentTagResponse, SurveyQuestionResponse, question_out
+from api.schemas.surveys import (
+    SurveyCommentTagResponse,
+    SurveyQuestionResponse,
+    SurveySummaryResponse,
+    question_out,
+    summary_out,
+)
 from application.services import SurveyCommentService, SurveyService, SurveySuggestionService
 from application.services.survey import plan
 from models import FeatureFlag, Survey, SurveyQuestion, SurveySection, User
@@ -163,3 +179,42 @@ async def dismiss(batch_id: int, actor: User = Depends(require_staff_write)) -> 
 )
 async def sent_context(batch_id: int, actor: User = Depends(require_staff)) -> SentContextResponse:
     return SentContextResponse(context=await SurveySuggestionService().sent_context(actor, batch_id))
+
+
+_APP = '\n\n**Who can call this:** Staff, from the Wizzrobe app only. Personal tokens and other apps get a 403.'
+
+
+@router.post(
+    '/{survey_id}/send',
+    response_model=SendResult,
+    summary='Send a survey',
+    description=(
+        'Opens the draft and DMs everyone who took part in its event. Refused with no questions, '
+        'nobody to send to, or a close time in the past.' + _APP
+    ),
+)
+async def send(survey_id: int, body: SendRequest, actor: User = Depends(require_app_staff_write)) -> SendResult:
+    return SendResult(people=await SurveyService().send(actor, survey_id, closes_at=body.closes_at))
+
+
+@router.post(
+    '/{survey_id}/remind',
+    response_model=SendResult,
+    summary='Remind people who have not answered',
+    description=(
+        'DMs everyone still waiting who didn\'t say "Not interested". Once a day, two in all; the '
+        'second is a last call.' + _APP
+    ),
+)
+async def remind(survey_id: int, actor: User = Depends(require_app_staff_write)) -> SendResult:
+    return SendResult(people=await SurveyService().remind(actor, survey_id))
+
+
+@router.post(
+    '/{survey_id}/close',
+    response_model=SurveySummaryResponse,
+    summary='Close a survey',
+    description='Stops taking answers. Anything saved but not sent stays unsent.' + _APP,
+)
+async def close(survey_id: int, actor: User = Depends(require_app_staff_write)) -> SurveySummaryResponse:
+    return summary_out(await SurveyService().close(actor, survey_id))

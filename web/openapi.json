@@ -19299,6 +19299,39 @@
         "title": "SeedTaskResponse",
         "type": "object"
       },
+      "SendRequest": {
+        "properties": {
+          "closes_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When it stops taking answers (UTC); leave out to keep it open.",
+            "title": "Closes At"
+          }
+        },
+        "title": "SendRequest",
+        "type": "object"
+      },
+      "SendResult": {
+        "properties": {
+          "people": {
+            "description": "How many people it went to (send) or how many DMs were queued (remind).",
+            "title": "People",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "people"
+        ],
+        "title": "SendResult",
+        "type": "object"
+      },
       "SentContextResponse": {
         "properties": {
           "context": {
@@ -21751,10 +21784,35 @@
             "title": "Intro",
             "type": "string"
           },
+          "next_reminder_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "While open: the earliest a reminder can go (UTC); in the past means now.",
+            "title": "Next Reminder At"
+          },
           "recipients": {
             "default": 0,
             "description": "How many people it was sent to.",
             "title": "Recipients",
+            "type": "integer"
+          },
+          "reminders_left": {
+            "default": 0,
+            "description": "Reminders still allowed; the last one goes out as a last call.",
+            "title": "Reminders Left",
+            "type": "integer"
+          },
+          "reminders_sent": {
+            "default": 0,
+            "description": "Reminder DMs sent so far.",
+            "title": "Reminders Sent",
             "type": "integer"
           },
           "sections": {
@@ -21971,10 +22029,35 @@
             "title": "Id",
             "type": "integer"
           },
+          "next_reminder_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "While open: the earliest a reminder can go (UTC); in the past means now.",
+            "title": "Next Reminder At"
+          },
           "recipients": {
             "default": 0,
             "description": "How many people it was sent to.",
             "title": "Recipients",
+            "type": "integer"
+          },
+          "reminders_left": {
+            "default": 0,
+            "description": "Reminders still allowed; the last one goes out as a last call.",
+            "title": "Reminders Left",
+            "type": "integer"
+          },
+          "reminders_sent": {
+            "default": 0,
+            "description": "Reminder DMs sent so far.",
+            "title": "Reminders Sent",
             "type": "integer"
           },
           "sent_at": {
@@ -72556,6 +72639,122 @@
         ]
       }
     },
+    "/api/surveys/{survey_id}/close": {
+      "post": {
+        "description": "Stops taking answers. Anything saved but not sent stays unsent.\n\n**Who can call this:** Staff, from the Wizzrobe app only. Personal tokens and other apps get a 403.\n\n**Apps:** can't call this; it needs a personal API token.  \n**Feature:** only works when the community has **Surveys** turned on; otherwise every call answers `404`.",
+        "operationId": "close_api_surveys__survey_id__close_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "survey_id",
+            "required": true,
+            "schema": {
+              "title": "Survey Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SurveySummaryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Close a survey",
+        "tags": [
+          "Surveys"
+        ]
+      }
+    },
     "/api/surveys/{survey_id}/comment-tags": {
       "post": {
         "description": "Up to 20 per survey, names unique ignoring case.\n\n**Who can call this:** Staff.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `staff:write`  \n**Feature:** only works when the community has **Surveys** turned on; otherwise every call answers `404`.",
@@ -73426,6 +73625,122 @@
         ]
       }
     },
+    "/api/surveys/{survey_id}/remind": {
+      "post": {
+        "description": "DMs everyone still waiting who didn't say \"Not interested\". Once a day, two in all; the second is a last call.\n\n**Who can call this:** Staff, from the Wizzrobe app only. Personal tokens and other apps get a 403.\n\n**Apps:** can't call this; it needs a personal API token.  \n**Feature:** only works when the community has **Surveys** turned on; otherwise every call answers `404`.",
+        "operationId": "remind_api_surveys__survey_id__remind_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "survey_id",
+            "required": true,
+            "schema": {
+              "title": "Survey Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SendResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Remind people who have not answered",
+        "tags": [
+          "Surveys"
+        ]
+      }
+    },
     "/api/surveys/{survey_id}/responses": {
       "get": {
         "description": "Every submitted response, newest first, with its answers. An anonymous one carries no user and only the day it was sent.\n\n**Who can call this:** Staff.\n\n**App scope:** `staff:read`  \n**Feature:** only works when the community has **Surveys** turned on; otherwise every call answers `404`.",
@@ -73821,6 +74136,132 @@
           }
         ],
         "summary": "Add a section to a draft",
+        "tags": [
+          "Surveys"
+        ]
+      }
+    },
+    "/api/surveys/{survey_id}/send": {
+      "post": {
+        "description": "Opens the draft and DMs everyone who took part in its event. Refused with no questions, nobody to send to, or a close time in the past.\n\n**Who can call this:** Staff, from the Wizzrobe app only. Personal tokens and other apps get a 403.\n\n**Apps:** can't call this; it needs a personal API token.  \n**Feature:** only works when the community has **Surveys** turned on; otherwise every call answers `404`.",
+        "operationId": "send_api_surveys__survey_id__send_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "survey_id",
+            "required": true,
+            "schema": {
+              "title": "Survey Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SendResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Send a survey",
         "tags": [
           "Surveys"
         ]
@@ -84320,7 +84761,7 @@
       "name": "Feedback"
     },
     {
-      "description": "Post-event surveys: build one and read what came back. Sending stays in the app.",
+      "description": "Post-event surveys: build one and read what came back. Only the Wizzrobe app can send, remind and close.",
       "name": "Surveys"
     },
     {

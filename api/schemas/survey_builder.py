@@ -1,5 +1,6 @@
 """Schemas for the app's survey builder: the time box, checks, AI suggestions and comment tags."""
 
+from datetime import datetime
 from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field
@@ -86,3 +87,11 @@ def builder_out(
         checks=[CheckFinding(**f.__dict__) for f in summary.checks], checks_passed=summary.checks_passed,
         ai_provider=provider, suggestions=[batch_out(b) for b in batches],
     )
+
+
+class SendRequest(BaseModel):
+    closes_at: Optional[datetime] = Field(None, description='When it stops taking answers (UTC); leave out to keep it open.')
+
+
+class SendResult(BaseModel):
+    people: int = Field(..., description='How many people it went to (send) or how many DMs were queued (remind).')
