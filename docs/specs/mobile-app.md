@@ -1,6 +1,6 @@
 # Wizzrobe as a mobile app on a serverless backend
 
-Status: Building · Size: full · PRs: #760 (spec), #761 (step 3), #762 (step 4), #763 (step 2), #764 (step 6), #770 (step 5), #771 (step 7 Home + Schedule) · Requested: 2026-10-31, Thomas
+Status: Building · Size: full · PRs: #760 (spec), #761 (step 3), #762 (step 4), #763 (step 2), #764 (step 6), #770 (step 5), #771 (step 7 Home + Schedule), #772 (step 7 Me + shift check-in) · Requested: 2026-10-31, Thomas
 
 ## Problem
 
@@ -210,3 +210,11 @@ in TypeScript.
   next match as a card with a countdown, to-dos as cards beside it, then the rest
   of today; Schedule is one day-grouped list with Upcoming / Past and a type
   filter. Mockups: `/mnt/project-files/mobile-app/player-mockups/`.
+- 2026-11-02 — Step 7 part 2: Thomas picked all of the profile in one PR, and
+  "check-in" means the volunteer shift buttons (I'm here, Got it, Running late,
+  Can't make it) on Schedule rows, not a desk badge. Me is layout B, a settings
+  list: on a phone the list, and each section opens on its own page with a back
+  link; on desktop the list sits beside the open section. Linking outside
+  accounts and "Use my Discord email" still open the website's sign-in pages in
+  a tab, and device push waits for the service worker (step 12). Mockups:
+  `/mnt/project-files/mobile-app/profile-mockups/`.

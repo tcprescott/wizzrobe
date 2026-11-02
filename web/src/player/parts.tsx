@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { api, unwrap } from '../api/client'
-import { Button, Chip, Icon, type IconName } from '../components'
+import { Button, Chip, FormDialog, Icon, RowMenu, type IconName, type MenuItem } from '../components'
 import { countdown, dayLabel, formatTime } from '../lib/time'
 import { AgreeDialog } from './AgreeDialog'
 import type { Entry, Need } from './data'
@@ -21,6 +21,7 @@ function statusChip(entry: Entry): ReactNode {
   if (entry.kind === 'crew') {
     return entry.approved ? <Chip tone="ok">Approved</Chip> : <Chip tone="pending">Awaiting approval</Chip>
   }
+  if (entry.called_off) return <Chip>Called off</Chip>
   return entry.checked_in ? <Chip tone="ok">Checked in</Chip> : null
 }
 
@@ -51,14 +52,138 @@ export function ScheduleRow({ entry, zone, onDone }: { entry: Entry; zone: strin
         </div>
         <div className="sched-row__sub">{where(entry)}</div>
       </div>
-      {entry.can_report_late && (
-        <div className="sched-row__acts">
-          <Button variant="outline" size="sm" onClick={() => setLate(true)}>
-            Running late
-          </Button>
-          <RunningLateDialog entry={entry} open={late} onOpenChange={setLate} onSent={onDone} />
-        </div>
+      {entry.kind === 'shift' ? (
+        <ShiftActions entry={entry} onDone={onDone} />
+      ) : (
+        (entry.can_report_late || entry.room_url) && (
+          <div className="sched-row__acts">
+            {entry.room_url && (
+              <Button asChild variant="outline" size="sm">
+                <a href={entry.room_url} target="_blank" rel="noopener noreferrer">
+                  Join room
+                </a>
+              </Button>
+            )}
+            {entry.can_report_late && (
+              <>
+                <Button variant="outline" size="sm" onClick={() => setLate(true)}>
+                  Running late
+                </Button>
+                <RunningLateDialog entry={entry} open={late} onOpenChange={setLate} onSent={onDone} />
+              </>
+            )}
+          </div>
+        )
       )}
+    </div>
+  )
+}
+
+/**
+ * A shift's one button ("I'm here" from 30 minutes before, else "Got it"
+ * until acknowledged) and its ⋮: running late, undo, can't make it.
+ */
+function ShiftActions({ entry, onDone }: { entry: Entry; onDone: (msg: string) => void }) {
+  const [late, setLate] = useState(false)
+  const [release, setRelease] = useState(false)
+  const [reason, setReason] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const id = entry.assignment_id
+  if (id == null) return null
+  const path = { params: { path: { assignment_id: id } } }
+
+  async function act(work: () => Promise<unknown>, ok: string) {
+    setBusy(true)
+    setError(null)
+    try {
+      await work()
+      onDone(ok)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const items: MenuItem[] = []
+  if (entry.can_report_late) items.push({ label: 'Running late…', icon: 'schedule', onSelect: () => setLate(true) })
+  if (entry.can_undo_check_in)
+    items.push({
+      label: 'Undo check-in',
+      icon: 'undo',
+      onSelect: () =>
+        void act(() => api.DELETE('/api/volunteers/me/assignments/{assignment_id}/arrival', path).then(unwrap), 'Check-in taken back.'),
+    })
+  if (entry.can_release) items.push({ label: "Can't make it…", icon: 'event_busy', destructive: true, onSelect: () => setRelease(true) })
+
+  return (
+    <div className="sched-row__acts">
+      {entry.shift_action === 'arrive' && (
+        <Button
+          variant="primary"
+          size="sm"
+          busy={busy}
+          busyLabel="Checking in…"
+          onClick={() =>
+            void act(
+              () => api.POST('/api/volunteers/me/assignments/{assignment_id}/arrival', path).then(unwrap),
+              "You're checked in. Thanks for coming.",
+            )
+          }
+        >
+          I'm here
+        </Button>
+      )}
+      {entry.shift_action === 'ack' && (
+        <Button
+          variant="outline"
+          size="sm"
+          busy={busy}
+          busyLabel="Saving…"
+          onClick={() =>
+            void act(
+              () => api.POST('/api/volunteers/assignments/{assignment_id}/acknowledge', path).then(unwrap),
+              'Thanks. The coordinators can see you have it.',
+            )
+          }
+        >
+          Got it
+        </Button>
+      )}
+      {items.length > 0 && <RowMenu label={`More for ${entry.title}`} items={items} />}
+      {error && (
+        <p className="form-error" role="alert">
+          {error}
+        </p>
+      )}
+      <RunningLateDialog entry={entry} open={late} onOpenChange={setLate} onSent={onDone} />
+      <FormDialog
+        open={release}
+        onOpenChange={setRelease}
+        size="sm"
+        title="Can't make this shift?"
+        description="You come off the shift and the volunteer coordinators get a DM so they can find cover."
+        primaryLabel="Give it back"
+        destructive
+        busy={busy}
+        busyLabel="Sending…"
+        onPrimary={() =>
+          void act(async () => {
+            const result = await api.DELETE('/api/volunteers/me/assignments/{assignment_id}', {
+              ...path,
+              body: reason.trim() ? { reason: reason.trim() } : undefined,
+            })
+            if (!result.response.ok) unwrap(result)
+            setRelease(false)
+          }, 'Shift given back. The coordinators have been told.')
+        }
+      >
+        <label className="field">
+          <span className="field__label">Reason (optional)</span>
+          <input className="input" value={reason} maxLength={500} onChange={(e) => setReason(e.target.value)} />
+        </label>
+      </FormDialog>
     </div>
   )
 }

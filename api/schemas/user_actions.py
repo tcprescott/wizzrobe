@@ -42,6 +42,13 @@ class UserSelfUpdate(BaseModel):
     dm_notifications: Optional[bool] = Field(
         None, description="Whether to get notifications as Discord DMs. Omit to leave it unchanged.",
     )
+    matcherino_username: Optional[str] = Field(
+        None,
+        description=(
+            "Your Matcherino handle, including the number after the hash, where prize money goes. "
+            "An empty string clears it. Ignored where the community doesn't run payouts."
+        ),
+    )
 
 
 class UserProfileUpdate(BaseModel):

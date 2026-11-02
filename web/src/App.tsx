@@ -6,7 +6,8 @@ import { CallbackScreen } from './screens/CallbackScreen'
 import { CommunityIndex } from './screens/CommunityIndex'
 import { CommunityMissing } from './screens/CommunityMissing'
 import { KitScreen } from './screens/KitScreen'
-import { MeScreen } from './screens/MeScreen'
+import { MeLayout } from './me/MeLayout'
+import { MeSection } from './me/sections'
 import { NotFoundScreen } from './screens/NotFoundScreen'
 import { SignInScreen } from './screens/SignInScreen'
 import { HomeScreen } from './player/HomeScreen'
@@ -21,7 +22,7 @@ const tabRoutes: RouteObject[] = [
   { path: 'schedule', element: <ScheduleScreen /> },
   { path: 'event', element: <EventScreen /> },
   { path: 'work', element: <WorkScreen /> },
-  { path: 'me', element: <MeScreen /> },
+  { path: 'me', element: <MeLayout />, children: [{ path: ':section', element: <MeSection /> }] },
 ]
 
 const shell = (

@@ -122,6 +122,7 @@ from .match_reschedule_service import MatchRescheduleService
 from .matcherino_login_service import MatcherinoLoginService, MatcherinoLoginStatus
 from .mcp_auth_service import McpAuthService
 from .member_details_service import MemberDetails, MemberDetailsService
+from .my_profile_service import MyProfileService
 from .my_timeline_service import MyTimelineService
 from .notification_channel_service import NotificationChannelService
 from .notification_preference_service import NotificationPreferenceService
@@ -284,6 +285,7 @@ __all__ = [
     'MemberDetails',
     'MemberDetailsService',
     'MissingAnswer',
+    'MyProfileService',
     'MyTimelineService',
     'NotFoundError',
     'NotificationChannelService',

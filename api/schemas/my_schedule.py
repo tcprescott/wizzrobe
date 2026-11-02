@@ -22,9 +22,16 @@ class ScheduleEntryResponse(BaseModel):
     room_url: Optional[str] = Field(None, description="The open racetime.gg room, if the match has one.")
     needs_acknowledgment: bool = Field(False, description="You still need to confirm you've seen this match's time.")
     late_minutes: Optional[int] = Field(None, description="How late you said you'd be.")
-    can_report_late: bool = Field(False, description="Whether `POST /matches/{match_id}/running-late` would take a heads-up now.")
+    can_report_late: bool = Field(False, description="Whether a running-late heads-up would be taken now: `POST /matches/{match_id}/running-late` for a match, `POST /volunteers/me/assignments/{assignment_id}/running-late` for a shift.")
     approved: Optional[bool] = Field(None, description="For a crew slot: whether staff approved it.")
     checked_in: bool = Field(False, description="For a shift: whether you've checked in.")
+    shift_action: Optional[str] = Field(None, description=(
+        "For a shift, its one button: `arrive` (I'm here, from 30 minutes before) or `ack` (you "
+        "haven't acknowledged it yet)."
+    ))
+    can_undo_check_in: bool = Field(False, description="For a shift: you can take back your own check-in.")
+    can_release: bool = Field(False, description="For a shift: you can still give it back (`DELETE /volunteers/me/assignments/{id}`).")
+    called_off: bool = Field(False, description="For a shift: staff called it off. It still counts as worked.")
 
 
 class BookableResponse(BaseModel):
