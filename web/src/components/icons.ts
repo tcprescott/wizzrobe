@@ -139,6 +139,11 @@ import ISupportAgent from '@material-symbols/svg-400/outlined/support_agent.svg?
 import IVerified from '@material-symbols/svg-400/outlined/verified.svg?react'
 import IVideogameAsset from '@material-symbols/svg-400/outlined/videogame_asset.svg?react'
 import IReleaseAlert from '@material-symbols/svg-400/outlined/release_alert.svg?react'
+import FormatListNumberedIcon from '@material-symbols/svg-400/outlined/format_list_numbered.svg?react'
+import SwapVertIcon from '@material-symbols/svg-400/outlined/swap_vert.svg?react'
+import ShuffleIcon from '@material-symbols/svg-400/outlined/shuffle.svg?react'
+import LeaderboardIcon from '@material-symbols/svg-400/outlined/leaderboard.svg?react'
+import LockOpenIcon from '@material-symbols/svg-400/outlined/lock_open.svg?react'
 import PersonCheckIcon from '@material-symbols/svg-400/outlined/person_check.svg?react'
 import MeetingRoomIcon from '@material-symbols/svg-400/outlined/meeting_room.svg?react'
 import VisibilityIcon from '@material-symbols/svg-400/outlined/visibility.svg?react'
@@ -185,6 +190,7 @@ export const ICONS = {
   inbox: Inbox,
   priority_high: PriorityHigh,
   lock: Lock,
+  lock_open: LockOpenIcon,
   tv: Tv,
   open_in_new: OpenInNew,
   sports_esports: SportsEsports,
@@ -263,6 +269,10 @@ export const ICONS = {
   sync: SyncIcon,
   skip_next: SkipNextIcon,
   add_link: AddLinkIcon,
+  format_list_numbered: FormatListNumberedIcon,
+  swap_vert: SwapVertIcon,
+  shuffle: ShuffleIcon,
+  leaderboard: LeaderboardIcon,
   person_remove: PersonRemoveIcon,
   event_note: EventNoteIcon,
   view_column: ViewColumnIcon,

@@ -100,6 +100,81 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/brackets/board": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The Brackets board
+         * @description Every tournament in this event that isn't on Challonge, active first, with its native bracket stages in order. Each stage says the one step it's up to and the counts behind it.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **App scope:** `staff:read`
+         *     **Feature:** only works when the community has **Native Brackets** turned on; otherwise every call answers `404`.
+         */
+        get: operations["board_api_admin_brackets_board_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/brackets/{bracket_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One bracket stage
+         * @description A stage's next step, its seeded entries, the tournament roster (who is or isn't enrolled), and its open matchups and results.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **App scope:** `staff:read`
+         *     **Feature:** only works when the community has **Native Brackets** turned on; otherwise every call answers `404`.
+         */
+        get: operations["stage_api_admin_brackets__bracket_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/brackets/{bracket_id}/qualifier-seeds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Work out seeds from a qualifier
+         * @description Seeds the stage's entries by an async qualifier's leaderboard, best place first, matched on linked accounts. Nothing is saved: send `seeds` to `PATCH /brackets/{bracket_id}/seeds`. Fails with 400 when no entry is on the leaderboard.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **App scope:** `staff:read`
+         *     **Feature:** only works when the community has **Native Brackets** turned on; otherwise every call answers `404`.
+         */
+        get: operations["qualifier_seeds_api_admin_brackets__bracket_id__qualifier_seeds_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/match-schedule": {
         parameters: {
             query?: never;
@@ -469,6 +544,131 @@ export interface paths {
          *     **App scope:** `staff:write`
          */
         post: operations["test_roll_api_admin_presets__preset_id__test_roll_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/qualifiers/board": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The Qualifiers board
+         * @description Every qualifier the caller runs or reviews, open ones first, each with how many runs wait for review.
+         *
+         *     **Who can call this:** Staff, Qualifier Admins, and the qualifier's own reviewers.
+         *
+         *     **App scope:** `staff:read`
+         *     **Feature:** only works when the community has **Async Qualifiers** turned on; otherwise every call answers `404`.
+         */
+        get: operations["board_api_admin_qualifiers_board_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/qualifiers/{qualifier_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One qualifier
+         * @description The review queue (with each runner's other attempts and the claim lock), the top of the leaderboard, and counts for the setup pages.
+         *
+         *     **Who can call this:** Staff, Qualifier Admins, and the qualifier's own reviewers.
+         *
+         *     **App scope:** `staff:read`
+         *     **Feature:** only works when the community has **Async Qualifiers** turned on; otherwise every call answers `404`.
+         */
+        get: operations["detail_api_admin_qualifiers__qualifier_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/qualifiers/{qualifier_id}/live-races": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A qualifier's live races
+         * @description Each live race, newest first, with its pool, state and racetime room.
+         *
+         *     **Who can call this:** Staff, Qualifier Admins, and the qualifier's own reviewers.
+         *
+         *     **App scope:** `staff:read`
+         *     **Feature:** only works when the community has **Async Qualifiers** turned on; otherwise every call answers `404`.
+         */
+        get: operations["live_races_api_admin_qualifiers__qualifier_id__live_races_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/qualifiers/{qualifier_id}/pools": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A qualifier's pools and seeds
+         * @description Each pool with its preset, whether it can roll seeds, and its permalinks.
+         *
+         *     **Who can call this:** Staff, Qualifier Admins, and the qualifier's own reviewers.
+         *
+         *     **App scope:** `staff:read`
+         *     **Feature:** only works when the community has **Async Qualifiers** turned on; otherwise every call answers `404`.
+         */
+        get: operations["pools_api_admin_qualifiers__qualifier_id__pools_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/qualifiers/{qualifier_id}/reviewers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A qualifier's reviewers
+         * @description The people who review this qualifier only (Staff and Qualifier Admins review every one), and the community's members to add from.
+         *
+         *     **Who can call this:** Staff, Qualifier Admins, and the qualifier's own reviewers.
+         *
+         *     **App scope:** `staff:read`
+         *     **Feature:** only works when the community has **Async Qualifiers** turned on; otherwise every call answers `404`.
+         */
+        get: operations["reviewers_api_admin_qualifiers__qualifier_id__reviewers_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -5718,6 +5918,160 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/surveys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List surveys waiting on me
+         * @description Open surveys sent to you that you have not answered yet.
+         *
+         *     **Who can call this:** Any member.
+         *
+         *     **App scope:** `profile`
+         *     **Feature:** only works when the community has **Surveys** turned on; otherwise every call answers `404`.
+         */
+        get: operations["my_open_surveys_api_me_surveys_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/surveys/{survey_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Open a survey sent to me
+         * @description Your parts of the survey, with what you have saved so far and which required questions are still unanswered. Marks the survey opened.
+         *
+         *     **Who can call this:** The person the survey was sent to.
+         *
+         *     **App scope:** `profile`
+         *     **Feature:** only works when the community has **Surveys** turned on; otherwise every call answers `404`.
+         */
+        get: operations["open_survey_api_me_surveys__survey_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/surveys/{survey_id}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Not interested
+         * @description No more reminders for this survey. The link keeps working.
+         *
+         *     **Who can call this:** The person the survey was sent to.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **App scope:** `profile:write`
+         *     **Feature:** only works when the community has **Surveys** turned on; otherwise every call answers `404`.
+         */
+        post: operations["decline_api_me_surveys__survey_id__decline_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/surveys/{survey_id}/parts/{part_key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save my answers to one part
+         * @description Saves the answers to one part (question id → answer); a blank answer clears it. Refused once the survey closed or you sent. Returns the whole survey again, since an answer can show or hide later questions and parts.
+         *
+         *     **Who can call this:** The person the survey was sent to.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **App scope:** `profile:write`
+         *     **Feature:** only works when the community has **Surveys** turned on; otherwise every call answers `404`.
+         */
+        put: operations["save_part_api_me_surveys__survey_id__parts__part_key__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/surveys/{survey_id}/parts/{part_key}/open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Note that I opened a part
+         * @description Counts the part as reached, for the drop-off report. Does nothing once you have sent.
+         *
+         *     **Who can call this:** The person the survey was sent to.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **App scope:** `profile:write`
+         *     **Feature:** only works when the community has **Surveys** turned on; otherwise every call answers `404`.
+         */
+        post: operations["open_part_api_me_surveys__survey_id__parts__part_key__open_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/surveys/{survey_id}/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send my answers
+         * @description Sends what you saved. Refused while a required question is unanswered. Anonymous strips your name for good and keeps only the day.
+         *
+         *     **Who can call this:** The person the survey was sent to.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **App scope:** `profile:write`
+         *     **Feature:** only works when the community has **Surveys** turned on; otherwise every call answers `404`.
+         */
+        post: operations["submit_api_me_surveys__survey_id__submit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me/webhooks": {
         parameters: {
             query?: never;
@@ -8500,6 +8854,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/surveys/questions/{question_id}/place": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Drop a question somewhere else
+         * @description Puts the question at `index` in `section_id`, which may be another section. Refused when it would land above a question it follows. Drafts only.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **App scope:** `staff:write`
+         *     **Feature:** only works when the community has **Surveys** turned on; otherwise every call answers `404`.
+         */
+        post: operations["place_question_api_surveys_questions__question_id__place_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/surveys/sections/{section_id}": {
         parameters: {
             query?: never;
@@ -8588,6 +8968,107 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/surveys/sections/{section_id}/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Suggest questions for a section
+         * @description Asks the community's AI provider for up to five draft questions. Once per press; capped per day under Settings → Integrations. Drafts only.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **App scope:** `staff:write`
+         *     **Feature:** only works when the community has **Surveys** turned on; otherwise every call answers `404`.
+         */
+        post: operations["suggest_api_surveys_sections__section_id__suggestions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/surveys/suggestions/{batch_id}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dismiss the rest of a batch of suggestions
+         * @description **Who can call this:** Staff.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **App scope:** `staff:write`
+         *     **Feature:** only works when the community has **Surveys** turned on; otherwise every call answers `404`.
+         */
+        post: operations["dismiss_api_surveys_suggestions__batch_id__dismiss_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/surveys/suggestions/{batch_id}/keep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep a suggested question
+         * @description Adds the draft to its section as an ordinary question.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **App scope:** `staff:write`
+         *     **Feature:** only works when the community has **Surveys** turned on; otherwise every call answers `404`.
+         */
+        post: operations["keep_api_surveys_suggestions__batch_id__keep_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/surveys/suggestions/{batch_id}/sent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What was sent to the AI
+         * @description The exact text the provider was given for this batch.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **App scope:** `staff:read`
+         *     **Feature:** only works when the community has **Surveys** turned on; otherwise every call answers `404`.
+         */
+        get: operations["sent_context_api_surveys_suggestions__batch_id__sent_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/surveys/{survey_id}": {
         parameters: {
             query?: never;
@@ -8631,6 +9112,83 @@ export interface paths {
          *     **Feature:** only works when the community has **Surveys** turned on; otherwise every call answers `404`.
          */
         patch: operations["update_survey_api_surveys__survey_id__patch"];
+        trace?: never;
+    };
+    "/api/surveys/{survey_id}/builder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The builder's time box and checks
+         * @description How long the survey takes most people and the person with the most to answer, worked out over everyone who took part in its event; the checks (empty parts, unreachable questions, over-long parts...); whether Suggest questions is set up; and any AI drafts still waiting.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **App scope:** `staff:read`
+         *     **Feature:** only works when the community has **Surveys** turned on; otherwise every call answers `404`.
+         */
+        get: operations["builder_api_surveys__survey_id__builder_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/surveys/{survey_id}/comment-tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a comment tag
+         * @description Up to 20 per survey, names unique ignoring case.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **App scope:** `staff:write`
+         *     **Feature:** only works when the community has **Surveys** turned on; otherwise every call answers `404`.
+         */
+        post: operations["add_tag_api_surveys__survey_id__comment_tags_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/surveys/{survey_id}/comment-tags/{tag_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a comment tag
+         * @description Comments that carried it just lose it.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **App scope:** `staff:write`
+         *     **Feature:** only works when the community has **Surveys** turned on; otherwise every call answers `404`.
+         */
+        delete: operations["delete_tag_api_surveys__survey_id__comment_tags__tag_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/surveys/{survey_id}/comments": {
@@ -8704,6 +9262,56 @@ export interface paths {
          *     **Feature:** only works when the community has **Surveys** turned on; otherwise every call answers `404`.
          */
         post: operations["duplicate_survey_api_surveys__survey_id__duplicate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/surveys/{survey_id}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview the survey as one kind of person
+         * @description The parts that kind of person would see, in the shape `GET /me/surveys/{id}` returns. `persona` comes from `preview-paths`; leave it out for every question. Nothing is saved.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **App scope:** `staff:read`
+         *     **Feature:** only works when the community has **Surveys** turned on; otherwise every call answers `404`.
+         */
+        get: operations["preview_api_surveys__survey_id__preview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/surveys/{survey_id}/preview-paths": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Who sees what
+         * @description One row per kind of person: their parts, questions and time, and what they won't see and why.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **App scope:** `staff:read`
+         *     **Feature:** only works when the community has **Surveys** turned on; otherwise every call answers `404`.
+         */
+        get: operations["preview_paths_api_surveys__survey_id__preview_paths_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -13342,6 +13950,13 @@ export interface components {
          * @enum {string}
          */
         BracketFormat: "single_elim" | "double_elim" | "swiss" | "round_robin";
+        /** BracketFormatOption */
+        BracketFormatOption: {
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
+        };
         /**
          * BracketMatchGameResponse
          * @description One game of a bracket match's best-of-N series.
@@ -13526,6 +14141,34 @@ export interface components {
          * @enum {string}
          */
         BracketMatchState: "pending" | "open" | "complete";
+        /** BracketNextStepResponse */
+        BracketNextStepResponse: {
+            /**
+             * Detail
+             * @description The counts behind it.
+             */
+            detail: string;
+            /**
+             * Done
+             * @description Progress so far (enrolled, or matches reported).
+             */
+            done: number;
+            /**
+             * Key
+             * @description The button the step offers: `enroll`, `start`, `report`, `complete`, `advance`, or null for none.
+             */
+            key?: string | null;
+            /**
+             * Title
+             * @description The step, such as "Enroll and seed, then start".
+             */
+            title: string;
+            /**
+             * Total
+             * @description What progress counts towards.
+             */
+            total: number;
+        };
         /** BracketPhaseResponse */
         BracketPhaseResponse: {
             /**
@@ -13645,6 +14288,48 @@ export interface components {
              */
             updated_at: string;
         };
+        /** BracketRosterEntrantResponse */
+        BracketRosterEntrantResponse: {
+            /**
+             * Enrolled
+             * @description Already has an entry in this stage.
+             */
+            enrolled: boolean;
+            /**
+             * Id
+             * @description The entrant (on the tournament's roster).
+             */
+            id: number;
+            /** Name */
+            name: string;
+            /**
+             * Status
+             * @description `active` or `dropped`.
+             */
+            status: string;
+            /** User Id */
+            user_id?: number | null;
+        };
+        /** BracketSeedEntryResponse */
+        BracketSeedEntryResponse: {
+            /** Entrant Id */
+            entrant_id: number;
+            /** Final Rank */
+            final_rank?: number | null;
+            /** Group Number */
+            group_number?: number | null;
+            /**
+             * Id
+             * @description The entry (an entrant's place in this stage).
+             */
+            id: number;
+            /** Name */
+            name: string;
+            /** Seed */
+            seed?: number | null;
+            /** Status */
+            status: string;
+        };
         /** BracketSetResponse */
         BracketSetResponse: {
             /**
@@ -13714,6 +14399,15 @@ export interface components {
             /** @description Where the winner goes next. */
             winner_to?: components["schemas"]["BracketFeedResponse"] | null;
         };
+        /** BracketSideResponse */
+        BracketSideResponse: {
+            /** Entry Id */
+            entry_id?: number | null;
+            /** Name */
+            name: string;
+            /** Score */
+            score?: number | null;
+        };
         /** BracketSiteResponse */
         BracketSiteResponse: {
             /** Key */
@@ -13758,6 +14452,98 @@ export interface components {
              * @description The entrant's Wizzrobe account. Only Staff and this tournament's admins get it; null otherwise.
              */
             user_id?: number | null;
+        };
+        /** BracketStageDetailResponse */
+        BracketStageDetailResponse: {
+            /**
+             * Entries
+             * @description Seeded first, by seed.
+             */
+            entries: components["schemas"]["BracketSeedEntryResponse"][];
+            /**
+             * Matches
+             * @description Open matchups first, then results; empty for a draft.
+             */
+            matches: components["schemas"]["BracketStageMatchResponse"][];
+            /**
+             * Roster
+             * @description The tournament's whole roster, by name.
+             */
+            roster: components["schemas"]["BracketRosterEntrantResponse"][];
+            row: components["schemas"]["BracketStageRowResponse"];
+            /** Tournament Name */
+            tournament_name: string;
+        };
+        /** BracketStageMatchResponse */
+        BracketStageMatchResponse: {
+            /** Best Of */
+            best_of?: number | null;
+            /** Forfeit */
+            forfeit: boolean;
+            /** Id */
+            id: number;
+            /**
+             * Label
+             * @description Round name, group and board, such as "Semifinals · Match 2".
+             */
+            label: string;
+            /** Round */
+            round: number;
+            side1: components["schemas"]["BracketSideResponse"];
+            side2: components["schemas"]["BracketSideResponse"];
+            /**
+             * State
+             * @description `open` or `complete` (pending matchups are left out).
+             */
+            state: string;
+            /** Winner Entry Id */
+            winner_entry_id?: number | null;
+        };
+        /** BracketStageRowResponse */
+        BracketStageRowResponse: {
+            /**
+             * Can Advance
+             * @description Complete, and the next stage is a draft that draws from this one.
+             */
+            can_advance: boolean;
+            /**
+             * Can Complete
+             * @description Swiss and round robin finish by hand; elimination stages finish themselves.
+             */
+            can_complete: boolean;
+            /**
+             * Config
+             * @description The stage's rules in plain words, one phrase each.
+             */
+            config: string[];
+            /** Format */
+            format: string;
+            /** Format Label */
+            format_label: string;
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            next_step: components["schemas"]["BracketNextStepResponse"];
+            /**
+             * Stage Label
+             * @description 1-based, as players see it: "Stage 1".
+             */
+            stage_label: string;
+            /**
+             * Stage Order
+             * @description 0-based place in the tournament's chain of stages.
+             */
+            stage_order: number;
+            /**
+             * State
+             * @description `draft`, `active`, `complete` or `cancelled`.
+             */
+            state: string;
+            /** State Label */
+            state_label: string;
+            /** Tournament Id */
+            tournament_id: number;
         };
         /** BracketStandingResponse */
         BracketStandingResponse: {
@@ -13821,6 +14607,17 @@ export interface components {
             /** Tournament Name */
             tournament_name: string;
         };
+        /** BracketTournamentResponse */
+        BracketTournamentResponse: {
+            /** Id */
+            id: number;
+            /** Is Active */
+            is_active: boolean;
+            /** Name */
+            name: string;
+            /** Stages */
+            stages: components["schemas"]["BracketStageRowResponse"][];
+        };
         /**
          * BracketUpdateRequest
          * @description Edit a DRAFT bracket's definition. Omitted fields are left alone.
@@ -13845,6 +14642,16 @@ export interface components {
              * @description New position in the stage sequence. Must not already be taken.
              */
             stage_order?: number | null;
+        };
+        /** BracketsBoardResponse */
+        BracketsBoardResponse: {
+            /** Formats */
+            formats: components["schemas"]["BracketFormatOption"][];
+            /**
+             * Tournaments
+             * @description This event's tournaments that aren't on Challonge, active first, each with its stages in order.
+             */
+            tournaments: components["schemas"]["BracketTournamentResponse"][];
         };
         /** BreakdownResponse */
         BreakdownResponse: {
@@ -13954,6 +14761,65 @@ export interface components {
              * @description Who last changed these. Null when never changed.
              */
             updated_by?: string | null;
+        };
+        /** BuilderResponse */
+        BuilderResponse: {
+            /**
+             * Ai Provider
+             * @description The AI provider set up for Suggest questions, or null for none.
+             */
+            ai_provider?: string | null;
+            /**
+             * Answered
+             * @description Responses sent so far (0 on a draft).
+             */
+            answered: number;
+            /**
+             * Budget Seconds
+             * @description The longest path warns over this.
+             */
+            budget_seconds: number;
+            /**
+             * Checks
+             * @description Things to look at; never block Send.
+             */
+            checks?: components["schemas"]["CheckFinding"][];
+            /**
+             * Checks Passed
+             * @description Checks that found nothing.
+             */
+            checks_passed?: string[];
+            /**
+             * Counts
+             * @description How many people fall in each audience.
+             */
+            counts: {
+                [key: string]: number;
+            };
+            /** Longest Questions */
+            longest_questions: number;
+            /** Longest Seconds */
+            longest_seconds: number;
+            /**
+             * Longest Who
+             * @description Who has the most to answer, in words.
+             */
+            longest_who: string;
+            /**
+             * Suggestions
+             * @description Per section, its newest batch with drafts still waiting.
+             */
+            suggestions?: components["schemas"]["SuggestionBatchResponse"][];
+            /**
+             * Target Seconds
+             * @description Aim for most people under this.
+             */
+            target_seconds: number;
+            /**
+             * Typical Seconds
+             * @description How long most people take: the median over everyone who took part.
+             */
+            typical_seconds: number;
         };
         /**
          * CallOffRequest
@@ -14202,6 +15068,29 @@ export interface components {
             telegram_notifications: boolean;
             /** Telegram Username */
             telegram_username?: string | null;
+        };
+        /** CheckFinding */
+        CheckFinding: {
+            /**
+             * Check
+             * @description Which rule found it.
+             */
+            check: string;
+            /**
+             * Link
+             * @description The question or part it names.
+             * @default
+             */
+            link: string;
+            /** Question Id */
+            question_id?: number | null;
+            /** Section Id */
+            section_id?: number | null;
+            /**
+             * Text
+             * @description What to look at, following the link text.
+             */
+            text: string;
         };
         /** CheckInEntrantResponse */
         CheckInEntrantResponse: {
@@ -17024,6 +17913,11 @@ export interface components {
             /** Join Mode */
             join_mode: string;
         };
+        /** KeepRequest */
+        KeepRequest: {
+            /** Index */
+            index: number;
+        };
         /** LateTag */
         LateTag: {
             /** Label */
@@ -18133,6 +19027,23 @@ export interface components {
              */
             user_id: number;
         };
+        /** MissingAnswerResponse */
+        MissingAnswerResponse: {
+            /**
+             * Every Statement
+             * @description An agree scale with some statements still unanswered.
+             * @default false
+             */
+            every_statement: boolean;
+            /** Part Key */
+            part_key: string;
+            /** Part Title */
+            part_title: string;
+            /** Prompt */
+            prompt: string;
+            /** Question Id */
+            question_id: number;
+        };
         /** MoveRequest */
         MoveRequest: {
             /**
@@ -18280,6 +19191,15 @@ export interface components {
             messages: components["schemas"]["MyNotificationResponse"][];
             /** @description Your starting point: `everything`, `needs_me` (ping only when you have something to do) or `quiet` (ping only what can't wait). */
             preset: components["schemas"]["NotificationPreset"];
+        };
+        /** MyOpenSurvey */
+        MyOpenSurvey: {
+            /** Closes At */
+            closes_at?: string | null;
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
         };
         /** MyPlatformAccess */
         MyPlatformAccess: {
@@ -19183,6 +20103,19 @@ export interface components {
             /** State */
             state?: string | null;
         };
+        /** PlaceRequest */
+        PlaceRequest: {
+            /**
+             * Index
+             * @description Its place in that section, from 0.
+             */
+            index: number;
+            /**
+             * Section Id
+             * @description The section it lands in (may be another one).
+             */
+            section_id: number;
+        };
         /** PlatformAppResponse */
         PlatformAppResponse: {
             /**
@@ -19473,6 +20406,27 @@ export interface components {
              */
             tournaments: string[];
         };
+        /** PreviewPathResponse */
+        PreviewPathResponse: {
+            /**
+             * Hidden
+             * @description What they won't see, and why, one line each.
+             */
+            hidden?: string[];
+            /** Label */
+            label: string;
+            /** Parts */
+            parts: number;
+            /**
+             * Persona
+             * @description Pass as `persona` to `GET /surveys/{id}/preview`.
+             */
+            persona: string;
+            /** Questions */
+            questions: number;
+            /** Seconds */
+            seconds: number;
+        };
         /** PrivacyPolicy */
         PrivacyPolicy: {
             /** Blocks */
@@ -19696,6 +20650,38 @@ export interface components {
             /** User Agent */
             user_agent?: string | null;
         };
+        /** QualifierBoardLineResponse */
+        QualifierBoardLineResponse: {
+            /** Name */
+            name: string;
+            /** Rank */
+            rank: number;
+            /** Score */
+            score: number;
+            /**
+             * Slots
+             * @description Slots filled out of the total, as "4/6".
+             */
+            slots: string;
+        };
+        /** QualifierBoardResponse */
+        QualifierBoardResponse: {
+            /**
+             * Can Create
+             * @description Whether the caller may add a qualifier (Staff or Qualifier Admin).
+             */
+            can_create: boolean;
+            /**
+             * Qualifiers
+             * @description Open ones first, then by how much is waiting.
+             */
+            qualifiers: components["schemas"]["QualifierRowResponse"][];
+            /**
+             * Zone
+             * @description The IANA zone to show times in for this viewer, or null for the device's.
+             */
+            zone?: string | null;
+        };
         /** QualifierCreateRequest */
         QualifierCreateRequest: {
             /**
@@ -19742,6 +20728,226 @@ export interface components {
              * @default 1
              */
             runs_per_pool: number;
+        };
+        /** QualifierDetailResponse */
+        QualifierDetailResponse: {
+            /**
+             * Leaderboard
+             * @description The top of the leaderboard.
+             */
+            leaderboard: components["schemas"]["QualifierBoardLineResponse"][];
+            /** Leaderboard Total */
+            leaderboard_total: number;
+            /**
+             * Queue
+             * @description Runs waiting for review, oldest finish first.
+             */
+            queue: components["schemas"]["QualifierQueueCardResponse"][];
+            row: components["schemas"]["QualifierRowResponse"];
+            settings: components["schemas"]["QualifierSettingsResponse"];
+            setup: components["schemas"]["QualifierSetupResponse"];
+        };
+        /** QualifierLiveRaceLineResponse */
+        QualifierLiveRaceLineResponse: {
+            /** Has Seed */
+            has_seed: boolean;
+            /** Id */
+            id: number;
+            /** Pool */
+            pool: string;
+            /** Racetime Slug */
+            racetime_slug?: string | null;
+            /** Status */
+            status: string;
+            /** Status Label */
+            status_label: string;
+            /** Title */
+            title: string;
+        };
+        /** QualifierPermalinkLineResponse */
+        QualifierPermalinkLineResponse: {
+            /** Id */
+            id: number;
+            /**
+             * Live Race
+             * @description Kept for live races, not drawn for async runs.
+             */
+            live_race: boolean;
+            /** Notes */
+            notes?: string | null;
+            /** Par Seconds */
+            par_seconds?: number | null;
+            /** Url */
+            url: string;
+        };
+        /** QualifierPersonResponse */
+        QualifierPersonResponse: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Username */
+            username?: string | null;
+        };
+        /** QualifierPoolLineResponse */
+        QualifierPoolLineResponse: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Permalinks */
+            permalinks: components["schemas"]["QualifierPermalinkLineResponse"][];
+            /** Preset Id */
+            preset_id?: number | null;
+            /** Preset Name */
+            preset_name?: string | null;
+            /**
+             * Roll Refusal
+             * @description Why seeds can't be rolled into this pool, or null when they can.
+             */
+            roll_refusal?: string | null;
+        };
+        /** QualifierQueueCardResponse */
+        QualifierQueueCardResponse: {
+            /**
+             * Claimed Seconds
+             * @description The time the runner submitted.
+             */
+            claimed_seconds?: number | null;
+            /** Finished At */
+            finished_at?: string | null;
+            /**
+             * Held By
+             * @description Who holds the review claim, or null.
+             */
+            held_by?: string | null;
+            /** Held By Me */
+            held_by_me: boolean;
+            /**
+             * Implausible
+             * @description The claimed time is well under what the wall clock allows.
+             */
+            implausible: boolean;
+            /**
+             * Measured Seconds
+             * @description The wall clock from draw to submit.
+             */
+            measured_seconds?: number | null;
+            /**
+             * Notes
+             * @description Review notes already on the run.
+             */
+            notes: string[];
+            /**
+             * Other Runs
+             * @description The runner's other attempts here, or empty.
+             */
+            other_runs: string;
+            /** Permalink Url */
+            permalink_url?: string | null;
+            /** Pool */
+            pool: string;
+            /** Run Id */
+            run_id: number;
+            /** Runner */
+            runner: string;
+            /** Runner Id */
+            runner_id: number;
+            /** Started At */
+            started_at?: string | null;
+            /** Vod Url */
+            vod_url?: string | null;
+        };
+        /** QualifierReviewersResponse */
+        QualifierReviewersResponse: {
+            /**
+             * Members
+             * @description The community's active members, to add from.
+             */
+            members: components["schemas"]["QualifierPersonResponse"][];
+            /**
+             * Reviewers
+             * @description People who review this qualifier only.
+             */
+            reviewers: components["schemas"]["QualifierPersonResponse"][];
+        };
+        /** QualifierRowResponse */
+        QualifierRowResponse: {
+            /**
+             * Closes At
+             * @description When runs close (UTC), or null for no end.
+             */
+            closes_at?: string | null;
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /**
+             * Opens At
+             * @description When runs open (UTC), or null for no start.
+             */
+            opens_at?: string | null;
+            /**
+             * Runs
+             * @description Every run in the qualifier.
+             */
+            runs: number;
+            /**
+             * State
+             * @description `open`, `upcoming`, `closed`, or `off` (switched off).
+             */
+            state: string;
+            /** State Label */
+            state_label: string;
+            /**
+             * To Review
+             * @description Finished runs waiting for a verdict.
+             */
+            to_review: number;
+        };
+        /** QualifierSeedingResponse */
+        QualifierSeedingResponse: {
+            /**
+             * Seeds
+             * @description Entry id → seed, best leaderboard place first. Apply with `PATCH /brackets/{id}/seeds`.
+             */
+            seeds: {
+                [key: string]: number;
+            };
+            /**
+             * Unmatched
+             * @description Entrants the leaderboard doesn't cover, left out of `seeds`.
+             */
+            unmatched: string[];
+        };
+        /** QualifierSettingsResponse */
+        QualifierSettingsResponse: {
+            /** Allowed Reattempts */
+            allowed_reattempts: number;
+            /** Description */
+            description?: string | null;
+            /** Event Name */
+            event_name?: string | null;
+            /** Is Active */
+            is_active: boolean;
+            /** Runs Per Pool */
+            runs_per_pool: number;
+        };
+        /** QualifierSetupResponse */
+        QualifierSetupResponse: {
+            /** Live Races */
+            live_races: number;
+            /**
+             * Live Races Open
+             * @description Live races scheduled, open or racing.
+             */
+            live_races_open: number;
+            /** Pools */
+            pools: number;
+            /** Reviewers */
+            reviewers: number;
+            /** Seeds */
+            seeds: number;
         };
         /** QualifierUpdateRequest */
         QualifierUpdateRequest: {
@@ -20703,6 +21909,152 @@ export interface components {
              */
             status: string;
         };
+        /** RespondentPart */
+        RespondentPart: {
+            /**
+             * Answered
+             * @description Questions showing now that have an answer.
+             * @default 0
+             */
+            answered: number;
+            /**
+             * Answers
+             * @description Question id → what is saved: the value, the comment text, or `{value, other}` for an Other pick.
+             */
+            answers?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Icon
+             * @description Material Symbols icon name.
+             */
+            icon: string;
+            /**
+             * Key
+             * @description `<section id>|<scope>`; send it back to save the part.
+             */
+            key: string;
+            /** Questions */
+            questions: components["schemas"]["RespondentQuestion"][];
+            /**
+             * Reason
+             * @description Why this person gets it, e.g. `You played ALTTPR Main`.
+             */
+            reason: string;
+            /** Scope */
+            scope: string;
+            /**
+             * Seconds
+             * @description About how long it takes.
+             */
+            seconds: number;
+            /**
+             * Showing
+             * @description Questions showing now.
+             * @default 0
+             */
+            showing: number;
+            /**
+             * Shown
+             * @description Whether the part shows, given the answers so far.
+             * @default true
+             */
+            shown: boolean;
+            /**
+             * Shows If
+             * @description The whole part waits on these answers.
+             */
+            shows_if?: components["schemas"]["ShowsIf"][];
+            /** Title */
+            title: string;
+        };
+        /** RespondentQuestion */
+        RespondentQuestion: {
+            /** Id */
+            id: number;
+            /**
+             * Kind
+             * @description `rating`, `nps`, `yes_no`, `choice_one`, `choice_many`, `comment` or `agree_scale`.
+             */
+            kind: string;
+            /**
+             * Long Answer
+             * @default false
+             */
+            long_answer: boolean;
+            /** Max Picks */
+            max_picks?: number | null;
+            /** Min Picks */
+            min_picks?: number | null;
+            /** None Option */
+            none_option?: string | null;
+            /**
+             * Options
+             * @description Choices, or an agree scale's statements.
+             */
+            options?: string[] | null;
+            /**
+             * Other Option
+             * @default false
+             */
+            other_option: boolean;
+            /** Prompt */
+            prompt: string;
+            /** Required */
+            required: boolean;
+            /**
+             * Shows If
+             * @description All must hold for it to show. An answer is looked up in this part, then in the unscoped part.
+             */
+            shows_if?: components["schemas"]["ShowsIf"][];
+        };
+        /** RespondentSurvey */
+        RespondentSurvey: {
+            /**
+             * After Send
+             * @description What the page says after sending.
+             */
+            after_send: string;
+            /** Allow Anonymous */
+            allow_anonymous: boolean;
+            /**
+             * Anonymous
+             * @description Once sent: whether it went without their name.
+             */
+            anonymous?: boolean | null;
+            /** Closes At */
+            closes_at?: string | null;
+            /** Id */
+            id: number;
+            /** Intro */
+            intro?: string | null;
+            /**
+             * Missing
+             * @description Required questions still unanswered, in order; Send refuses while any remain.
+             */
+            missing?: components["schemas"]["MissingAnswerResponse"][];
+            /**
+             * Open
+             * @description False once it closed or this person sent their answers.
+             */
+            open: boolean;
+            /** Parts */
+            parts: components["schemas"]["RespondentPart"][];
+            /**
+             * Seconds
+             * @description About how long their parts take in all.
+             */
+            seconds: number;
+            /** Submitted */
+            submitted: boolean;
+            /** Title */
+            title: string;
+        };
         /** ReviewRequest */
         ReviewRequest: {
             /**
@@ -20909,6 +22261,16 @@ export interface components {
             minutes: number;
             /** Note */
             note?: string | null;
+        };
+        /** SavePartRequest */
+        SavePartRequest: {
+            /**
+             * Answers
+             * @description Question id → answer, in the shape `answers` returns. A blank answer clears it.
+             */
+            answers: {
+                [key: string]: unknown;
+            };
         };
         /** SavedMatch */
         SavedMatch: {
@@ -21208,6 +22570,14 @@ export interface components {
              */
             url?: string | null;
         };
+        /** SentContextResponse */
+        SentContextResponse: {
+            /**
+             * Context
+             * @description Exactly what the AI provider was sent.
+             */
+            context: string;
+        };
         /** SentMessageCounts */
         SentMessageCounts: {
             /**
@@ -21417,6 +22787,19 @@ export interface components {
              * @description How late you expect to be: 10, 20 or 30.
              */
             minutes: number;
+        };
+        /** ShowsIf */
+        ShowsIf: {
+            /**
+             * Question Id
+             * @description The earlier question it waits on.
+             */
+            question_id: number;
+            /**
+             * Values
+             * @description It shows when that answer is one of these (for a pick-many, when any picked choice is).
+             */
+            values: unknown[];
         };
         /**
          * SignupWindow
@@ -22076,6 +23459,15 @@ export interface components {
              */
             flag: boolean;
         };
+        /** SubmitRequest */
+        SubmitRequest: {
+            /**
+             * Anonymous
+             * @description Send without the name, for good. Refused if the survey asks for names.
+             * @default false
+             */
+            anonymous: boolean;
+        };
         /** SubmitRunRequest */
         SubmitRunRequest: {
             /**
@@ -22135,6 +23527,38 @@ export interface components {
              * Format: date-time
              */
             scheduled_at: string;
+        };
+        /** SuggestionBatchResponse */
+        SuggestionBatchResponse: {
+            /**
+             * Drafts
+             * @description Drafts nobody has kept or dismissed yet.
+             */
+            drafts: components["schemas"]["SuggestionDraft"][];
+            /** Id */
+            id: number;
+            /**
+             * Model
+             * @description The model that wrote them.
+             * @default
+             */
+            model: string;
+            /** Section Id */
+            section_id: number;
+        };
+        /** SuggestionDraft */
+        SuggestionDraft: {
+            /**
+             * Index
+             * @description Pass to `keep`.
+             */
+            index: number;
+            /** Kind */
+            kind: string;
+            /** Options */
+            options?: string[] | null;
+            /** Prompt */
+            prompt: string;
         };
         /** SurveyAnswerResponse */
         SurveyAnswerResponse: {
@@ -22680,6 +24104,11 @@ export interface components {
              * @description Episodes whose content hadn't changed.
              */
             unchanged: number;
+        };
+        /** TagRequest */
+        TagRequest: {
+            /** Name */
+            name: string;
         };
         /** TelegramLinkResponse */
         TelegramLinkResponse: {
@@ -25609,6 +27038,215 @@ export interface operations {
             };
         };
     };
+    board_api_admin_brackets_board_get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BracketsBoardResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    stage_api_admin_brackets__bracket_id__get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                bracket_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BracketStageDetailResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    qualifier_seeds_api_admin_brackets__bracket_id__qualifier_seeds_get: {
+        parameters: {
+            query: {
+                qualifier_id: number;
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                bracket_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QualifierSeedingResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     board_api_admin_match_schedule_get: {
         parameters: {
             query?: {
@@ -26774,6 +28412,354 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    board_api_admin_qualifiers_board_get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QualifierBoardResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    detail_api_admin_qualifiers__qualifier_id__get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                qualifier_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QualifierDetailResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    live_races_api_admin_qualifiers__qualifier_id__live_races_get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                qualifier_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QualifierLiveRaceLineResponse"][];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    pools_api_admin_qualifiers__qualifier_id__pools_get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                qualifier_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QualifierPoolLineResponse"][];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    reviewers_api_admin_qualifiers__qualifier_id__reviewers_get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                qualifier_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QualifierReviewersResponse"];
                 };
             };
             /** @description No token, or the token is unknown, expired or revoked. */
@@ -44494,6 +46480,466 @@ export interface operations {
             };
         };
     };
+    my_open_surveys_api_me_surveys_get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyOpenSurvey"][];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    open_survey_api_me_surveys__survey_id__get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                survey_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespondentSurvey"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    decline_api_me_surveys__survey_id__decline_post: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                survey_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    save_part_api_me_surveys__survey_id__parts__part_key__put: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                survey_id: number;
+                part_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavePartRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespondentSurvey"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    open_part_api_me_surveys__survey_id__parts__part_key__open_post: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                survey_id: number;
+                part_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    submit_api_me_surveys__survey_id__submit_post: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                survey_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmitRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespondentSurvey"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     list_hooks_api_me_webhooks_get: {
         parameters: {
             query?: never;
@@ -53861,6 +56307,87 @@ export interface operations {
             };
         };
     };
+    place_question_api_surveys_questions__question_id__place_post: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                question_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlaceRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     delete_section_api_surveys_sections__section_id__delete: {
         parameters: {
             query?: {
@@ -54185,6 +56712,315 @@ export interface operations {
             };
         };
     };
+    suggest_api_surveys_sections__section_id__suggestions_post: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                section_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuggestionBatchResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    dismiss_api_surveys_suggestions__batch_id__dismiss_post: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                batch_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    keep_api_surveys_suggestions__batch_id__keep_post: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                batch_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KeepRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SurveyQuestionResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    sent_context_api_surveys_suggestions__batch_id__sent_get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                batch_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SentContextResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     get_survey_api_surveys__survey_id__get: {
         parameters: {
             query?: {
@@ -54358,6 +57194,237 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["SurveyResponseModel"];
                 };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    builder_api_surveys__survey_id__builder_get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                survey_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    add_tag_api_surveys__survey_id__comment_tags_post: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                survey_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TagRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SurveyCommentTagResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_tag_api_surveys__survey_id__comment_tags__tag_id__delete: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                survey_id: number;
+                tag_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description A rule refused the request. `detail` says which. */
             400: {
@@ -54599,6 +57666,148 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    preview_api_surveys__survey_id__preview_get: {
+        parameters: {
+            query?: {
+                /** @description A `persona` from `preview-paths`. */
+                persona?: string | null;
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                survey_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespondentSurvey"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    preview_paths_api_surveys__survey_id__preview_paths_get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                survey_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewPathResponse"][];
                 };
             };
             /** @description No token, or the token is unknown, expired or revoked. */
