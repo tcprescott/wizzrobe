@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from api._match_view import load_match_response
 from api.dependencies import ServiceErrorRoute, event_binding, require_write_actor
+from api.schemas.admin_match_schedule import CancelRequest, RewindRequest
 from api.schemas.detail import DetailResponse
 from api.schemas.match_actions import (
     AssignStageRequest,
@@ -169,6 +170,38 @@ async def update_match(match_id: int, body: MatchUpdateRequest, actor: User = De
 )
 async def delete_match(match_id: int, actor: User = Depends(require_write_actor)):
     await MatchService().delete_match(match_id, actor=actor)
+
+
+@router.post(
+    "/{match_id}/rewind",
+    response_model=MatchResponse,
+    summary="Rewind a match to an earlier step",
+    description=(
+        "Takes the match back to `to_step` (`scheduled`, `checked_in`, `started` or "
+        "`finished`), clearing every later step together. Fails with 400 when the match "
+        "hasn't gone past that step."
+        "\n\n"
+        "**Who can call this:** Staff or Admins of this tournament."
+    ),
+)
+async def rewind_match(match_id: int, body: RewindRequest, actor: User = Depends(require_write_actor)):
+    await MatchService().rewind_match(match_id, body.to_step, actor=actor)
+    return await load_match_response(match_id)
+
+
+@router.post(
+    "/{match_id}/cancel",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Call a match off",
+    description=(
+        "Cancels the match and DMs its players, crew and watchers, with your reason. A "
+        "bracket slot the match held is freed so it can be booked again."
+        "\n\n"
+        "**Who can call this:** Staff or Admins of this tournament."
+    ),
+)
+async def cancel_match(match_id: int, body: CancelRequest, actor: User = Depends(require_write_actor)):
+    await MatchService().cancel_match(match_id, actor, reason=body.reason)
 
 
 @router.post(

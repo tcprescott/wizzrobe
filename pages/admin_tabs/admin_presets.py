@@ -11,6 +11,7 @@ from application.services import (
     SeedGenerationService,
     get_user_from_session,
 )
+from application.services.admin_presets_service import PASTE_FIELDS as _PASTE_FIELDS
 from application.utils.discord_messages import is_seed_link
 from theme.busy import busy_click
 from theme.clipboard import copy_to_clipboard
@@ -24,39 +25,6 @@ from theme.page_header import page_header
 from theme.pickers import CHIP_PROPS
 from theme.tables.admin_crud import current_actor, refresh_button, wire_tab_refresh
 from theme.waiting import waiting_panel
-
-_PASTE_FIELDS = {
-    'wwr': (
-        'permalink', 'Permalink', "Paste the permalink from the randomizer's Permalink box",
-        'Each roll keeps the build and settings and only changes the seed.',
-    ),
-    'ff1r': (
-        'url', 'Flags link', 'https://4-9-7.finalfantasyrandomizer.com/?s=00000000&f=…',
-        "Copy the link from the randomizer's address bar after setting the flags. "
-        'Each roll keeps the flags and site version and only changes the seed.',
-    ),
-    'z1r': (
-        'flags', 'Flags', 'The flag string from the randomizer',
-        'Each roll adds a fresh seed number to these flags.',
-    ),
-    'z2r': (
-        'flags', 'Flags', 'The flag string from the randomizer',
-        'Each roll adds a fresh seed number to these flags.',
-    ),
-    'smb3r': (
-        'flags', 'Flags', 'The flag string from the randomizer',
-        'Each roll adds a fresh seed number to these flags.',
-    ),
-    'aosr': (
-        'url', 'Randomizer link', 'https://aosrando.surge.sh/?…',
-        'The aosrando.surge.sh link with your options in it. Each roll keeps the options and only changes the seed.',
-    ),
-    'avianart': (
-        'preset', 'AVIANART preset', 'crosskeys',
-        'The preset name from avianart.games, or owner/name for a user preset. '
-        'Import → From a randomizer… lists the published ones.',
-    ),
-}
 
 
 async def admin_presets_page() -> None:

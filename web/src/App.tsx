@@ -1,4 +1,6 @@
 import { createBrowserRouter, Navigate, RouterProvider, type RouteObject } from 'react-router-dom'
+import { AdminAreaScreen } from './admin/AdminAreaScreen'
+import { AdminLayout } from './admin/AdminLayout'
 import { AuthProvider, RequireAuth } from './auth/AuthProvider'
 import { TooltipProvider } from './components'
 import { CallbackScreen } from './screens/CallbackScreen'
@@ -31,6 +33,7 @@ const tabRoutes: RouteObject[] = [
   { path: 'event/tournament/:tournamentId', element: <BracketScreen /> },
   { path: 'work', element: <WorkScreen /> },
   { path: 'me', element: <MeLayout />, children: [{ path: ':section', element: <MeSection /> }] },
+  { path: 'admin', element: <AdminLayout />, children: [{ path: ':area/*', element: <AdminAreaScreen /> }] },
   ...readingRoutes,
 ]
 

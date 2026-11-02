@@ -7,7 +7,7 @@ export type Row = Schemas['RunSheetRowResponse']
 export type Stage = Schemas['StageCardResponse']
 export type StreamMatch = Schemas['StreamMatchResponse']
 export type TournamentCard = Schemas['TournamentCardResponse']
-export type Bracket = Schemas['TournamentBracketResponse']
+export type Bracket = Schemas['api__schemas__bracket_overview__TournamentBracketResponse']
 export type Side = Schemas['SideResponse']
 
 export function useHub() {
