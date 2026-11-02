@@ -54,6 +54,7 @@ from .admin_payouts_service import AdminPayoutsService
 from .admin_presets_service import AdminPresetsService
 from .admin_qualifiers_service import AdminQualifiersService
 from .admin_schedule_service import AdminScheduleService
+from .admin_stream_layouts_service import AdminStreamLayoutsService
 from .admin_tournaments_service import AdminTournamentsService
 from .ai_provider_service import AiProviderService
 from .analytics_service import AnalyticsService
@@ -233,6 +234,7 @@ __all__ = [
     'AdminPresetsService',
     'AdminQualifiersService',
     'AdminScheduleService',
+    'AdminStreamLayoutsService',
     'AdminTournamentsService',
     'AiProviderService',
     'AnalyticsService',

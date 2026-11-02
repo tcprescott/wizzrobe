@@ -253,7 +253,8 @@ FEATURE_FLAG_REGISTRY: Dict[FeatureFlag, FeatureFlagSpec] = {
             'player names, round, commentators and more on it, and load each '
             "stage's overlay in OBS on top of the video feeds.",
             'Operations',
-            service_modules=('application/services/stream_layout_service.py',),
+            service_modules=('application/services/stream_layout_service.py',
+                             'application/services/admin_stream_layouts_service.py'),
         ),
         FeatureFlagSpec(
             FeatureFlag.COMMUNITY_EVENTS,

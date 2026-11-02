@@ -151,6 +151,11 @@ import MeetingRoomIcon from '@material-symbols/svg-400/outlined/meeting_room.svg
 import VisibilityIcon from '@material-symbols/svg-400/outlined/visibility.svg?react'
 import UploadIcon from '@material-symbols/svg-400/outlined/upload.svg?react'
 import ImageIcon from '@material-symbols/svg-400/outlined/image.svg?react'
+import TextFieldsIcon from '@material-symbols/svg-400/outlined/text_fields.svg?react'
+import KeepIcon from '@material-symbols/svg-400/outlined/keep.svg?react'
+import AutorenewIcon from '@material-symbols/svg-400/outlined/autorenew.svg?react'
+import DashboardIcon from '@material-symbols/svg-400/outlined/dashboard.svg?react'
+import HideImageIcon from '@material-symbols/svg-400/outlined/hide_image.svg?react'
 import PublicIcon from '@material-symbols/svg-400/outlined/public.svg?react'
 import PlayCircleIcon from '@material-symbols/svg-400/outlined/play_circle.svg?react'
 import StarIcon from '@material-symbols/svg-400/outlined/star.svg?react'
@@ -304,6 +309,11 @@ export const ICONS = {
   visibility: VisibilityIcon,
   upload: UploadIcon,
   image: ImageIcon,
+  keep: KeepIcon,
+  text_fields: TextFieldsIcon,
+  autorenew: AutorenewIcon,
+  dashboard: DashboardIcon,
+  hide_image: HideImageIcon,
   public: PublicIcon,
   play_circle: PlayCircleIcon,
   star: StarIcon,

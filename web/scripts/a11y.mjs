@@ -86,8 +86,13 @@ const TARGETS = [
   { name: 'admin-qualifiers-pools', path: '/t/sgl/admin/qualifiers/7/pools', wait: 'text=Rolls from sgl27-open' },
   { name: 'admin-qualifiers-reviewers', path: '/t/sgl/admin/qualifiers/7/reviewers', wait: 'text=Find a member' },
   { name: 'admin-qualifiers-settings', path: '/t/sgl/admin/qualifiers/7/settings', wait: 'text=Undo changes' },
-  { name: 'admin-payouts', path: '/t/sgl/admin/payouts/3', wait: 'text=Dana Ortiz' },
+  { name: 'admin-payouts', path: '/t/sgl/admin/payouts/3', wait: 'text=left to place' },
   { name: 'admin-payouts-sglive', path: '/t/sgl/admin/payouts', act: (p) => p.getByRole('button', { name: 'Actions' }).click().then(() => p.getByRole('menuitem', { name: 'Link sglive pages…' }).click()), wait: 'text=Suggested from the name' },
+  { name: 'admin-stream-layouts', path: '/t/sgl/admin/stream-layouts/stages/1', wait: 'text=Up next: Sam Ruiz vs Jo Park' },
+  { name: 'admin-stream-layouts-pin', path: '/t/sgl/admin/stream-layouts/stages/1', act: (p) => p.getByRole('button', { name: 'Pin a match…' }).click(), wait: 'role=dialog' },
+  { name: 'admin-stream-layouts-layout', path: '/t/sgl/admin/stream-layouts/layouts/21', wait: 'text=Sample text. Each stage' },
+  { name: 'admin-stream-layouts-new', path: '/t/sgl/admin/stream-layouts', act: (p) => p.getByRole('button', { name: 'New layout' }).click(), wait: 'role=dialog' },
+  { name: 'admin-stream-layouts-editor', path: '/t/sgl/admin/stream-layouts/layouts/21/edit', wait: 'text=/1920×1080 · 13 boxes/' },
   { name: 'admin-stages', path: '/t/sgl/admin/stages/1' },
   { name: 'admin-stages-add', path: '/t/sgl/admin/stages', act: (p) => p.getByRole('button', { name: 'Add stage' }).click(), wait: 'role=dialog' },
   { name: 'admin-triforce', path: '/t/sgl/admin/triforce-texts/1' },
@@ -250,8 +255,8 @@ async function check(browser, target, scheme, viewport, label) {
   page.on('pageerror', (err) => problems.push(`page error: ${err.message}`))
   await page.goto(BASE + target.path, { waitUntil: 'networkidle' })
   await page.locator('h1').first().waitFor({ timeout: 10000 })
-  if (target.act) {
-    await target.act(page)
+  if (target.act) await target.act(page)
+  if (target.wait) {
     await page.locator(target.wait).first().waitFor({ timeout: 5000 })
     await page.waitForTimeout(250)
   }

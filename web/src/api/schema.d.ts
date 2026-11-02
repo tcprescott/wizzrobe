@@ -834,6 +834,434 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/stream-layouts/board": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The Stream Layouts board
+         * @description Every stage with what its overlay shows now and its OBS link, and every layout.
+         *
+         *     **Who can call this:** Staff and Broadcast Techs.
+         *
+         *     **App scope:** `staff:read`
+         *     **Feature:** only works when the community has **Stream Layouts** turned on; otherwise every call answers `404`.
+         */
+        get: operations["board_api_admin_stream_layouts_board_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/stream-layouts/editor-options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The box editor's choices
+         * @description What a box can show, the fonts, starters and background swatches.
+         *
+         *     **Who can call this:** Staff and Broadcast Techs.
+         *
+         *     **App scope:** `staff:read`
+         *     **Feature:** only works when the community has **Stream Layouts** turned on; otherwise every call answers `404`.
+         */
+        get: operations["editor_options_api_admin_stream_layouts_editor_options_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/stream-layouts/layouts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a layout
+         * @description Blank or from a starter, on a plain background if one is given.
+         *
+         *     **Who can call this:** Staff and Broadcast Techs.
+         *
+         *     **App scope:** `staff:write`
+         *     **Feature:** only works when the community has **Stream Layouts** turned on; otherwise every call answers `404`.
+         */
+        post: operations["create_layout_api_admin_stream_layouts_layouts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/stream-layouts/layouts/{layout_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One layout
+         * @description **Who can call this:** Staff and Broadcast Techs.
+         *
+         *     **App scope:** `staff:read`
+         *     **Feature:** only works when the community has **Stream Layouts** turned on; otherwise every call answers `404`.
+         */
+        get: operations["layout_api_admin_stream_layouts_layouts__layout_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a layout
+         * @description Stages using it show a blank overlay until they get another.
+         *
+         *     **Who can call this:** Staff and Broadcast Techs.
+         *
+         *     **App scope:** `staff:write`
+         *     **Feature:** only works when the community has **Stream Layouts** turned on; otherwise every call answers `404`.
+         */
+        delete: operations["delete_layout_api_admin_stream_layouts_layouts__layout_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Rename a layout
+         * @description **Who can call this:** Staff and Broadcast Techs.
+         *
+         *     **App scope:** `staff:write`
+         *     **Feature:** only works when the community has **Stream Layouts** turned on; otherwise every call answers `404`.
+         */
+        patch: operations["rename_layout_api_admin_stream_layouts_layouts__layout_id__patch"];
+        trace?: never;
+    };
+    "/api/admin/stream-layouts/layouts/{layout_id}/art": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Upload a layout's art
+         * @description The request body is the image itself (PNG, JPEG or WebP, up to 10 MB). The canvas takes the art's size and the boxes scale to match.
+         *
+         *     **Who can call this:** Staff and Broadcast Techs.
+         *
+         *     **App scope:** `staff:write`
+         *     **Feature:** only works when the community has **Stream Layouts** turned on; otherwise every call answers `404`.
+         */
+        put: operations["set_art_api_admin_stream_layouts_layouts__layout_id__art_put"];
+        post?: never;
+        /**
+         * Remove a layout's art
+         * @description **Who can call this:** Staff and Broadcast Techs.
+         *
+         *     **App scope:** `staff:write`
+         *     **Feature:** only works when the community has **Stream Layouts** turned on; otherwise every call answers `404`.
+         */
+        delete: operations["remove_art_api_admin_stream_layouts_layouts__layout_id__art_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/stream-layouts/layouts/{layout_id}/background": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Use a plain background
+         * @description Swaps the art for one colour; boxes and the old art's see-through areas stay.
+         *
+         *     **Who can call this:** Staff and Broadcast Techs.
+         *
+         *     **App scope:** `staff:write`
+         *     **Feature:** only works when the community has **Stream Layouts** turned on; otherwise every call answers `404`.
+         */
+        put: operations["set_background_api_admin_stream_layouts_layouts__layout_id__background_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/stream-layouts/layouts/{layout_id}/boxes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save a layout's boxes
+         * @description Replaces every box. Refused when someone else saved since `expected_updated_at`.
+         *
+         *     **Who can call this:** Staff and Broadcast Techs.
+         *
+         *     **App scope:** `staff:write`
+         *     **Feature:** only works when the community has **Stream Layouts** turned on; otherwise every call answers `404`.
+         */
+        put: operations["save_boxes_api_admin_stream_layouts_layouts__layout_id__boxes_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/stream-layouts/layouts/{layout_id}/duplicate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Duplicate a layout
+         * @description **Who can call this:** Staff and Broadcast Techs.
+         *
+         *     **App scope:** `staff:write`
+         *     **Feature:** only works when the community has **Stream Layouts** turned on; otherwise every call answers `404`.
+         */
+        post: operations["duplicate_layout_api_admin_stream_layouts_layouts__layout_id__duplicate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/stream-layouts/layouts/{layout_id}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Each box's text in the editor
+         * @description Sample text, or a real match's, for the saved or the editor's unsaved boxes.
+         *
+         *     **Who can call this:** Staff and Broadcast Techs.
+         *
+         *     **App scope:** `staff:write`
+         *     **Feature:** only works when the community has **Stream Layouts** turned on; otherwise every call answers `404`.
+         */
+        post: operations["preview_values_api_admin_stream_layouts_layouts__layout_id__preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/stream-layouts/obs-scenes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * An OBS scene collection
+         * @description For one stage (`stage_id`) or every stage with a layout.
+         *
+         *     **Who can call this:** Staff and Broadcast Techs.
+         *
+         *     **App scope:** `staff:read`
+         *     **Feature:** only works when the community has **Stream Layouts** turned on; otherwise every call answers `404`.
+         */
+        get: operations["obs_scenes_api_admin_stream_layouts_obs_scenes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/stream-layouts/preview-matches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Matches to preview a layout with
+         * @description Every stage's matches around now.
+         *
+         *     **Who can call this:** Staff and Broadcast Techs.
+         *
+         *     **App scope:** `staff:read`
+         *     **Feature:** only works when the community has **Stream Layouts** turned on; otherwise every call answers `404`.
+         */
+        get: operations["preview_matches_api_admin_stream_layouts_preview_matches_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/stream-layouts/stages/{stage_id}/layout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set a stage's layout
+         * @description OBS picks it up within two seconds.
+         *
+         *     **Who can call this:** Staff and Broadcast Techs.
+         *
+         *     **App scope:** `staff:write`
+         *     **Feature:** only works when the community has **Stream Layouts** turned on; otherwise every call answers `404`.
+         */
+        put: operations["set_stage_layout_api_admin_stream_layouts_stages__stage_id__layout_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/stream-layouts/stages/{stage_id}/matches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Matches to pin on a stage
+         * @description The stage's unfinished matches around now.
+         *
+         *     **Who can call this:** Staff and Broadcast Techs.
+         *
+         *     **App scope:** `staff:read`
+         *     **Feature:** only works when the community has **Stream Layouts** turned on; otherwise every call answers `404`.
+         */
+        get: operations["stage_matches_api_admin_stream_layouts_stages__stage_id__matches_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/stream-layouts/stages/{stage_id}/pin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Pin a match to a stage
+         * @description The overlay shows this match until it's set back to automatic.
+         *
+         *     **Who can call this:** Staff and Broadcast Techs.
+         *
+         *     **App scope:** `staff:write`
+         *     **Feature:** only works when the community has **Stream Layouts** turned on; otherwise every call answers `404`.
+         */
+        put: operations["pin_api_admin_stream_layouts_stages__stage_id__pin_put"];
+        post?: never;
+        /**
+         * Back to automatic
+         * @description The overlay follows the stage's schedule again.
+         *
+         *     **Who can call this:** Staff and Broadcast Techs.
+         *
+         *     **App scope:** `staff:write`
+         *     **Feature:** only works when the community has **Stream Layouts** turned on; otherwise every call answers `404`.
+         */
+        delete: operations["unpin_api_admin_stream_layouts_stages__stage_id__pin_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/stream-layouts/stages/{stage_id}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What a stage's overlay draws now
+         * @description The layout's art, boxes and each box's current text.
+         *
+         *     **Who can call this:** Staff and Broadcast Techs.
+         *
+         *     **App scope:** `staff:read`
+         *     **Feature:** only works when the community has **Stream Layouts** turned on; otherwise every call answers `404`.
+         */
+        get: operations["stage_preview_api_admin_stream_layouts_stages__stage_id__preview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/stream-layouts/stages/{stage_id}/renew-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Replace a stage's OBS link
+         * @description The old link stops working at once.
+         *
+         *     **Who can call this:** Staff and Broadcast Techs.
+         *
+         *     **App scope:** `staff:write`
+         *     **Feature:** only works when the community has **Stream Layouts** turned on; otherwise every call answers `404`.
+         */
+        post: operations["renew_link_api_admin_stream_layouts_stages__stage_id__renew_link_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/tournaments/board": {
         parameters: {
             query?: never;
@@ -13338,6 +13766,14 @@ export interface components {
             /** @default available */
             status: components["schemas"]["VolunteerAvailabilityStatus"];
         };
+        /** BackgroundRequest */
+        BackgroundRequest: {
+            /**
+             * Colour
+             * @description Six-digit hex, like #1E2A44.
+             */
+            colour: string;
+        };
         /** BlockAppResponse */
         BlockAppResponse: {
             /**
@@ -15583,6 +16019,21 @@ export interface components {
              */
             understaffed: boolean;
         };
+        /** CreateLayoutRequest */
+        CreateLayoutRequest: {
+            /**
+             * Background
+             * @description A six-digit hex colour for a plain background.
+             */
+            background?: string | null;
+            /** Name */
+            name: string;
+            /**
+             * Starter
+             * @description A starter's key; empty means blank.
+             */
+            starter?: string | null;
+        };
         /** CrewApprovalRequest */
         CrewApprovalRequest: {
             /**
@@ -16484,6 +16935,37 @@ export interface components {
              */
             started: number;
         };
+        /** EditorOptionsResponse */
+        EditorOptionsResponse: {
+            /** Aligns */
+            aligns: string[];
+            /** Backgrounds */
+            backgrounds: components["schemas"]["SwatchResponse"][];
+            /** Default Starter */
+            default_starter: string;
+            /** Fields */
+            fields: components["schemas"]["FieldOptionResponse"][];
+            /** Fonts */
+            fonts: string[];
+            /** Max Art Bytes */
+            max_art_bytes: number;
+            /** Max Boxes */
+            max_boxes: number;
+            /** Max Label */
+            max_label: number;
+            /** Max Players */
+            max_players: number;
+            /** Max Text */
+            max_text: number;
+            /** Starter Height */
+            starter_height: number;
+            /** Starter Width */
+            starter_width: number;
+            /** Starters */
+            starters: components["schemas"]["StarterOptionResponse"][];
+            /** Weights */
+            weights: number[];
+        };
         /** EmailConfirmRequest */
         EmailConfirmRequest: {
             /** Code */
@@ -17277,6 +17759,19 @@ export interface components {
              */
             reviewed: boolean;
         };
+        /** FieldOptionResponse */
+        FieldOptionResponse: {
+            /** Group */
+            group: string;
+            /** Icon */
+            icon: string;
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Per Player */
+            per_player: boolean;
+        };
         /** FollowableTournamentResponse */
         FollowableTournamentResponse: {
             /** Id */
@@ -17688,6 +18183,43 @@ export interface components {
             label: string;
             /** Note */
             note?: string | null;
+        };
+        /** LayoutDetailResponse */
+        LayoutDetailResponse: {
+            /** Boxes */
+            boxes: {
+                [key: string]: unknown;
+            }[];
+            layout: components["schemas"]["LayoutLineResponse"];
+        };
+        /** LayoutLineResponse */
+        LayoutLineResponse: {
+            /**
+             * Art Url
+             * @description The layout's art image, or null when it has none.
+             */
+            art_url?: string | null;
+            /** Box Count */
+            box_count: number;
+            /** Height */
+            height: number;
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /**
+             * Stages
+             * @description The stages using this layout (filled on the board only).
+             */
+            stages: string[];
+            /**
+             * Updated At
+             * Format: date-time
+             * @description Send this back when saving boxes, so a save over someone else's is refused.
+             */
+            updated_at: string;
+            /** Width */
+            width: number;
         };
         /** LeaderboardEntryResponse */
         LeaderboardEntryResponse: {
@@ -19466,6 +19998,60 @@ export interface components {
             /** Redirect Uris */
             redirect_uris?: string[] | null;
         };
+        /** ObsLinkResponse */
+        ObsLinkResponse: {
+            /** Obs Url */
+            obs_url: string;
+        };
+        /** ObsScenesResponse */
+        ObsScenesResponse: {
+            /**
+             * Content
+             * @description The OBS scene collection, as JSON text to save and import.
+             */
+            content: string;
+            /** Filename */
+            filename: string;
+        };
+        /** OverlayMatchResponse */
+        OverlayMatchResponse: {
+            /** Id */
+            id: number;
+            /** Scheduled At */
+            scheduled_at?: string | null;
+            /** Started At */
+            started_at?: string | null;
+            /**
+             * Tournament
+             * @description The tournament's short name.
+             */
+            tournament: string;
+            /**
+             * Who
+             * @description The players ("A vs B"), or the match title for bigger fields.
+             */
+            who: string;
+        };
+        /** OverlayPreviewResponse */
+        OverlayPreviewResponse: {
+            /** Art Url */
+            art_url?: string | null;
+            /** Boxes */
+            boxes: {
+                [key: string]: unknown;
+            }[];
+            /** Height */
+            height: number;
+            /**
+             * Values
+             * @description Each text box's current text, by box ID.
+             */
+            values: {
+                [key: string]: string;
+            };
+            /** Width */
+            width: number;
+        };
         /** PasteCheckRequest */
         PasteCheckRequest: {
             /** Randomizer */
@@ -19941,6 +20527,11 @@ export interface components {
             /** State */
             state?: string | null;
         };
+        /** PinMatchRequest */
+        PinMatchRequest: {
+            /** Match Id */
+            match_id: number;
+        };
         /** PlaceRequest */
         PlaceRequest: {
             /**
@@ -20211,6 +20802,28 @@ export interface components {
             questions: number;
             /** Seconds */
             seconds: number;
+        };
+        /** PreviewValuesRequest */
+        PreviewValuesRequest: {
+            /**
+             * Boxes
+             * @description The editor's unsaved boxes; null uses the saved ones.
+             */
+            boxes?: {
+                [key: string]: unknown;
+            }[] | null;
+            /**
+             * Match Id
+             * @description A match to fill the boxes from, or null for sample text.
+             */
+            match_id?: number | null;
+        };
+        /** PreviewValuesResponse */
+        PreviewValuesResponse: {
+            /** Values */
+            values: {
+                [key: string]: string;
+            };
         };
         /** PrivacyPolicy */
         PrivacyPolicy: {
@@ -21503,6 +22116,11 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** RenameLayoutRequest */
+        RenameLayoutRequest: {
+            /** Name */
+            name: string;
+        };
         /** ReportResultRequest */
         ReportResultRequest: {
             /**
@@ -22047,6 +22665,18 @@ export interface components {
             /** Note */
             note?: string | null;
         };
+        /** SaveBoxesRequest */
+        SaveBoxesRequest: {
+            /** Boxes */
+            boxes: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Expected Updated At
+             * @description The `updated_at` the editor loaded. A save is refused when the layout changed since.
+             */
+            expected_updated_at?: string | null;
+        };
         /** SavePartRequest */
         SavePartRequest: {
             /**
@@ -22500,6 +23130,19 @@ export interface components {
              */
             total: number;
         };
+        /** SetArtResponse */
+        SetArtResponse: {
+            /** Boxes */
+            boxes: {
+                [key: string]: unknown;
+            }[];
+            layout: components["schemas"]["LayoutLineResponse"];
+            /**
+             * Transparent
+             * @description Whether the art has see-through areas (the video can show through).
+             */
+            transparent: boolean;
+        };
         /**
          * SetAvailabilityRequest
          * @description Replace-all availability payload, bounded to guard against a single
@@ -22553,6 +23196,14 @@ export interface components {
             seeds: {
                 [key: string]: number | null;
             };
+        };
+        /** SetStageLayoutRequest */
+        SetStageLayoutRequest: {
+            /**
+             * Layout Id
+             * @description The layout to show, or null for a blank overlay.
+             */
+            layout_id?: number | null;
         };
         /** SettingsPaneResponse */
         SettingsPaneResponse: {
@@ -23033,6 +23684,35 @@ export interface components {
              */
             stream_url?: string | null;
         };
+        /** StageLineResponse */
+        StageLineResponse: {
+            /**
+             * Channel
+             * @description The stage's Twitch channel, as `twitch.tv/name`.
+             */
+            channel?: string | null;
+            /** Id */
+            id: number;
+            /** Layout Id */
+            layout_id?: number | null;
+            /** Layout Name */
+            layout_name?: string | null;
+            /** Name */
+            name: string;
+            /**
+             * Obs Url
+             * @description The stage's overlay URL, to paste into an OBS browser source.
+             */
+            obs_url: string;
+            /**
+             * Pinned
+             * @description True when `showing` was pinned there rather than following the schedule.
+             */
+            pinned: boolean;
+            /** @description The match the overlay shows now. */
+            showing?: components["schemas"]["OverlayMatchResponse"] | null;
+            up_next?: components["schemas"]["OverlayMatchResponse"] | null;
+        };
         /** StageResponse */
         StageResponse: {
             /**
@@ -23236,6 +23916,21 @@ export interface components {
              */
             pool_id: number;
         };
+        /** StarterOptionResponse */
+        StarterOptionResponse: {
+            /** Blurb */
+            blurb: string;
+            /** Boxes */
+            boxes: {
+                [key: string]: unknown;
+            }[];
+            /** Group */
+            group: string;
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+        };
         /** StartggSettingsResponse */
         StartggSettingsResponse: {
             /**
@@ -23290,6 +23985,18 @@ export interface components {
              * @description Set or clear the stream-candidate flag
              */
             flag: boolean;
+        };
+        /** StreamLayoutBoardResponse */
+        StreamLayoutBoardResponse: {
+            /** Layouts */
+            layouts: components["schemas"]["LayoutLineResponse"][];
+            /** Stages */
+            stages: components["schemas"]["StageLineResponse"][];
+            /**
+             * Zone
+             * @description The IANA zone to show times in for this viewer, or null for the device's.
+             */
+            zone?: string | null;
         };
         /** SubmitRequest */
         SubmitRequest: {
@@ -23900,6 +24607,13 @@ export interface components {
             intro?: string | null;
             /** Title */
             title?: string | null;
+        };
+        /** SwatchResponse */
+        SwatchResponse: {
+            /** Colour */
+            colour: string;
+            /** Label */
+            label: string;
         };
         /**
          * SyncResultResponse
@@ -29101,6 +29815,1540 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["QualifierReviewersResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    board_api_admin_stream_layouts_board_get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StreamLayoutBoardResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    editor_options_api_admin_stream_layouts_editor_options_get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EditorOptionsResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_layout_api_admin_stream_layouts_layouts_post: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateLayoutRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LayoutDetailResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    layout_api_admin_stream_layouts_layouts__layout_id__get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                layout_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LayoutDetailResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_layout_api_admin_stream_layouts_layouts__layout_id__delete: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                layout_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    rename_layout_api_admin_stream_layouts_layouts__layout_id__patch: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                layout_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenameLayoutRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LayoutDetailResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    set_art_api_admin_stream_layouts_layouts__layout_id__art_put: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                layout_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "image/jpeg": string;
+                "image/png": string;
+                "image/webp": string;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetArtResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    remove_art_api_admin_stream_layouts_layouts__layout_id__art_delete: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                layout_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LayoutDetailResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    set_background_api_admin_stream_layouts_layouts__layout_id__background_put: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                layout_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BackgroundRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LayoutDetailResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    save_boxes_api_admin_stream_layouts_layouts__layout_id__boxes_put: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                layout_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveBoxesRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LayoutDetailResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    duplicate_layout_api_admin_stream_layouts_layouts__layout_id__duplicate_post: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                layout_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LayoutDetailResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    preview_values_api_admin_stream_layouts_layouts__layout_id__preview_post: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                layout_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreviewValuesRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewValuesResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    obs_scenes_api_admin_stream_layouts_obs_scenes_get: {
+        parameters: {
+            query?: {
+                stage_id?: number | null;
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ObsScenesResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    preview_matches_api_admin_stream_layouts_preview_matches_get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OverlayMatchResponse"][];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    set_stage_layout_api_admin_stream_layouts_stages__stage_id__layout_put: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                stage_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetStageLayoutRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    stage_matches_api_admin_stream_layouts_stages__stage_id__matches_get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                stage_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OverlayMatchResponse"][];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    pin_api_admin_stream_layouts_stages__stage_id__pin_put: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                stage_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PinMatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    unpin_api_admin_stream_layouts_stages__stage_id__pin_delete: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                stage_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    stage_preview_api_admin_stream_layouts_stages__stage_id__preview_get: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                stage_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OverlayPreviewResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    renew_link_api_admin_stream_layouts_stages__stage_id__renew_link_post: {
+        parameters: {
+            query?: {
+                /** @description The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404. */
+                event?: string | null;
+            };
+            header?: never;
+            path: {
+                stage_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ObsLinkResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description No token, or the token is unknown, expired or revoked. */
