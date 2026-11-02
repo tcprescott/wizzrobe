@@ -64,6 +64,14 @@ class MatchCommentService:
     async def can_read_staff_comments(self, user: Optional[User], match: Match) -> bool:
         return await AuthService.can_run_match(user, match)
 
+    async def add_comment(self, match_id: int, user: User, body: str, kind: MatchCommentKind) -> MatchComment:
+        """One entry point for a surface that lets the caller pick the audience."""
+        if kind is MatchCommentKind.PLAYER:
+            return await self.add_player_comment(match_id, user, body)
+        return await self.add_staff_comment(
+            match_id, user, body, to_players=kind is MatchCommentKind.STAFF_TO_PLAYERS,
+        )
+
     async def add_player_comment(self, match_id: int, user: User, body: str) -> MatchComment:
         """A player's comment to staff on their own match."""
         match = await self._match(match_id)
@@ -207,6 +215,7 @@ class MatchCommentService:
             'author': author.preferred_name if author else 'Removed user',
             'own': own,
             'when': format_local_display(comment.created_at),
+            'created_at': comment.created_at,
             'can_delete': own or staff,
         }
 

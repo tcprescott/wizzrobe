@@ -1,4 +1,4 @@
-"""The app's admin Match Schedule: the board, a match's pane, rewind and call off."""
+"""The app's admin Match Schedule: the board, Needs you, a match's pane, comments, rewind and call off."""
 
 from datetime import datetime, timedelta, timezone
 
@@ -118,3 +118,73 @@ class TestMatchPane:
         match = await _match(cup, _at(1), 'ann', 'bob')
         async with client_for(app, raw) as c:
             assert (await c.post(f'/api/matches/{match.id}/cancel', json={})).status_code == 403
+
+
+class TestNeedsYou:
+    async def test_requests_results_and_late_matches(self, db, app):
+        from models import MatchRescheduleRequest, RescheduleRequestKind
+
+        _, raw = await create_user_token(username='boss', roles=[Role.STAFF])
+        cup = await Tournament.create(name='Cup', is_active=True)
+        late = await _match(cup, _at(-0.5), 'ann', 'bob')
+        done = await _match(cup, _at(-2), 'cat', 'dan', started_at=_at(-1.9), finished_at=_at(-1.5))
+        moving = await _match(cup, _at(5), 'eve', 'fay')
+        asker = (await moving.players.all().prefetch_related('user'))[0].user
+        request = await MatchRescheduleRequest.create(
+            match=moving, requested_by=asker, kind=RescheduleRequestKind.RESCHEDULE,
+            proposed_at=_at(6), reason='Train is late', original_scheduled_at=moving.scheduled_at,
+        )
+        async with client_for(app, raw) as c:
+            body = (await c.get('/api/admin/match-schedule')).json()
+        needs = [(n['kind'], n['match_id']) for n in body['needs_you']]
+        assert needs == [('request', moving.id), ('result', done.id), ('late', late.id)]
+        req = body['needs_you'][0]['request']
+        assert req['id'] == request.id
+        assert req['requested_by'] == asker.preferred_name
+        assert req['reason'] == 'Train is late'
+        assert body['needs_you'][1]['has_result'] is False
+
+    async def test_broadcast_tech_gets_no_requests(self, db, app):
+        from models import MatchRescheduleRequest, RescheduleRequestKind
+
+        _, raw = await create_user_token(username='bt', roles=[Role.STREAM_MANAGER])
+        cup = await Tournament.create(name='Cup', is_active=True)
+        moving = await _match(cup, _at(5), 'eve', 'fay')
+        asker = (await moving.players.all().prefetch_related('user'))[0].user
+        await MatchRescheduleRequest.create(
+            match=moving, requested_by=asker, kind=RescheduleRequestKind.CANCEL, reason='Sick',
+        )
+        async with client_for(app, raw) as c:
+            body = (await c.get('/api/admin/match-schedule')).json()
+        assert body['needs_you'] == []
+
+
+class TestComments:
+    async def test_staff_note_stays_with_staff(self, db, app):
+        _, staff_raw = await create_user_token(username='boss', roles=[Role.STAFF])
+        cup = await Tournament.create(name='Cup', is_active=True)
+        match = await _match(cup, _at(1), 'ann', 'bob')
+        _, outsider_raw = await create_user_token(username='outsider')
+        async with client_for(app, staff_raw) as c:
+            resp = await c.post(f'/api/matches/{match.id}/comments', json={'body': 'Hold Stage 3', 'kind': 'staff_private'})
+            assert resp.status_code == 201
+            note = resp.json()
+            assert note['own'] is True and note['can_delete'] is True and note['author'] == 'boss'
+            resp = await c.post(f'/api/matches/{match.id}/comments', json={'body': 'See you at 1', 'kind': 'staff_to_players'})
+            assert resp.status_code == 201
+            assert [x['kind'] for x in (await c.get(f'/api/matches/{match.id}/comments')).json()] == [
+                'staff_private', 'staff_to_players',
+            ]
+        async with client_for(app, outsider_raw) as c:
+            assert (await c.get(f'/api/matches/{match.id}/comments')).json() == []
+            resp = await c.post(f'/api/matches/{match.id}/comments', json={'body': 'hi', 'kind': 'staff_private'})
+            assert resp.status_code == 400
+
+    async def test_delete(self, db, app):
+        _, raw = await create_user_token(username='boss', roles=[Role.STAFF])
+        cup = await Tournament.create(name='Cup', is_active=True)
+        match = await _match(cup, _at(1), 'ann', 'bob')
+        async with client_for(app, raw) as c:
+            note = (await c.post(f'/api/matches/{match.id}/comments', json={'body': 'x', 'kind': 'staff_private'})).json()
+            assert (await c.delete(f'/api/match-comments/{note["id"]}')).status_code == 204
+            assert (await c.get(f'/api/matches/{match.id}/comments')).json() == []
