@@ -9,7 +9,7 @@ from typing import List
 
 from fastapi import APIRouter, Depends, Response, status
 
-from api.dependencies import ServiceErrorRoute, require_api_actor, require_write_actor
+from api.dependencies import ServiceErrorRoute, require_api_actor, require_staff, require_write_actor
 from api.schemas.config import ConfigValueUpdate
 from api.schemas.events import (
     EventArchiveRequest,
@@ -17,6 +17,7 @@ from api.schemas.events import (
     EventCreateResponse,
     EventResponse,
     EventSettingResponse,
+    EventSummaryResponse,
     EventUpdateRequest,
 )
 from application.event_context import event_scope
@@ -161,6 +162,25 @@ async def unarchive(slug: str, actor: User = Depends(require_write_actor)):
 async def delete_draft(slug: str, actor: User = Depends(require_write_actor)):
     await EventService.delete_draft(actor, await _event_id(actor, slug))
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get(
+    "/{slug}/summary",
+    response_model=EventSummaryResponse,
+    summary="Get an event's size and what's still open",
+    description=(
+        "How many tournaments and matches the event holds, and what is still open in it: the "
+        "things to look at before archiving.\n\n" + STAFF_ONLY
+    ),
+)
+async def get_summary(slug: str, actor: User = Depends(require_staff)):
+    event_id = await _event_id(actor, slug)
+    tournaments, matches = (await EventService.sizes()).get(event_id, (0, 0))
+    check = await EventService.archive_check(event_id)
+    return EventSummaryResponse(
+        tournaments=tournaments, matches=matches, open_matches=check.open_matches,
+        future_shifts=check.future_shifts, open_race_rooms=check.open_race_rooms,
+    )
 
 
 @router.get(

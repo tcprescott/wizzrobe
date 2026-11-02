@@ -18,6 +18,7 @@ from application.services.system_config_service import (
 )
 from application.tenant_context import require_tenant_id
 from application.utils import live_audience
+from application.utils.live_audience import ADMISSIONS_PER_MINUTE
 from application.utils.timezone import format_local_time
 from pages.admin_tabs.settings._common import current_actor, field_hint
 from pages.watch_data import forget_settings, watch_settings
@@ -25,8 +26,6 @@ from theme.banner import banner
 from theme.notify import notify_error
 from theme.save_footer import SaveFooter
 from theme.section import section_panel
-
-ADMISSIONS_PER_MINUTE = 600
 
 _MODE_LABELS = {
     'live': 'Live: updates the moment a match changes. Each viewer holds a connection.',
