@@ -62,6 +62,7 @@ class MembersBoardResponse(BaseModel):
     join_requests: int = Field(..., description="Join requests waiting on staff.")
     ada_action_needed: int = Field(..., description="ADA requests staff still have to act on.")
     switches: MembersSwitchesResponse
+    zone: Optional[str] = Field(None, description="The zone to print times in; null means the device's own.")
 
 
 class AddableAccountResponse(BaseModel):

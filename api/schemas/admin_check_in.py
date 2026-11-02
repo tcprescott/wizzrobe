@@ -51,6 +51,7 @@ class CheckInBoardResponse(BaseModel):
     volunteer_comp_hours: Optional[float] = Field(
         None, description="The hours a volunteer needs for a comp; null when no comp tier is set.",
     )
+    zone: Optional[str] = Field(None, description="The zone to print times in; null means the device's own.")
 
 
 class CheckInEventWrite(BaseModel):

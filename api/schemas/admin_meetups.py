@@ -1,7 +1,7 @@
 """Schemas for the app's Admin → Meetups review queue."""
 
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -51,3 +51,8 @@ class MeetupUpdate(BaseModel):
 class MeetupAttendeeResponse(BaseModel):
     id: int
     name: str
+
+
+class MeetupsBoardResponse(BaseModel):
+    meetups: List[MeetupResponse]
+    zone: Optional[str] = Field(None, description="The zone to print times in; null means the device's own.")

@@ -110,7 +110,7 @@ class TestMeetups:
             status=CommunityEventStatus.PENDING,
         )
         async with client_for(app, raw) as c:
-            rows = (await c.get('/api/admin/meetups')).json()
+            rows = (await c.get('/api/admin/meetups')).json()['meetups']
             assert [(r['title'], r['host_name'], r['status']) for r in rows] == [('Trivia night', 'tavi', 'pending')]
             assert (await c.post(f'/api/admin/meetups/{meetup.id}/reject', json={'reason': ''})).status_code == 422
             body = (await c.post(f'/api/admin/meetups/{meetup.id}/reject', json={'reason': 'Needs a room'})).json()

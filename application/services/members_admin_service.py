@@ -17,6 +17,7 @@ from application.repositories.user_repository import UserRepository
 from application.services.accommodation_service import AccommodationService
 from application.services.auth_service import AuthService
 from application.services.feature_flag_service import FeatureFlagService
+from application.services.player_home_service import PlayerHomeService
 from application.services.tenant_membership_service import TenantMembershipService
 from application.services.user_service import UserService
 from application.tenant_context import require_tenant_id
@@ -93,6 +94,7 @@ class MembersBoard:
     join_requests: int
     ada_action_needed: int
     switches: MembersSwitches
+    zone: Optional[str]
 
 
 @dataclass(frozen=True)
@@ -176,6 +178,7 @@ class MembersAdminService:
                 emergency_contacts=FeatureFlag.EMERGENCY_CONTACTS in live,
                 challonge=FeatureFlag.CHALLONGE in live,
             ),
+            zone=await PlayerHomeService.viewer_zone(actor),
         )
 
     async def addable(self, actor: User) -> List[AddableAccount]:

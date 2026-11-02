@@ -9,9 +9,10 @@ from api.schemas.admin_meetups import (
     MeetupAttendeeResponse,
     MeetupRejectRequest,
     MeetupResponse,
+    MeetupsBoardResponse,
     MeetupUpdate,
 )
-from application.services import CommunityEventService
+from application.services import CommunityEventService, PlayerHomeService
 from application.services.community_event_service import EventDraft
 from models import CommunityEvent, User
 
@@ -23,7 +24,7 @@ router = APIRouter(
 
 @router.get(
     '',
-    response_model=List[MeetupResponse],
+    response_model=MeetupsBoardResponse,
     summary='Every meetup in this event',
     description=(
         "All of this event's meetups in every status, soonest first. The screen filters by "
@@ -31,8 +32,11 @@ router = APIRouter(
         "**Who can call this:** Staff."
     ),
 )
-async def list_meetups(actor: User = Depends(require_staff)) -> List[MeetupResponse]:
-    return [MeetupResponse.build(e) for e in await CommunityEventService().list_for_review(actor)]
+async def list_meetups(actor: User = Depends(require_staff)) -> MeetupsBoardResponse:
+    return MeetupsBoardResponse(
+        meetups=[MeetupResponse.build(e) for e in await CommunityEventService().list_for_review(actor)],
+        zone=await PlayerHomeService.viewer_zone(actor),
+    )
 
 
 @router.get(
