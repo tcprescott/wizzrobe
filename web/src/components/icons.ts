@@ -106,6 +106,11 @@ import Search from '@material-symbols/svg-400/outlined/search.svg?react'
 import Videocam from '@material-symbols/svg-400/outlined/videocam.svg?react'
 import Casino from '@material-symbols/svg-400/outlined/casino.svg?react'
 import IAccountTree from '@material-symbols/svg-400/outlined/account_tree.svg?react'
+import SyncIcon from '@material-symbols/svg-400/outlined/sync.svg?react'
+import SkipNextIcon from '@material-symbols/svg-400/outlined/skip_next.svg?react'
+import AddLinkIcon from '@material-symbols/svg-400/outlined/add_link.svg?react'
+import PersonRemoveIcon from '@material-symbols/svg-400/outlined/person_remove.svg?react'
+import EventNoteIcon from '@material-symbols/svg-400/outlined/event_note.svg?react'
 import IAttractions from '@material-symbols/svg-400/outlined/attractions.svg?react'
 import ICode from '@material-symbols/svg-400/outlined/code.svg?react'
 import IContactPhone from '@material-symbols/svg-400/outlined/contact_phone.svg?react'
@@ -236,6 +241,11 @@ export const ICONS = {
   key_off: KeyOffIcon,
   person_add: PersonAddIcon,
   account_tree: IAccountTree,
+  sync: SyncIcon,
+  skip_next: SkipNextIcon,
+  add_link: AddLinkIcon,
+  person_remove: PersonRemoveIcon,
+  event_note: EventNoteIcon,
   attractions: IAttractions,
   code: ICode,
   contact_phone: IContactPhone,
