@@ -12,6 +12,7 @@ import { NotFoundScreen } from './screens/NotFoundScreen'
 import { SignInScreen } from './screens/SignInScreen'
 import { HomeScreen } from './player/HomeScreen'
 import { ScheduleScreen } from './player/ScheduleScreen'
+import { SurveyScreen } from './player/survey/SurveyScreen'
 import { EventScreen } from './screens/TabScreens'
 import { DeskScreen } from './work/DeskScreen'
 import { MyAvailabilityScreen } from './work/MyAvailabilityScreen'
@@ -29,6 +30,8 @@ const tabRoutes: RouteObject[] = [
   { path: 'home', element: <HomeScreen /> },
   { path: 'schedule', element: <ScheduleScreen /> },
   { path: 'event', element: <EventScreen /> },
+  { path: 'survey/:surveyId', element: <SurveyScreen /> },
+  { path: 'survey/:surveyId/:part', element: <SurveyScreen /> },
   {
     path: 'work',
     element: <WorkLayout />,
