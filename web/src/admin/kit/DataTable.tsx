@@ -106,7 +106,7 @@ export function DataTable<T>({
   }
 
   return (
-    <div className="data-table__wrap">
+    <div className="data-table__wrap" role="region" aria-label={label} tabIndex={0}>
       <table className="data-table" aria-label={label}>
         <thead>
           <tr>

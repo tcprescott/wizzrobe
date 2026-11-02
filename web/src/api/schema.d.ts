@@ -3685,6 +3685,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/events/{slug}/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get an event's size and what's still open
+         * @description How many tournaments and matches the event holds, and what is still open in it: the things to look at before archiving.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **App scope:** `staff:read`
+         */
+        get: operations["get_summary_api_events__slug__summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/events/{slug}/unarchive": {
         parameters: {
             query?: never;
@@ -7466,6 +7490,435 @@ export interface paths {
          *     **Apps:** can't call this; it needs a personal API token.
          */
         post: operations["refresh_health_api_service_health_refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/appearance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the community's colours and logo
+         * @description The brand colours in use (defaults where none are set), the presets, contrast warnings and the logo.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Apps:** can't call this; it needs a personal API token.
+         */
+        get: operations["get_appearance_api_settings_appearance_get"];
+        /**
+         * Set the community's colours
+         * @description Saves all four colours at once; a blank one goes back to its default. Fails with 400 on a value that isn't a 6-digit hex. Contrast warnings never block saving.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **Apps:** can't call this; it needs a personal API token.
+         */
+        put: operations["set_appearance_api_settings_appearance_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/appearance/contrast": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check colours for contrast
+         * @description Contrast warnings for colours that aren't saved yet, for warnings while someone edits. Saves nothing.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **Apps:** can't call this; it needs a personal API token.
+         */
+        post: operations["check_contrast_api_settings_appearance_contrast_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/apps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List connected apps
+         * @description Outside apps members of this community have connected, with how many members, never who.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Apps:** can't call this; it needs a personal API token.
+         *     **Feature:** only works when the community has **Third-party Apps** turned on; otherwise every call answers `404`.
+         */
+        get: operations["list_connected_apps_api_settings_apps_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/apps/{app_id}/block": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Block an app here
+         * @description Disconnects everyone in this community from the app and stops new connections here. Other communities aren't affected.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **Apps:** can't call this; it needs a personal API token.
+         *     **Feature:** only works when the community has **Third-party Apps** turned on; otherwise every call answers `404`.
+         */
+        post: operations["block_app_api_settings_apps__app_id__block_post"];
+        /**
+         * Unblock an app here
+         * @description Members can connect it again.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **Apps:** can't call this; it needs a personal API token.
+         *     **Feature:** only works when the community has **Third-party Apps** turned on; otherwise every call answers `404`.
+         */
+        delete: operations["unblock_app_api_settings_apps__app_id__block_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/features": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the community's features
+         * @description Every feature, whether this community's tier makes it available, and whether staff have it on.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Apps:** can't call this; it needs a personal API token.
+         */
+        get: operations["get_features_api_settings_features_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/features/{flag}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Turn a feature on or off
+         * @description Fails with 400 on an unknown feature or one the tier doesn't make available.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **Apps:** can't call this; it needs a personal API token.
+         */
+        put: operations["set_feature_api_settings_features__flag__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/joining": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get who can join
+         * @description The join mode, the modes on offer and the Discord invite link the join page shows.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Apps:** can't call this; it needs a personal API token.
+         */
+        get: operations["get_joining_api_settings_joining_get"];
+        /**
+         * Set who can join
+         * @description Fails with 400 on an unknown mode or a link that isn't a Discord invite.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **Apps:** can't call this; it needs a personal API token.
+         */
+        put: operations["set_joining_api_settings_joining_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/logo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Upload the community's logo
+         * @description The request body is the image itself: an SVG, or a square PNG, JPEG or WebP at least 64×64, up to 1 MB. An SVG is sanitised and a bitmap re-encoded. Fails with 400 on anything else.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **Apps:** can't call this; it needs a personal API token.
+         */
+        put: operations["upload_logo_api_settings_logo_put"];
+        post?: never;
+        /**
+         * Remove the community's logo
+         * @description The coloured brand mark shows in its place.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **Apps:** can't call this; it needs a personal API token.
+         */
+        delete: operations["remove_logo_api_settings_logo_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/meetups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get meetup settings
+         * @description Whether staff approve meetups first, and how early subscribers get a reminder.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Apps:** can't call this; it needs a personal API token.
+         *     **Feature:** only works when the community has **Meetups** turned on; otherwise every call answers `404`.
+         */
+        get: operations["get_meetup_settings_api_settings_meetups_get"];
+        /**
+         * Set meetup settings
+         * @description Fails with 400 on a lead under 1 minute.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **Apps:** can't call this; it needs a personal API token.
+         *     **Feature:** only works when the community has **Meetups** turned on; otherwise every call answers `404`.
+         */
+        put: operations["set_meetup_settings_api_settings_meetups_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/profile-reminders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the profile reminders
+         * @description Every reminder members can be shown, with whether it's on and why it can't apply here.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Apps:** can't call this; it needs a personal API token.
+         */
+        get: operations["get_profile_reminders_api_settings_profile_reminders_get"];
+        /**
+         * Set the profile reminders
+         * @description Replaces the reminders that are on. Dismissals are kept, so switching one back on doesn't nag again.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **Apps:** can't call this; it needs a personal API token.
+         */
+        put: operations["set_profile_reminders_api_settings_profile_reminders_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/timezone": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the community's clock
+         * @description Whether everyone sees one zone or their own, and the zone used.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Apps:** can't call this; it needs a personal API token.
+         */
+        get: operations["get_timezone_api_settings_timezone_get"];
+        /**
+         * Set the community's clock
+         * @description Fails with 400 on an unknown mode or zone.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **Apps:** can't call this; it needs a personal API token.
+         */
+        put: operations["set_timezone_api_settings_timezone_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/volunteers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get volunteer settings
+         * @description When volunteers hear about their next shift.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Apps:** can't call this; it needs a personal API token.
+         *     **Feature:** only works when the community has **Volunteer Scheduling** turned on; otherwise every call answers `404`.
+         */
+        get: operations["get_volunteer_settings_api_settings_volunteers_get"];
+        /**
+         * Set volunteer settings
+         * @description Fails with 400 on a lead under 1 minute.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **Apps:** can't call this; it needs a personal API token.
+         *     **Feature:** only works when the community has **Volunteer Scheduling** turned on; otherwise every call answers `404`.
+         */
+        put: operations["set_volunteer_settings_api_settings_volunteers_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/watch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the Watch page settings
+         * @description Live or static, the rush switch, and who is on the page right now.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Apps:** can't call this; it needs a personal API token.
+         */
+        get: operations["get_watch_api_settings_watch_get"];
+        /**
+         * Set the Watch page settings
+         * @description Fails with 400 on an unknown mode or a threshold under 1.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **Apps:** can't call this; it needs a personal API token.
+         */
+        put: operations["set_watch_api_settings_watch_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/watch/back-to-live": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End a rush switch
+         * @description Puts the Watch page back to live now, after it switched itself to static.
+         *
+         *     **Who can call this:** Staff.
+         *
+         *     **Token:** needs a token that isn't read-only.
+         *     **Apps:** can't call this; it needs a personal API token.
+         */
+        post: operations["watch_back_to_live_api_settings_watch_back_to_live_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -11501,6 +11954,28 @@ export interface components {
              */
             token_prefix: string;
         };
+        /** AppearanceResponse */
+        AppearanceResponse: {
+            colours: components["schemas"]["ThemeColours"];
+            defaults: components["schemas"]["ThemeColours"];
+            /**
+             * Issues
+             * @description Per colour, a sentence for each place it falls below AA contrast. Warnings only: saving still works.
+             */
+            issues?: {
+                [key: string]: string[];
+            };
+            /**
+             * Logo Url
+             * @description Path of the community's logo on this server, when one is uploaded.
+             */
+            logo_url?: string | null;
+            /**
+             * Presets
+             * @description Palettes already checked for AA contrast.
+             */
+            presets: components["schemas"]["ThemePreset"][];
+        };
         /** Article */
         Article: {
             /** Blocks */
@@ -12095,6 +12570,14 @@ export interface components {
             starts_at: string;
             /** @default available */
             status: components["schemas"]["VolunteerAvailabilityStatus"];
+        };
+        /** BlockAppResponse */
+        BlockAppResponse: {
+            /**
+             * Disconnected
+             * @description Members whose connection ended.
+             */
+            disconnected: number;
         };
         /** BlockOut */
         BlockOut: {
@@ -13962,10 +14445,50 @@ export interface components {
             /** Username */
             username?: string | null;
         };
+        /** ConnectedApp */
+        ConnectedApp: {
+            /** App Id */
+            app_id: number;
+            /**
+             * Blocked
+             * @description Blocked in this community.
+             */
+            blocked: boolean;
+            /**
+             * Disabled
+             * @description Disabled for everyone by a platform admin.
+             */
+            disabled: boolean;
+            /** Homepage Host */
+            homepage_host?: string | null;
+            /**
+             * Members
+             * @description How many members connected it. Who they are is never shown.
+             */
+            members: number;
+            /** Name */
+            name: string;
+            /** Owner Name */
+            owner_name: string;
+        };
         /** ConnectedCountResponse */
         ConnectedCountResponse: {
             /** Count */
             count: number;
+        };
+        /** ContrastRequest */
+        ContrastRequest: {
+            /** Colours */
+            colours: {
+                [key: string]: string;
+            };
+        };
+        /** ContrastResponse */
+        ContrastResponse: {
+            /** Issues */
+            issues: {
+                [key: string]: string[];
+            };
         };
         /** CoverageRow */
         CoverageRow: {
@@ -15346,6 +15869,28 @@ export interface components {
          * @enum {string}
          */
         EventStatus: "draft" | "live" | "archived";
+        /** EventSummaryResponse */
+        EventSummaryResponse: {
+            /**
+             * Future Shifts
+             * @description Volunteer shifts still to come.
+             */
+            future_shifts: number;
+            /** Matches */
+            matches: number;
+            /**
+             * Open Matches
+             * @description Matches not finished or called off. Archiving leaves them as they are.
+             */
+            open_matches: number;
+            /**
+             * Open Race Rooms
+             * @description Race rooms archiving would close.
+             */
+            open_race_rooms: number;
+            /** Tournaments */
+            tournaments: number;
+        };
         /** EventUpdateRequest */
         EventUpdateRequest: {
             /**
@@ -15573,6 +16118,39 @@ export interface components {
              * @description `true` forces the feature available, `false` forces it off, null drops the override.
              */
             available?: boolean | null;
+        };
+        /** FeatureRow */
+        FeatureRow: {
+            /**
+             * Available
+             * @description A platform admin made it available to this community's tier.
+             */
+            available: boolean;
+            /** Category */
+            category: string;
+            /** Description */
+            description: string;
+            /**
+             * Enabled
+             * @description Staff have it switched on. It's live only when available too.
+             */
+            enabled: boolean;
+            /** Flag */
+            flag: string;
+            /** Label */
+            label: string;
+        };
+        /** FeatureUpdate */
+        FeatureUpdate: {
+            /** Enabled */
+            enabled: boolean;
+        };
+        /** FeaturesResponse */
+        FeaturesResponse: {
+            /** Features */
+            features: components["schemas"]["FeatureRow"][];
+            /** Tier */
+            tier?: string | null;
         };
         /**
          * FeedbackCategory
@@ -15972,6 +16550,18 @@ export interface components {
              */
             zone?: string | null;
         };
+        /** JoinModeOption */
+        JoinModeOption: {
+            /**
+             * Help
+             * @description What picking it means, adjusted for whether a Discord server is linked.
+             */
+            help: string;
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
+        };
         /** JoinRequestResponse */
         JoinRequestResponse: {
             /**
@@ -16010,6 +16600,34 @@ export interface components {
              * @description Their display name, or their username when they have none.
              */
             user_name?: string | null;
+        };
+        /** JoiningSettingsResponse */
+        JoiningSettingsResponse: {
+            /**
+             * Discord Invite Url
+             * @description Shown on the join page. Blank when there isn't one.
+             * @default
+             */
+            discord_invite_url: string;
+            /** Guild Linked */
+            guild_linked: boolean;
+            /** Join Mode */
+            join_mode: string;
+            /**
+             * Modes
+             * @description The modes staff may pick. Discord ones are left out until a server is linked, unless already chosen.
+             */
+            modes: components["schemas"]["JoinModeOption"][];
+        };
+        /** JoiningSettingsUpdate */
+        JoiningSettingsUpdate: {
+            /**
+             * Discord Invite Url
+             * @default
+             */
+            discord_invite_url: string;
+            /** Join Mode */
+            join_mode: string;
         };
         /** LateTag */
         LateTag: {
@@ -17016,6 +17634,19 @@ export interface components {
              * @description The full new list of tracker user IDs, replacing the current one. Omit to keep it.
              */
             tracker_ids?: number[] | null;
+        };
+        /** MeetupSettings */
+        MeetupSettings: {
+            /**
+             * Reminder Lead Minutes
+             * @description How long before a meetup its subscribers get a DM. Null uses 30.
+             */
+            reminder_lead_minutes?: number | null;
+            /**
+             * Require Approval
+             * @description A meetup waits for staff before it's listed.
+             */
+            require_approval: boolean;
         };
         /** MemberDetailsResponse */
         MemberDetailsResponse: {
@@ -18412,6 +19043,65 @@ export interface components {
              * @description Health: `healthy`, `mock` (the local mock stands in, so the real service wasn't contacted), `degraded`, `credential_warning` (working, but a credential is expiring or was rejected), `down` or `unknown`.
              */
             status: string;
+        };
+        /** ProfileReminder */
+        ProfileReminder: {
+            /** Check */
+            check: string;
+            /**
+             * Dismissible
+             * @description Whether a member can hide the banner without doing it.
+             */
+            dismissible: boolean;
+            /** Enabled */
+            enabled: boolean;
+            /** Label */
+            label: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /**
+             * Prompt
+             * @description What the banner says to a member who hasn't done it.
+             */
+            prompt: string;
+            /**
+             * Unavailable
+             * @description Why members can't complete it here right now, so they never see it.
+             */
+            unavailable?: string | null;
+        };
+        /** ProfileReminderRule */
+        ProfileReminderRule: {
+            /** Check */
+            check: string;
+            /**
+             * Dismissible
+             * @default true
+             */
+            dismissible: boolean;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+        };
+        /** ProfileRemindersResponse */
+        ProfileRemindersResponse: {
+            /** Max Note Length */
+            max_note_length: number;
+            /** Reminders */
+            reminders: components["schemas"]["ProfileReminder"][];
+        };
+        /** ProfileRemindersUpdate */
+        ProfileRemindersUpdate: {
+            /**
+             * Rules
+             * @description The reminders to switch on. Any check left out is switched off.
+             */
+            rules: components["schemas"]["ProfileReminderRule"][];
         };
         /** ProfileResponse */
         ProfileResponse: {
@@ -21557,6 +22247,56 @@ export interface components {
              */
             used_preset_settings: boolean;
         };
+        /** ThemeColours */
+        ThemeColours: {
+            /**
+             * Accent
+             * @description Highlights and links in dark mode.
+             */
+            accent: string;
+            /**
+             * Header
+             * @description The brand mark beside the community's name when there's no logo.
+             */
+            header: string;
+            /**
+             * Primary
+             * @description Hex like `#9c6b12`. Buttons, links and the selected menu item in light mode.
+             */
+            primary: string;
+            /** Secondary */
+            secondary: string;
+        };
+        /** ThemeColoursUpdate */
+        ThemeColoursUpdate: {
+            /**
+             * Accent
+             * @default
+             */
+            accent: string;
+            /**
+             * Header
+             * @default
+             */
+            header: string;
+            /**
+             * Primary
+             * @description Blank puts the default back.
+             * @default
+             */
+            primary: string;
+            /**
+             * Secondary
+             * @default
+             */
+            secondary: string;
+        };
+        /** ThemePreset */
+        ThemePreset: {
+            colours: components["schemas"]["ThemeColours"];
+            /** Name */
+            name: string;
+        };
         /** TimeCheck */
         TimeCheck: {
             /**
@@ -21606,6 +22346,31 @@ export interface components {
              * @description Why booking at this time would be refused, if it would.
              */
             refusal?: string | null;
+        };
+        /** TimezoneSettingsResponse */
+        TimezoneSettingsResponse: {
+            /**
+             * Mode
+             * @description `pinned` shows one zone to everybody; `user` follows each viewer, with `name` as the fallback.
+             */
+            mode: string;
+            /**
+             * Name
+             * @description IANA zone, like `America/New_York`.
+             */
+            name: string;
+            /**
+             * Options
+             * @description The usual zones to offer, with the stored one first when it isn't among them.
+             */
+            options: string[];
+        };
+        /** TimezoneSettingsUpdate */
+        TimezoneSettingsUpdate: {
+            /** Mode */
+            mode: string;
+            /** Name */
+            name: string;
         };
         /** TopApiCallRow */
         TopApiCallRow: {
@@ -23445,6 +24210,14 @@ export interface components {
              */
             zone?: string | null;
         };
+        /** VolunteerSettings */
+        VolunteerSettings: {
+            /**
+             * Reminder Lead Minutes
+             * @description How long before a shift its volunteers get a DM. Null uses 60.
+             */
+            reminder_lead_minutes?: number | null;
+        };
         /** VolunteerShiftCreate */
         VolunteerShiftCreate: {
             /**
@@ -23587,6 +24360,78 @@ export interface components {
              * @description An existing member. Give this or `name`.
              */
             user_id?: number | null;
+        };
+        /** WatchAudience */
+        WatchAudience: {
+            /**
+             * Admissions Per Minute
+             * @description Roughly how many new live viewers the app lets in a minute.
+             */
+            admissions_per_minute: number;
+            /** Arrivals Last Minute */
+            arrivals_last_minute: number;
+            /** Live Viewers */
+            live_viewers: number;
+            /** Peak */
+            peak: number;
+            /** Peak At */
+            peak_at?: string | null;
+            /** Static Readers */
+            static_readers: number;
+            /**
+             * Tripped
+             * @description The page switched itself to static during a rush.
+             */
+            tripped: boolean;
+            /** Tripped At */
+            tripped_at?: string | null;
+        };
+        /** WatchSettings */
+        WatchSettings: {
+            /**
+             * Auto Static
+             * @description Switch to static on its own during a rush.
+             */
+            auto_static: boolean;
+            /**
+             * Mode
+             * @description `live` or `static`.
+             */
+            mode: string;
+            /**
+             * Static Signed Out
+             * @description Signed-out visitors always get the static page.
+             */
+            static_signed_out: boolean;
+            /**
+             * Threshold
+             * @description Arrivals a minute that count as a rush.
+             */
+            threshold: number;
+        };
+        /** WatchSettingsResponse */
+        WatchSettingsResponse: {
+            audience: components["schemas"]["WatchAudience"];
+            /**
+             * Auto Static
+             * @description Switch to static on its own during a rush.
+             */
+            auto_static: boolean;
+            /**
+             * Mode
+             * @description `live` or `static`.
+             */
+            mode: string;
+            /**
+             * Static Signed Out
+             * @description Signed-out visitors always get the static page.
+             */
+            static_signed_out: boolean;
+            /**
+             * Threshold
+             * @description Arrivals a minute that count as a rush.
+             */
+            threshold: number;
         };
         /**
          * WebPushRotateRequest
@@ -36285,6 +37130,73 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_summary_api_events__slug__summary_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventSummaryResponse"];
                 };
             };
             /** @description No token, or the token is unknown, expired or revoked. */
@@ -49124,6 +50036,1559 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProbeResultResponse"][];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_appearance_api_settings_appearance_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppearanceResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    set_appearance_api_settings_appearance_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ThemeColoursUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppearanceResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    check_contrast_api_settings_appearance_contrast_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContrastRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContrastResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_connected_apps_api_settings_apps_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectedApp"][];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    block_app_api_settings_apps__app_id__block_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                app_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlockAppResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    unblock_app_api_settings_apps__app_id__block_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                app_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_features_api_settings_features_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeaturesResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    set_feature_api_settings_features__flag__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                flag: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FeatureUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeaturesResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_joining_api_settings_joining_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JoiningSettingsResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    set_joining_api_settings_joining_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JoiningSettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JoiningSettingsResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    upload_logo_api_settings_logo_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppearanceResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    remove_logo_api_settings_logo_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppearanceResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_meetup_settings_api_settings_meetups_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeetupSettings"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    set_meetup_settings_api_settings_meetups_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MeetupSettings"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeetupSettings"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_profile_reminders_api_settings_profile_reminders_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileRemindersResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    set_profile_reminders_api_settings_profile_reminders_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProfileRemindersUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileRemindersResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_timezone_api_settings_timezone_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimezoneSettingsResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    set_timezone_api_settings_timezone_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TimezoneSettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimezoneSettingsResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_volunteer_settings_api_settings_volunteers_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VolunteerSettings"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    set_volunteer_settings_api_settings_volunteers_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VolunteerSettings"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VolunteerSettings"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_watch_api_settings_watch_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchSettingsResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    set_watch_api_settings_watch_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WatchSettings"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchSettingsResponse"];
+                };
+            };
+            /** @description A rule refused the request. `detail` says which. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    watch_back_to_live_api_settings_watch_back_to_live_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchSettingsResponse"];
                 };
             };
             /** @description A rule refused the request. `detail` says which. */
