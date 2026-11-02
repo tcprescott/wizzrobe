@@ -74,6 +74,8 @@ _EXCLUDED_BY_DESIGN = frozenset({
     AuditActions.USER_PROFILE_UPDATED,
     AuditActions.USER_SELF_PROFILE_UPDATED,
     AuditActions.USER_ACTIVATION_CHANGED,
+    # A staff-to-member DM is private correspondence; the sent-messages log already records it.
+    AuditActions.USER_MESSAGED,
     AuditActions.USER_TOURNAMENT_ENROLLMENT_UPDATED,
     AuditActions.USER_PASSWORD_SET,
     AuditActions.USER_PASSWORD_REMOVED,
