@@ -147,3 +147,30 @@
 .admin-toolbar .admin-switch {
   font-weight: 400;
 }
+
+/* An input with its button beside it. */
+.admin-inline {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+.admin-inline .input {
+  flex: 1;
+}
+.admin-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+.admin-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  cursor: pointer;
+}
+.admin-select-sm {
+  width: auto;
+  min-height: 36px;
+  padding-block: 4px;
+}
