@@ -11,8 +11,8 @@ from fastapi.routing import APIRoute, RouteContext, iter_route_contexts
 
 from api.dependencies import (
     require_admin,
-    require_app_super_admin_write,
     require_api_actor,
+    require_app_super_admin_write,
     require_identity,
     require_staff,
     require_staff_write,
