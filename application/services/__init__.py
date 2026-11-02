@@ -47,7 +47,9 @@ from . import (
 )
 from .accommodation_service import AccommodationService
 from .admin_nav_service import AdminAccess, AdminNav, AdminNavService
+from .admin_presets_service import AdminPresetsService
 from .admin_schedule_service import AdminScheduleService
+from .admin_tournaments_service import AdminTournamentsService
 from .ai_provider_service import AiProviderService
 from .analytics_service import AnalyticsService
 from .api_token_service import ApiTokenService
@@ -220,7 +222,9 @@ __all__ = [
     'AdminAccess',
     'AdminNav',
     'AdminNavService',
+    'AdminPresetsService',
     'AdminScheduleService',
+    'AdminTournamentsService',
     'AiProviderService',
     'AnalyticsService',
     'ApiTokenService',

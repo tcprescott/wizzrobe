@@ -4,3 +4,6 @@ export { Detail, DetailEmpty, DetailLine, DetailSection, SideList, SideListCard,
 export { SectionNav, type SectionGroup, type SectionItem } from './SectionNav'
 export type { AdminAreaInfo, AdminAreaRoute, AdminNav } from './types'
 export { useAdmin } from './useAdminNav'
+export { InstantField, NumberField } from './fields'
+export { useAdminQuery } from './useAdminQuery'
+import './forms.css'
