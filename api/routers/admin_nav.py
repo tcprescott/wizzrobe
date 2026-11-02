@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends
 
 from api.dependencies import ServiceErrorRoute, require_api_actor
-from api.schemas.admin_nav import AdminNavResponse
+from api.schemas.admin_nav import AdminAreaResponse, AdminNavResponse, SettingsPaneResponse, SetupStepResponse
 from application.services import AdminNavService
 from models import User
 
@@ -24,9 +24,12 @@ router = APIRouter(prefix='/admin', tags=['Admin shell'], route_class=ServiceErr
 async def admin_nav(actor: User = Depends(require_api_actor)) -> AdminNavResponse:
     nav = await AdminNavService().nav(actor)
     return AdminNavResponse(
-        areas=[{**vars(a), 'aliases': list(a.aliases), 'half': a.half} for a in nav.areas],
-        settings_panes=[vars(p) for p in nav.settings_panes],
-        event_settings_panes=[vars(p) for p in nav.event_settings_panes],
-        setup=[vars(s) for s in nav.setup],
+        areas=[
+            AdminAreaResponse(slug=a.slug, label=a.label, icon=a.icon, group=a.group, half=a.half, aliases=list(a.aliases))
+            for a in nav.areas
+        ],
+        settings_panes=[SettingsPaneResponse.model_validate(p) for p in nav.settings_panes],
+        event_settings_panes=[SettingsPaneResponse.model_validate(p) for p in nav.event_settings_panes],
+        setup=[SetupStepResponse.model_validate(s) for s in nav.setup],
         setup_ready=nav.setup_ready,
     )
