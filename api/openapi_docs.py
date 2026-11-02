@@ -132,7 +132,9 @@ def api_description() -> str:
 TAG_GROUPS: List[tuple[str, List[tuple[str, str]]]] = [
     ('Event day', [
         ('My schedule', "A player's own Home and Schedule: next match, what's waiting on them, and picking a time."),
+        ('Admin shell', "Which admin areas and settings panes the caller may open, for the app's admin menu."),
         ('Matches', 'The schedule, and running a match from seating to a confirmed result.'),
+        ('Admin: Match Schedule', "The staff run sheet as the app's admin Match Schedule draws it: grouped rows and one match's pane."),
         ('Crew', 'Commentator, tracker and broadcaster signups, approval and acknowledgement.'),
         ('Reschedule requests', 'Players asking to move or call off a match, and staff answering.'),
         ('Volunteers', 'Volunteer positions, shifts, assignments, availability and hours.'),
@@ -156,6 +158,8 @@ TAG_GROUPS: List[tuple[str, List[tuple[str, str]]]] = [
     ('Setup', [
         ('Events', 'The community\'s events, from draft to live to archived, and each one\'s settings.'),
         ('Tournaments', 'Tournaments, their admins and crew coordinators, and signing up.'),
+        ('Admin: tournaments', "The app's Tournaments board: players, dropping a player, bracket entrants, sync and link, and the round schedule."),
+        ('Admin: seed presets', "The app's Seed Presets screen: editor hints, checking a pasted value, test rolls and importing published presets."),
         ('Payouts', 'Prize pools and payouts per tournament.'),
         ('Webhooks', 'Outbound webhooks that POST to your server when events happen.'),
         ('Discord role mappings', 'Discord roles granted to people with a given Wizzrobe role.'),

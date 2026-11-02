@@ -127,6 +127,38 @@ title on 20 pages), and don't size a title or a section heading with `text-h1`�
 | A list of matches | `MatchTableView(layout='run_sheet')`, see [Match boards](#match-boards) | A new card-per-match layout |
 | The viewer's crew Sign up / Withdraw | `crew_signup_section` (`theme/tables/match_slots.py`) | A button placed per surface |
 
+## The new app (`web/`)
+
+The React app that replaces NiceGUI at switch-over (spec
+[mobile-app.md](specs/mobile-app.md)) keeps the same Studio language: same tokens
+(`web/src/styles/tokens.css`), one accent, one type family, light and dark. Many
+threads build its screens in parallel, so every screen draws from the same few
+parts. Before writing a new layout or component, check this table; if nothing
+fits, add the part to `web/src/components/` (or `web/src/admin/kit/` for admin
+only) so the next screen reuses it, and add a line here.
+
+| Need | Use | Not |
+|---|---|---|
+| A list of sections or records with one open at a time | **The side list.** Desktop: the list in a column beside the open item. Phone: the list is its own screen; tapping opens the item with a back link (`chevron_left` + the list's name) above its title. Me, Work, Admin and Settings all work this way, and it's Thomas's default for any new list. Records: `SideList` (`web/src/admin/kit/`); grouped menus: `SectionNav` (same folder, also used by Platform) | Tabs across the top, a drawer, a separate dashboard page |
+| A wide list where columns matter more than one open item | `DataTable` (`web/src/admin/kit/`): a table on desktop, one card per row on a phone from the same columns; `primary` column names the row, `onOpen` + `selectedKey` for a row that opens | A bare `<table>` (overflows a phone), a hand-built card list |
+| The open record's own page: its header, tabs and form | `forms.css` in `web/src/admin/kit/`: `.detail-head` (title + chips + Actions), `.detail-tabs` (NavLinks), `.filter-chips` above a list, `.t-form` / `.t-form__grid` panels, `.t-check`, `.t-kv`, `.t-actions` (Undo changes on the left, Save on the right). Dates through `InstantField`, numbers through `NumberField`, reads through `useAdminQuery` (same folder). The open record's title is an `h1` on a phone (no page header there) and an `h2` on desktop | Per-screen copies of these classes, a bare `datetime-local` input |
+| The top of a screen | `PageHeader` (title, one-line `lede`, `actions`) | A hand-styled `<h1>` |
+| Toolbar actions | One main `Button` plus `ActionsMenu` | Three loose buttons |
+| A row's or card's actions | One button plus `RowMenu` (⋮), whose `label` names the row ("More for SGL26"); destructive items sort last and confirm first | Edit and Delete as separate buttons on every row |
+| A titled block | `Panel` (`title`, `actions`) with `PanelRow` rows | A bordered `<div>` |
+| A form or confirmation | `FormDialog`: centred card on desktop, bottom sheet on phone, footer of extras ⋮ · Cancel · primary | A page-level modal of your own |
+| Status / count | `Chip` (`ok`, `pending`, `live`, `neutral`, `cancelled`, `info`) and `CountBadge` | Coloured text, a hand-built pill |
+| Nothing to show | `EmptyState` (icon + one-line title + what to do) | A grey caption |
+| Loading / failed | `Spinner` with a label; on failure a `Banner tone="error"` with a "Try again" button | A blank screen, a raw error string |
+| A notice | `Banner` (`info`, `warning`, `error`, `accent`) | A coloured row |
+| Phone or desktop in code | `usePhone()` (`web/src/lib/usePhone.ts`, below 768px), only where the markup differs; otherwise CSS | Your own media query in JS |
+| An icon | `Icon` with a name from `web/src/components/icons.ts` (add the SVG import there) | An icon font, inline SVG |
+
+Every new screen gets targets in `web/scripts/a11y.mjs` (phone and desktop,
+light and dark), and its mockups use the shared frame in
+`/mnt/project-files/mobile-app/admin-mockups/` (`admin.html` + `tokens.css`) so
+they look like the app.
+
 ## Actions and menus
 
 **A page toolbar has one main button and one Actions menu.** The main button is
