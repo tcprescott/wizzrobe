@@ -196,6 +196,11 @@ Screen-shaped reads for the app's Home and Schedule tabs, built by `PlayerHomeSe
 What the app's admin menu draws, built by `AdminNavService`. Scope `staff:read`.
 - `GET /admin/nav` — every admin area the caller may open here (`slug`, `label`, `icon`, `group`, `half`, older `aliases`), in menu order, plus the Settings and Event settings panes and the setup checklist. A member with no admin access gets empty lists, not `403`. The gates mirror the website's admin drawer; `tests/test_admin_nav_drift.py` fails when they disagree.
 
+### Work (`/api/work`) · `work.py`
+Screen-shaped reads for the app's Work tab, built by `WorkService`. Event-bound (`?event=`).
+- `GET /work` — the areas your roles open (`desk` with the one open event's counts, `schedule` with who's on now and your next shift, `availability`, `proctor`); `null`/`false` for the rest. Scope `play`.
+- `GET /work/schedule?day=` — one event day of the volunteer schedule as role columns on an hour scale (`start_hour`/`end_hour` from `midnight`, overlap `lane`/`lanes`), in your saved column order. `PUT /work/schedule/columns` (`[{position_id, visible}]`) saves the order, shared with the website's Full Schedule; `DELETE` resets it. Scope `volunteer`.
+
 ### My profile (`/api/me/…`) · `my_profile.py`, `my_notifications.py`, `my_developer.py`
 What the app's Me screen reads and edits, built by `MyProfileService` beside the existing self-service routes (`PATCH /users/me`, availability, equipment, feedback, notification settings). Event-bound; reads take scope `profile`, writes `profile:write`.
 - `GET /me/profile` — the section list (key, title, summary), flag-gated per community, plus the clock fields. `PATCH /me/clock` sets `timezone` and the 12/24-hour clock; only the fields sent change. `PATCH /users/me` also takes `matcherino_username` when Payouts is on.
@@ -318,7 +323,8 @@ The `/checkin` desk's actions, behind `EVENT_CHECK_IN`. The rules are the desk p
 - `POST /check-in/events/{id}/sync` — pull Matcherino sales and comps now; returns the `SyncResult` counts.
 - `POST /check-in/entrants/{id}/check-in` (`{despite_withdrawn?}`) → `{entrant, already}`. A repeat changes nothing and says `already: true`. A withdrawn row is `400` for the desk; staff may send `despite_withdrawn: true` (audited). `DELETE` on the same path undoes it.
 - `PUT /check-in/entrants/{id}/user` (`{user_id}`) · `DELETE /check-in/entrants/{id}/user` — link or unlink the row's account.
-- `POST /check-in/events/{id}/walk-ups` (`{user_id}` or `{name}`, `check_in?`) — staff only; `201`.
+- `POST /check-in/events/{id}/walk-ups` (`{user_id}` or `{name}`, `check_in?`) — staff only; `201`. `DELETE /check-in/entrants/{id}` removes a walk-up (staff; Matcherino and comp rows are `400`).
+- `GET /check-in/events/{id}/desk` — the app's desk screen in one read: the event, `can_manage`, and every row with its `badge_codes`, Discord `username`, `has_discord` and `suggestions` (likely accounts for an unlinked row). `GET /check-in/entrants/{id}/suggestions` lists those accounts; `GET /check-in/events/{id}/members?q=&for_link=` searches members not on the roster. `POST /check-in/entrants/{id}/test-dm` re-sends the check-in DM.
 
 ### Discord role mappings (`/api/discord-role-mappings`) · `discord_role_mappings.py`
 - `GET /discord-role-mappings?guild_id=` (list, optionally per guild) · `POST` (create) · `DELETE /{id}` — manage Discord-guild-role → grant mappings (Staff). A `POST` body sets **either** `app_role` (community-wide) **or** `tournament_grant` + `tournament_id` (Tournament Admin / Crew Coordinator on one event); both or neither is a 400.

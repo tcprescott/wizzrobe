@@ -148,6 +148,7 @@ TAG_GROUPS: List[tuple[str, List[tuple[str, str]]]] = [
         ('Users', 'People in this community, their profiles and roles.'),
         ('Membership', 'Requests to join the community, and answering them.'),
         ('Player availability', 'When players say they can and can\'t play.'),
+        ('Work', 'The app\'s Work tab for people who run the event: your areas and the volunteer schedule grid.'),
         ('My profile', 'Your own profile as the app\'s Me screen shows it: clock, connected accounts, staff alerts, accommodation and emergency contact.'),
         ('My notifications', 'Where your notifications reach you: Discord DMs, devices, email and Telegram.'),
         ('Notifications', 'Which messages reach you and whether they ping, and the tournaments you follow.'),

@@ -12,7 +12,7 @@ Event setup (venues, comp rules, badge lanyards) stays in Admin → Check-in.
 
 from typing import List
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, Response, status
 
 from api.dependencies import ServiceErrorRoute, event_binding, require_api_actor, require_write_actor
 from api.schemas.check_in import (
@@ -24,6 +24,7 @@ from api.schemas.check_in import (
     LinkEntrantRequest,
     WalkUpRequest,
 )
+from api.schemas.work import DeskMemberResponse, DeskResponse, DeskRowResponse
 from application.errors import require_found
 from application.services import CheckInDeskService, CheckInService
 from models import CheckInEntrant, CheckInEvent, User
@@ -171,3 +172,88 @@ async def unlink_entrant(entrant_id: int, actor: User = Depends(require_write_ac
     service = CheckInService()
     await service.unlink(actor, entrant_id)
     return await _entrant_response(service, entrant_id)
+
+
+def _members(users: List[User]) -> List[DeskMemberResponse]:
+    return [DeskMemberResponse(id=u.id, name=u.preferred_name, username=u.username) for u in users]
+
+
+@router.get(
+    "/events/{event_id}/desk",
+    response_model=DeskResponse,
+    summary="The check-in desk for one event",
+    description=(
+        "The event, its roster as the desk shows it (badge codes and Discord usernames for the search, how many likely accounts each unlinked row has), and whether you may do the staff-only things. Check-in desk volunteers can read open events only.\n\n"
+        "**Who can call this:** Staff or Check-in desk."
+    ),
+)
+async def get_desk(event_id: int, actor: User = Depends(require_api_actor)):
+    view = await CheckInDeskService().desk(actor, event_id)
+    return DeskResponse(
+        event=CheckInEventResponse.from_row(view.event),
+        can_manage=view.can_manage,
+        rows=[DeskRowResponse.from_desk_row(e, view.volunteer_ids, view.suggestions) for e in view.entrants],
+    )
+
+
+@router.get(
+    "/events/{event_id}/members",
+    response_model=List[DeskMemberResponse],
+    summary="Find members to link or add as a walk-up",
+    description=(
+        "Community members not yet on this roster whose name, Discord, Twitch or Matcherino name contains `q` (two characters or more). With `for_link=true` it also offers people on the roster only as a comp, so a comped volunteer who bought a badge can be linked to it.\n\n"
+        "**Who can call this:** Staff or Check-in desk."
+    ),
+)
+async def find_members(
+    event_id: int,
+    q: str = Query(..., max_length=100, description="Part of their name."),
+    for_link: bool = Query(False, description="Searching to link a roster row, not to add a walk-up."),
+    actor: User = Depends(require_api_actor),
+):
+    return _members(await CheckInDeskService().find_members(actor, event_id, q, for_link=for_link))
+
+
+@router.get(
+    "/entrants/{entrant_id}/suggestions",
+    response_model=List[DeskMemberResponse],
+    summary="Likely accounts for a roster row",
+    description=(
+        "Members whose names look like this row's name, best first, for the desk to confirm with `PUT /check-in/entrants/{entrant_id}/user`. Never linked on its own.\n\n"
+        "**Who can call this:** Staff or Check-in desk."
+    ),
+)
+async def entrant_suggestions(entrant_id: int, actor: User = Depends(require_api_actor)):
+    return _members(await CheckInDeskService().suggestions_for(actor, entrant_id))
+
+
+@router.post(
+    "/entrants/{entrant_id}/test-dm",
+    response_model=CheckInEntrantResponse,
+    summary="Send the check-in DM again",
+    description=(
+        "Re-sends the check-in test DM, for someone who has just opened their Discord DMs. The result shows in `dm_status`.\n\n"
+        "Fails with 400 when they aren't checked in or have no Discord account linked.\n\n"
+        "**Who can call this:** Staff or Check-in desk."
+    ),
+)
+async def resend_test_dm(entrant_id: int, actor: User = Depends(require_write_actor)):
+    await CheckInDeskService().send_test_dm(actor, entrant_id)
+    return await _entrant_response(CheckInService(), entrant_id)
+
+
+@router.delete(
+    "/entrants/{entrant_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+    summary="Remove a walk-up added by mistake (Staff only)",
+    description=(
+        "Deletes a walk-up row. Matcherino badge holders and comps come back on the next sync, so they can't be removed here.\n\n"
+        "Fails with 400 for a Matcherino or comp row.\n\n"
+        "**Who can call this:** Staff."
+    ),
+)
+async def remove_entrant(entrant_id: int, actor: User = Depends(require_write_actor)):
+    await CheckInService().remove_entrant(actor, entrant_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+

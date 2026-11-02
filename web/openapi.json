@@ -1343,6 +1343,20 @@
         "title": "AuditLogPage",
         "type": "object"
       },
+      "AvailabilityAreaResponse": {
+        "properties": {
+          "windows": {
+            "description": "How many availability windows you've saved.",
+            "title": "Windows",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "windows"
+        ],
+        "title": "AvailabilityAreaResponse",
+        "type": "object"
+      },
       "AvailabilityWindowInput": {
         "description": "One availability window in a set-availability request.\n\nShared by volunteer availability and player availability — the two use the\nsame window shape and the same ``VolunteerAvailabilityStatus`` enum.",
         "properties": {
@@ -4758,6 +4772,285 @@
         "title": "CrewedTournamentRow",
         "type": "object"
       },
+      "DeskAreaResponse": {
+        "properties": {
+          "checked_in": {
+            "default": 0,
+            "description": "People checked in at that event.",
+            "title": "Checked In",
+            "type": "integer"
+          },
+          "event_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The open event, when exactly one is open; the desk opens straight on it.",
+            "title": "Event Id"
+          },
+          "event_name": {
+            "default": "",
+            "description": "That event's name.",
+            "title": "Event Name",
+            "type": "string"
+          },
+          "expected": {
+            "default": 0,
+            "description": "People on its roster who still hold a badge or comp, plus anyone already checked in.",
+            "title": "Expected",
+            "type": "integer"
+          },
+          "open_events": {
+            "description": "Check-in events open right now.",
+            "title": "Open Events",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "open_events"
+        ],
+        "title": "DeskAreaResponse",
+        "type": "object"
+      },
+      "DeskMemberResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "description": "Their display name.",
+            "title": "Name",
+            "type": "string"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Their Discord username.",
+            "title": "Username"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "DeskMemberResponse",
+        "type": "object"
+      },
+      "DeskResponse": {
+        "properties": {
+          "can_manage": {
+            "description": "Staff: you may add walk-ups, remove them, and check in someone without a badge.",
+            "title": "Can Manage",
+            "type": "boolean"
+          },
+          "event": {
+            "$ref": "#/components/schemas/CheckInEventResponse"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/DeskRowResponse"
+            },
+            "title": "Rows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "event",
+          "can_manage",
+          "rows"
+        ],
+        "title": "DeskResponse",
+        "type": "object"
+      },
+      "DeskRowResponse": {
+        "properties": {
+          "badge_codes": {
+            "description": "Codes of the badges they hold, for the desk search.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Badge Codes",
+            "type": "array"
+          },
+          "badges": {
+            "description": "Badge types they still hold, most expensive first. Empty for a walk-up or a comp.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Badges",
+            "type": "array"
+          },
+          "checked_in_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When they were checked in (UTC); empty if they haven't been.",
+            "title": "Checked In At"
+          },
+          "checked_in_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Who checked them in.",
+            "title": "Checked In By Name"
+          },
+          "comp_reasons": {
+            "description": "Why the person is comped: role names and `volunteer`. Empty when they aren't comped.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Comp Reasons",
+            "type": "array"
+          },
+          "display_name": {
+            "description": "The name the desk shows.",
+            "title": "Display Name",
+            "type": "string"
+          },
+          "dm_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The check-in test DM: `pending`, `sent`, `blocked` (Discord refused: DMs closed or no shared server), `opted_out` (DMs off in Wizzrobe) or `failed` (Discord didn't answer). Null until they're checked in with a linked account.",
+            "title": "Dm Status"
+          },
+          "event_id": {
+            "description": "The check-in event this row is on.",
+            "title": "Event Id",
+            "type": "integer"
+          },
+          "has_discord": {
+            "default": false,
+            "description": "The linked account has Discord, so the check-in DM can be re-sent.",
+            "title": "Has Discord",
+            "type": "boolean"
+          },
+          "id": {
+            "description": "Roster entry id.",
+            "title": "Id",
+            "type": "integer"
+          },
+          "lanyard": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The lanyard the desk hands over (`staff`, `volunteer`, or a badge type's), or null.",
+            "title": "Lanyard"
+          },
+          "link_method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How the account was linked: `matcherino_id`, `discord_id`, `twitch_id`, `matcherino_handle`, `manual`, `walk_up` or `comp`. `manual` with no account means someone unlinked it by hand.",
+            "title": "Link Method"
+          },
+          "source": {
+            "description": "`matcherino`, `walk_up` or `comp`.",
+            "title": "Source",
+            "type": "string"
+          },
+          "suggestions": {
+            "default": 0,
+            "description": "Likely accounts for an unlinked row (`GET /check-in/entrants/{id}/suggestions`).",
+            "title": "Suggestions",
+            "type": "integer"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The linked member account; empty when no account is linked.",
+            "title": "User Id"
+          },
+          "user_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The linked member's display name.",
+            "title": "User Name"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The linked member's Discord username, for the desk search.",
+            "title": "Username"
+          },
+          "withdrawn_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set when they no longer hold a badge. Only staff can check them in anyway.",
+            "title": "Withdrawn At"
+          }
+        },
+        "required": [
+          "id",
+          "event_id",
+          "display_name",
+          "source"
+        ],
+        "title": "DeskRowResponse",
+        "type": "object"
+      },
       "DetailResponse": {
         "properties": {
           "detail": {
@@ -6750,6 +7043,149 @@
           }
         },
         "title": "GraphQLResponse",
+        "type": "object"
+      },
+      "GridColumnResponse": {
+        "properties": {
+          "position": {
+            "title": "Position",
+            "type": "string"
+          },
+          "position_id": {
+            "title": "Position Id",
+            "type": "integer"
+          },
+          "shifts": {
+            "items": {
+              "$ref": "#/components/schemas/GridShiftResponse"
+            },
+            "title": "Shifts",
+            "type": "array"
+          }
+        },
+        "required": [
+          "position_id",
+          "position",
+          "shifts"
+        ],
+        "title": "GridColumnResponse",
+        "type": "object"
+      },
+      "GridPersonResponse": {
+        "properties": {
+          "called_off": {
+            "default": false,
+            "description": "Staff sent them home from this shift.",
+            "title": "Called Off",
+            "type": "boolean"
+          },
+          "is_viewer": {
+            "description": "This is you.",
+            "title": "Is Viewer",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "is_viewer"
+        ],
+        "title": "GridPersonResponse",
+        "type": "object"
+      },
+      "GridRoleResponse": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "position_id": {
+            "title": "Position Id",
+            "type": "integer"
+          },
+          "visible": {
+            "title": "Visible",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "position_id",
+          "name",
+          "visible"
+        ],
+        "title": "GridRoleResponse",
+        "type": "object"
+      },
+      "GridShiftResponse": {
+        "properties": {
+          "end_hour": {
+            "description": "Hours after the day's local midnight the block ends (clipped to the grid).",
+            "title": "End Hour",
+            "type": "number"
+          },
+          "ends_at": {
+            "format": "date-time",
+            "title": "Ends At",
+            "type": "string"
+          },
+          "label": {
+            "default": "",
+            "description": "The shift's own label, if it has one.",
+            "title": "Label",
+            "type": "string"
+          },
+          "lane": {
+            "default": 0,
+            "description": "Which side-by-side lane this block sits in when shifts overlap.",
+            "title": "Lane",
+            "type": "integer"
+          },
+          "lanes": {
+            "default": 1,
+            "description": "How many lanes its group of overlapping shifts shares.",
+            "title": "Lanes",
+            "type": "integer"
+          },
+          "open_slots": {
+            "description": "Places still unfilled.",
+            "title": "Open Slots",
+            "type": "integer"
+          },
+          "people": {
+            "items": {
+              "$ref": "#/components/schemas/GridPersonResponse"
+            },
+            "title": "People",
+            "type": "array"
+          },
+          "slots_needed": {
+            "title": "Slots Needed",
+            "type": "integer"
+          },
+          "start_hour": {
+            "description": "Hours after the day's local midnight the block starts (clipped to the grid).",
+            "title": "Start Hour",
+            "type": "number"
+          },
+          "starts_at": {
+            "format": "date-time",
+            "title": "Starts At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "starts_at",
+          "ends_at",
+          "start_hour",
+          "end_hour",
+          "slots_needed",
+          "open_slots",
+          "people"
+        ],
+        "title": "GridShiftResponse",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -12837,6 +13273,69 @@
           "minutes"
         ],
         "title": "RunningLateRequest",
+        "type": "object"
+      },
+      "ScheduleAreaResponse": {
+        "properties": {
+          "my_next_shift_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When your next shift starts (UTC), if you have one coming.",
+            "title": "My Next Shift At"
+          },
+          "on_shift_now": {
+            "description": "Volunteers on a published shift right now.",
+            "title": "On Shift Now",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "on_shift_now"
+        ],
+        "title": "ScheduleAreaResponse",
+        "type": "object"
+      },
+      "ScheduleColumnRequest": {
+        "properties": {
+          "position_id": {
+            "title": "Position Id",
+            "type": "integer"
+          },
+          "visible": {
+            "default": true,
+            "title": "Visible",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "position_id"
+        ],
+        "title": "ScheduleColumnRequest",
+        "type": "object"
+      },
+      "ScheduleColumnsRequest": {
+        "properties": {
+          "columns": {
+            "description": "The roles in the order to show them, each shown or hidden. Roles left out go at the end, shown.",
+            "items": {
+              "$ref": "#/components/schemas/ScheduleColumnRequest"
+            },
+            "maxItems": 64,
+            "title": "Columns",
+            "type": "array"
+          }
+        },
+        "required": [
+          "columns"
+        ],
+        "title": "ScheduleColumnsRequest",
         "type": "object"
       },
       "ScheduleEntryResponse": {
@@ -19006,6 +19505,91 @@
         "title": "VolunteerPositionUpdate",
         "type": "object"
       },
+      "VolunteerScheduleResponse": {
+        "properties": {
+          "columns": {
+            "description": "One column per role shown, in your order.",
+            "items": {
+              "$ref": "#/components/schemas/GridColumnResponse"
+            },
+            "title": "Columns",
+            "type": "array"
+          },
+          "customized": {
+            "default": false,
+            "description": "Your columns differ from the community's default order.",
+            "title": "Customized",
+            "type": "boolean"
+          },
+          "day": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The day shown; null when the event has no dates yet.",
+            "title": "Day"
+          },
+          "days": {
+            "description": "The event's days, in order.",
+            "items": {
+              "format": "date",
+              "type": "string"
+            },
+            "title": "Days",
+            "type": "array"
+          },
+          "first_hour": {
+            "default": 0,
+            "description": "The first hour row (hours after midnight; can pass 24 for overnight).",
+            "title": "First Hour",
+            "type": "integer"
+          },
+          "hidden_with_shifts": {
+            "default": 0,
+            "description": "Roles with shifts that day that you've hidden.",
+            "title": "Hidden With Shifts",
+            "type": "integer"
+          },
+          "last_hour": {
+            "default": 0,
+            "description": "The hour the grid ends.",
+            "title": "Last Hour",
+            "type": "integer"
+          },
+          "midnight": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "That day's local midnight (UTC). Hours in the grid count from here.",
+            "title": "Midnight"
+          },
+          "roles": {
+            "description": "Every role you can show, in your order, and whether it's shown.",
+            "items": {
+              "$ref": "#/components/schemas/GridRoleResponse"
+            },
+            "title": "Roles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "days",
+          "roles"
+        ],
+        "title": "VolunteerScheduleResponse",
+        "type": "object"
+      },
       "VolunteerShiftCreate": {
         "properties": {
           "ends_at": {
@@ -19824,6 +20408,51 @@
           }
         },
         "title": "WebhookUpdate",
+        "type": "object"
+      },
+      "WorkAreasResponse": {
+        "properties": {
+          "availability": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AvailabilityAreaResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Your volunteer availability; null when you don't volunteer here."
+          },
+          "desk": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DeskAreaResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The check-in desk; null when you can't work it."
+          },
+          "proctor": {
+            "default": false,
+            "description": "Whether you can open Proctor Station.",
+            "title": "Proctor",
+            "type": "boolean"
+          },
+          "schedule": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScheduleAreaResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The volunteer schedule; null when you can't see it."
+          }
+        },
+        "title": "WorkAreasResponse",
         "type": "object"
       },
       "api__schemas__admin_nav__SetupStepResponse": {
@@ -29249,6 +29878,120 @@
         ]
       }
     },
+    "/api/check-in/entrants/{entrant_id}": {
+      "delete": {
+        "description": "Deletes a walk-up row. Matcherino badge holders and comps come back on the next sync, so they can't be removed here.\n\nFails with 400 for a Matcherino or comp row.\n\n**Who can call this:** Staff.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `staff:write`  \n**Feature:** only works when the community has **Event Check-in** turned on; otherwise every call answers `404`.",
+        "operationId": "remove_entrant_api_check_in_entrants__entrant_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entrant_id",
+            "required": true,
+            "schema": {
+              "title": "Entrant Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:write"
+            ]
+          }
+        ],
+        "summary": "Remove a walk-up added by mistake (Staff only)",
+        "tags": [
+          "Check-in"
+        ]
+      }
+    },
     "/api/check-in/entrants/{entrant_id}/check-in": {
       "delete": {
         "description": "Clears the check-in time and who did it. Undoing someone who isn't checked in changes nothing. Check-in desk volunteers can do this on open events only.\n\n**Who can call this:** Staff or Check-in desk.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `staff:write`  \n**Feature:** only works when the community has **Event Check-in** turned on; otherwise every call answers `404`.",
@@ -29501,6 +30244,242 @@
           }
         ],
         "summary": "Check someone in",
+        "tags": [
+          "Check-in"
+        ]
+      }
+    },
+    "/api/check-in/entrants/{entrant_id}/suggestions": {
+      "get": {
+        "description": "Members whose names look like this row's name, best first, for the desk to confirm with `PUT /check-in/entrants/{entrant_id}/user`. Never linked on its own.\n\n**Who can call this:** Staff or Check-in desk.\n\n**App scope:** `staff:read`  \n**Feature:** only works when the community has **Event Check-in** turned on; otherwise every call answers `404`.",
+        "operationId": "entrant_suggestions_api_check_in_entrants__entrant_id__suggestions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entrant_id",
+            "required": true,
+            "schema": {
+              "title": "Entrant Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DeskMemberResponse"
+                  },
+                  "title": "Response Entrant Suggestions Api Check In Entrants  Entrant Id  Suggestions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "Likely accounts for a roster row",
+        "tags": [
+          "Check-in"
+        ]
+      }
+    },
+    "/api/check-in/entrants/{entrant_id}/test-dm": {
+      "post": {
+        "description": "Re-sends the check-in test DM, for someone who has just opened their Discord DMs. The result shows in `dm_status`.\n\nFails with 400 when they aren't checked in or have no Discord account linked.\n\n**Who can call this:** Staff or Check-in desk.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `staff:write`  \n**Feature:** only works when the community has **Event Check-in** turned on; otherwise every call answers `404`.",
+        "operationId": "resend_test_dm_api_check_in_entrants__entrant_id__test_dm_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entrant_id",
+            "required": true,
+            "schema": {
+              "title": "Entrant Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckInEntrantResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:write"
+            ]
+          }
+        ],
+        "summary": "Send the check-in DM again",
         "tags": [
           "Check-in"
         ]
@@ -29857,6 +30836,256 @@
           }
         ],
         "summary": "List the check-in events you can work",
+        "tags": [
+          "Check-in"
+        ]
+      }
+    },
+    "/api/check-in/events/{event_id}/desk": {
+      "get": {
+        "description": "The event, its roster as the desk shows it (badge codes and Discord usernames for the search, how many likely accounts each unlinked row has), and whether you may do the staff-only things. Check-in desk volunteers can read open events only.\n\n**Who can call this:** Staff or Check-in desk.\n\n**App scope:** `staff:read`  \n**Feature:** only works when the community has **Event Check-in** turned on; otherwise every call answers `404`.",
+        "operationId": "get_desk_api_check_in_events__event_id__desk_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "event_id",
+            "required": true,
+            "schema": {
+              "title": "Event Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeskResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "The check-in desk for one event",
+        "tags": [
+          "Check-in"
+        ]
+      }
+    },
+    "/api/check-in/events/{event_id}/members": {
+      "get": {
+        "description": "Community members not yet on this roster whose name, Discord, Twitch or Matcherino name contains `q` (two characters or more). With `for_link=true` it also offers people on the roster only as a comp, so a comped volunteer who bought a badge can be linked to it.\n\n**Who can call this:** Staff or Check-in desk.\n\n**App scope:** `staff:read`  \n**Feature:** only works when the community has **Event Check-in** turned on; otherwise every call answers `404`.",
+        "operationId": "find_members_api_check_in_events__event_id__members_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "event_id",
+            "required": true,
+            "schema": {
+              "title": "Event Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Part of their name.",
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "description": "Part of their name.",
+              "maxLength": 100,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Searching to link a roster row, not to add a walk-up.",
+            "in": "query",
+            "name": "for_link",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Searching to link a roster row, not to add a walk-up.",
+              "title": "For Link",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DeskMemberResponse"
+                  },
+                  "title": "Response Find Members Api Check In Events  Event Id  Members Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "Find members to link or add as a walk-up",
         "tags": [
           "Check-in"
         ]
@@ -64999,6 +66228,469 @@
           "Webhooks"
         ]
       }
+    },
+    "/api/work": {
+      "get": {
+        "description": "The areas your roles open here (check-in desk, volunteer schedule, your volunteer availability, Proctor Station), each with a live line. An area you can't open is null or false.\n\n**Who can call this:** Any member.\n\n**App scope:** `play`",
+        "operationId": "my_work_api_work_get",
+        "parameters": [
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkAreasResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "play"
+            ]
+          }
+        ],
+        "summary": "Your Work tab",
+        "tags": [
+          "Work"
+        ]
+      }
+    },
+    "/api/work/schedule": {
+      "get": {
+        "description": "Every role's published shifts on one event day, laid out as columns on an hour scale in your saved column order. Leave `day` out for today during the event, else its first day.\n\n**Who can call this:** Volunteers, proctors, check-in desk, Broadcast Tech, volunteer coordinators and staff.\n\n**App scope:** `volunteer`",
+        "operationId": "volunteer_schedule_api_work_schedule_get",
+        "parameters": [
+          {
+            "description": "The event day to show (local date).",
+            "in": "query",
+            "name": "day",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event day to show (local date).",
+              "title": "Day"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VolunteerScheduleResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "volunteer"
+            ]
+          }
+        ],
+        "summary": "The volunteer schedule for one day",
+        "tags": [
+          "Work"
+        ]
+      }
+    },
+    "/api/work/schedule/columns": {
+      "delete": {
+        "description": "Forgets your column choice: every role shown, in the community's order.\n\n**Who can call this:** Anyone who can see the volunteer schedule.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `volunteer`",
+        "operationId": "reset_schedule_columns_api_work_schedule_columns_delete",
+        "parameters": [
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/GridRoleResponse"
+                  },
+                  "title": "Response Reset Schedule Columns Api Work Schedule Columns Delete",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "volunteer"
+            ]
+          }
+        ],
+        "summary": "Reset the volunteer schedule columns",
+        "tags": [
+          "Work"
+        ]
+      },
+      "put": {
+        "description": "Saves which roles you show and in what order, for you only. The website's Full Schedule uses the same choice.\n\n**Who can call this:** Anyone who can see the volunteer schedule.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `volunteer`",
+        "operationId": "save_schedule_columns_api_work_schedule_columns_put",
+        "parameters": [
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScheduleColumnsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/GridRoleResponse"
+                  },
+                  "title": "Response Save Schedule Columns Api Work Schedule Columns Put",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "volunteer"
+            ]
+          }
+        ],
+        "summary": "Choose and order the volunteer schedule columns",
+        "tags": [
+          "Work"
+        ]
+      }
     }
   },
   "tags": [
@@ -65061,6 +66753,10 @@
     {
       "description": "When players say they can and can't play.",
       "name": "Player availability"
+    },
+    {
+      "description": "The app's Work tab for people who run the event: your areas and the volunteer schedule grid.",
+      "name": "Work"
     },
     {
       "description": "Your own profile as the app's Me screen shows it: clock, connected accounts, staff alerts, accommodation and emergency contact.",
@@ -66833,6 +68529,7 @@
         "Users",
         "Membership",
         "Player availability",
+        "Work",
         "My profile",
         "My notifications",
         "Notifications",
