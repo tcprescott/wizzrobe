@@ -10702,6 +10702,14 @@
             "title": "Members",
             "type": "array"
           },
+          "role_options": {
+            "description": "The roles staff can grant here, for Add role.",
+            "items": {
+              "$ref": "#/components/schemas/RoleOptionResponse"
+            },
+            "title": "Role Options",
+            "type": "array"
+          },
           "switches": {
             "$ref": "#/components/schemas/MembersSwitchesResponse"
           },
@@ -10722,7 +10730,8 @@
           "members",
           "join_requests",
           "ada_action_needed",
-          "switches"
+          "switches",
+          "role_options"
         ],
         "title": "MembersBoardResponse",
         "type": "object"
@@ -15081,6 +15090,30 @@
         ],
         "title": "Role",
         "type": "string"
+      },
+      "RoleOptionResponse": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "per_event": {
+            "description": "Granted for one event (the one asked about) rather than the whole community.",
+            "title": "Per Event",
+            "type": "boolean"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "label",
+          "per_event"
+        ],
+        "title": "RoleOptionResponse",
+        "type": "object"
       },
       "RoleRequest": {
         "properties": {

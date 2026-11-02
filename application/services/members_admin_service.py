@@ -22,7 +22,7 @@ from application.services.tenant_membership_service import TenantMembershipServi
 from application.services.user_service import UserService
 from application.tenant_context import require_tenant_id
 from application.utils.discord_avatar import avatar_url
-from models import AccommodationStatus, FeatureFlag, MembershipSource, User
+from models import AccommodationStatus, FeatureFlag, MembershipSource, Role, User
 
 RECENT_JOIN_WINDOW = timedelta(days=7)
 
@@ -82,6 +82,13 @@ class MemberRow:
 
 
 @dataclass(frozen=True)
+class RoleOption:
+    role: str
+    label: str
+    per_event: bool
+
+
+@dataclass(frozen=True)
 class MembersSwitches:
     accommodations: bool
     emergency_contacts: bool
@@ -95,6 +102,7 @@ class MembersBoard:
     ada_action_needed: int
     switches: MembersSwitches
     zone: Optional[str]
+    role_options: List[RoleOption]
 
 
 @dataclass(frozen=True)
@@ -179,6 +187,7 @@ class MembersAdminService:
                 challonge=FeatureFlag.CHALLONGE in live,
             ),
             zone=await PlayerHomeService.viewer_zone(actor),
+            role_options=[RoleOption(r.value, r.label, r.is_per_event) for r in Role.tenant_grantable()],
         )
 
     async def addable(self, actor: User) -> List[AddableAccount]:

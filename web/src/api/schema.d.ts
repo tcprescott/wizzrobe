@@ -16090,6 +16090,11 @@ export interface components {
             join_requests: number;
             /** Members */
             members: components["schemas"]["MemberRowResponse"][];
+            /**
+             * Role Options
+             * @description The roles staff can grant here, for Add role.
+             */
+            role_options: components["schemas"]["RoleOptionResponse"][];
             switches: components["schemas"]["MembersSwitchesResponse"];
             /**
              * Zone
@@ -18313,6 +18318,18 @@ export interface components {
          * @enum {string}
          */
         Role: "staff" | "proctor" | "stream_manager" | "triforce_submitter" | "volunteer_coordinator" | "equipment_manager" | "volunteer" | "check_in_desk" | "preset_manager" | "sync_admin" | "qualifier_admin" | "super_admin";
+        /** RoleOptionResponse */
+        RoleOptionResponse: {
+            /** Label */
+            label: string;
+            /**
+             * Per Event
+             * @description Granted for one event (the one asked about) rather than the whole community.
+             */
+            per_event: boolean;
+            /** Role */
+            role: string;
+        };
         /** RoleRequest */
         RoleRequest: {
             /**

@@ -55,6 +55,14 @@ class MembersSwitchesResponse(BaseModel):
     challonge: bool = Field(..., description="Challonge is on: show the Challonge column.")
 
 
+class RoleOptionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    role: str
+    label: str
+    per_event: bool = Field(..., description="Granted for one event (the one asked about) rather than the whole community.")
+
+
 class MembersBoardResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -63,6 +71,7 @@ class MembersBoardResponse(BaseModel):
     ada_action_needed: int = Field(..., description="ADA requests staff still have to act on.")
     switches: MembersSwitchesResponse
     zone: Optional[str] = Field(None, description="The zone to print times in; null means the device's own.")
+    role_options: List[RoleOptionResponse] = Field(..., description="The roles staff can grant here, for Add role.")
 
 
 class AddableAccountResponse(BaseModel):

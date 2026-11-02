@@ -1,0 +1,122 @@
+/* Shared pieces of the people admin screens (Members, Check-in Roster, Equipment, Meetups). */
+
+.admin-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.admin-tabs {
+  display: flex;
+  gap: var(--space-1, 4px);
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: var(--space-3);
+  overflow-x: auto;
+}
+.admin-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 14px;
+  color: var(--fg-secondary);
+  font-weight: 700;
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+}
+.admin-tab.active {
+  color: var(--link);
+  border-bottom-color: var(--accent);
+}
+.admin-tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.prewrap {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.join-request {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.join-request .admin-name {
+  flex: 1;
+}
+.join-request__buttons {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.role-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 32px;
+  padding: 2px 4px 2px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+.role-chip:not(:has(.icon-btn)) {
+  padding-right: 12px;
+}
+.role-chip__x {
+  width: 28px;
+  height: 28px;
+}
+.role-add {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  align-items: center;
+}
+.role-add .input {
+  flex: 1;
+  max-width: 280px;
+}
+
+.pick-list {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  max-height: 50vh;
+  overflow-y: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md, 8px);
+}
+.pick-list > li + li {
+  border-top: 1px solid var(--border-subtle);
+}
+.pick-list > li.admin-muted {
+  padding: 12px;
+}
+.pick-list__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 52px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.pick-list__row:hover {
+  background: var(--surface-alt);
+}
+
+.contact-card {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 16px;
+  margin: 0;
+}
+.contact-card dt {
+  color: var(--fg-muted);
+}
+.contact-card dd {
+  margin: 0;
+  font-weight: 700;
+}

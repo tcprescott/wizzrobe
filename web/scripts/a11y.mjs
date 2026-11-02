@@ -14,6 +14,7 @@
  * Usage: npm run build && npm run a11y
  *   A11Y_WIDTHS=360,393,412,440   phone widths to check (default 360)
  *   PW_CHROMIUM=/path/to/chrome   use an already-installed Chromium
+ *   A11Y_ONLY=admin-member        check only targets whose name contains this
  */
 import { spawn } from 'node:child_process'
 import { mkdirSync, readFileSync } from 'node:fs'
@@ -57,11 +58,17 @@ const TARGETS = [
   { name: 'me', path: '/t/sgl/me' },
   { name: 'admin', path: '/t/sgl/admin' },
   { name: 'admin-setup', path: '/t/sgl/admin/setup' },
-  { name: 'admin-not-built', path: '/t/sgl/admin/members' },
+  { name: 'admin-not-built', path: '/t/sgl/admin/service-health' },
   { name: 'admin-schedule', path: '/t/sgl/admin/match-schedule?day=2026-10-24' },
   { name: 'admin-schedule-match', path: '/t/sgl/admin/match-schedule/301?day=2026-10-24' },
   { name: 'admin-schedule-rewind', path: '/t/sgl/admin/match-schedule/301?day=2026-10-24', act: (p) => p.getByRole('button', { name: /^More for / }).click().then(() => p.getByRole('menuitem', { name: 'Rewind…' }).click()), wait: 'role=dialog' },
   { name: 'admin-schedule-stations', path: '/t/sgl/admin/match-schedule/301?day=2026-10-24', act: (p) => p.getByRole('button', { name: 'Assign' }).click(), wait: 'role=dialog' },
+  { name: 'admin-members', path: '/t/sgl/admin/members' },
+  { name: 'admin-member', path: '/t/sgl/admin/members/2' },
+  { name: 'admin-member-message', path: '/t/sgl/admin/members/2', act: (p) => p.getByRole('button', { name: 'Message' }).click(), wait: 'role=dialog' },
+  { name: 'admin-member-menu', path: '/t/sgl/admin/members/2', act: (p) => p.getByRole('button', { name: 'More for Kirby' }).click(), wait: 'role=menu' },
+  { name: 'admin-members-ada', path: '/t/sgl/admin/members/ada' },
+  { name: 'admin-members-ada-request', path: '/t/sgl/admin/members/ada/6' },
   ...['about', 'notifications', 'availability', 'accounts', 'staff-alerts', 'equipment', 'accommodation', 'emergency-contact', 'feedback', 'webhooks', 'apps', 'tokens', 'appearance'].map(
     (s) => ({ name: `me-${s}`, path: `/t/sgl/me/${s}` }),
   ),
@@ -160,7 +167,7 @@ try {
     ...PHONES.map((width) => ({ label: `phone${width}`, viewport: { width, height: 780 } })),
     { label: 'desktop', viewport: DESKTOP },
   ]
-  for (const target of TARGETS) {
+  for (const target of TARGETS.filter((t) => !process.env.A11Y_ONLY || t.name.includes(process.env.A11Y_ONLY))) {
     for (const { label, viewport } of viewports) {
       for (const scheme of SCHEMES) {
         const problems = await check(browser, target, scheme, viewport, label)
