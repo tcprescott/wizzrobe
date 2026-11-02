@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Latency clock</title>
+<style>
+  html, body { margin: 0; background: #000; color: #fff; }
+  #t { font: 700 96px/1 ui-monospace, monospace; padding: 24px; }
+</style>
+</head>
+<body>
+<!-- Add as an OBS Browser source in the program. Compare it with the clock on
+     viewer.html on the same computer: the gap is the end-to-end delay. -->
+<div id="t"></div>
+<script>
+const t = document.getElementById('t');
+(function tick() {
+  const d = new Date();
+  t.textContent = d.toTimeString().slice(0, 8) + '.' + String(d.getMilliseconds()).padStart(3, '0');
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>

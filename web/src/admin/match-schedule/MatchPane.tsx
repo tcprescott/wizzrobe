@@ -12,6 +12,8 @@ interface PaneProps {
   board: Board | undefined
   onChanged: () => void
   onGone: () => void
+  /** Opens Edit match; left out when the viewer may not edit. */
+  onEdit?: () => void
   /** Desktop: where the pane's close button goes. */
   closeTo?: string
   /** On a phone the pane is the whole screen, so its title is the page's heading. */
@@ -26,7 +28,7 @@ const STEP_LABEL: Record<string, string> = {
 }
 
 /** One match beside the board (its own screen on a phone): run it, check it, staff its crew. */
-export function MatchPane({ matchId, board, onChanged, onGone, closeTo, standalone = false }: PaneProps) {
+export function MatchPane({ matchId, board, onChanged, onGone, onEdit, closeTo, standalone = false }: PaneProps) {
   const { data, error, loading, reload } = usePane(matchId)
   const [busy, setBusy] = useState<string | null>(null)
   const [failure, setFailure] = useState<string | null>(null)
@@ -69,6 +71,9 @@ export function MatchPane({ matchId, board, onChanged, onGone, closeTo, standalo
   }
 
   const menu: MenuItem[] = []
+  if (m.can.edit && onEdit) {
+    menu.push({ label: 'Edit match…', icon: 'edit', onSelect: onEdit })
+  }
   if (m.can.run && m.seed_url && m.state !== 'Finished' && m.state !== 'Confirmed') {
     menu.push({ label: 'Clear seed', icon: 'restart_alt', onSelect: () => run('clear-seed', () => actions.clearSeed(m.id)) })
   }
