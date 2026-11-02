@@ -14,6 +14,7 @@ import { HomeScreen } from './player/HomeScreen'
 import { ScheduleScreen } from './player/ScheduleScreen'
 import { EventScreen, WorkScreen } from './screens/TabScreens'
 import { AppShell } from './shell/AppShell'
+import { readingRoutes } from './reading/routes'
 import { ThemeProvider } from './theme/ThemeProvider'
 
 const tabRoutes: RouteObject[] = [
@@ -23,6 +24,7 @@ const tabRoutes: RouteObject[] = [
   { path: 'event', element: <EventScreen /> },
   { path: 'work', element: <WorkScreen /> },
   { path: 'me', element: <MeLayout />, children: [{ path: ':section', element: <MeSection /> }] },
+  ...readingRoutes,
 ]
 
 const shell = (
