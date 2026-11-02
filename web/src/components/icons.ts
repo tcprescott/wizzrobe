@@ -101,6 +101,13 @@ import Groups2Icon from '@material-symbols/svg-400/outlined/groups_2.svg?react'
 import ChairIcon from '@material-symbols/svg-400/outlined/chair.svg?react'
 import PodcastsIcon from '@material-symbols/svg-400/outlined/podcasts.svg?react'
 import MilitaryTechIcon from '@material-symbols/svg-400/outlined/military_tech.svg?react'
+import AccountTreeIcon from '@material-symbols/svg-400/outlined/account_tree.svg?react'
+import SyncIcon from '@material-symbols/svg-400/outlined/sync.svg?react'
+import SkipNextIcon from '@material-symbols/svg-400/outlined/skip_next.svg?react'
+import AddLinkIcon from '@material-symbols/svg-400/outlined/add_link.svg?react'
+import PersonAddIcon from '@material-symbols/svg-400/outlined/person_add.svg?react'
+import PersonRemoveIcon from '@material-symbols/svg-400/outlined/person_remove.svg?react'
+import EventNoteIcon from '@material-symbols/svg-400/outlined/event_note.svg?react'
 
 type Svg = FC<SVGProps<SVGSVGElement>>
 
@@ -200,6 +207,13 @@ export const ICONS = {
   chair: ChairIcon,
   podcasts: PodcastsIcon,
   military_tech: MilitaryTechIcon,
+  account_tree: AccountTreeIcon,
+  sync: SyncIcon,
+  skip_next: SkipNextIcon,
+  add_link: AddLinkIcon,
+  person_add: PersonAddIcon,
+  person_remove: PersonRemoveIcon,
+  event_note: EventNoteIcon,
 } satisfies Record<string, Svg>
 
 export const FILLED: Partial<Record<IconName, Svg>> = {

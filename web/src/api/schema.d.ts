@@ -11146,6 +11146,11 @@ export interface components {
             linkable_sites: components["schemas"]["BracketSiteResponse"][];
             /** Rows */
             rows: components["schemas"]["BoardRowResponse"][];
+            /**
+             * Zone
+             * @description The zone to print times in; null means the device's own.
+             */
+            zone?: string | null;
         };
         /** BoardRowResponse */
         BoardRowResponse: {

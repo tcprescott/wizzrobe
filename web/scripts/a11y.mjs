@@ -58,6 +58,13 @@ const TARGETS = [
   { name: 'admin', path: '/t/sgl/admin' },
   { name: 'admin-setup', path: '/t/sgl/admin/setup' },
   { name: 'admin-not-built', path: '/t/sgl/admin/members' },
+  { name: 'admin-tournaments', path: '/t/sgl/admin/tournaments/1/settings' },
+  { name: 'admin-tournament-players', path: '/t/sgl/admin/tournaments/1/players' },
+  { name: 'admin-tournament-bracket', path: '/t/sgl/admin/tournaments/1/bracket' },
+  { name: 'admin-tournament-schedule', path: '/t/sgl/admin/tournaments/1/schedule' },
+  { name: 'admin-tournament-link', path: '/t/sgl/admin/tournaments/2/bracket' },
+  { name: 'admin-tournament-add', path: '/t/sgl/admin/tournaments', act: (p) => p.getByRole('button', { name: 'Add tournament' }).click(), wait: 'role=dialog' },
+  { name: 'admin-tournament-drop', path: '/t/sgl/admin/tournaments/1/players', act: (p) => p.getByRole('button', { name: 'More for Ari' }).click(), wait: 'role=menu' },
   ...['about', 'notifications', 'availability', 'accounts', 'staff-alerts', 'equipment', 'accommodation', 'emergency-contact', 'feedback', 'webhooks', 'apps', 'tokens', 'appearance'].map(
     (s) => ({ name: `me-${s}`, path: `/t/sgl/me/${s}` }),
   ),

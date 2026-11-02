@@ -61,6 +61,7 @@ class BoardResponse(_Attrs):
     rows: List[BoardRowResponse]
     can_create: bool = Field(..., description="Add tournament is offered (staff only).")
     linkable_sites: List[BracketSiteResponse] = Field(..., description="Sites a tournament can be linked to here.")
+    zone: Optional[str] = Field(None, description="The zone to print times in; null means the device's own.")
 
 
 class DeletionPreviewResponse(BaseModel):

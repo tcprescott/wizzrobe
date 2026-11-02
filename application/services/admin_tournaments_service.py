@@ -14,6 +14,7 @@ from application.repositories import TournamentRepository
 from application.services import bracket_sources
 from application.services.auth_service import AuthService
 from application.services.challonge_service import ChallongeService
+from application.services.player_home_service import PlayerHomeService
 from application.services.round_schedule_service import RoundScheduleService
 from application.services.startgg_service import StartggService
 from application.services.tournament_service import TournamentService
@@ -77,6 +78,7 @@ class Board:
     rows: List[BoardRow]
     can_create: bool
     linkable_sites: List[BracketSite]
+    zone: Optional[str] = None
 
 
 @dataclass
@@ -186,6 +188,7 @@ class AdminTournamentsService:
             rows=[self._row(t, live, unmatched, is_staff) for t in tournaments],
             can_create=is_staff,
             linkable_sites=[BracketSite(s.key, s.label) for s in live] if is_staff else [],
+            zone=await PlayerHomeService.viewer_zone(actor),
         )
 
     async def row(self, tournament_id: int, actor: User) -> BoardRow:
