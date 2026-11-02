@@ -210,6 +210,101 @@
         "title": "ActivityTrendsResponse",
         "type": "object"
       },
+      "AdminAreaResponse": {
+        "properties": {
+          "aliases": {
+            "description": "Older slugs that should open this area.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Aliases",
+            "type": "array"
+          },
+          "group": {
+            "description": "Menu heading: `Run the event`, `Online play`, `People`, `Community`, `Configuration` or `System`.",
+            "title": "Group",
+            "type": "string"
+          },
+          "half": {
+            "description": "`event` for areas that work inside one event, `community` for the rest.",
+            "title": "Half",
+            "type": "string"
+          },
+          "icon": {
+            "description": "Material Symbols name.",
+            "title": "Icon",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "slug": {
+            "description": "Path segment under `/admin/`, the same one the website uses.",
+            "title": "Slug",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug",
+          "label",
+          "icon",
+          "group",
+          "half"
+        ],
+        "title": "AdminAreaResponse",
+        "type": "object"
+      },
+      "AdminNavResponse": {
+        "properties": {
+          "areas": {
+            "description": "In menu order. Empty when you have no admin access here.",
+            "items": {
+              "$ref": "#/components/schemas/AdminAreaResponse"
+            },
+            "title": "Areas",
+            "type": "array"
+          },
+          "event_settings_panes": {
+            "description": "Panes under Event settings, in menu order.",
+            "items": {
+              "$ref": "#/components/schemas/SettingsPaneResponse"
+            },
+            "title": "Event Settings Panes",
+            "type": "array"
+          },
+          "settings_panes": {
+            "description": "Panes under Settings, in menu order.",
+            "items": {
+              "$ref": "#/components/schemas/SettingsPaneResponse"
+            },
+            "title": "Settings Panes",
+            "type": "array"
+          },
+          "setup": {
+            "description": "The community's setup checklist, for staff and tournament admins.",
+            "items": {
+              "$ref": "#/components/schemas/api__schemas__admin_nav__SetupStepResponse"
+            },
+            "title": "Setup",
+            "type": "array"
+          },
+          "setup_ready": {
+            "description": "Every required setup step is done.",
+            "title": "Setup Ready",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "areas",
+          "settings_panes",
+          "event_settings_panes",
+          "setup",
+          "setup_ready"
+        ],
+        "title": "AdminNavResponse",
+        "type": "object"
+      },
       "AdminRequest": {
         "properties": {
           "user_id": {
@@ -3683,7 +3778,7 @@
           "setup": {
             "description": "The whole setup checklist.",
             "items": {
-              "$ref": "#/components/schemas/SetupStepResponse"
+              "$ref": "#/components/schemas/api__schemas__platform__SetupStepResponse"
             },
             "title": "Setup",
             "type": "array"
@@ -13841,42 +13936,32 @@
         "title": "SetSeedsRequest",
         "type": "object"
       },
-      "SetupStepResponse": {
+      "SettingsPaneResponse": {
         "properties": {
-          "done": {
-            "description": "Whether the community has done it.",
-            "title": "Done",
-            "type": "boolean"
-          },
-          "hint": {
-            "description": "Why the step matters.",
-            "title": "Hint",
-            "type": "string"
-          },
-          "key": {
-            "description": "Stable id of the step, such as `staff` or `tournament`.",
-            "title": "Key",
+          "icon": {
+            "title": "Icon",
             "type": "string"
           },
           "label": {
-            "description": "What the step asks for.",
             "title": "Label",
             "type": "string"
           },
-          "required": {
-            "description": "Whether matches can't be scheduled until it's done.",
-            "title": "Required",
-            "type": "boolean"
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
           }
         },
         "required": [
-          "key",
+          "slug",
           "label",
-          "done",
-          "required",
-          "hint"
+          "icon",
+          "summary"
         ],
-        "title": "SetupStepResponse",
+        "title": "SettingsPaneResponse",
         "type": "object"
       },
       "ShiftLateRequest": {
@@ -20006,6 +20091,83 @@
         },
         "title": "WebhookUpdate",
         "type": "object"
+      },
+      "api__schemas__admin_nav__SetupStepResponse": {
+        "properties": {
+          "done": {
+            "title": "Done",
+            "type": "boolean"
+          },
+          "hint": {
+            "title": "Hint",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "required": {
+            "title": "Required",
+            "type": "boolean"
+          },
+          "tab": {
+            "description": "Label of the admin area that finishes this step.",
+            "title": "Tab",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "done",
+          "hint",
+          "tab",
+          "required"
+        ],
+        "title": "SetupStepResponse",
+        "type": "object"
+      },
+      "api__schemas__platform__SetupStepResponse": {
+        "properties": {
+          "done": {
+            "description": "Whether the community has done it.",
+            "title": "Done",
+            "type": "boolean"
+          },
+          "hint": {
+            "description": "Why the step matters.",
+            "title": "Hint",
+            "type": "string"
+          },
+          "key": {
+            "description": "Stable id of the step, such as `staff` or `tournament`.",
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "description": "What the step asks for.",
+            "title": "Label",
+            "type": "string"
+          },
+          "required": {
+            "description": "Whether matches can't be scheduled until it's done.",
+            "title": "Required",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "done",
+          "required",
+          "hint"
+        ],
+        "title": "SetupStepResponse",
+        "type": "object"
       }
     },
     "securitySchemes": {
@@ -20044,6 +20206,78 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/admin/nav": {
+      "get": {
+        "description": "Every admin area you may open in this community, in menu order with its group, plus the Settings and Event settings panes and the setup checklist. The app draws its admin menu from this and hides what the API would refuse.\n\n**Who can call this:** Any member. Someone with no admin access gets empty lists.\n\n**App scope:** `staff:read`",
+        "operationId": "admin_nav_api_admin_nav_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminNavResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "Your admin areas",
+        "tags": [
+          "Admin shell"
+        ]
+      }
+    },
     "/api/async-qualifiers": {
       "get": {
         "description": "The qualifiers you administer, newest first, including each one's internal `config`. Staff and Qualifier admins see every qualifier in the community; a qualifier admin sees only the ones that list them. Anyone who administers none is refused.\n\n**Who can call this:** Staff, Qualifier admin, or admins of at least one qualifier.\n\n**App scope:** `staff:read`  \n**Feature:** only works when the community has **Async Qualifiers** turned on; otherwise every call answers `404`.",
@@ -65298,6 +65532,10 @@
       "name": "My schedule"
     },
     {
+      "description": "Which admin areas and settings panes the caller may open, for the app's admin menu.",
+      "name": "Admin shell"
+    },
+    {
       "description": "The schedule, and running a match from seating to a confirmed result.",
       "name": "Matches"
     },
@@ -67109,6 +67347,7 @@
       "name": "Event day",
       "tags": [
         "My schedule",
+        "Admin shell",
         "Matches",
         "Crew",
         "Reschedule requests",

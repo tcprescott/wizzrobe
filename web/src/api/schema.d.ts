@@ -4,6 +4,30 @@
  */
 
 export interface paths {
+    "/api/admin/nav": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your admin areas
+         * @description Every admin area you may open in this community, in menu order with its group, plus the Settings and Event settings panes and the setup checklist. The app draws its admin menu from this and hides what the API would refuse.
+         *
+         *     **Who can call this:** Any member. Someone with no admin access gets empty lists.
+         *
+         *     **App scope:** `staff:read`
+         */
+        get: operations["admin_nav_api_admin_nav_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/async-qualifiers": {
         parameters: {
             query?: never;
@@ -9992,6 +10016,64 @@ export interface components {
              */
             total: number;
         };
+        /** AdminAreaResponse */
+        AdminAreaResponse: {
+            /**
+             * Aliases
+             * @description Older slugs that should open this area.
+             */
+            aliases?: string[];
+            /**
+             * Group
+             * @description Menu heading: `Run the event`, `Online play`, `People`, `Community`, `Configuration` or `System`.
+             */
+            group: string;
+            /**
+             * Half
+             * @description `event` for areas that work inside one event, `community` for the rest.
+             */
+            half: string;
+            /**
+             * Icon
+             * @description Material Symbols name.
+             */
+            icon: string;
+            /** Label */
+            label: string;
+            /**
+             * Slug
+             * @description Path segment under `/admin/`, the same one the website uses.
+             */
+            slug: string;
+        };
+        /** AdminNavResponse */
+        AdminNavResponse: {
+            /**
+             * Areas
+             * @description In menu order. Empty when you have no admin access here.
+             */
+            areas: components["schemas"]["AdminAreaResponse"][];
+            /**
+             * Event Settings Panes
+             * @description Panes under Event settings, in menu order.
+             */
+            event_settings_panes: components["schemas"]["SettingsPaneResponse"][];
+            /**
+             * Settings Panes
+             * @description Panes under Settings, in menu order.
+             */
+            settings_panes: components["schemas"]["SettingsPaneResponse"][];
+            /**
+             * Setup
+             * @description The community's setup checklist, for staff and tournament admins.
+             */
+            setup: components["schemas"]["api__schemas__admin_nav__SetupStepResponse"][];
+            /**
+             * Setup Ready
+             * @description Every required setup step is done.
+             */
+            setup_ready: boolean;
+        };
         /** AdminRequest */
         AdminRequest: {
             /**
@@ -11982,7 +12064,7 @@ export interface components {
              * Setup
              * @description The whole setup checklist.
              */
-            setup: components["schemas"]["SetupStepResponse"][];
+            setup: components["schemas"]["api__schemas__platform__SetupStepResponse"][];
             /**
              * Setup Missing
              * @description Setup steps still to do, by label.
@@ -17356,33 +17438,16 @@ export interface components {
                 [key: string]: number | null;
             };
         };
-        /** SetupStepResponse */
-        SetupStepResponse: {
-            /**
-             * Done
-             * @description Whether the community has done it.
-             */
-            done: boolean;
-            /**
-             * Hint
-             * @description Why the step matters.
-             */
-            hint: string;
-            /**
-             * Key
-             * @description Stable id of the step, such as `staff` or `tournament`.
-             */
-            key: string;
-            /**
-             * Label
-             * @description What the step asks for.
-             */
+        /** SettingsPaneResponse */
+        SettingsPaneResponse: {
+            /** Icon */
+            icon: string;
+            /** Label */
             label: string;
-            /**
-             * Required
-             * @description Whether matches can't be scheduled until it's done.
-             */
-            required: boolean;
+            /** Slug */
+            slug: string;
+            /** Summary */
+            summary: string;
         };
         /** ShiftLateRequest */
         ShiftLateRequest: {
@@ -20720,6 +20785,52 @@ export interface components {
              */
             url?: string | null;
         };
+        /** SetupStepResponse */
+        api__schemas__admin_nav__SetupStepResponse: {
+            /** Done */
+            done: boolean;
+            /** Hint */
+            hint: string;
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Required */
+            required: boolean;
+            /**
+             * Tab
+             * @description Label of the admin area that finishes this step.
+             */
+            tab: string;
+        };
+        /** SetupStepResponse */
+        api__schemas__platform__SetupStepResponse: {
+            /**
+             * Done
+             * @description Whether the community has done it.
+             */
+            done: boolean;
+            /**
+             * Hint
+             * @description Why the step matters.
+             */
+            hint: string;
+            /**
+             * Key
+             * @description Stable id of the step, such as `staff` or `tournament`.
+             */
+            key: string;
+            /**
+             * Label
+             * @description What the step asks for.
+             */
+            label: string;
+            /**
+             * Required
+             * @description Whether matches can't be scheduled until it's done.
+             */
+            required: boolean;
+        };
     };
     responses: never;
     parameters: never;
@@ -20729,6 +20840,62 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    admin_nav_api_admin_nav_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminNavResponse"];
+                };
+            };
+            /** @description No token, or the token is unknown, expired or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing with that id in your community, or the feature is turned off for your community. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Over the rate limit. Wait the number of seconds in the `Retry-After` header. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     list_qualifiers_api_async_qualifiers_get: {
         parameters: {
             query?: {

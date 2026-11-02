@@ -55,6 +55,9 @@ const TARGETS = [
   { name: 'work', path: '/t/sgl/work' },
   { name: 'schedule-shift-menu', path: '/t/sgl/schedule', act: (p) => p.getByRole('button', { name: 'More for Check-in desk' }).click(), wait: 'role=menu' },
   { name: 'me', path: '/t/sgl/me' },
+  { name: 'admin', path: '/t/sgl/admin' },
+  { name: 'admin-setup', path: '/t/sgl/admin/setup' },
+  { name: 'admin-not-built', path: '/t/sgl/admin/members' },
   ...['about', 'notifications', 'availability', 'accounts', 'staff-alerts', 'equipment', 'accommodation', 'emergency-contact', 'feedback', 'webhooks', 'apps', 'tokens', 'appearance'].map(
     (s) => ({ name: `me-${s}`, path: `/t/sgl/me/${s}` }),
   ),
