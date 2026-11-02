@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Commentator stream test</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; padding: 16px; background: #111; color: #eee; font: 14px/1.4 system-ui, sans-serif; }
+  video { width: 100%; max-width: 1280px; background: #000; display: block; }
+  #clock { font: 700 48px/1 ui-monospace, monospace; margin: 12px 0; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  input, button { font: inherit; padding: 6px 10px; }
+</style>
+</head>
+<body>
+<div class="row">
+  <label>WHEP URL <input id="url" size="50" value=""></label>
+  <button id="play">Play</button>
+  <span id="state"></span>
+</div>
+<div id="clock" aria-label="This computer's clock"></div>
+<video id="v" autoplay playsinline controls muted></video>
+<script>
+// Minimal WHEP client: send an SDP offer, apply the answer.
+const $ = id => document.getElementById(id);
+$('url').value = new URLSearchParams(location.search).get('whep') || (location.protocol + '//' + location.hostname + ':8889/commentary/whep');
+(function tick() {
+  const d = new Date();
+  $('clock').textContent = d.toTimeString().slice(0, 8) + '.' + String(d.getMilliseconds()).padStart(3, '0');
+  requestAnimationFrame(tick);
+})();
+
+let pc;
+$('play').onclick = async () => {
+  if (pc) pc.close();
+  pc = new RTCPeerConnection();
+  pc.addTransceiver('video', { direction: 'recvonly' });
+  pc.addTransceiver('audio', { direction: 'recvonly' });
+  pc.ontrack = e => { $('v').srcObject = e.streams[0]; };
+  pc.onconnectionstatechange = () => { $('state').textContent = pc.connectionState; };
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+  const res = await fetch($('url').value, { method: 'POST', headers: { 'Content-Type': 'application/sdp' }, body: offer.sdp });
+  if (!res.ok) { $('state').textContent = 'WHEP refused: ' + res.status; return; }
+  await pc.setRemoteDescription({ type: 'answer', sdp: await res.text() });
+};
+</script>
+</body>
+</html>
