@@ -193,22 +193,6 @@
 .ms-row__go {
   color: var(--fg-muted);
 }
-.ms-tag {
-  --tone: var(--status-neutral);
-  font-size: var(--text-xs);
-  font-weight: 700;
-  border-radius: var(--radius-sm);
-  padding: 1px 6px;
-  background: color-mix(in srgb, var(--tone) 14%, var(--surface));
-  color: color-mix(in srgb, var(--tone) 75%, var(--fg));
-}
-.ms-tag--pending {
-  --tone: var(--status-pending);
-}
-.ms-tag--info {
-  --tone: var(--status-info);
-}
-
 .ms-back {
   display: inline-flex;
   align-items: center;

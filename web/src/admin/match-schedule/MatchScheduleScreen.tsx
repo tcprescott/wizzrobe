@@ -112,22 +112,22 @@ function Row({ row, zone, selected, to }: { row: BoardRow; zone: string; selecte
         {(row.late.length > 0 || comments > 0 || row.players.some((p) => p.ada) || row.crew.some((c) => c.short)) && (
           <span className="ms-row__tags">
             {row.late.map((l) => (
-              <span key={l.label} className="ms-tag ms-tag--pending">
+              <Chip key={l.label} tone="pending">
                 {l.label}
-              </span>
+              </Chip>
             ))}
             {row.crew
               .filter((c) => c.short)
               .map((c) => (
-                <span key={c.key} className="ms-tag ms-tag--pending">
+                <Chip key={c.key} tone="pending">
                   {c.label} {c.count}
-                </span>
+                </Chip>
               ))}
-            {row.players.some((p) => p.ada) && <span className="ms-tag ms-tag--info">ADA</span>}
+            {row.players.some((p) => p.ada) && <Chip tone="info">ADA</Chip>}
             {comments > 0 && (
-              <span className="ms-tag ms-tag--info">
+              <Chip tone="info">
                 {comments} {comments === 1 ? 'comment' : 'comments'}
-              </span>
+              </Chip>
             )}
           </span>
         )}

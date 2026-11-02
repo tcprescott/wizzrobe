@@ -118,19 +118,27 @@ export function MatchPane({ matchId, board, onChanged, onGone, closeTo, standalo
         {(m.late.length > 0 || m.players.some((p) => p.ada)) && (
           <div className="ms-row__tags">
             {m.late.map((l) => (
-              <span key={l.label} className="ms-tag ms-tag--pending" title={l.note ?? undefined}>
+              <Chip key={l.label} tone="pending">
                 {l.label}
-              </span>
+              </Chip>
             ))}
             {m.players
               .filter((p) => p.ada)
               .map((p) => (
-                <span key={p.id ?? p.name} className="ms-tag ms-tag--info" title={(p.user_id && (m.ada_notes ?? {})[String(p.user_id)]) || undefined}>
+                <Chip key={p.id ?? p.name} tone="info">
                   ADA: {p.name}
-                </span>
+                </Chip>
               ))}
           </div>
         )}
+        {m.late.some((l) => l.note) && (
+          <p className="ms-note">{m.late.filter((l) => l.note).map((l) => `${l.label}: ${l.note}`).join(' · ')}</p>
+        )}
+        {Object.entries(m.ada_notes ?? {}).map(([uid, note]) => (
+          <p key={uid} className="ms-note">
+            ADA, {m.players.find((p) => String(p.user_id) === uid)?.name}: {note}
+          </p>
+        ))}
         {failure && <Banner tone="error">{failure}</Banner>}
         <Primary pane={m} busy={busy} run={run} />
       </header>
@@ -175,7 +183,7 @@ export function MatchPane({ matchId, board, onChanged, onGone, closeTo, standalo
                 <div key={role.key} className="ms-role">
                   <div className="ms-role__head">
                     <span className="ms-role__label">{role.label}</span>
-                    <span className={role.short ? 'ms-tag ms-tag--pending' : 'ms-role__count'}>{role.count}</span>
+                    {role.short ? <Chip tone="pending">{role.count} · more needed</Chip> : <span className="ms-role__count">{role.count}</span>}
                   </div>
                   {approved.length > 0 ? (
                     <div className="ms-pills">
@@ -369,7 +377,7 @@ function CheckAction({
       </Button>
     )
   }
-  if (item === 'seed' && m.can.run && open && !m.seed_url && !m.seed_rolling && !m.is_racetime && m.players.length > 0) {
+  if (item === 'seed' && m.next_step?.event !== 'roll' && m.can.run && open && !m.seed_url && !m.seed_rolling && !m.is_racetime && m.players.length > 0) {
     return (
       <Button variant="outline" size="sm" busy={busy === 'roll'} busyLabel="Rolling…" onClick={() => run('roll', () => actions.roll(m.id))}>
         Roll seed
