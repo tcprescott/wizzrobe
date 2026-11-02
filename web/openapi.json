@@ -4145,6 +4145,99 @@
         "title": "BroadcasterInfo",
         "type": "object"
       },
+      "BuilderResponse": {
+        "properties": {
+          "ai_provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The AI provider set up for Suggest questions, or null for none.",
+            "title": "Ai Provider"
+          },
+          "answered": {
+            "description": "Responses sent so far (0 on a draft).",
+            "title": "Answered",
+            "type": "integer"
+          },
+          "budget_seconds": {
+            "description": "The longest path warns over this.",
+            "title": "Budget Seconds",
+            "type": "integer"
+          },
+          "checks": {
+            "description": "Things to look at; never block Send.",
+            "items": {
+              "$ref": "#/components/schemas/CheckFinding"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "checks_passed": {
+            "description": "Checks that found nothing.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Checks Passed",
+            "type": "array"
+          },
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "How many people fall in each audience.",
+            "title": "Counts",
+            "type": "object"
+          },
+          "longest_questions": {
+            "title": "Longest Questions",
+            "type": "integer"
+          },
+          "longest_seconds": {
+            "title": "Longest Seconds",
+            "type": "integer"
+          },
+          "longest_who": {
+            "description": "Who has the most to answer, in words.",
+            "title": "Longest Who",
+            "type": "string"
+          },
+          "suggestions": {
+            "description": "Per section, its newest batch with drafts still waiting.",
+            "items": {
+              "$ref": "#/components/schemas/SuggestionBatchResponse"
+            },
+            "title": "Suggestions",
+            "type": "array"
+          },
+          "target_seconds": {
+            "description": "Aim for most people under this.",
+            "title": "Target Seconds",
+            "type": "integer"
+          },
+          "typical_seconds": {
+            "description": "How long most people take: the median over everyone who took part.",
+            "title": "Typical Seconds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "typical_seconds",
+          "longest_seconds",
+          "longest_questions",
+          "longest_who",
+          "target_seconds",
+          "budget_seconds",
+          "counts",
+          "answered"
+        ],
+        "title": "BuilderResponse",
+        "type": "object"
+      },
       "CallOffRequest": {
         "description": "An optional note from staff, sent to the volunteer in the call-off DM.",
         "properties": {
@@ -4604,6 +4697,54 @@
           "telegram_notifications"
         ],
         "title": "ChannelsResponse",
+        "type": "object"
+      },
+      "CheckFinding": {
+        "properties": {
+          "check": {
+            "description": "Which rule found it.",
+            "title": "Check",
+            "type": "string"
+          },
+          "link": {
+            "default": "",
+            "description": "The question or part it names.",
+            "title": "Link",
+            "type": "string"
+          },
+          "question_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question Id"
+          },
+          "section_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Id"
+          },
+          "text": {
+            "description": "What to look at, following the link text.",
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "check",
+          "text"
+        ],
+        "title": "CheckFinding",
         "type": "object"
       },
       "CheckInEntrantResponse": {
@@ -9816,6 +9957,20 @@
         "title": "JoiningSettingsUpdate",
         "type": "object"
       },
+      "KeepRequest": {
+        "properties": {
+          "index": {
+            "minimum": 0.0,
+            "title": "Index",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "index"
+        ],
+        "title": "KeepRequest",
+        "type": "object"
+      },
       "LateTag": {
         "properties": {
           "label": {
@@ -12117,6 +12272,40 @@
         "title": "MembershipRequest",
         "type": "object"
       },
+      "MissingAnswerResponse": {
+        "properties": {
+          "every_statement": {
+            "default": false,
+            "description": "An agree scale with some statements still unanswered.",
+            "title": "Every Statement",
+            "type": "boolean"
+          },
+          "part_key": {
+            "title": "Part Key",
+            "type": "string"
+          },
+          "part_title": {
+            "title": "Part Title",
+            "type": "string"
+          },
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "question_id": {
+            "title": "Question Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "part_key",
+          "part_title",
+          "question_id",
+          "prompt"
+        ],
+        "title": "MissingAnswerResponse",
+        "type": "object"
+      },
       "MoveRequest": {
         "properties": {
           "step": {
@@ -12402,6 +12591,36 @@
           "messages"
         ],
         "title": "MyNotificationsResponse",
+        "type": "object"
+      },
+      "MyOpenSurvey": {
+        "properties": {
+          "closes_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closes At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title"
+        ],
+        "title": "MyOpenSurvey",
         "type": "object"
       },
       "MyQualifierRunResponse": {
@@ -14290,6 +14509,27 @@
         "title": "PhaseResponse",
         "type": "object"
       },
+      "PlaceRequest": {
+        "properties": {
+          "index": {
+            "description": "Its place in that section, from 0.",
+            "minimum": 0.0,
+            "title": "Index",
+            "type": "integer"
+          },
+          "section_id": {
+            "description": "The section it lands in (may be another one).",
+            "title": "Section Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "section_id",
+          "index"
+        ],
+        "title": "PlaceRequest",
+        "type": "object"
+      },
       "PlatformUserResponse": {
         "properties": {
           "communities": {
@@ -14738,6 +14978,48 @@
           "tournaments"
         ],
         "title": "PresetUsageResponse",
+        "type": "object"
+      },
+      "PreviewPathResponse": {
+        "properties": {
+          "hidden": {
+            "description": "What they won't see, and why, one line each.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Hidden",
+            "type": "array"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "parts": {
+            "title": "Parts",
+            "type": "integer"
+          },
+          "persona": {
+            "description": "Pass as `persona` to `GET /surveys/{id}/preview`.",
+            "title": "Persona",
+            "type": "string"
+          },
+          "questions": {
+            "title": "Questions",
+            "type": "integer"
+          },
+          "seconds": {
+            "title": "Seconds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "persona",
+          "label",
+          "parts",
+          "questions",
+          "seconds"
+        ],
+        "title": "PreviewPathResponse",
         "type": "object"
       },
       "PrivacyPolicy": {
@@ -17773,6 +18055,285 @@
         "title": "RescheduleRequestResponse",
         "type": "object"
       },
+      "RespondentPart": {
+        "properties": {
+          "answered": {
+            "default": 0,
+            "description": "Questions showing now that have an answer.",
+            "title": "Answered",
+            "type": "integer"
+          },
+          "answers": {
+            "additionalProperties": true,
+            "description": "Question id → what is saved: the value, the comment text, or `{value, other}` for an Other pick.",
+            "title": "Answers",
+            "type": "object"
+          },
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          },
+          "icon": {
+            "description": "Material Symbols icon name.",
+            "title": "Icon",
+            "type": "string"
+          },
+          "key": {
+            "description": "`<section id>|<scope>`; send it back to save the part.",
+            "title": "Key",
+            "type": "string"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/RespondentQuestion"
+            },
+            "title": "Questions",
+            "type": "array"
+          },
+          "reason": {
+            "description": "Why this person gets it, e.g. `You played ALTTPR Main`.",
+            "title": "Reason",
+            "type": "string"
+          },
+          "scope": {
+            "title": "Scope",
+            "type": "string"
+          },
+          "seconds": {
+            "description": "About how long it takes.",
+            "title": "Seconds",
+            "type": "integer"
+          },
+          "showing": {
+            "default": 0,
+            "description": "Questions showing now.",
+            "title": "Showing",
+            "type": "integer"
+          },
+          "shown": {
+            "default": true,
+            "description": "Whether the part shows, given the answers so far.",
+            "title": "Shown",
+            "type": "boolean"
+          },
+          "shows_if": {
+            "description": "The whole part waits on these answers.",
+            "items": {
+              "$ref": "#/components/schemas/ShowsIf"
+            },
+            "title": "Shows If",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "title",
+          "reason",
+          "icon",
+          "scope",
+          "questions",
+          "seconds"
+        ],
+        "title": "RespondentPart",
+        "type": "object"
+      },
+      "RespondentQuestion": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "kind": {
+            "description": "`rating`, `nps`, `yes_no`, `choice_one`, `choice_many`, `comment` or `agree_scale`.",
+            "title": "Kind",
+            "type": "string"
+          },
+          "long_answer": {
+            "default": false,
+            "title": "Long Answer",
+            "type": "boolean"
+          },
+          "max_picks": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Picks"
+          },
+          "min_picks": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Picks"
+          },
+          "none_option": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "None Option"
+          },
+          "options": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Choices, or an agree scale's statements.",
+            "title": "Options"
+          },
+          "other_option": {
+            "default": false,
+            "title": "Other Option",
+            "type": "boolean"
+          },
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "required": {
+            "title": "Required",
+            "type": "boolean"
+          },
+          "shows_if": {
+            "description": "All must hold for it to show. An answer is looked up in this part, then in the unscoped part.",
+            "items": {
+              "$ref": "#/components/schemas/ShowsIf"
+            },
+            "title": "Shows If",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "prompt",
+          "kind",
+          "required"
+        ],
+        "title": "RespondentQuestion",
+        "type": "object"
+      },
+      "RespondentSurvey": {
+        "properties": {
+          "after_send": {
+            "description": "What the page says after sending.",
+            "title": "After Send",
+            "type": "string"
+          },
+          "allow_anonymous": {
+            "title": "Allow Anonymous",
+            "type": "boolean"
+          },
+          "anonymous": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Once sent: whether it went without their name.",
+            "title": "Anonymous"
+          },
+          "closes_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closes At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "intro": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Intro"
+          },
+          "missing": {
+            "description": "Required questions still unanswered, in order; Send refuses while any remain.",
+            "items": {
+              "$ref": "#/components/schemas/MissingAnswerResponse"
+            },
+            "title": "Missing",
+            "type": "array"
+          },
+          "open": {
+            "description": "False once it closed or this person sent their answers.",
+            "title": "Open",
+            "type": "boolean"
+          },
+          "parts": {
+            "items": {
+              "$ref": "#/components/schemas/RespondentPart"
+            },
+            "title": "Parts",
+            "type": "array"
+          },
+          "seconds": {
+            "description": "About how long their parts take in all.",
+            "title": "Seconds",
+            "type": "integer"
+          },
+          "submitted": {
+            "title": "Submitted",
+            "type": "boolean"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "allow_anonymous",
+          "after_send",
+          "open",
+          "submitted",
+          "seconds",
+          "parts"
+        ],
+        "title": "RespondentSurvey",
+        "type": "object"
+      },
       "ReviewRequest": {
         "properties": {
           "approved": {
@@ -18156,6 +18717,21 @@
           "minutes"
         ],
         "title": "RunningLateRequest",
+        "type": "object"
+      },
+      "SavePartRequest": {
+        "properties": {
+          "answers": {
+            "additionalProperties": true,
+            "description": "Question id → answer, in the shape `answers` returns. A blank answer clears it.",
+            "title": "Answers",
+            "type": "object"
+          }
+        },
+        "required": [
+          "answers"
+        ],
+        "title": "SavePartRequest",
         "type": "object"
       },
       "SavedMatch": {
@@ -18723,6 +19299,20 @@
         "title": "SeedTaskResponse",
         "type": "object"
       },
+      "SentContextResponse": {
+        "properties": {
+          "context": {
+            "description": "Exactly what the AI provider was sent.",
+            "title": "Context",
+            "type": "string"
+          }
+        },
+        "required": [
+          "context"
+        ],
+        "title": "SentContextResponse",
+        "type": "object"
+      },
       "SentMessageCounts": {
         "properties": {
           "failed": {
@@ -19105,6 +19695,27 @@
           "minutes"
         ],
         "title": "ShiftLateRequest",
+        "type": "object"
+      },
+      "ShowsIf": {
+        "properties": {
+          "question_id": {
+            "description": "The earlier question it waits on.",
+            "title": "Question Id",
+            "type": "integer"
+          },
+          "values": {
+            "description": "It shows when that answer is one of these (for a pick-many, when any picked choice is).",
+            "items": {},
+            "title": "Values",
+            "type": "array"
+          }
+        },
+        "required": [
+          "question_id",
+          "values"
+        ],
+        "title": "ShowsIf",
         "type": "object"
       },
       "SignupWindow": {
@@ -20306,6 +20917,18 @@
         "title": "StreamCandidateRequest",
         "type": "object"
       },
+      "SubmitRequest": {
+        "properties": {
+          "anonymous": {
+            "default": false,
+            "description": "Send without the name, for good. Refused if the survey asks for names.",
+            "title": "Anonymous",
+            "type": "boolean"
+          }
+        },
+        "title": "SubmitRequest",
+        "type": "object"
+      },
       "SubmitRunRequest": {
         "properties": {
           "elapsed_seconds": {
@@ -20466,6 +21089,77 @@
           "scheduled_at"
         ],
         "title": "Suggestion",
+        "type": "object"
+      },
+      "SuggestionBatchResponse": {
+        "properties": {
+          "drafts": {
+            "description": "Drafts nobody has kept or dismissed yet.",
+            "items": {
+              "$ref": "#/components/schemas/SuggestionDraft"
+            },
+            "title": "Drafts",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "model": {
+            "default": "",
+            "description": "The model that wrote them.",
+            "title": "Model",
+            "type": "string"
+          },
+          "section_id": {
+            "title": "Section Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "section_id",
+          "drafts"
+        ],
+        "title": "SuggestionBatchResponse",
+        "type": "object"
+      },
+      "SuggestionDraft": {
+        "properties": {
+          "index": {
+            "description": "Pass to `keep`.",
+            "title": "Index",
+            "type": "integer"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "options": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Options"
+          },
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          }
+        },
+        "required": [
+          "index",
+          "prompt",
+          "kind"
+        ],
+        "title": "SuggestionDraft",
         "type": "object"
       },
       "SurveyAnswerResponse": {
@@ -21427,6 +22121,21 @@
           "errors"
         ],
         "title": "SyncResultResponse",
+        "type": "object"
+      },
+      "TagRequest": {
+        "properties": {
+          "name": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "TagRequest",
         "type": "object"
       },
       "TelegramLinkResponse": {
@@ -56641,6 +57350,731 @@
         ]
       }
     },
+    "/api/me/surveys": {
+      "get": {
+        "description": "Open surveys sent to you that you have not answered yet.\n\n**Who can call this:** Any member.\n\n**App scope:** `profile`  \n**Feature:** only works when the community has **Surveys** turned on; otherwise every call answers `404`.",
+        "operationId": "my_open_surveys_api_me_surveys_get",
+        "parameters": [
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MyOpenSurvey"
+                  },
+                  "title": "Response My Open Surveys Api Me Surveys Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "profile"
+            ]
+          }
+        ],
+        "summary": "List surveys waiting on me",
+        "tags": [
+          "My surveys"
+        ]
+      }
+    },
+    "/api/me/surveys/{survey_id}": {
+      "get": {
+        "description": "Your parts of the survey, with what you have saved so far and which required questions are still unanswered. Marks the survey opened.\n\n**Who can call this:** The person the survey was sent to.\n\n**App scope:** `profile`  \n**Feature:** only works when the community has **Surveys** turned on; otherwise every call answers `404`.",
+        "operationId": "open_survey_api_me_surveys__survey_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "survey_id",
+            "required": true,
+            "schema": {
+              "title": "Survey Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespondentSurvey"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "profile"
+            ]
+          }
+        ],
+        "summary": "Open a survey sent to me",
+        "tags": [
+          "My surveys"
+        ]
+      }
+    },
+    "/api/me/surveys/{survey_id}/decline": {
+      "post": {
+        "description": "No more reminders for this survey. The link keeps working.\n\n**Who can call this:** The person the survey was sent to.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `profile:write`  \n**Feature:** only works when the community has **Surveys** turned on; otherwise every call answers `404`.",
+        "operationId": "decline_api_me_surveys__survey_id__decline_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "survey_id",
+            "required": true,
+            "schema": {
+              "title": "Survey Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "profile:write"
+            ]
+          }
+        ],
+        "summary": "Not interested",
+        "tags": [
+          "My surveys"
+        ]
+      }
+    },
+    "/api/me/surveys/{survey_id}/parts/{part_key}": {
+      "put": {
+        "description": "Saves the answers to one part (question id → answer); a blank answer clears it. Refused once the survey closed or you sent. Returns the whole survey again, since an answer can show or hide later questions and parts.\n\n**Who can call this:** The person the survey was sent to.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `profile:write`  \n**Feature:** only works when the community has **Surveys** turned on; otherwise every call answers `404`.",
+        "operationId": "save_part_api_me_surveys__survey_id__parts__part_key__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "survey_id",
+            "required": true,
+            "schema": {
+              "title": "Survey Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "part_key",
+            "required": true,
+            "schema": {
+              "title": "Part Key",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavePartRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespondentSurvey"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "profile:write"
+            ]
+          }
+        ],
+        "summary": "Save my answers to one part",
+        "tags": [
+          "My surveys"
+        ]
+      }
+    },
+    "/api/me/surveys/{survey_id}/parts/{part_key}/open": {
+      "post": {
+        "description": "Counts the part as reached, for the drop-off report. Does nothing once you have sent.\n\n**Who can call this:** The person the survey was sent to.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `profile:write`  \n**Feature:** only works when the community has **Surveys** turned on; otherwise every call answers `404`.",
+        "operationId": "open_part_api_me_surveys__survey_id__parts__part_key__open_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "survey_id",
+            "required": true,
+            "schema": {
+              "title": "Survey Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "part_key",
+            "required": true,
+            "schema": {
+              "title": "Part Key",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "profile:write"
+            ]
+          }
+        ],
+        "summary": "Note that I opened a part",
+        "tags": [
+          "My surveys"
+        ]
+      }
+    },
+    "/api/me/surveys/{survey_id}/submit": {
+      "post": {
+        "description": "Sends what you saved. Refused while a required question is unanswered. Anonymous strips your name for good and keeps only the day.\n\n**Who can call this:** The person the survey was sent to.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `profile:write`  \n**Feature:** only works when the community has **Surveys** turned on; otherwise every call answers `404`.",
+        "operationId": "submit_api_me_surveys__survey_id__submit_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "survey_id",
+            "required": true,
+            "schema": {
+              "title": "Survey Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespondentSurvey"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "profile:write"
+            ]
+          }
+        ],
+        "summary": "Send my answers",
+        "tags": [
+          "My surveys"
+        ]
+      }
+    },
     "/api/me/webhooks": {
       "get": {
         "description": "Your webhooks, plus the areas and events this community lets you subscribe to.\n\n**Who can call this:** Any member, where the community allows personal webhooks.\n\n**App scope:** `profile`",
@@ -69560,6 +70994,130 @@
         ]
       }
     },
+    "/api/surveys/questions/{question_id}/place": {
+      "post": {
+        "description": "Puts the question at `index` in `section_id`, which may be another section. Refused when it would land above a question it follows. Drafts only.\n\n**Who can call this:** Staff.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `staff:write`  \n**Feature:** only works when the community has **Surveys** turned on; otherwise every call answers `404`.",
+        "operationId": "place_question_api_surveys_questions__question_id__place_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "question_id",
+            "required": true,
+            "schema": {
+              "title": "Question Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlaceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:write"
+            ]
+          }
+        ],
+        "summary": "Drop a question somewhere else",
+        "tags": [
+          "Surveys"
+        ]
+      }
+    },
     "/api/surveys/sections/{section_id}": {
       "delete": {
         "description": "Drafts only.\n\n**Who can call this:** Staff.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `staff:write`  \n**Feature:** only works when the community has **Surveys** turned on; otherwise every call answers `404`.",
@@ -70058,6 +71616,483 @@
         ]
       }
     },
+    "/api/surveys/sections/{section_id}/suggestions": {
+      "post": {
+        "description": "Asks the community's AI provider for up to five draft questions. Once per press; capped per day under Settings → Integrations. Drafts only.\n\n**Who can call this:** Staff.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `staff:write`  \n**Feature:** only works when the community has **Surveys** turned on; otherwise every call answers `404`.",
+        "operationId": "suggest_api_surveys_sections__section_id__suggestions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "section_id",
+            "required": true,
+            "schema": {
+              "title": "Section Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuggestionBatchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:write"
+            ]
+          }
+        ],
+        "summary": "Suggest questions for a section",
+        "tags": [
+          "Surveys"
+        ]
+      }
+    },
+    "/api/surveys/suggestions/{batch_id}/dismiss": {
+      "post": {
+        "description": "**Who can call this:** Staff.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `staff:write`  \n**Feature:** only works when the community has **Surveys** turned on; otherwise every call answers `404`.",
+        "operationId": "dismiss_api_surveys_suggestions__batch_id__dismiss_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "title": "Batch Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:write"
+            ]
+          }
+        ],
+        "summary": "Dismiss the rest of a batch of suggestions",
+        "tags": [
+          "Surveys"
+        ]
+      }
+    },
+    "/api/surveys/suggestions/{batch_id}/keep": {
+      "post": {
+        "description": "Adds the draft to its section as an ordinary question.\n\n**Who can call this:** Staff.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `staff:write`  \n**Feature:** only works when the community has **Surveys** turned on; otherwise every call answers `404`.",
+        "operationId": "keep_api_surveys_suggestions__batch_id__keep_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "title": "Batch Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KeepRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SurveyQuestionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:write"
+            ]
+          }
+        ],
+        "summary": "Keep a suggested question",
+        "tags": [
+          "Surveys"
+        ]
+      }
+    },
+    "/api/surveys/suggestions/{batch_id}/sent": {
+      "get": {
+        "description": "The exact text the provider was given for this batch.\n\n**Who can call this:** Staff.\n\n**App scope:** `staff:read`  \n**Feature:** only works when the community has **Surveys** turned on; otherwise every call answers `404`.",
+        "operationId": "sent_context_api_surveys_suggestions__batch_id__sent_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "title": "Batch Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SentContextResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "What was sent to the AI",
+        "tags": [
+          "Surveys"
+        ]
+      }
+    },
     "/api/surveys/{survey_id}": {
       "delete": {
         "description": "Deletes a draft. A sent survey is deleted only from Admin → Surveys.\n\n**Who can call this:** Staff.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `staff:write`  \n**Feature:** only works when the community has **Surveys** turned on; otherwise every call answers `404`.",
@@ -70405,6 +72440,371 @@
           }
         ],
         "summary": "Change a survey's title, intro, anonymity or close time",
+        "tags": [
+          "Surveys"
+        ]
+      }
+    },
+    "/api/surveys/{survey_id}/builder": {
+      "get": {
+        "description": "How long the survey takes most people and the person with the most to answer, worked out over everyone who took part in its event; the checks (empty parts, unreachable questions, over-long parts...); whether Suggest questions is set up; and any AI drafts still waiting.\n\n**Who can call this:** Staff.\n\n**App scope:** `staff:read`  \n**Feature:** only works when the community has **Surveys** turned on; otherwise every call answers `404`.",
+        "operationId": "builder_api_surveys__survey_id__builder_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "survey_id",
+            "required": true,
+            "schema": {
+              "title": "Survey Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuilderResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "The builder's time box and checks",
+        "tags": [
+          "Surveys"
+        ]
+      }
+    },
+    "/api/surveys/{survey_id}/comment-tags": {
+      "post": {
+        "description": "Up to 20 per survey, names unique ignoring case.\n\n**Who can call this:** Staff.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `staff:write`  \n**Feature:** only works when the community has **Surveys** turned on; otherwise every call answers `404`.",
+        "operationId": "add_tag_api_surveys__survey_id__comment_tags_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "survey_id",
+            "required": true,
+            "schema": {
+              "title": "Survey Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TagRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SurveyCommentTagResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:write"
+            ]
+          }
+        ],
+        "summary": "Add a comment tag",
+        "tags": [
+          "Surveys"
+        ]
+      }
+    },
+    "/api/surveys/{survey_id}/comment-tags/{tag_id}": {
+      "delete": {
+        "description": "Comments that carried it just lose it.\n\n**Who can call this:** Staff.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `staff:write`  \n**Feature:** only works when the community has **Surveys** turned on; otherwise every call answers `404`.",
+        "operationId": "delete_tag_api_surveys__survey_id__comment_tags__tag_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "survey_id",
+            "required": true,
+            "schema": {
+              "title": "Survey Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "tag_id",
+            "required": true,
+            "schema": {
+              "title": "Tag Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:write"
+            ]
+          }
+        ],
+        "summary": "Delete a comment tag",
         "tags": [
           "Surveys"
         ]
@@ -70777,6 +73177,250 @@
           }
         ],
         "summary": "Copy a survey into a new draft",
+        "tags": [
+          "Surveys"
+        ]
+      }
+    },
+    "/api/surveys/{survey_id}/preview": {
+      "get": {
+        "description": "The parts that kind of person would see, in the shape `GET /me/surveys/{id}` returns. `persona` comes from `preview-paths`; leave it out for every question. Nothing is saved.\n\n**Who can call this:** Staff.\n\n**App scope:** `staff:read`  \n**Feature:** only works when the community has **Surveys** turned on; otherwise every call answers `404`.",
+        "operationId": "preview_api_surveys__survey_id__preview_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "survey_id",
+            "required": true,
+            "schema": {
+              "title": "Survey Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "A `persona` from `preview-paths`.",
+            "in": "query",
+            "name": "persona",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "A `persona` from `preview-paths`.",
+              "title": "Persona"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespondentSurvey"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "Preview the survey as one kind of person",
+        "tags": [
+          "Surveys"
+        ]
+      }
+    },
+    "/api/surveys/{survey_id}/preview-paths": {
+      "get": {
+        "description": "One row per kind of person: their parts, questions and time, and what they won't see and why.\n\n**Who can call this:** Staff.\n\n**App scope:** `staff:read`  \n**Feature:** only works when the community has **Surveys** turned on; otherwise every call answers `404`.",
+        "operationId": "preview_paths_api_surveys__survey_id__preview_paths_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "survey_id",
+            "required": true,
+            "schema": {
+              "title": "Survey Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to work in, by its slug (see `GET /api/events`). Leave it out for the community's default event. A call about one row (a match, a shift) works in that row's event, and naming a different event is a 404.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PreviewPathResponse"
+                  },
+                  "title": "Response Preview Paths Api Surveys  Survey Id  Preview Paths Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "staff:read"
+            ]
+          }
+        ],
+        "summary": "Who sees what",
         "tags": [
           "Surveys"
         ]
@@ -81704,6 +84348,10 @@
       "name": "My notifications"
     },
     {
+      "description": "Surveys sent to you: open one, save each part, and send your answers.",
+      "name": "My surveys"
+    },
+    {
       "description": "Which messages reach you and whether they ping, and the tournaments you follow.",
       "name": "Notifications"
     },
@@ -83500,6 +86148,7 @@
         "Work",
         "My profile",
         "My notifications",
+        "My surveys",
         "Notifications",
         "API tokens",
         "My developer tools"
