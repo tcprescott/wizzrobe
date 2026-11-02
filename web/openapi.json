@@ -1,6 +1,54 @@
 {
   "components": {
     "schemas": {
+      "AboutPage": {
+        "properties": {
+          "built_with_claude": {
+            "title": "Built With Claude",
+            "type": "string"
+          },
+          "commit_short": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commit Short"
+          },
+          "intro": {
+            "items": {
+              "$ref": "#/components/schemas/BlockOut"
+            },
+            "title": "Intro",
+            "type": "array"
+          },
+          "notice_count": {
+            "title": "Notice Count",
+            "type": "integer"
+          },
+          "source_url": {
+            "title": "Source Url",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "intro",
+          "built_with_claude",
+          "version",
+          "commit_short",
+          "source_url",
+          "notice_count"
+        ],
+        "title": "AboutPage",
+        "type": "object"
+      },
       "AccommodationResponse": {
         "properties": {
           "changed_since_arranged": {
@@ -524,6 +572,120 @@
           "created_at"
         ],
         "title": "ApiTokenResponse",
+        "type": "object"
+      },
+      "Article": {
+        "properties": {
+          "blocks": {
+            "items": {
+              "$ref": "#/components/schemas/BlockOut"
+            },
+            "title": "Blocks",
+            "type": "array"
+          },
+          "for_staff": {
+            "description": "Listed under \"For staff\" (help only).",
+            "title": "For Staff",
+            "type": "boolean"
+          },
+          "headings": {
+            "description": "The On this page list: every top-level heading.",
+            "items": {
+              "$ref": "#/components/schemas/Heading"
+            },
+            "title": "Headings",
+            "type": "array"
+          },
+          "icon": {
+            "description": "A Material Symbols icon name.",
+            "title": "Icon",
+            "type": "string"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "tournaments": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/HandbookTournamentOut"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Handbook articles with a `tournaments` embed: the live list it draws.",
+            "title": "Tournaments"
+          },
+          "venue_timezone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The clock the article states times on (IANA name). Handbook articles only.",
+            "title": "Venue Timezone"
+          }
+        },
+        "required": [
+          "slug",
+          "title",
+          "summary",
+          "icon",
+          "for_staff",
+          "headings",
+          "blocks"
+        ],
+        "title": "Article",
+        "type": "object"
+      },
+      "ArticleSummary": {
+        "properties": {
+          "for_staff": {
+            "description": "Listed under \"For staff\" (help only).",
+            "title": "For Staff",
+            "type": "boolean"
+          },
+          "icon": {
+            "description": "A Material Symbols icon name.",
+            "title": "Icon",
+            "type": "string"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug",
+          "title",
+          "summary",
+          "icon",
+          "for_staff"
+        ],
+        "title": "ArticleSummary",
         "type": "object"
       },
       "AssignRequest": {
@@ -1400,6 +1562,97 @@
           "ends_at"
         ],
         "title": "AvailabilityWindowInput",
+        "type": "object"
+      },
+      "BlockOut": {
+        "properties": {
+          "alt": {
+            "title": "Alt",
+            "type": "string"
+          },
+          "anchor": {
+            "description": "A heading's fragment id, for On this page links.",
+            "title": "Anchor",
+            "type": "string"
+          },
+          "headers": {
+            "description": "Table header cells.",
+            "items": {
+              "items": {
+                "$ref": "#/components/schemas/SpanOut"
+              },
+              "type": "array"
+            },
+            "title": "Headers",
+            "type": "array"
+          },
+          "items": {
+            "description": "List items.",
+            "items": {
+              "items": {
+                "$ref": "#/components/schemas/SpanOut"
+              },
+              "type": "array"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "kind": {
+            "description": "One of `heading`, `para`, `bullets`, `numbers`, `table`, `note`, `image`, `embed`.",
+            "title": "Kind",
+            "type": "string"
+          },
+          "level": {
+            "description": "Heading level, 2 to 4.",
+            "title": "Level",
+            "type": "integer"
+          },
+          "name": {
+            "description": "An embed's name; `tournaments` draws the article's `tournaments` list in place.",
+            "title": "Name",
+            "type": "string"
+          },
+          "rows": {
+            "description": "Table rows of cells.",
+            "items": {
+              "items": {
+                "items": {
+                  "$ref": "#/components/schemas/SpanOut"
+                },
+                "type": "array"
+              },
+              "type": "array"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "spans": {
+            "description": "Heading, paragraph or note text; an image's caption.",
+            "items": {
+              "$ref": "#/components/schemas/SpanOut"
+            },
+            "title": "Spans",
+            "type": "array"
+          },
+          "src": {
+            "description": "An image's path on the server, under `/static/help/`.",
+            "title": "Src",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "spans",
+          "items",
+          "headers",
+          "rows",
+          "level",
+          "anchor",
+          "src",
+          "alt",
+          "name"
+        ],
+        "title": "BlockOut",
         "type": "object"
       },
       "BoardGroup": {
@@ -3487,6 +3740,94 @@
         "title": "ChallongeSyncResponse",
         "type": "object"
       },
+      "Changelog": {
+        "properties": {
+          "weeks": {
+            "description": "Newest first.",
+            "items": {
+              "$ref": "#/components/schemas/ChangelogWeek"
+            },
+            "title": "Weeks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "weeks"
+        ],
+        "title": "Changelog",
+        "type": "object"
+      },
+      "ChangelogSectionOut": {
+        "properties": {
+          "blocks": {
+            "items": {
+              "$ref": "#/components/schemas/BlockOut"
+            },
+            "title": "Blocks",
+            "type": "array"
+          },
+          "category": {
+            "description": "`New`, `Improved`, `Fixed`, `Security` or `Behind the scenes`.",
+            "title": "Category",
+            "type": "string"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "category",
+          "count",
+          "blocks"
+        ],
+        "title": "ChangelogSectionOut",
+        "type": "object"
+      },
+      "ChangelogWeek": {
+        "properties": {
+          "anchor": {
+            "title": "Anchor",
+            "type": "string"
+          },
+          "end": {
+            "format": "date",
+            "title": "End",
+            "type": "string"
+          },
+          "period": {
+            "description": "The dates, written out: `26 Oct – 1 Nov`.",
+            "title": "Period",
+            "type": "string"
+          },
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/ChangelogSectionOut"
+            },
+            "title": "Sections",
+            "type": "array"
+          },
+          "start": {
+            "format": "date",
+            "title": "Start",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "end",
+          "title",
+          "period",
+          "anchor",
+          "sections"
+        ],
+        "title": "ChangelogWeek",
+        "type": "object"
+      },
       "ChannelTestRequest": {
         "properties": {
           "channels": {
@@ -3626,6 +3967,22 @@
             "title": "Email Notifications",
             "type": "boolean"
           },
+          "native_devices": {
+            "description": "Store-app installs getting notifications.",
+            "items": {
+              "$ref": "#/components/schemas/NativeDeviceResponse"
+            },
+            "title": "Native Devices",
+            "type": "array"
+          },
+          "native_push_platforms": {
+            "description": "Phone platforms (`ios`, `android`) the store apps can get notifications on from this server.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Native Push Platforms",
+            "type": "array"
+          },
           "push_configured": {
             "description": "This server can send device notifications.",
             "title": "Push Configured",
@@ -3642,6 +3999,18 @@
             ],
             "description": "The VAPID key a browser subscribes with.",
             "title": "Push Public Key"
+          },
+          "registered_device_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set only when registering a phone: the id of the row that call saved.",
+            "title": "Registered Device Id"
           },
           "telegram_available": {
             "title": "Telegram Available",
@@ -3672,6 +4041,8 @@
           "dm_notifications",
           "push_configured",
           "devices",
+          "native_push_platforms",
+          "native_devices",
           "channels_enabled",
           "email_available",
           "email_notifications",
@@ -6624,6 +6995,33 @@
         "title": "EventCreateResponse",
         "type": "object"
       },
+      "EventInfoIndex": {
+        "properties": {
+          "articles": {
+            "items": {
+              "$ref": "#/components/schemas/ArticleSummary"
+            },
+            "title": "Articles",
+            "type": "array"
+          },
+          "guide": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GuideInfo"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The organisers' PDF guide, when there is one."
+          }
+        },
+        "required": [
+          "articles"
+        ],
+        "title": "EventInfoIndex",
+        "type": "object"
+      },
       "EventResponse": {
         "properties": {
           "ends_on": {
@@ -6912,6 +7310,51 @@
           "later_games"
         ],
         "title": "ExtendToSetRequest",
+        "type": "object"
+      },
+      "Facts": {
+        "properties": {
+          "another": {
+            "description": "The shuffle button's label.",
+            "title": "Another",
+            "type": "string"
+          },
+          "icon": {
+            "title": "Icon",
+            "type": "string"
+          },
+          "noun": {
+            "title": "Noun",
+            "type": "string"
+          },
+          "sections": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Sections",
+            "type": "object"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "title",
+          "noun",
+          "icon",
+          "another",
+          "total",
+          "sections"
+        ],
+        "title": "Facts",
         "type": "object"
       },
       "FeatureGroupAssignRequest": {
@@ -7392,6 +7835,30 @@
         "title": "GraphQLResponse",
         "type": "object"
       },
+      "GuideInfo": {
+        "properties": {
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "size_label": {
+            "description": "Such as `4.2 MB`.",
+            "title": "Size Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "filename",
+          "size_bytes",
+          "size_label"
+        ],
+        "title": "GuideInfo",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -7403,6 +7870,100 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HandbookTournamentOut": {
+        "properties": {
+          "bracket_url": {
+            "description": "A site path for a bracket Wizzrobe shows, else an outside link, else empty.",
+            "title": "Bracket Url",
+            "type": "string"
+          },
+          "format": {
+            "title": "Format",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "prize_synced_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prize Synced At"
+          },
+          "prize_total": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prize Total"
+          },
+          "rules_url": {
+            "title": "Rules Url",
+            "type": "string"
+          },
+          "signups": {
+            "description": "`upcoming`, `open` or `closed`.",
+            "title": "Signups",
+            "type": "string"
+          },
+          "signups_close_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signups Close At"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "format",
+          "rules_url",
+          "bracket_url",
+          "signups",
+          "signups_close_at"
+        ],
+        "title": "HandbookTournamentOut",
+        "type": "object"
+      },
+      "Heading": {
+        "properties": {
+          "anchor": {
+            "title": "Anchor",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "anchor",
+          "text"
+        ],
+        "title": "Heading",
         "type": "object"
       },
       "HealthResponse": {
@@ -7451,6 +8012,23 @@
           "detail"
         ],
         "title": "HeldResult",
+        "type": "object"
+      },
+      "HelpIndex": {
+        "properties": {
+          "articles": {
+            "description": "Every article you may open, \"For staff\" last.",
+            "items": {
+              "$ref": "#/components/schemas/ArticleSummary"
+            },
+            "title": "Articles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "articles"
+        ],
+        "title": "HelpIndex",
         "type": "object"
       },
       "HomeResponse": {
@@ -10075,6 +10653,87 @@
         "title": "Named",
         "type": "object"
       },
+      "NativeDeviceRegisterRequest": {
+        "properties": {
+          "device_name": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Name"
+          },
+          "platform": {
+            "description": "`ios` or `android`.",
+            "title": "Platform",
+            "type": "string"
+          },
+          "token": {
+            "description": "The push token the phone's platform handed the app.",
+            "maxLength": 512,
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "platform",
+          "token"
+        ],
+        "title": "NativeDeviceRegisterRequest",
+        "type": "object"
+      },
+      "NativeDeviceResponse": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "device_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Name"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          },
+          "platform": {
+            "description": "`ios` or `android`.",
+            "title": "Platform",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "platform",
+          "created_at"
+        ],
+        "title": "NativeDeviceResponse",
+        "type": "object"
+      },
       "NeedResponse": {
         "properties": {
           "agreed": {
@@ -10209,6 +10868,37 @@
         "title": "NextStep",
         "type": "object"
       },
+      "NoticeGroupOut": {
+        "properties": {
+          "blurb": {
+            "title": "Blurb",
+            "type": "string"
+          },
+          "heading": {
+            "title": "Heading",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "notices": {
+            "items": {
+              "$ref": "#/components/schemas/NoticeOut"
+            },
+            "title": "Notices",
+            "type": "array"
+          }
+        },
+        "required": [
+          "key",
+          "heading",
+          "blurb",
+          "notices"
+        ],
+        "title": "NoticeGroupOut",
+        "type": "object"
+      },
       "NoticeInfo": {
         "properties": {
           "community": {
@@ -10269,6 +10959,108 @@
           "effective"
         ],
         "title": "NoticeInfo",
+        "type": "object"
+      },
+      "NoticeOut": {
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "license": {
+            "title": "License",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "version",
+          "license",
+          "url"
+        ],
+        "title": "NoticeOut",
+        "type": "object"
+      },
+      "NoticeText": {
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "license": {
+            "title": "License",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "text": {
+            "description": "The licence and copyright notice, as plain text.",
+            "title": "Text",
+            "type": "string"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "version",
+          "license",
+          "url",
+          "text"
+        ],
+        "title": "NoticeText",
+        "type": "object"
+      },
+      "Notices": {
+        "properties": {
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/NoticeGroupOut"
+            },
+            "title": "Groups",
+            "type": "array"
+          }
+        },
+        "required": [
+          "groups"
+        ],
+        "title": "Notices",
         "type": "object"
       },
       "NotificationCardResponse": {
@@ -11858,6 +12650,28 @@
           }
         },
         "title": "PresetUpdateRequest",
+        "type": "object"
+      },
+      "PrivacyPolicy": {
+        "properties": {
+          "blocks": {
+            "items": {
+              "$ref": "#/components/schemas/BlockOut"
+            },
+            "title": "Blocks",
+            "type": "array"
+          },
+          "updated": {
+            "format": "date",
+            "title": "Updated",
+            "type": "string"
+          }
+        },
+        "required": [
+          "updated",
+          "blocks"
+        ],
+        "title": "PrivacyPolicy",
         "type": "object"
       },
       "PrizePoolRequest": {
@@ -15134,6 +15948,75 @@
           "site"
         ],
         "title": "SiteResult",
+        "type": "object"
+      },
+      "Snippet": {
+        "properties": {
+          "blocks": {
+            "items": {
+              "$ref": "#/components/schemas/BlockOut"
+            },
+            "title": "Blocks",
+            "type": "array"
+          },
+          "heading": {
+            "title": "Heading",
+            "type": "string"
+          },
+          "href": {
+            "description": "The article, at the heading the snippet sits under.",
+            "title": "Href",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "title": {
+            "description": "The article it comes from.",
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "title",
+          "heading",
+          "href",
+          "blocks"
+        ],
+        "title": "Snippet",
+        "type": "object"
+      },
+      "SpanOut": {
+        "properties": {
+          "href": {
+            "description": "Links only. Already checked safe: a site path (`/help/crew`), `#anchor`, `https://` or `mailto:`.",
+            "title": "Href",
+            "type": "string"
+          },
+          "kind": {
+            "description": "One of `text`, `strong`, `em`, `code`, `link`, `chip`, `state`.",
+            "title": "Kind",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "tone": {
+            "description": "Chips only: `ok`, `pending`, `live`, `neutral`, `cancelled`, `candidate` or `new`.",
+            "title": "Tone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "text",
+          "href",
+          "tone"
+        ],
+        "title": "SpanOut",
         "type": "object"
       },
       "SpeedGamingEpisodeResponse": {
@@ -21406,6 +22289,198 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/about": {
+      "get": {
+        "description": "What Wizzrobe is, its licence, which build is running, and how many notices it ships.\n\n**Who can call this:** Anyone; no token or community needed.\n\n**Token:** not needed.",
+        "operationId": "about_api_about_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AboutPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "summary": "Get the About page",
+        "tags": [
+          "About the app"
+        ]
+      }
+    },
+    "/api/about/notice": {
+      "get": {
+        "description": "One library's licence and copyright notice in full.\n\n**Who can call this:** Anyone; no token or community needed.\n\n**Token:** not needed.",
+        "operationId": "notice_api_about_notice_get",
+        "parameters": [
+          {
+            "description": "The notice's `key`, from the list, such as `web:react`.",
+            "in": "query",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "description": "The notice's `key`, from the list, such as `web:react`.",
+              "maxLength": 300,
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoticeText"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "summary": "Get a third-party notice",
+        "tags": [
+          "About the app"
+        ]
+      }
+    },
+    "/api/about/notices": {
+      "get": {
+        "description": "The open-source software Wizzrobe ships, grouped, with each one's licence name.\n\n**Who can call this:** Anyone; no token or community needed.\n\n**Token:** not needed.",
+        "operationId": "notices_api_about_notices_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Notices"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "summary": "List third-party notices",
+        "tags": [
+          "About the app"
+        ]
+      }
+    },
+    "/api/about/privacy": {
+      "get": {
+        "description": "The privacy policy as blocks, and when it last changed.\n\n**Who can call this:** Anyone; no token or community needed.\n\n**Token:** not needed.",
+        "operationId": "privacy_api_about_privacy_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrivacyPolicy"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "summary": "Get the privacy policy",
+        "tags": [
+          "About the app"
+        ]
+      }
+    },
     "/api/admin/match-schedule": {
       "get": {
         "description": "Every match on a day (or every day), grouped as the run sheet draws them: needs a decision, live now, up next, waiting for players, confirmed. Each row says what you may do to it in `can`.\n\n**Who can call this:** Staff, Broadcast tech, or Admins and crew coordinators of a tournament (who see only their tournaments' matches).\n\n**App scope:** `staff:read`",
@@ -31098,6 +32173,48 @@
         ]
       }
     },
+    "/api/changelog": {
+      "get": {
+        "description": "The bigger changes to Wizzrobe, a week per entry, newest first, each week grouped into New, Improved, Fixed and so on.\n\n**Who can call this:** Anyone; no token or community needed.\n\n**Token:** not needed.",
+        "operationId": "changelog_api_changelog_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Changelog"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "summary": "Get What's new",
+        "tags": [
+          "About the app"
+        ]
+      }
+    },
     "/api/check-in/entrants/{entrant_id}/check-in": {
       "delete": {
         "description": "Clears the check-in time and who did it. Undoing someone who isn't checked in changes nothing. Check-in desk volunteers can do this on open events only.\n\n**Who can call this:** Staff or Check-in desk.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `staff:write`  \n**Feature:** only works when the community has **Event Check-in** turned on; otherwise every call answers `404`.",
@@ -34375,6 +35492,242 @@
         ]
       }
     },
+    "/api/event-info": {
+      "get": {
+        "description": "The event handbook's articles for this community's event, and its PDF guide when it has one. Pages written for crew or staff are listed only for people holding those roles.\n\n**Who can call this:** Anyone, signed in or not. Name the community in the `X-Wizzrobe-Community` header (a personal token's own community is used instead). Signed in as a member, you also get the articles your roles open.\n\n**Token:** not needed.  \n**Feature:** only works when the community has **Event Information** turned on; otherwise every call answers `404`.",
+        "operationId": "list_event_info_api_event_info_get",
+        "parameters": [
+          {
+            "description": "The event to read about, by its slug (see `GET /api/events`). Leave it out for the community's default event.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to read about, by its slug (see `GET /api/events`). Leave it out for the community's default event.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventInfoIndex"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List event information",
+        "tags": [
+          "Event information"
+        ]
+      }
+    },
+    "/api/event-info/guide.pdf": {
+      "get": {
+        "description": "The organisers' event guide, as a PDF.\n\n**Who can call this:** Anyone, signed in or not. Name the community in the `X-Wizzrobe-Community` header (a personal token's own community is used instead). Signed in as a member, you also get the articles your roles open.\n\n**Token:** not needed.  \n**Feature:** only works when the community has **Event Information** turned on; otherwise every call answers `404`.",
+        "operationId": "event_guide_api_event_info_guide_pdf_get",
+        "parameters": [
+          {
+            "description": "The event to read about, by its slug (see `GET /api/events`). Leave it out for the community's default event.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to read about, by its slug (see `GET /api/events`). Leave it out for the community's default event.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/pdf": {}
+            },
+            "description": "The guide."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Download the event guide",
+        "tags": [
+          "Event information"
+        ]
+      }
+    },
+    "/api/event-info/{slug}": {
+      "get": {
+        "description": "One handbook article as blocks. An article with a `tournaments` embed also carries the live tournament list it draws, and the venue's clock that list's times read on. `404` for an article that doesn't exist or isn't for you.\n\n**Who can call this:** Anyone, signed in or not. Name the community in the `X-Wizzrobe-Community` header (a personal token's own community is used instead). Signed in as a member, you also get the articles your roles open.\n\n**Token:** not needed.  \n**Feature:** only works when the community has **Event Information** turned on; otherwise every call answers `404`.",
+        "operationId": "event_info_article_api_event_info__slug__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The event to read about, by its slug (see `GET /api/events`). Leave it out for the community's default event.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to read about, by its slug (see `GET /api/events`). Leave it out for the community's default event.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Article"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get an event information article",
+        "tags": [
+          "Event information"
+        ]
+      }
+    },
     "/api/events": {
       "get": {
         "description": "The community's events you can see: the default first, then live events, drafts and archived ones. Drafts are listed for staff and for the people holding a role in them.\n\n**Who can call this:** Any member.\n\n**App scope:** `schedule:read`",
@@ -36020,6 +37373,48 @@
         ]
       }
     },
+    "/api/facts": {
+      "get": {
+        "description": "Every fact the app hides in empty lists and spinners, for this season's topic.\n\n**Who can call this:** Anyone; no token or community needed.\n\n**Token:** not needed.",
+        "operationId": "facts_api_facts_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Facts"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "summary": "Get the facts",
+        "tags": [
+          "About the app"
+        ]
+      }
+    },
     "/api/feedback": {
       "get": {
         "description": "Lists the community's feedback queue, newest first, with each submitter's name and message, whether or not it has been reviewed.\n\n**Who can call this:** Staff.\n\n**App scope:** `staff:read`  \n**Feature:** only works when the community has **In-app Feedback** turned on; otherwise every call answers `404`.",
@@ -36593,6 +37988,274 @@
         "summary": "Check the app is up",
         "tags": [
           "Health"
+        ]
+      }
+    },
+    "/api/help": {
+      "get": {
+        "description": "The help articles this community offers you, the \"For staff\" group last. An article about a feature the community has turned off isn't listed. `q` keeps only the articles containing every word of it.\n\n**Who can call this:** Anyone, signed in or not. Name the community in the `X-Wizzrobe-Community` header (a personal token's own community is used instead). Signed in as a member, you also get the articles your roles open.\n\n**Token:** not needed.",
+        "operationId": "list_help_api_help_get",
+        "parameters": [
+          {
+            "description": "Words to search for.",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Words to search for.",
+              "title": "Q"
+            }
+          },
+          {
+            "description": "The event to read about, by its slug (see `GET /api/events`). Leave it out for the community's default event.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to read about, by its slug (see `GET /api/events`). Leave it out for the community's default event.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HelpIndex"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List help articles",
+        "tags": [
+          "Help"
+        ]
+      }
+    },
+    "/api/help/snippets/{name}": {
+      "get": {
+        "description": "The few lines a help icon shows, cut from an article, with a link to the rest. `404` when the article isn't offered to you here.\n\n**Who can call this:** Anyone, signed in or not. Name the community in the `X-Wizzrobe-Community` header (a personal token's own community is used instead). Signed in as a member, you also get the articles your roles open.\n\n**Token:** not needed.",
+        "operationId": "help_snippet_api_help_snippets__name__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The event to read about, by its slug (see `GET /api/events`). Leave it out for the community's default event.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to read about, by its slug (see `GET /api/events`). Leave it out for the community's default event.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Snippet"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get a help snippet",
+        "tags": [
+          "Help"
+        ]
+      }
+    },
+    "/api/help/{slug}": {
+      "get": {
+        "description": "One help article as blocks. Links to articles you couldn't open here are already taken out. `404` for an article that doesn't exist, is about a feature that's off, or isn't for you; the three look the same on purpose.\n\n**Who can call this:** Anyone, signed in or not. Name the community in the `X-Wizzrobe-Community` header (a personal token's own community is used instead). Signed in as a member, you also get the articles your roles open.\n\n**Token:** not needed.",
+        "operationId": "help_article_api_help__slug__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The event to read about, by its slug (see `GET /api/events`). Leave it out for the community's default event.",
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The event to read about, by its slug (see `GET /api/events`). Leave it out for the community's default event.",
+              "title": "Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Article"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get a help article",
+        "tags": [
+          "Help"
         ]
       }
     },
@@ -42938,6 +44601,211 @@
           }
         ],
         "summary": "Turn email notifications on or off",
+        "tags": [
+          "My notifications"
+        ]
+      }
+    },
+    "/api/me/channels/native-devices": {
+      "post": {
+        "description": "Saves the push token the iOS or Android app got from its platform, so notifications reach that phone. Registering the same token again refreshes it, and a token another account registered moves to you (someone else signed in on that phone). Answers 404 when this server can't send to that platform.\n\n**Who can call this:** Any member.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `profile:write`",
+        "operationId": "add_native_device_api_me_channels_native_devices_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NativeDeviceRegisterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "profile:write"
+            ]
+          }
+        ],
+        "summary": "Turn on notifications in the store app",
+        "tags": [
+          "My notifications"
+        ]
+      }
+    },
+    "/api/me/channels/native-devices/{device_id}": {
+      "delete": {
+        "description": "**Who can call this:** Any member, for their own phones.\n\n**Token:** needs a token that isn't read-only.  \n**App scope:** `profile:write`",
+        "operationId": "remove_native_device_api_me_channels_native_devices__device_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A rule refused the request. `detail` says which."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No token, or the token is unknown, expired or revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "You don't have permission, the token is read-only, an app's token lacks the scope, or your account or community is inactive."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing with that id in your community, or the feature is turned off for your community."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Over the rate limit. Wait the number of seconds in the `Retry-After` header."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "WizzrobeApps": [
+              "profile:write"
+            ]
+          }
+        ],
+        "summary": "Stop notifications to one of your phones",
         "tags": [
           "My notifications"
         ]
@@ -67307,6 +69175,18 @@
       "name": "Web push"
     },
     {
+      "description": "How the app works: the help articles, search, and the snippets help icons show.",
+      "name": "Help"
+    },
+    {
+      "description": "A community's event handbook and its PDF guide.",
+      "name": "Event information"
+    },
+    {
+      "description": "What's new, the About page, the privacy policy, third-party notices and the facts.",
+      "name": "About the app"
+    },
+    {
       "description": "Read events, the schedule and brackets as one graph, in a single query.",
       "name": "GraphQL"
     }
@@ -68996,6 +70876,14 @@
         "Service health",
         "Health",
         "Web push"
+      ]
+    },
+    {
+      "name": "Reading",
+      "tags": [
+        "Help",
+        "Event information",
+        "About the app"
       ]
     },
     {

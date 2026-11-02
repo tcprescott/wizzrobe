@@ -77,3 +77,12 @@ Shell A from the spec: Home, Schedule, Event, Work, Me as bottom tabs below
 768px and a left rail above it. Work appears only for someone holding a role in
 the community. Routes keep the old app's `/t/<slug>/…` and
 `/t/<slug>/e/<event>/…` shapes so links in DMs already sent keep working.
+
+## Store apps and the service worker
+
+`ios/` and `android/` are the Capacitor shells for the App Store and Play Store
+builds; `sw/sw.js` is the website's service worker (offline app files and web
+push). Native push, sign-in through the system browser, app links and the build
+steps are in [docs/features/native-apps.md](../docs/features/native-apps.md).
+Code that only runs in the store apps lives in `src/native/` and checks
+`isNative()` from `src/lib/platform.ts` first.

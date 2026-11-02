@@ -104,11 +104,33 @@ import MilitaryTechIcon from '@material-symbols/svg-400/outlined/military_tech.s
 import Search from '@material-symbols/svg-400/outlined/search.svg?react'
 import Videocam from '@material-symbols/svg-400/outlined/videocam.svg?react'
 import Casino from '@material-symbols/svg-400/outlined/casino.svg?react'
+import IAccountTree from '@material-symbols/svg-400/outlined/account_tree.svg?react'
+import IAttractions from '@material-symbols/svg-400/outlined/attractions.svg?react'
+import ICode from '@material-symbols/svg-400/outlined/code.svg?react'
+import IContactPhone from '@material-symbols/svg-400/outlined/contact_phone.svg?react'
+import IContactSupport from '@material-symbols/svg-400/outlined/contact_support.svg?react'
+import IDescription from '@material-symbols/svg-400/outlined/description.svg?react'
+import IDownload from '@material-symbols/svg-400/outlined/download.svg?react'
+import IHelp from '@material-symbols/svg-400/outlined/help.svg?react'
+import ILightbulb from '@material-symbols/svg-400/outlined/lightbulb.svg?react'
+import IList from '@material-symbols/svg-400/outlined/list.svg?react'
+import IMenuBook from '@material-symbols/svg-400/outlined/menu_book.svg?react'
+import IMusicNote from '@material-symbols/svg-400/outlined/music_note.svg?react'
+import IPendingActions from '@material-symbols/svg-400/outlined/pending_actions.svg?react'
+import IPets from '@material-symbols/svg-400/outlined/pets.svg?react'
+import IPictureAsPdf from '@material-symbols/svg-400/outlined/picture_as_pdf.svg?react'
+import IPictureInPicture from '@material-symbols/svg-400/outlined/picture_in_picture.svg?react'
+import IPrivacyTip from '@material-symbols/svg-400/outlined/privacy_tip.svg?react'
+import IRecordVoiceOver from '@material-symbols/svg-400/outlined/record_voice_over.svg?react'
+import IRefresh from '@material-symbols/svg-400/outlined/refresh.svg?react'
+import ISmartToy from '@material-symbols/svg-400/outlined/smart_toy.svg?react'
+import ISupportAgent from '@material-symbols/svg-400/outlined/support_agent.svg?react'
+import IVerified from '@material-symbols/svg-400/outlined/verified.svg?react'
+import IVideogameAsset from '@material-symbols/svg-400/outlined/videogame_asset.svg?react'
+import IReleaseAlert from '@material-symbols/svg-400/outlined/release_alert.svg?react'
 import BugReportIcon from '@material-symbols/svg-400/outlined/bug_report.svg?react'
-import LightbulbIcon from '@material-symbols/svg-400/outlined/lightbulb.svg?react'
 import FavoriteIcon from '@material-symbols/svg-400/outlined/favorite.svg?react'
 import ChatBubbleIcon from '@material-symbols/svg-400/outlined/chat_bubble.svg?react'
-import RefreshIcon from '@material-symbols/svg-400/outlined/refresh.svg?react'
 import NotificationsActiveIcon from '@material-symbols/svg-400/outlined/notifications_active.svg?react'
 import NotificationsOffIcon from '@material-symbols/svg-400/outlined/notifications_off.svg?react'
 
@@ -213,11 +235,33 @@ export const ICONS = {
   chair: ChairIcon,
   podcasts: PodcastsIcon,
   military_tech: MilitaryTechIcon,
+  account_tree: IAccountTree,
+  attractions: IAttractions,
+  code: ICode,
+  contact_phone: IContactPhone,
+  contact_support: IContactSupport,
+  description: IDescription,
+  download: IDownload,
+  help: IHelp,
+  lightbulb: ILightbulb,
+  list: IList,
+  menu_book: IMenuBook,
+  music_note: IMusicNote,
+  pending_actions: IPendingActions,
+  pets: IPets,
+  picture_as_pdf: IPictureAsPdf,
+  picture_in_picture: IPictureInPicture,
+  privacy_tip: IPrivacyTip,
+  record_voice_over: IRecordVoiceOver,
+  refresh: IRefresh,
+  smart_toy: ISmartToy,
+  support_agent: ISupportAgent,
+  verified: IVerified,
+  videogame_asset: IVideogameAsset,
+  release_alert: IReleaseAlert,
   bug_report: BugReportIcon,
-  lightbulb: LightbulbIcon,
   favorite: FavoriteIcon,
   chat_bubble: ChatBubbleIcon,
-  refresh: RefreshIcon,
   notifications_active: NotificationsActiveIcon,
   notifications_off: NotificationsOffIcon,
 } satisfies Record<string, Svg>
