@@ -65,9 +65,9 @@ async def my_profile(actor: User = Depends(require_api_actor)) -> ProfileRespons
 )
 async def set_clock(body: ClockUpdate, actor: User = Depends(require_write_actor)) -> ProfileResponse:
     if 'timezone' in body.model_fields_set:
-        actor.timezone = await TimezoneService.set_user_timezone(actor, body.timezone)
+        actor.timezone = await TimezoneService.set_user_timezone(actor, body.timezone)  # type: ignore[assignment]
     if 'hour_cycle' in body.model_fields_set:
-        actor.hour_cycle = await TimezoneService.set_user_hour_cycle(actor, body.hour_cycle)
+        actor.hour_cycle = await TimezoneService.set_user_hour_cycle(actor, body.hour_cycle)  # type: ignore[assignment]
     return ProfileResponse.model_validate(await MyProfileService().overview(actor), from_attributes=True)
 
 

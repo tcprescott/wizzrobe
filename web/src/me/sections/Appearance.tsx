@@ -1,10 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../auth/AuthProvider'
-import { Banner, Button, FormDialog, Icon, PageHeader, Panel, PanelRow, Spinner, type IconName } from '../components'
-import { useTheme, type ThemeChoice } from '../theme/ThemeProvider'
-import { useMe } from './useMe'
-import './screens.css'
+import { useAuth } from '../../auth/AuthProvider'
+import { Button, FormDialog, Icon, Panel, PanelRow, type IconName } from '../../components'
+import { useTheme, type ThemeChoice } from '../../theme/ThemeProvider'
+import '../../screens/screens.css'
 
 const THEMES: { value: ThemeChoice; label: string; icon: IconName }[] = [
   { value: 'system', label: 'System', icon: 'brightness_auto' },
@@ -12,8 +11,8 @@ const THEMES: { value: ThemeChoice; label: string; icon: IconName }[] = [
   { value: 'dark', label: 'Dark', icon: 'dark_mode' },
 ]
 
-export function MeScreen() {
-  const { me, error, loading } = useMe()
+/** How the app looks on this device, and signing out of it. */
+export function Appearance() {
   const { choice, setChoice } = useTheme()
   const { signOut } = useAuth()
   const navigate = useNavigate()
@@ -27,21 +26,7 @@ export function MeScreen() {
   }
 
   return (
-    <>
-      <PageHeader title="Me" lede="Your profile and how the app looks." />
-      <Panel title="Profile">
-        {loading && !me && <Spinner label="Loading your profile…" />}
-        {error && <Banner tone="error">{error.message}</Banner>}
-        {me && (
-          <PanelRow>
-            <Icon name="person" />
-            <span>
-              <strong>{me.display_name || me.username}</strong>
-              <span className="list-link__sub">@{me.username}</span>
-            </span>
-          </PanelRow>
-        )}
-      </Panel>
+    <div className="me-stack">
       <Panel title="Appearance">
         <PanelRow>
           <div className="field-row">
@@ -92,6 +77,6 @@ export function MeScreen() {
       >
         {null}
       </FormDialog>
-    </>
+    </div>
   )
 }

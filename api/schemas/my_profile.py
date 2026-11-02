@@ -101,8 +101,8 @@ class EmergencyContactResponse(BaseModel):
     name: Optional[str] = None
     relationship: Optional[str] = None
     phone: Optional[str] = None
-    last_viewed_at: Optional[datetime] = Field(None, description="When staff last opened it.")
-    last_viewed_by: Optional[str] = Field(None, description="Who opened it last.")
+    last_viewed_at: Optional[datetime] = Field(default=None, description="When staff last opened it.")
+    last_viewed_by: Optional[str] = Field(default=None, description="Who opened it last.")
 
 
 class EmergencyContactUpdate(BaseModel):

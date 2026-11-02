@@ -18,20 +18,29 @@ export function RunningLateDialog({ entry, open, onOpenChange, onSent }: Props) 
   const [note, setNote] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const shift = entry.kind === 'shift'
 
   async function send() {
-    if (entry.match_id == null) return
     setBusy(true)
     setError(null)
     try {
-      await api
-        .POST('/api/matches/{match_id}/running-late', {
-          params: { path: { match_id: entry.match_id } },
-          body: { minutes, note: note.trim() || null },
-        })
-        .then(unwrap)
+      if (shift && entry.assignment_id != null) {
+        await api
+          .POST('/api/volunteers/me/assignments/{assignment_id}/running-late', {
+            params: { path: { assignment_id: entry.assignment_id } },
+            body: { minutes },
+          })
+          .then(unwrap)
+      } else if (entry.match_id != null) {
+        await api
+          .POST('/api/matches/{match_id}/running-late', {
+            params: { path: { match_id: entry.match_id } },
+            body: { minutes, note: note.trim() || null },
+          })
+          .then(unwrap)
+      } else return
       onOpenChange(false)
-      onSent(`Sent. Staff know you're about ${minutes} minutes away.`)
+      onSent(`Sent. ${shift ? 'The coordinators' : 'Staff'} know you're about ${minutes} minutes away.`)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -72,10 +81,12 @@ export function RunningLateDialog({ entry, open, onOpenChange, onSent }: Props) 
             ))}
           </div>
         </div>
-        <label className="field">
-          <span className="field__label">Note for staff (optional)</span>
-          <textarea className="input" maxLength={280} value={note} onChange={(e) => setNote(e.target.value)} />
-        </label>
+        {!shift && (
+          <label className="field">
+            <span className="field__label">Note for staff (optional)</span>
+            <textarea className="input" maxLength={280} value={note} onChange={(e) => setNote(e.target.value)} />
+          </label>
+        )}
         {error && (
           <p className="form-error" role="alert">
             {error}
