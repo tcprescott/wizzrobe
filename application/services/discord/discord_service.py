@@ -29,6 +29,7 @@ from application.services.discord.discord_scheduled_events import (
     MockScheduledEventsMixin,
     ScheduledEventsMixin,
 )
+from application.services.native_push_service import NativePushService
 from application.services.notification_catalog import NoticeTarget
 from application.services.notification_links import settings_footnote
 from application.services.sent_message_service import SentMessageRef, SentMessageService
@@ -128,7 +129,7 @@ def _mirror_dm_to_web_push(
     target, so tapping the phone notification lands on the same control the
     Discord button does.
     """
-    if not WebPushService.is_configured():
+    if not (WebPushService.is_configured() or NativePushService.is_configured()):
         return
     event_dispatch_queue.enqueue(
         WebPushService().mirror_dm(user_id, message, navigate=navigate, silent=silent, ref=ref)

@@ -45,7 +45,13 @@ NON_ACTOR = {"require_feature"}
 #              knowing the old endpoint and auth, and has no token to send.
 #   store_webhook — Stripe/PayPal post it; the store's signature, checked
 #              against that store's sealed secret, is the proof.
-ALLOWLIST = {("health", "health"), ("version", "version"), ("web_push", "rotate"), ("tickets", "store_webhook")}
+ALLOWLIST = {
+    ("health", "health"), ("version", "version"), ("web_push", "rotate"),
+    # What's new, About and facts describe the app itself, like /version.
+    ("reading", "changelog"), ("reading", "about"), ("reading", "privacy"),
+    ("reading", "notices"), ("reading", "notice"), ("reading", "facts"),
+    ("tickets", "store_webhook"),
+}
 
 
 def is_write_dep(name: str) -> bool:
