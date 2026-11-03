@@ -636,9 +636,10 @@ class SurveyService:
         """Open the survey and DM everyone who took part in its event.
 
         Works out each person's facts now and freezes them on their recipient
-        row. Returns how many people it went to. Only from the app: REST and MCP
-        build surveys but don't send them (Thomas's call), so this is never
-        exposed there.
+        row. Returns how many people it went to. Send, remind and close reach
+        REST only for Wizzrobe's own app (``require_app_staff_write``); MCP,
+        personal tokens and other apps build surveys but don't send them
+        (Thomas's call).
         """
         await self._ensure_staff(actor)
         survey = await self._load(survey_id)

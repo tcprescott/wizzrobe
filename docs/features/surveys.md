@@ -9,7 +9,7 @@ Behind `FeatureFlag.SURVEYS` (per community, off by default).
 | Builder, send, results | Admin → Surveys (`pages/admin_tabs/admin_surveys/`), STAFF |
 | Respondent page | `/survey/{id}` (`pages/survey.py`, `theme/survey_form.py`), only for people it was sent to |
 | Staff preview | `/survey/{id}/preview`, STAFF of this community; nothing is saved |
-| REST | `/api/surveys` (`api/routers/surveys.py`), reads plus build-only writes |
+| REST | `/api/surveys` (`api/routers/surveys.py`, `survey_builder.py`), reads plus build-only writes; send/remind/close for the first-party app only; `/api/me/surveys` for taking one |
 | MCP | `mcpserver/tools/surveys.py`, same split as REST |
 | Services | `application/services/survey/` |
 | Models | `models/survey.py`: `Survey`, `SurveySection`, `SurveyQuestion`, `SurveyRecipient`, `SurveyResponse`, `SurveyAnswer`, `SurveySuggestionBatch`; `models/ai.py`: `AiProviderSetting` |
@@ -186,7 +186,9 @@ the person could see.
 
 ## Sending
 
-Only from the app: Admin → Surveys → **Send…** with a close time (default seven
+From Admin → Surveys → **Send…**, in the web app or Wizzrobe's own mobile app
+(REST `send`/`remind`/`close` take only a first-party app token, Thomas
+2026-11-02; personal tokens, other apps and MCP can't), with a close time (default seven
 days out). `send` freezes each person's facts on a `SurveyRecipient` row and
 DMs them (`SURVEY_INVITE`); **Remind** DMs people who haven't answered, at most
 once a day and twice in all (`SURVEY_REMINDER`); the second is worded as a last

@@ -147,6 +147,14 @@ export const fixtures = {
         ]
       },
       {
+        "slug": "surveys",
+        "label": "Surveys",
+        "icon": "rate_review",
+        "group": "Community",
+        "half": "community",
+        "aliases": []
+      },
+      {
         "slug": "equipment",
         "label": "Equipment",
         "icon": "inventory_2",

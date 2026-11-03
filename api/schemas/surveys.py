@@ -1,6 +1,6 @@
 """Schemas for post-event survey endpoints."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, model_serializer
@@ -10,7 +10,16 @@ from application.services.survey import response_answers
 from application.services.survey.comments import CommentInbox, InboxComment
 from application.services.survey.dropoff import Dropoff
 from application.services.survey.results import Breakdown
-from models import Survey, SurveyAudience, SurveyQuestion, SurveyQuestionKind, SurveyResponse, SurveySection
+from application.services.survey.survey_service import MAX_REMINDERS, REMIND_GAP_HOURS
+from models import (
+    Survey,
+    SurveyAudience,
+    SurveyQuestion,
+    SurveyQuestionKind,
+    SurveyResponse,
+    SurveySection,
+    SurveyStatus,
+)
 
 
 class SurveyConditionModel(BaseModel):
@@ -89,6 +98,11 @@ class SurveySummaryResponse(BaseModel):
     closes_at: Optional[datetime] = Field(None, description="When it stops taking answers (UTC).")
     recipients: int = Field(0, description="How many people it was sent to.")
     answered: int = Field(0, description="How many of them sent answers.")
+    reminders_sent: int = Field(0, description="Reminder DMs sent so far.")
+    reminders_left: int = Field(0, description="Reminders still allowed; the last one goes out as a last call.")
+    next_reminder_at: Optional[datetime] = Field(
+        None, description="While open: the earliest a reminder can go (UTC); in the past means now.",
+    )
 
 
 class SurveyResponseModel(SurveySummaryResponse):
@@ -342,6 +356,11 @@ def _summary(s: Survey, sent: int = 0, answered: int = 0) -> Dict[str, Any]:
     return dict(
         id=s.id, title=s.title, status=s.status.value, allow_anonymous=s.allow_anonymous,
         sent_at=s.sent_at, closes_at=s.closes_at, recipients=sent, answered=answered,
+        reminders_sent=s.reminders_sent, reminders_left=max(0, MAX_REMINDERS - s.reminders_sent),
+        next_reminder_at=(
+            (s.reminded_at + timedelta(hours=REMIND_GAP_HOURS) if s.reminded_at else s.sent_at)
+            if s.status is SurveyStatus.OPEN and s.reminders_sent < MAX_REMINDERS else None
+        ),
     )
 
 

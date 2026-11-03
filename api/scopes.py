@@ -541,6 +541,9 @@ _ROUTES: Dict[RouteScope, tuple[str, ...]] = {
         'PUT /admin/check-in/matcherino-login/alert-user',
     ),
     PAT_ONLY: (
+        'POST /surveys/{survey_id}/send',
+        'POST /surveys/{survey_id}/remind',
+        'POST /surveys/{survey_id}/close',
         'GET /me/communities',
         'GET /me/platform',
         'GET /events/{slug}/settings',

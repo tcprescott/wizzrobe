@@ -17,6 +17,7 @@ import { BracketScreen } from './event/BracketScreen'
 import { EventHub } from './event/EventHub'
 import { RunSheetScreen } from './event/RunSheetScreen'
 import { WatchScreen } from './event/WatchScreen'
+import { SurveyScreen } from './player/survey/SurveyScreen'
 import { DeskScreen } from './work/DeskScreen'
 import { MyAvailabilityScreen } from './work/MyAvailabilityScreen'
 import { ProctorScreen } from './work/ProctorScreen'
@@ -36,6 +37,8 @@ const tabRoutes: RouteObject[] = [
   { path: 'event/schedule', element: <RunSheetScreen /> },
   { path: 'event/watch', element: <WatchScreen /> },
   { path: 'event/tournament/:tournamentId', element: <BracketScreen /> },
+  { path: 'survey/:surveyId', element: <SurveyScreen /> },
+  { path: 'survey/:surveyId/:part', element: <SurveyScreen /> },
   {
     path: 'work',
     element: <WorkLayout />,
