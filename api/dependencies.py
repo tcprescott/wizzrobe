@@ -231,15 +231,15 @@ async def resolve_token(
     return user, token
 
 
-async def require_identity(
+async def resolve_identity(
     creds: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
-) -> User:
-    """Who a token belongs to, without binding a community.
+) -> Tuple[User, ApiToken]:
+    """Who a token belongs to, and the token, without binding a community.
 
-    For the few calls that span communities (``GET /api/me/communities``).
-    Wizzrobe's own app and personal tokens may make them; a third-party app's
-    grant is held to the one community it was given, and an MCP token belongs
-    at ``/mcp``.
+    For the calls that span communities (``GET /api/me/communities``) and the
+    platform routes, which name their community by id. Wizzrobe's own app and
+    personal tokens may make them; a third-party app's grant is held to the one
+    community it was given, and an MCP token belongs at ``/mcp``.
     """
     if creds is None:
         raise HTTPException(
@@ -266,13 +266,16 @@ async def require_identity(
                 detail="This app has been disabled",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        return user
+        return user, token
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
         detail="This token is limited to one community and can't list others",
     )
 
 
+async def require_identity(resolved: Tuple[User, ApiToken] = Depends(resolve_identity)) -> User:
+    """:func:`resolve_identity`'s user."""
+    return resolved[0]
 async def _reader_tenant(request: Request, token: Optional[ApiToken]):
     """The community a reading call is about: the token's own, else the header's."""
     if token is not None and not _is_first_party(token):
@@ -459,13 +462,15 @@ async def require_staff_write(
     return user
 
 
-async def require_super_admin(actor: User = Depends(require_api_actor)) -> User:
+async def require_super_admin(actor: User = Depends(require_identity)) -> User:
     """Authenticated user holding the global ``SUPER_ADMIN`` role.
 
     Unlike :func:`require_staff` (which is tenant-scoped), this gates on the
     platform-global role (``UserRole`` with ``tenant=None``). Use it for global,
     non-tenant-scoped resources such as :class:`RacetimeBot` and the full
     service-health board, whose services do not (or cannot) apply a tenant gate.
+    It binds no community, so Wizzrobe's own app calls these routes without
+    naming one, and audit rows land with ``tenant=NULL``.
     """
     await AuthService.ensure(
         await AuthService.is_super_admin(actor), "Super admin access required"
@@ -474,7 +479,7 @@ async def require_super_admin(actor: User = Depends(require_api_actor)) -> User:
 
 
 async def require_super_admin_write(
-    resolved: Tuple[User, ApiToken] = Depends(resolve_token),
+    resolved: Tuple[User, ApiToken] = Depends(resolve_identity),
 ) -> User:
     """Super-admin user with a non-read-only token. Use on mutating global routes."""
     user, token = resolved
@@ -482,6 +487,26 @@ async def require_super_admin_write(
     await AuthService.ensure(
         await AuthService.is_super_admin(user), "Super admin access required"
     )
+    return user
+
+
+async def require_app_super_admin_write(
+    resolved: Tuple[User, ApiToken] = Depends(resolve_identity),
+) -> User:
+    """Super admin, signed in through Wizzrobe's own app, with a token that may write.
+
+    For the platform writes that carry a credential (a sign-in password): a
+    personal token or a chat client could put one in a transcript, so only the
+    first-party app may send them.
+    """
+    user, token = resolved
+    if not _is_first_party(token):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the Wizzrobe app can do this. Use the app's Platform screen.",
+        )
+    _reject_read_only(token)
+    await AuthService.ensure(await AuthService.is_super_admin(user), "Super admin access required")
     return user
 
 

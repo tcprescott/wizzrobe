@@ -18,6 +18,7 @@ from api.routers import (
     admin_meetups,
     admin_members,
     admin_nav,
+    admin_notifications,
     admin_payouts,
     admin_presets,
     admin_qualifiers,
@@ -34,6 +35,7 @@ from api.routers import (
     discord_role_mappings,
     equipment,
     event_hub,
+    event_settings,
     events,
     exports,
     feedback,
@@ -107,6 +109,7 @@ router.include_router(my_surveys.router)
 router.include_router(admin_nav.router)
 router.include_router(work.router)
 router.include_router(community_settings.router)
+router.include_router(event_settings.router)
 router.include_router(my_profile.router)
 router.include_router(admin_tournaments.router)
 router.include_router(
@@ -146,6 +149,7 @@ router.include_router(sent_messages.router)
 router.include_router(exports.router)
 router.include_router(system_config.router)
 router.include_router(notification_settings.router)
+router.include_router(admin_notifications.router)
 router.include_router(tokens.router)
 router.include_router(
     volunteers.router,

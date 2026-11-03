@@ -9,6 +9,22 @@ export const fixtures = {
   "/api/admin/nav": {
     "areas": [
       {
+        "slug": "feedback",
+        "label": "Feedback",
+        "icon": "feedback",
+        "group": "Community",
+        "half": "community",
+        "aliases": []
+      },
+      {
+        "slug": "notifications",
+        "label": "Notifications",
+        "icon": "notifications",
+        "group": "Configuration",
+        "half": "community",
+        "aliases": []
+      },
+      {
         "slug": "setup",
         "label": "Setup",
         "icon": "checklist",
@@ -251,6 +267,42 @@ export const fixtures = {
         "label": "Dates & hours",
         "icon": "date_range",
         "summary": "When the event runs, and the hours matches can start each day."
+      },
+      {
+        "slug": "capacity",
+        "label": "Capacity",
+        "icon": "groups_2",
+        "summary": "How much the scheduler lets run at the same time."
+      },
+      {
+        "slug": "venue",
+        "label": "Venue",
+        "icon": "chair",
+        "summary": "The stations in the room and the screens on its walls."
+      },
+      {
+        "slug": "timezone",
+        "label": "Timezone",
+        "icon": "schedule",
+        "summary": "The community’s clock, or one of this event’s own."
+      },
+      {
+        "slug": "crew",
+        "label": "Crew",
+        "icon": "podcasts",
+        "summary": "Whether matches take broadcasters as well as commentators and trackers."
+      },
+      {
+        "slug": "reward-tiers",
+        "label": "Volunteer reward tiers",
+        "icon": "military_tech",
+        "summary": "The hour totals that earn a volunteer something."
+      },
+      {
+        "slug": "discord-roles",
+        "label": "Discord Roles from Wizzrobe",
+        "icon": "forum",
+        "summary": "Discord roles this event gives its tournament players, crew and volunteers."
       }
     ],
     "setup": [
