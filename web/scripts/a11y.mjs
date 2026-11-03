@@ -94,6 +94,9 @@ function withTimes(value) {
 }
 
 async function stubApi(context) {
+  await context.route('https://player.twitch.tv/**', (route) =>
+    route.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><html lang="en"><title>Stream</title><body></body></html>' }),
+  )
   await context.route('**/api/**', (route) => {
     const path = new URL(route.request().url()).pathname
     if (path.endsWith('/guide.pdf')) return route.fulfill({ status: 200, contentType: 'application/pdf', body: GUIDE_PDF })

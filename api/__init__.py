@@ -29,6 +29,7 @@ from api.routers import (
     discord_events,
     discord_role_mappings,
     equipment,
+    event_hub,
     events,
     exports,
     feedback,
@@ -97,6 +98,7 @@ router.include_router(stages.router)
 router.include_router(stage_actions.router)
 router.include_router(me.router)
 router.include_router(my_schedule.router)
+router.include_router(event_hub.router)
 router.include_router(my_surveys.router)
 router.include_router(admin_nav.router)
 router.include_router(work.router)

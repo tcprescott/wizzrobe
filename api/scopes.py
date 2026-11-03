@@ -115,6 +115,9 @@ _ROUTES: Dict[RouteScope, tuple[str, ...]] = {
         'GET /async-qualifiers/{qualifier_id}/leaderboard',
         'GET /tournaments/{tournament_id}/bracket',
         'GET /tournaments/{tournament_id}/round-schedule',
+        'GET /event/hub',
+        'GET /event/schedule',
+        'GET /event/watch',
     ),
     ApiScope.PLAY: (
         'GET /me/home',

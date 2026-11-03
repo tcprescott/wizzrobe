@@ -381,6 +381,11 @@ type TournamentBracket {
 
   """True when filters trimmed the phases, pools or sets."""
   filtered: Boolean!
+
+  """
+  The entrants that are you, so the app can mark your own sets. Empty when you don't play in it.
+  """
+  yourEntrantIds: [Int!]!
   phases: [BracketPhase!]!
   entrants: [BracketEntrant!]!
 }

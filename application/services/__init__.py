@@ -101,6 +101,7 @@ from .discord import (
 )
 from .emergency_contact_service import EmergencyContactService
 from .equipment_service import EquipmentService
+from .event_hub_service import EventHubService
 from .event_info_service import EventGuide, EventInfoService
 from .event_service import ArchiveCheck, EventRef, EventService
 from .exports import DataExportService, ExportFile, data_export_worker
@@ -278,6 +279,7 @@ __all__ = [
     'EquipmentService',
     'EventDraft',
     'EventGuide',
+    'EventHubService',
     'EventInfoService',
     'EventRef',
     'EventService',
