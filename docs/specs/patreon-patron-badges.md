@@ -32,8 +32,9 @@ In:
   `PatronService.get_patron_status(user, *, tenant_id=None) -> PatronStatus`
   (`is_patron`, `tier_ids`, `badge_label`, `last_synced`). Nothing outside the
   Patreon modules reads Patreon tables.
-- Badge beside the member's name in community member lists and profiles
-  (placement per the mockup pick).
+- Badge beside the member's name on Admin → Members, the member sheet and
+  the person's own Me page (exact look per the mockup pick). Run sheets,
+  brackets and Watch come later.
 - MCP `get_member_details` and REST `GET /api/users/{id}/details` gain a
   read-only `patron` block.
 - New feature flag `PATREON` ("Community" group), both halves: entry surfaces
@@ -165,7 +166,6 @@ dependencies, so pip-audit is unaffected. A service health probe joins
 
 ## Open questions
 
-- Where the badge appears in phase 1.
 - Risk to check in the build: Patreon may only return memberships to the OAuth
   client owner's campaign from `identity.memberships`. If so, linking queues a
   targeted reconcile for the communities the member belongs to instead, and
@@ -178,5 +178,6 @@ dependencies, so pip-audit is unaffected. A service health probe joins
 - 2026-11-03 — Thomas picked drop after linking: only the member's Patreon
   user id is kept; their OAuth token is used once and discarded.
 - 2026-11-03 — Thomas picked everyone sees the badge, member can hide it.
+- 2026-11-03 — Thomas picked members list + profiles for phase 1.
 - 2026-11-03 — Thomas: Patreon phase 1 is badges only; Wizzrobe never handles
   money; future perks gate on `get_patron_status`.
