@@ -7,7 +7,7 @@ import logging
 import os
 
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Response
+from fastapi.responses import FileResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from nicegui import app, core, ui
 
@@ -36,7 +36,6 @@ from pages import (
     check_in,
     community_events,
     discord_email_oauth,
-    door_seed,
     email_unsubscribe,
     equipment,
     equipment_labels,
@@ -52,7 +51,6 @@ from pages import (
     platform,
     qualifiers,
     racetime_oauth,
-    rom_patch,
     room_seeds,
     startgg_bracket,
     startgg_oauth,
@@ -226,66 +224,6 @@ def _register_root_routes(fastapi_app: FastAPI) -> None:
     async def _brand_logo_svg(tenant_id: int, sha256: str, request: Request) -> Response:
         return await _brand_logo_response(tenant_id, sha256, 'svg', request)
 
-    # Door Randomizer patches for the patcher page (DoorSeedService). The token
-    # in the path is the unguessable name the seed's link carries, and neither
-    # file ever changes once written, so both cache for a year. No ROM is ever
-    # here: these are byte writes the player's browser applies to their own.
-    _immutable = {'Cache-Control': 'public, max-age=31536000, immutable', 'X-Content-Type-Options': 'nosniff'}
-    _missing = {'Cache-Control': 'no-store'}
-
-    @fastapi_app.get('/door-seeds/{token}/patch.json', include_in_schema=False)
-    async def _door_seed_patch(token: str) -> Response:
-        from application.services import DoorSeedService
-
-        content = await DoorSeedService().patch(token)
-        if content is None:
-            return Response(status_code=404, headers=_missing)
-        return Response(content, media_type='application/json', headers=_immutable)
-
-    @fastapi_app.get('/door-seeds/base/{version}.bps', include_in_schema=False)
-    async def _door_seed_base(version: str) -> Response:
-        from application.services import DoorSeedService
-
-        content = await DoorSeedService().base_patch(version)
-        if content is None:
-            return Response(status_code=404, headers=_missing)
-        return Response(content, media_type='application/octet-stream', headers=_immutable)
-
-    @fastapi_app.get('/door-seeds/sprites.json', include_in_schema=False)
-    async def _door_seed_sprites() -> Response:
-        from application.services import DoorSeedService
-
-        return JSONResponse(await DoorSeedService.sprite_list(), headers={'Cache-Control': 'public, max-age=3600'})
-
-    @fastapi_app.get('/door-seeds/{token}/spoiler.json', include_in_schema=False)
-    async def _door_seed_spoiler(token: str) -> Response:
-        from application.services import DoorSeedService
-
-        content = await DoorSeedService().public_spoiler(token)
-        if content is None:
-            return Response(status_code=404, headers=_missing)
-        return Response(content, media_type='application/json', headers={
-            'Cache-Control': 'private, max-age=300', 'X-Content-Type-Options': 'nosniff',
-            'Content-Disposition': f'attachment; filename="DR_{token}_spoiler.json"',
-        })
-
-
-    # Hosted ROM patches (RomPatchService), for /patch/<token>. The token is the
-    # unguessable name its link carries. The last path part only versions the
-    # URL (the page puts the patch's updated time in it), so a replaced file is
-    # fetched fresh while each version caches.
-    @fastapi_app.get('/rom-patches/{token}/{version}', include_in_schema=False)
-    async def _rom_patch_file(token: str, version: str) -> Response:
-        from application.services import RomPatchService
-
-        found = await RomPatchService().patch_file(token)
-        if found is None:
-            return Response(status_code=404, headers=_missing)
-        patch, content = found
-        return Response(content, media_type='application/octet-stream', headers={
-            'Cache-Control': 'public, max-age=86400', 'X-Content-Type-Options': 'nosniff',
-            'Content-Disposition': f'attachment; filename="{patch.token}.{patch.format}"',
-        })
 
 def init(fastapi_app: FastAPI) -> None:
     """
@@ -348,8 +286,6 @@ def init(fastapi_app: FastAPI) -> None:
     brackets.create()
     startgg_bracket.create()
     room_seeds.create()
-    door_seed.create()
-    rom_patch.create()
     stream_overlay.create()
     # Must register before ui.run_with so these views sit behind the same tenant middleware.
     static_brackets.create()

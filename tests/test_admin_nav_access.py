@@ -102,8 +102,8 @@ class TestOnlinePlayRolesStayNarrow:
             user = await _user_with(role, 7500 + ONLINE_ROLES.index(role), all_on.id)
             assert await AuthService.can_view_admin(user) is False
 
-    def test_a_preset_manager_sees_presets_patches_and_settings_only(self):
-        assert _labels(Role.PRESET_MANAGER, ALL_FLAGS) == ['Seed Presets', 'Patches', 'Settings']
+    def test_a_preset_manager_sees_presets_and_settings_only(self):
+        assert _labels(Role.PRESET_MANAGER, ALL_FLAGS) == ['Seed Presets', 'Settings']
 
     def test_a_sync_admin_sees_the_sync_surfaces_only(self):
         assert _labels(Role.SYNC_ADMIN, ALL_FLAGS) == ['SpeedGaming', 'Racetime', 'Settings']

@@ -150,13 +150,14 @@ class TestReadingPatches:
     async def test_file_and_download_count(self, service, actor):
         patch = await service.create_patch(actor, title='x', game='y', filename='a.ips', data=IPS)
         found = await service.patch_file(patch.token)
-        assert found is not None and found[1] == IPS
+        assert found[1] == IPS
         await RomPatchService.record_download(patch.token)
         await RomPatchService.record_download(patch.token)
         assert (await RomPatch.get(id=patch.id)).download_count == 2
 
     async def test_unknown_token(self, service, db):
-        assert await service.patch_file('nope-nope-nope') is None
+        with pytest.raises(NotFoundError):
+            await service.patch_file('nope-nope-nope')
         with pytest.raises(NotFoundError):
             await RomPatchService.get_by_token('nope-nope-nope')
         with pytest.raises(NotFoundError):

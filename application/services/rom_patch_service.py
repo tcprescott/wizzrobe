@@ -10,6 +10,7 @@ manager), the same people who look after a community's seeds. Reading one is
 anyone with the link: the token is the secret, as for door seeds.
 """
 
+import re
 import secrets
 from typing import List, Optional
 
@@ -19,7 +20,7 @@ from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
 from application.utils.rom_patch_format import normalize_crc, read_patch
 from application.utils.rom_patch_store import RomPatchStore
-from models import RomPatch, User
+from models import RomPatch, Tournament, User
 
 MAX_TITLE = 120
 MAX_GAME = 120
@@ -36,6 +37,12 @@ def _text(value: Optional[str], label: str, limit: int, required: bool = True) -
     if len(value) > limit:
         raise ValueError(f'{label} can be up to {limit} characters.')
     return value
+
+
+def output_base(title: str) -> str:
+    """A filename stem from a patch title: ``"SM: SGL practice hack"`` → ``SM_SGL_practice_hack``."""
+    stem = re.sub(r'[^A-Za-z0-9]+', '_', title).strip('_')
+    return stem[:80] or 'patched'
 
 
 def _filename(value: Optional[str]) -> str:
@@ -169,16 +176,17 @@ class RomPatchService:
     async def get_by_token(token: str) -> RomPatch:
         return require_found(await RomPatchRepository.get_by_token(token), 'Patch')
 
-    async def patch_file(self, token: str) -> Optional[tuple[RomPatch, bytes]]:
-        """The patch and its bytes for the signed-out file route, or ``None``."""
-        patch = await RomPatchRepository.get_by_token_any_tenant(token)
-        if patch is None:
-            return None
-        try:
-            data = await self.store.get(patch.token, patch.format)
-        except ValueError:
-            return None
-        return (patch, data) if data is not None else None
+    async def patch_file(self, token: str) -> tuple[RomPatch, bytes]:
+        patch = await self.get_by_token(token)
+        return patch, require_found(await self.store.get(patch.token, patch.format), 'Patch file')
+
+    async def tournament_choices(self, actor: Optional[User]) -> List[Tournament]:
+        await self._ensure_manager(actor)
+        return await TournamentRepository.get_all()
+
+    async def get_for_manager(self, actor: Optional[User], patch_id: int) -> RomPatch:
+        await self._ensure_manager(actor)
+        return await self._get(patch_id)
 
     @staticmethod
     async def record_download(token: str) -> None:

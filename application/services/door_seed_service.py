@@ -46,27 +46,19 @@ class DoorSeedService:
             raise NotFoundError('Spoiler not found.')
         return require_found(await self.store.get_spoiler(seed.token), 'Spoiler')
 
-    async def public_spoiler(self, token: str) -> Optional[bytes]:
-        """The spoiler for the signed-out download route, only where it is public."""
-        try:
-            seed = await DoorSeedRepository.get_by_token_any_tenant(token)
-        except ValueError:
-            return None
-        if seed is None or seed.spoiler_access != 'public':
-            return None
-        return await self.store.get_spoiler(token)
+    async def spoiler_by_token(self, token: str, user: Optional[User]) -> bytes:
+        return await self.spoiler_for(await self.get_seed(token), user)
 
-    async def patch(self, token: str) -> Optional[bytes]:
-        try:
-            return await self.store.get_patch(token)
-        except ValueError:
-            return None
+    async def patch(self, token: str) -> bytes:
+        seed = await self.get_seed(token)
+        return require_found(await self.store.get_patch(seed.token), 'Seed patch')
 
-    async def base_patch(self, version: str) -> Optional[bytes]:
+    async def base_patch(self, version: str) -> bytes:
         try:
-            return await self.store.get_base_patch(version)
+            data = await self.store.get_base_patch(version)
         except ValueError:
-            return None
+            data = None
+        return require_found(data, 'Base patch')
 
     @staticmethod
     async def sprite_list() -> List[dict]:

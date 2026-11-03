@@ -20,14 +20,6 @@ class RomPatchRepository(TenantScopedRepository[RomPatch]):
     async def get_by_token(cls, token: str) -> Optional[RomPatch]:
         return await scoped(RomPatch.filter(token=token)).prefetch_related('tournament', 'uploaded_by').first()
 
-    @classmethod
-    async def get_by_token_any_tenant(cls, token: str) -> Optional[RomPatch]:
-        """Global lookup by token, for the patch file route.
-
-        Cross-tenant on purpose: that route has no community in its path, and the
-        token itself is the secret that names one patch.
-        """
-        return await RomPatch.get_or_none(token=token)
 
     @classmethod
     async def count_download(cls, patch_id: int) -> None:

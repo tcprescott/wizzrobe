@@ -67,6 +67,7 @@ from api.routers import (
     reading,
     reports,
     reschedule_requests,
+    rom_patches,
     seeds,
     sent_messages,
     service_health,
@@ -97,6 +98,9 @@ router.include_router(version.router)
 router.include_router(reading.help_router)
 router.include_router(reading.event_info_router)
 router.include_router(reading.app_router)
+router.include_router(rom_patches.door_router)
+router.include_router(rom_patches.patch_router)
+router.include_router(rom_patches.admin_router)
 router.include_router(matches.router)
 router.include_router(match_actions.router)
 router.include_router(match_comments.router)

@@ -26,7 +26,6 @@ from pages.admin_tabs.admin_equipment import admin_equipment_page
 from pages.admin_tabs.admin_events import admin_events_page
 from pages.admin_tabs.admin_feedback import admin_feedback_page
 from pages.admin_tabs.admin_notifications import admin_notifications_page
-from pages.admin_tabs.admin_patches import admin_patches_page
 from pages.admin_tabs.admin_payouts import admin_payouts_page
 from pages.admin_tabs.admin_presets import admin_presets_page
 from pages.admin_tabs.admin_qualifiers import admin_qualifiers_page
@@ -189,7 +188,6 @@ def build_admin_tabs(
         tabs.append({'label': 'Events', 'icon': 'calendar_month', 'group': CONFIGURATION, 'content': admin_events_page})
     if is_staff or access.is_preset_manager:
         tabs.append({'label': 'Seed Presets', 'icon': 'tune', 'group': CONFIGURATION, 'aliases': ('presets',), 'content': admin_presets_page})
-        tabs.append({'label': 'Patches', 'icon': 'difference', 'group': CONFIGURATION, 'content': admin_patches_page})
     if is_staff:
         tabs.append({'label': 'Notifications', 'icon': 'notifications', 'group': CONFIGURATION, 'content': admin_notifications_page})
     settings_panes = build_settings_panes(access, live)

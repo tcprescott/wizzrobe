@@ -145,13 +145,14 @@ class TestSpoilerAccess:
             await service.spoiler_for(seed, player)
         with pytest.raises(NotFoundError):
             await service.spoiler_for(seed, None)
-        assert await service.public_spoiler(seed.token) is None
+        with pytest.raises(NotFoundError):
+            await service.spoiler_by_token(seed.token, None)
 
     async def test_public_spoiler_is_open_to_anyone(self, sidecar):
         seed = await self._roll('public')
         service = DoorSeedService()
         assert await service.spoiler_for(seed, None)
-        assert await service.public_spoiler(seed.token)
+        assert await service.spoiler_by_token(seed.token, None)
 
     async def test_none_keeps_no_spoiler(self, sidecar, tmp_path):
         seed = await self._roll('none')
@@ -161,10 +162,11 @@ class TestSpoilerAccess:
 
 
 @pytest.mark.parametrize('name', ['../etc', '.hidden', 'a/b', ''])
-async def test_store_refuses_path_tricks(tmp_path, name):
+async def test_store_refuses_path_tricks(tmp_path, name, db):
     with pytest.raises(ValueError):
         await DoorSeedStore(str(tmp_path)).get_patch(name)
-    assert await DoorSeedService(DoorSeedStore(str(tmp_path))).patch(name) is None
+    with pytest.raises(NotFoundError):
+        await DoorSeedService(DoorSeedStore(str(tmp_path))).patch(name)
 
 
 class TestSpriteList:

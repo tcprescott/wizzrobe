@@ -1,4 +1,4 @@
-/*
+/**
  * BPS, IPS and UPS patches, behind one interface.
  *
  * patchInfo(patch) says which format a file is and the CRC32 of the ROM it was
@@ -8,32 +8,32 @@
  * failure is a PatchError whose message can be shown to a player.
  */
 
-import { applyBps, BpsError, crc32 } from '../door-patcher/bps.js';
+import { applyBps, BpsError, crc32, readU32 } from './bps'
 
 export { crc32 };
 
 export class PatchError extends Error {
-  constructor(code, message) {
-    super(message);
-    this.code = code;
+  constructor(
+    readonly code: string,
+    message: string,
+  ) {
+    super(message)
   }
 }
 
-export function crcHex(value) {
+export type PatchFormat = 'bps' | 'ips' | 'ups'
+
+export function crcHex(value: number): string {
   return value.toString(16).toUpperCase().padStart(8, '0');
 }
 
-function readU32(bytes, at) {
-  return (bytes[at] | (bytes[at + 1] << 8) | (bytes[at + 2] << 16) | (bytes[at + 3] << 24)) >>> 0;
-}
-
-function startsWith(bytes, text) {
+function startsWith(bytes: Uint8Array, text: string): boolean {
   if (bytes.length < text.length) return false;
-  for (let i = 0; i < text.length; i++) if (bytes[i] !== text.charCodeAt(i)) return false;
+  for (let i = 0; i < text.length; i++) if (bytes[i] !== text.charCodeAt(i)) return false
   return true;
 }
 
-export function patchFormat(patch) {
+export function patchFormat(patch: Uint8Array): PatchFormat | null {
   if (startsWith(patch, 'BPS1')) return 'bps';
   if (startsWith(patch, 'UPS1')) return 'ups';
   if (startsWith(patch, 'PATCH')) return 'ips';
@@ -41,7 +41,7 @@ export function patchFormat(patch) {
 }
 
 /** {format, sourceCrc}: sourceCrc is a number, or null when the format names no ROM. */
-export function patchInfo(patch) {
+export function patchInfo(patch: Uint8Array): { format: PatchFormat; sourceCrc: number | null } {
   const format = patchFormat(patch);
   if (!format) throw new PatchError('patch', "That file isn't a BPS, IPS or UPS patch.");
   if (format === 'ips') return { format, sourceCrc: null };
@@ -55,7 +55,7 @@ export function patchInfo(patch) {
  * The ROM as the patch wants it, or null if it is the wrong ROM. A dump with a
  * 512-byte copier header matches once the header is dropped.
  */
-export function matchRom(rom, sourceCrc) {
+export function matchRom(rom: Uint8Array, sourceCrc: number | null): Uint8Array | null {
   if (sourceCrc == null) return rom;
   if (crc32(rom) === sourceCrc) return rom;
   if (rom.length % 0x400 === 0x200) {
@@ -65,7 +65,7 @@ export function matchRom(rom, sourceCrc) {
   return null;
 }
 
-function wrongRom(rom, sourceCrc) {
+export function wrongRom(rom: Uint8Array, sourceCrc: number): PatchError {
   return new PatchError(
     'source',
     `The ROM you picked is CRC32 ${crcHex(crc32(rom))}. This patch needs ${crcHex(sourceCrc)}, `
@@ -73,17 +73,17 @@ function wrongRom(rom, sourceCrc) {
   );
 }
 
-function varintReader(patch, end) {
+function varintReader(patch: Uint8Array, end: number) {
   let at = 4;
   return {
-    get at() { return at; },
-    set at(v) { at = v; },
+    get at() { return at },
+    set at(v: number) { at = v },
     number() {
       let value = 0;
       let shift = 1;
       for (;;) {
         if (at >= end) throw new PatchError('patch', 'That patch is damaged.');
-        const x = patch[at++];
+        const x = patch[at++]!;
         value += (x & 0x7F) * shift;
         if (x & 0x80) return value;
         shift *= 128;
@@ -93,12 +93,12 @@ function varintReader(patch, end) {
   };
 }
 
-export function applyUps(patch, rom) {
+export function applyUps(patch: Uint8Array, rom: Uint8Array): Uint8Array {
   const end = patch.length - 12;
   const reader = varintReader(patch, end);
   const sourceSize = reader.number();
   const targetSize = reader.number();
-  if (rom.length !== sourceSize) throw wrongRom(rom, readU32(patch, end));
+  if (rom.length !== sourceSize) throw wrongRom(rom, readU32(patch, end))
   const target = new Uint8Array(targetSize);
   target.set(rom.subarray(0, Math.min(rom.length, targetSize)));
   let out = 0;
@@ -107,9 +107,9 @@ export function applyUps(patch, rom) {
     let at = reader.at;
     for (;;) {
       if (at >= end) throw new PatchError('patch', 'That patch is damaged.');
-      const x = patch[at++];
+      const x = patch[at++]!;
       if (x === 0) break;
-      if (out < targetSize) target[out] = (out < rom.length ? rom[out] : 0) ^ x;
+      if (out < targetSize) target[out] = (out < rom.length ? rom[out]! : 0) ^ x;
       out++;
     }
     out++;
@@ -121,26 +121,26 @@ export function applyUps(patch, rom) {
   return target;
 }
 
-export function applyIps(patch, rom) {
-  const records = [];
+export function applyIps(patch: Uint8Array, rom: Uint8Array): Uint8Array {
+  const records: { offset: number; length: number; fill?: number; data?: Uint8Array }[] = []
   let size = rom.length;
-  let truncate = null;
+  let truncate: number | null = null
   let at = 5;
   for (;;) {
     if (at + 3 > patch.length) throw new PatchError('patch', 'That IPS patch is cut short.');
     const rest = patch.length - at;
     if (patch[at] === 0x45 && patch[at + 1] === 0x4F && patch[at + 2] === 0x46 && (rest === 3 || rest === 6)) {
-      if (rest === 6) truncate = (patch[at + 3] << 16) | (patch[at + 4] << 8) | patch[at + 5];
+      if (rest === 6) truncate = (patch[at + 3]! << 16) | (patch[at + 4]! << 8) | patch[at + 5]!;
       break;
     }
     if (at + 5 > patch.length) throw new PatchError('patch', 'That IPS patch is cut short.');
-    const offset = (patch[at] << 16) | (patch[at + 1] << 8) | patch[at + 2];
-    let length = (patch[at + 3] << 8) | patch[at + 4];
+    const offset = (patch[at]! << 16) | (patch[at + 1]! << 8) | patch[at + 2]!;
+    let length = (patch[at + 3]! << 8) | patch[at + 4]!;
     at += 5;
     if (length === 0) {
       if (at + 3 > patch.length) throw new PatchError('patch', 'That IPS patch is cut short.');
-      length = (patch[at] << 8) | patch[at + 1];
-      records.push({ offset, length, fill: patch[at + 2] });
+      length = (patch[at]! << 8) | patch[at + 1]!;
+      records.push({ offset, length, fill: patch[at + 2]! });
       at += 3;
     } else {
       if (at + length > patch.length) throw new PatchError('patch', 'That IPS patch is cut short.');
@@ -155,16 +155,16 @@ export function applyIps(patch, rom) {
     const stop = Math.min(r.offset + r.length, target.length);
     if (r.offset >= stop) continue;
     if (r.data) target.set(r.data.subarray(0, stop - r.offset), r.offset);
-    else target.fill(r.fill, r.offset, stop);
+    else target.fill(r.fill ?? 0, r.offset, stop)
   }
   return target;
 }
 
 /** Patch a ROM. `rom` is what the player picked; a header is dropped if the patch needs that. */
-export function applyPatch(patch, rom) {
+export function applyPatch(patch: Uint8Array, rom: Uint8Array): Uint8Array {
   const { format, sourceCrc } = patchInfo(patch);
   const source = matchRom(rom, sourceCrc);
-  if (!source) throw wrongRom(rom, sourceCrc);
+  if (!source) throw wrongRom(rom, sourceCrc as number);
   if (format === 'ips') return applyIps(patch, source);
   if (format === 'ups') return applyUps(patch, source);
   try {

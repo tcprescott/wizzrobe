@@ -54,7 +54,7 @@ def nav_icon(name: str) -> str:
 NAV_ICON_NAMES: frozenset[str] = frozenset({
     'account_circle', 'account_tree', 'admin_panel_settings', 'analytics', 'apartment', 'assignment_ind',
     'calendar_month',
-    'calendar_view_week', 'celebration', 'checklist', 'circle', 'code', 'difference', 'edit_calendar', 'emoji_events',
+    'calendar_view_week', 'celebration', 'checklist', 'circle', 'code', 'edit_calendar', 'emoji_events',
     'event', 'event_available', 'fact_check', 'feedback', 'flag', 'groups', 'help', 'home', 'how_to_reg',
     'inventory_2', 'live_tv', 'manage_accounts', 'menu_book', 'monitor_heart', 'notifications', 'payments',
     'rate_review', 'schema', 'settings', 'sports_esports', 'stadium', 'sync_alt', 'timer', 'tune',

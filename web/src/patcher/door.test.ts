@@ -1,15 +1,13 @@
-// The door seed patcher's engine. Run by tests/test_door_patcher_js.py, or
-// directly: node --test tests/js/
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+import { test } from 'vitest';
 
-import { applyBps, crc32 } from '../../static/js/door-patcher/bps.js';
+import { applyBps, crc32 } from './bps';
 import {
   adjustRom, buildSeedRom, parseSprite, RomError, stripHeader, writeChecksum,
-} from '../../static/js/door-patcher/patcher.js';
+} from './door';
 
-function varint(n) {
-  const out = [];
+function varint(n: number): number[] {
+  const out: number[] = [];
   for (;;) {
     const x = n & 0x7F;
     n = Math.floor(n / 128);
@@ -19,13 +17,13 @@ function varint(n) {
   }
 }
 
-function u32(n) {
+function u32(n: number): number[] {
   return [n & 0xFF, (n >>> 8) & 0xFF, (n >>> 16) & 0xFF, (n >>> 24) & 0xFF];
 }
 
 // A patch exercising all four actions: keep 4 source bytes, write 3 new ones,
 // copy source bytes from offset 1, then repeat the last target byte (RLE).
-function makePatch(source, target, actions) {
+function makePatch(source: Uint8Array, target: Uint8Array, actions: number[][]): Uint8Array {
   const body = [0x42, 0x50, 0x53, 0x31, ...varint(source.length), ...varint(target.length), ...varint(0)];
   for (const a of actions) body.push(...a);
   body.push(...u32(crc32(source)), ...u32(crc32(target)));
@@ -33,7 +31,7 @@ function makePatch(source, target, actions) {
   return Uint8Array.from([...bytes, ...u32(crc32(bytes))]);
 }
 
-const signed = n => varint(Math.abs(n) * 2 + (n < 0 ? 1 : 0));
+const signed = (n: number) => varint(Math.abs(n) * 2 + (n < 0 ? 1 : 0));
 
 test('applies every BPS action', () => {
   const source = Uint8Array.from([10, 11, 12, 13, 14, 15]);
@@ -52,7 +50,7 @@ test('refuses the wrong ROM and a damaged patch', () => {
   const patch = makePatch(source, source, [varint(3 * 4)]);
   assert.throws(() => applyBps(patch, Uint8Array.from([1, 2, 3, 5])), { code: 'source' });
   const damaged = patch.slice();
-  damaged[6] ^= 1;
+  damaged[6]! ^= 1;
   assert.throws(() => applyBps(damaged, source), { code: 'patch' });
 });
 
@@ -97,8 +95,8 @@ test('writes the cosmetic settings where the randomizer does', () => {
 test('the checksum and its complement add up', () => {
   const rom = new Uint8Array(0x200000).fill(3);
   writeChecksum(rom);
-  const crc = rom[0x7FDE] | (rom[0x7FDF] << 8);
-  const inv = rom[0x7FDC] | (rom[0x7FDD] << 8);
+  const crc = rom[0x7FDE]! | (rom[0x7FDF]! << 8);
+  const inv = rom[0x7FDC]! | (rom[0x7FDD]! << 8);
   assert.equal(crc ^ inv, 0xFFFF);
   assert.equal(crc, ((0x200000 - 4) * 3 + 0x1FE) & 0xFFFF);
 });
@@ -113,9 +111,9 @@ test('palette shuffle changes palettes, and a seed repeats it', () => {
 });
 
 function zspr({ palette = 0x7C, author = 'Some One' } = {}) {
-  const name = [...'Spr'].flatMap(c => [c.charCodeAt(0), 0]);
-  const by = [...author].flatMap(c => [c.charCodeAt(0), 0]);
-  const ascii = [...author].map(c => c.charCodeAt(0));
+  const name = [...'Spr'].flatMap((c) => [c.charCodeAt(0), 0]);
+  const by = [...author].flatMap((c) => [c.charCodeAt(0), 0]);
+  const ascii = [...author].map((c) => c.charCodeAt(0));
   const strings = [...name, 0, 0, ...by, 0, 0, ...ascii, 0];
   const spriteAt = 0x1D + strings.length;
   const paletteAt = spriteAt + 0x7000;
@@ -135,8 +133,8 @@ function zspr({ palette = 0x7C, author = 'Some One' } = {}) {
 test('reads a zspr sprite and credits its author', () => {
   const sprite = parseSprite(zspr());
   assert.equal(sprite.author, 'Some One');
-  assert.equal(sprite.palette.length, 0x78);
-  assert.equal(sprite.gloves.length, 4);
+  assert.equal(sprite.palette!.length, 0x78);
+  assert.equal(sprite.gloves!.length, 4);
   const rom = adjustRom(new Uint8Array(0x200000), {}, sprite);
   assert.equal(rom[0x80000], 0x11);
   assert.equal(rom[0xDD308], 0x22);

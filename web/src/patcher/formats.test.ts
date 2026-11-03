@@ -1,14 +1,12 @@
-// The generic ROM patcher's formats. Run by tests/test_door_patcher_js.py, or
-// directly: node --test tests/js/
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+import { test } from 'vitest';
 
 import {
   applyIps, applyPatch, applyUps, crc32, crcHex, matchRom, PatchError, patchInfo,
-} from '../../static/js/rom-patcher/formats.js';
+} from './formats';
 
-function varint(n) {
-  const out = [];
+function varint(n: number): number[] {
+  const out: number[] = [];
   for (;;) {
     const x = n & 0x7F;
     n = Math.floor(n / 128);
@@ -18,26 +16,26 @@ function varint(n) {
   }
 }
 
-function u32(n) {
+function u32(n: number): number[] {
   return [n & 0xFF, (n >>> 8) & 0xFF, (n >>> 16) & 0xFF, (n >>> 24) & 0xFF];
 }
 
-function withFooter(body, source, target) {
+function withFooter(body: number[], source: Uint8Array, target: Uint8Array): Uint8Array {
   const bytes = [...body, ...u32(crc32(source)), ...u32(crc32(target))];
   return new Uint8Array([...bytes, ...u32(crc32(new Uint8Array(bytes)))]);
 }
 
 // UPS: XOR runs after relative skips, each run ended by a zero byte.
-function makeUps(source, target) {
+function makeUps(source: Uint8Array, target: Uint8Array): Uint8Array {
   const body = [0x55, 0x50, 0x53, 0x31, ...varint(source.length), ...varint(target.length)];
   let last = 0;
   let i = 0;
   while (i < target.length) {
-    const s = i < source.length ? source[i] : 0;
-    if ((s ^ target[i]) === 0) { i++; continue; }
+    const s = i < source.length ? source[i]! : 0;
+    if ((s ^ target[i]!) === 0) { i++; continue; }
     body.push(...varint(i - last));
     while (i < target.length) {
-      const x = (i < source.length ? source[i] : 0) ^ target[i];
+      const x = (i < source.length ? source[i]! : 0) ^ target[i]!;
       if (x === 0) break;
       body.push(x);
       i++;
@@ -49,7 +47,7 @@ function makeUps(source, target) {
   return withFooter(body, source, target);
 }
 
-function makeBps(source, target) {
+function makeBps(source: Uint8Array, target: Uint8Array): Uint8Array {
   // One TargetRead of the whole target: simplest valid BPS.
   const body = [0x42, 0x50, 0x53, 0x31, ...varint(source.length), ...varint(target.length), ...varint(0),
     ...varint(((target.length - 1) << 2) | 1), ...target];
@@ -98,7 +96,7 @@ test('BPS through applyPatch, and a copier header is dropped to match', () => {
   const headered = new Uint8Array(512 + source.length);
   headered.set(source, 512);
   assert.deepEqual(applyPatch(patch, headered), target);
-  assert.equal(matchRom(headered, crc32(source)).length, source.length);
+  assert.equal(matchRom(headered, crc32(source))!.length, source.length);
 });
 
 test('the wrong ROM names both CRCs', () => {
@@ -115,7 +113,7 @@ test('the wrong ROM names both CRCs', () => {
 test('patchInfo refuses other files and a damaged checksum', () => {
   assert.throws(() => patchInfo(new Uint8Array([1, 2, 3, 4])), /isn't a BPS, IPS or UPS/);
   const patch = makeUps(source, source.map(b => b ^ 3));
-  patch[8] ^= 1;
+  patch[8]! ^= 1;
   assert.throws(() => patchInfo(patch), /damaged/);
   assert.deepEqual(patchInfo(new Uint8Array([...Buffer.from('PATCH'), ...Buffer.from('EOF')])), {
     format: 'ips', sourceCrc: null,
