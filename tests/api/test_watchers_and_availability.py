@@ -8,8 +8,9 @@
 
 from datetime import timedelta
 
-from application.utils.timezone import now_local
-from models import Match, Role, SystemConfiguration, TenantMembership, Tournament, User
+from application.services import TimezoneService
+from application.utils.timezone import get_zone, now_local
+from models import Event, Match, Role, TenantMembership, Tournament, User
 from tests.api_helpers import client_for, create_community_member, create_user_token
 
 
@@ -187,10 +188,12 @@ class TestReadingAnotherPlayersAvailability:
 class TestMatchSuggestion:
     async def test_suggests_a_time(self, db, app):
         _, raw = await create_user_token(username='ta', roles=[Role.STAFF])
-        today = now_local().date()
-        await SystemConfiguration.create(name='event_start_date', value=today.isoformat())
-        await SystemConfiguration.create(
-            name='event_end_date', value=(today + timedelta(days=2)).isoformat(),
+        # The search runs on the community's clock, so "today" must too, and the
+        # window must outlast tonight: near the community's midnight a one-day
+        # window has no room left for a match.
+        today = now_local(get_zone(await TimezoneService.tenant_timezone_name())).date()
+        await Event.filter(tenant_id=1, is_default=True).update(
+            starts_on=today, ends_on=today + timedelta(days=2),
         )
         t = await Tournament.create(name='Cup', is_active=True, average_match_duration=60)
         p1 = await create_community_member(discord_id=201, username='p1')
