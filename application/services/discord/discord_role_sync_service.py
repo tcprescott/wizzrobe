@@ -64,6 +64,12 @@ INBOUND_CONFLICT = (
 )
 BADGES_OFF = "Event check-in is turned off for this community, so no one has a badge."
 
+BADGE_LABELS = (
+    (CheckInTierLanyard.VIP, 'VIP badge'),
+    (CheckInTierLanyard.BASE, 'Base badge'),
+    (CheckInTierLanyard.DAY_PASS, 'Day pass'),
+)
+
 
 
 def rule_key(
@@ -140,6 +146,20 @@ class RoleSyncResult:
     problems: List[str] = field(default_factory=list)
 
 
+@dataclass(frozen=True)
+class RuleLine:
+    """One line of the checklist: something Wizzrobe knows, and the rule giving a role for it, if any."""
+
+    group: str
+    kind: DiscordRoleRuleKind
+    label: str
+    caption: Optional[str]
+    rule: Optional[DiscordRoleRule]
+    tournament_id: Optional[int] = None
+    lanyard: Optional[CheckInTierLanyard] = None
+    active: bool = True
+
+
 ServerRead = Union[Tuple[int, List[dict], dict], str]
 
 
@@ -186,6 +206,40 @@ class DiscordRoleSyncService:
                 ))
             roles.sort(key=lambda r: r.problem is not None)
         return RoleSyncOverview(rules, state, roles, roles_error, badges_available)
+
+    @requires_feature(FeatureFlag.DISCORD_ROLE_SYNC)
+    async def checklist(self, actor: User) -> Tuple[RoleSyncOverview, List[RuleLine]]:
+        """The overview plus every line a rule could be set on, in display order.
+
+        Players, then badges (only while check-in is on, or a badge rule is
+        left over), then this event's active tournaments and any inactive one
+        that still has a rule.
+        """
+        overview = await self.overview(actor)
+        rules = overview.rules
+        lines = [
+            RuleLine('players', DiscordRoleRuleKind.ANY_TOURNAMENT, 'Enrolled in any tournament',
+                     'Active tournaments only', rules.get(rule_key(DiscordRoleRuleKind.ANY_TOURNAMENT))),
+            RuleLine('players', DiscordRoleRuleKind.LIVE_MATCH, 'In a match right now',
+                     'Added when the match starts, taken back when it finishes',
+                     rules.get(rule_key(DiscordRoleRuleKind.LIVE_MATCH))),
+        ]
+        if overview.badges_available or any(k.startswith('badge:') for k in rules):
+            for lanyard, label in BADGE_LABELS:
+                lines.append(RuleLine(
+                    'badges', DiscordRoleRuleKind.BADGE, label, 'Given when the badge is bought, taken back on a refund',
+                    rules.get(rule_key(DiscordRoleRuleKind.BADGE, lanyard=lanyard)), lanyard=lanyard,
+                ))
+        for tournament in sorted(await self.tournament_repository.get_all(), key=lambda t: t.name.lower()):
+            rule = rules.get(rule_key(DiscordRoleRuleKind.TOURNAMENT, tournament.id))
+            if not tournament.is_active and rule is None:
+                continue
+            lines.append(RuleLine(
+                'tournaments', DiscordRoleRuleKind.TOURNAMENT, tournament.name,
+                None if tournament.is_active else 'Inactive tournament', rule,
+                tournament_id=tournament.id, active=tournament.is_active,
+            ))
+        return overview, lines
 
     @requires_feature(FeatureFlag.DISCORD_ROLE_SYNC)
     async def set_rule(

@@ -356,6 +356,10 @@ The `/checkin` desk's actions, behind `EVENT_CHECK_IN`. The rules are the desk p
 ### Integration settings (`/api/settings/integrations`) · `integration_settings.py`
 - The app's Settings → Integrations pane. `GET` (which cards the caller sees; Staff or Preset manager) · `GET /challonge` + `PUT /challonge/auto-sync` + `DELETE /challonge/communities/{slug}` + `POST /challonge/disconnect` (Challonge flag) · `GET /startgg` + `POST /startgg/disconnect` (start.gg flag) · `GET /webhooks` (rows with 24h delivered/failed; changes go through `/api/webhooks`) · `GET /webhook-options` · `GET /randomizer-keys` + `PUT`/`DELETE /randomizer-keys/{randomizer}/{key}` (Staff or Preset manager; values never returned) · `GET`/`PUT`/`DELETE /ai` (Surveys flag; key never returned). Signing in to Challonge or start.gg stays on the website.
 
+### Discord roles from Wizzrobe (`/api/event-settings/discord-roles`) · `discord_role_sync.py`
+- The app's Event settings → Discord Roles from Wizzrobe pane, through `DiscordRoleSyncService` (Staff; `DISCORD_ROLE_SYNC` flag, else 404; event from `?event=`). Discord ids are strings.
+- `GET` (last sync, unreachable people, the server's roles with any `problem`, and every checklist `line` with its rule) · `PUT /rules` (`kind` + `tournament_id`/`lanyard`, `discord_role_id` or null to turn the line off; 400 with the reason when the bot can't give the role) · `POST /sync` · `POST /clear` (turn every line off and take back every role Wizzrobe gave).
+
 ### Discord role mappings (`/api/discord-role-mappings`) · `discord_role_mappings.py`
 - `GET /discord-role-mappings?guild_id=` (list, optionally per guild) · `POST` (create) · `DELETE /{id}` — manage Discord-guild-role → grant mappings (Staff). A `POST` body sets **either** `app_role` (community-wide) **or** `tournament_grant` + `tournament_id` (Tournament Admin / Crew Coordinator on one event); both or neither is a 400.
 
