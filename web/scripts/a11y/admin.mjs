@@ -101,6 +101,14 @@ export const fixtures = {
         "aliases": []
       },
       {
+        "slug": "tickets",
+        "label": "Tickets",
+        "icon": "local_activity",
+        "group": "Run the event",
+        "half": "event",
+        "aliases": []
+      },
+      {
         "slug": "stream-layouts",
         "label": "Stream Layouts",
         "icon": "live_tv",
