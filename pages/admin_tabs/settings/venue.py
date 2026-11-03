@@ -3,6 +3,7 @@
 from nicegui import ui
 
 from application.services import StationService, SystemConfigService
+from application.services.station_service import STATION_FORMAT_LABELS
 from application.services.system_config_service import KEY_STATION_FORMAT
 from models import StationFormat, StationSide
 from pages.admin_tabs.room_tokens_section import render_room_tokens_section
@@ -13,12 +14,7 @@ from theme.save_footer import SaveFooter
 from theme.section import section_panel
 from theme.steady import steady_refreshable
 
-_STATION_FORMATS = {
-    StationFormat.FREE.value: 'Anything (no check)',
-    StationFormat.NUMERIC.value: 'Numbers only (1, 2, 3…)',
-    StationFormat.STRUCTURED.value: 'Letter and number (A1, B12)',
-    StationFormat.ALPHANUMERIC.value: 'Letters, numbers and hyphens',
-}
+_STATION_FORMATS = {f.value: label for f, label in STATION_FORMAT_LABELS.items()}
 
 
 async def _numbering_card(can_edit: bool) -> None:

@@ -47,6 +47,7 @@ import DateRangeIcon from '@material-symbols/svg-400/outlined/date_range.svg?rea
 import DeleteIcon from '@material-symbols/svg-400/outlined/delete.svg?react'
 import IDescription from '@material-symbols/svg-400/outlined/description.svg?react'
 import Desk from '@material-symbols/svg-400/outlined/desk.svg?react'
+import DesktopWindowsIcon from '@material-symbols/svg-400/outlined/desktop_windows.svg?react'
 import DirectionsRun from '@material-symbols/svg-400/outlined/directions_run.svg?react'
 import IDownload from '@material-symbols/svg-400/outlined/download.svg?react'
 import EditIcon from '@material-symbols/svg-400/outlined/edit.svg?react'
@@ -119,6 +120,7 @@ import PersonRemoveIcon from '@material-symbols/svg-400/outlined/person_remove.s
 import IPets from '@material-symbols/svg-400/outlined/pets.svg?react'
 import IPictureAsPdf from '@material-symbols/svg-400/outlined/picture_as_pdf.svg?react'
 import IPictureInPicture from '@material-symbols/svg-400/outlined/picture_in_picture.svg?react'
+import PinIcon from '@material-symbols/svg-400/outlined/pin.svg?react'
 import PlayArrow from '@material-symbols/svg-400/outlined/play_arrow.svg?react'
 import PlayCircleIcon from '@material-symbols/svg-400/outlined/play_circle.svg?react'
 import PodcastsIcon from '@material-symbols/svg-400/outlined/podcasts.svg?react'
@@ -152,6 +154,7 @@ import SyncAltIcon from '@material-symbols/svg-400/outlined/sync_alt.svg?react'
 import TaskAlt from '@material-symbols/svg-400/outlined/task_alt.svg?react'
 import TextFieldsIcon from '@material-symbols/svg-400/outlined/text_fields.svg?react'
 import TimerIcon from '@material-symbols/svg-400/outlined/timer.svg?react'
+import ToggleOffIcon from '@material-symbols/svg-400/outlined/toggle_off.svg?react'
 import ToggleOnIcon from '@material-symbols/svg-400/outlined/toggle_on.svg?react'
 import TrophyIcon from '@material-symbols/svg-400/outlined/trophy.svg?react'
 import TuneIcon from '@material-symbols/svg-400/outlined/tune.svg?react'
@@ -215,6 +218,7 @@ export const ICONS = {
   delete: DeleteIcon,
   description: IDescription,
   desk: Desk,
+  desktop_windows: DesktopWindowsIcon,
   directions_run: DirectionsRun,
   download: IDownload,
   edit: EditIcon,
@@ -285,6 +289,7 @@ export const ICONS = {
   pets: IPets,
   picture_as_pdf: IPictureAsPdf,
   picture_in_picture: IPictureInPicture,
+  pin: PinIcon,
   play_arrow: PlayArrow,
   play_circle: PlayCircleIcon,
   podcasts: PodcastsIcon,
@@ -317,6 +322,7 @@ export const ICONS = {
   task_alt: TaskAlt,
   text_fields: TextFieldsIcon,
   timer: TimerIcon,
+  toggle_off: ToggleOffIcon,
   toggle_on: ToggleOnIcon,
   trophy: TrophyIcon,
   tune: TuneIcon,
