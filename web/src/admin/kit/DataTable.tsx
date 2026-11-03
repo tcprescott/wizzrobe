@@ -20,7 +20,7 @@ interface DataTableProps<T> {
   columns: Column<T>[]
   rows: T[]
   rowKey: (row: T) => string | number
-  /** The row's one ⋮ menu. Destructive items go last; the menu sorts them. */
+  /** The row's one ⋮ menu. Destructive items go last; the menu sorts them. A row with no items gets no ⋮. */
   rowMenu?: (row: T) => MenuItem[]
   /** Names the ⋮ for a screen reader, e.g. "More for SGL26". */
   rowMenuLabel?: (row: T) => string
@@ -71,13 +71,16 @@ export function DataTable<T>({
       primary.cell(row)
     )
   const selected = (row: T) => selectedKey != null && rowKey(row) === selectedKey
-  const actions = (row: T) =>
-    rowAction || rowMenu ? (
+  const actions = (row: T) => {
+    if (!rowAction && !rowMenu) return null
+    const items = rowMenu?.(row) ?? []
+    return (
       <span className="data-table__actions">
         {rowAction?.(row)}
-        {rowMenu && <RowMenu label={rowMenuLabel?.(row) ?? 'More'} items={rowMenu(row)} />}
+        {items.length > 0 && <RowMenu label={rowMenuLabel?.(row) ?? 'More'} items={items} />}
       </span>
-    ) : null
+    )
+  }
 
   if (phone) {
     const rest = columns.filter((c) => c !== primary && !c.desktopOnly)

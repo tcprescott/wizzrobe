@@ -19,6 +19,7 @@ import Badge from '@material-symbols/svg-400/outlined/badge.svg?react'
 import BadgeFill from '@material-symbols/svg-400/outlined/badge-fill.svg?react'
 import BlockIcon from '@material-symbols/svg-400/outlined/block.svg?react'
 import BrightnessAuto from '@material-symbols/svg-400/outlined/brightness_auto.svg?react'
+import BugReportIcon from '@material-symbols/svg-400/outlined/bug_report.svg?react'
 import CalendarMonth from '@material-symbols/svg-400/outlined/calendar_month.svg?react'
 import CalendarMonthFill from '@material-symbols/svg-400/outlined/calendar_month-fill.svg?react'
 import CalendarViewWeekIcon from '@material-symbols/svg-400/outlined/calendar_view_week.svg?react'
@@ -75,6 +76,7 @@ import Info from '@material-symbols/svg-400/outlined/info.svg?react'
 import Inventory2 from '@material-symbols/svg-400/outlined/inventory_2.svg?react'
 import KeepIcon from '@material-symbols/svg-400/outlined/keep.svg?react'
 import KeyIcon from '@material-symbols/svg-400/outlined/key.svg?react'
+import KeyOffIcon from '@material-symbols/svg-400/outlined/key_off.svg?react'
 import KeyboardArrowDown from '@material-symbols/svg-400/outlined/keyboard_arrow_down.svg?react'
 import LeaderboardIcon from '@material-symbols/svg-400/outlined/leaderboard.svg?react'
 import LightMode from '@material-symbols/svg-400/outlined/light_mode.svg?react'
@@ -108,6 +110,7 @@ import Person from '@material-symbols/svg-400/outlined/person.svg?react'
 import PersonFill from '@material-symbols/svg-400/outlined/person-fill.svg?react'
 import PersonAddIcon from '@material-symbols/svg-400/outlined/person_add.svg?react'
 import PersonCheckIcon from '@material-symbols/svg-400/outlined/person_check.svg?react'
+import PersonOffIcon from '@material-symbols/svg-400/outlined/person_off.svg?react'
 import PersonRemoveIcon from '@material-symbols/svg-400/outlined/person_remove.svg?react'
 import IPets from '@material-symbols/svg-400/outlined/pets.svg?react'
 import IPictureAsPdf from '@material-symbols/svg-400/outlined/picture_as_pdf.svg?react'
@@ -181,6 +184,7 @@ export const ICONS = {
   badge: Badge,
   block: BlockIcon,
   brightness_auto: BrightnessAuto,
+  bug_report: BugReportIcon,
   calendar_month: CalendarMonth,
   calendar_view_week: CalendarViewWeekIcon,
   campaign: Campaign,
@@ -235,6 +239,7 @@ export const ICONS = {
   inventory_2: Inventory2,
   keep: KeepIcon,
   key: KeyIcon,
+  key_off: KeyOffIcon,
   keyboard_arrow_down: KeyboardArrowDown,
   leaderboard: LeaderboardIcon,
   light_mode: LightMode,
@@ -267,6 +272,7 @@ export const ICONS = {
   person: Person,
   person_add: PersonAddIcon,
   person_check: PersonCheckIcon,
+  person_off: PersonOffIcon,
   person_remove: PersonRemoveIcon,
   pets: IPets,
   picture_as_pdf: IPictureAsPdf,

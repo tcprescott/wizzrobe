@@ -159,3 +159,45 @@ async def test_my_communities_refuses_a_third_party_grant():
     async with client(tokens['access_token']) as http:
         resp = await http.get('/api/me/communities')
     assert resp.status_code == 403
+
+
+async def test_platform_routes_need_no_community_and_stay_super_admin_only():
+    app = await _first_party_app()
+    root = await User.get(username='platform')
+    member = await create_community_member(username='member')
+    root_tokens = await _sign_in(root, app)
+    member_tokens = await _sign_in(member, app)
+    async with client(root_tokens['access_token']) as http:
+        resp = await http.get('/api/platform/communities')
+        assert resp.status_code == 200, resp.text
+        assert (await http.get('/api/platform/apps')).status_code == 200
+        assert (await http.get('/api/me/platform')).json() == {'user_id': root.id, 'super_admin': True}
+    async with client(member_tokens['access_token']) as http:
+        assert (await http.get('/api/platform/communities')).status_code == 403
+        assert (await http.get('/api/me/platform')).json() == {'user_id': member.id, 'super_admin': False}
+
+
+async def test_passwords_only_through_the_app():
+    app = await _first_party_app()
+    root = await User.get(username='platform')
+    member = await create_community_member(username='discordy')
+    tokens = await _sign_in(root, app)
+    async with client(tokens['access_token']) as http:
+        resp = await http.post('/api/platform/users', json={
+            'display_name': 'Venue Laptop', 'login_name': 'venue-laptop', 'password': 'correct horse battery',
+        })
+        assert resp.status_code == 201, resp.text
+        assert resp.json()['login_name'] == 'venue-laptop'
+        short = await http.put(f'/api/platform/users/{member.id}/password', json={'login_name': 'discordy', 'password': 'short'})
+        assert short.status_code == 400
+        resp = await http.put(f'/api/platform/users/{member.id}/password', json={'login_name': 'discordy', 'password': 'long enough password'})
+        assert resp.status_code == 200 and resp.json()['login_name'] == 'discordy'
+        resp = await http.delete(f'/api/platform/users/{member.id}/password')
+        assert resp.status_code == 200 and resp.json()['login_name'] is None
+    _, pat = await create_user_token(username='root-pat', roles=[Role.SUPER_ADMIN])
+    async with client(pat) as http:
+        resp = await http.post('/api/platform/users', json={
+            'display_name': 'X', 'login_name': 'x-account', 'password': 'correct horse battery',
+        })
+    assert resp.status_code == 403
+    assert not await User.filter(login_name='x-account').exists()

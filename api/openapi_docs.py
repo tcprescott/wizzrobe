@@ -198,6 +198,8 @@ TAG_GROUPS: List[tuple[str, List[tuple[str, str]]]] = [
         ('Platform users', 'Every account on the platform, and switching one off.'),
         ('Feature groups', 'Tiers that decide which features a community may use.'),
         ('Log levels', 'How much each part of the server writes to its log.'),
+        ('Platform apps', 'Every app people registered to sign in with Wizzrobe, and switching one off.'),
+        ('Browser monitoring', 'Whether browsers report errors to Sentry, and the errors to ignore.'),
         ('Racetime bots', 'racetime.gg bot accounts shared across communities.'),
         ('Service health', 'Whether the outside services Wizzrobe depends on are up.'),
         ('Health', 'Liveness check for the server itself.'),
