@@ -11,6 +11,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Query
 
 from api.dependencies import ServiceErrorRoute, event_binding, require_api_actor, require_write_actor
+from api.schemas.admin_match_schedule import BoardResponse, MatchPaneResponse
 from api.schemas.work import (
     GridColumnResponse,
     GridRoleResponse,
@@ -18,12 +19,12 @@ from api.schemas.work import (
     VolunteerScheduleResponse,
     WorkAreasResponse,
 )
-from application.services import PlayerHomeService, WorkService
+from application.services import PlayerHomeService, ProctorStationService, WorkService
 from application.services.volunteer.volunteer_schedule_grid import CALLED_OFF
-from models import User
+from models import Match, User
 
 router = APIRouter(
-    prefix='/work', tags=['Work'], route_class=ServiceErrorRoute, dependencies=[Depends(event_binding())],
+    prefix='/work', tags=['Work'], route_class=ServiceErrorRoute, dependencies=[Depends(event_binding(match_id=Match))],
 )
 
 
@@ -132,3 +133,55 @@ async def save_schedule_columns(
 async def reset_schedule_columns(actor: User = Depends(require_write_actor)) -> list[GridRoleResponse]:
     roles = await WorkService().reset_schedule_columns(actor)
     return [GridRoleResponse.model_validate(r, from_attributes=True) for r in roles]
+
+
+_PROCTOR_WHO = (
+    "**Who can call this:** Proctors and Broadcast Techs (who see only matches on a stage), "
+    "and staff while the Volunteer hub is on."
+)
+
+
+@router.get(
+    '/proctor',
+    response_model=BoardResponse,
+    summary='Proctor Station',
+    description=(
+        "Every on-site match on a day (or every day), grouped by what it needs from a proctor "
+        "next: late, ready to start, in play, up next, waiting for players, done. Each row's "
+        "`next_step` is the one press that moves it on. No crew and no \"Needs you\" inbox; "
+        "racetime matches are left off. Every action is an existing `/matches/{match_id}/…` "
+        "route.\n\n" + _PROCTOR_WHO
+    ),
+)
+async def proctor_station(
+    day: Optional[date] = Query(None, description="A day on the board's clock; leave out for every day."),
+    tournament_id: Optional[int] = Query(None),
+    stage_id: Optional[int] = Query(None),
+    q: str = Query('', max_length=100, description="Matches players, tournament or stage."),
+    tz: Optional[str] = Query(None, description="The device's IANA zone, used when neither the community nor you pin one."),
+    actor: User = Depends(require_api_actor),
+) -> BoardResponse:
+    data = await ProctorStationService().board(
+        actor, day=day, tournament_id=tournament_id, stage_id=stage_id, search=q, device_zone=tz,
+    )
+    return BoardResponse.model_validate(data)
+
+
+@router.get(
+    '/proctor/matches/{match_id}',
+    response_model=MatchPaneResponse,
+    summary='One match on Proctor Station',
+    description=(
+        "The station line for the match plus its pane: what it still needs before it can "
+        "start (no crew), where it can be rewound to, and when it reached its current step."
+        "\n\n" + _PROCTOR_WHO
+    ),
+)
+async def proctor_match(
+    match_id: int,
+    tz: Optional[str] = Query(None),
+    actor: User = Depends(require_api_actor),
+) -> MatchPaneResponse:
+    return MatchPaneResponse.model_validate(
+        await ProctorStationService().match(actor, match_id, device_zone=tz),
+    )

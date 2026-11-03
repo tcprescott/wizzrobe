@@ -304,3 +304,43 @@
   width: 100%;
   justify-content: flex-start;
 }
+
+/* Proctor Station: the admin board's line with the next step under it. */
+.ps-item {
+  border-bottom: 1px solid var(--border-subtle);
+}
+.ps-item > .ms-row {
+  border-bottom: 0;
+}
+.ps-item.is-selected {
+  background: var(--accent-soft);
+}
+.ps-step {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 12px 10px 86px;
+  border-left: 3px solid transparent;
+}
+.ps-item--live .ps-step {
+  border-left-color: var(--status-live);
+}
+.ps-item--pending .ps-step,
+.ps-item--cancelled .ps-step {
+  border-left-color: var(--status-pending);
+}
+.ps-step__group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.ps-step__note {
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+}
+@media (max-width: 767px) {
+  .ps-step {
+    padding-left: 78px;
+  }
+}
