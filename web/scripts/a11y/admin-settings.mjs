@@ -7,7 +7,7 @@ export const targets = [
   { name: 'admin-settings-meetups', path: '/t/sgl/admin/settings/community-events' },
   { name: 'admin-settings-apps', path: '/t/sgl/admin/settings/apps' },
   { name: 'admin-settings-features', path: '/t/sgl/admin/settings/features' },
-  { name: 'admin-settings-not-built', path: '/t/sgl/admin/settings/discord' },
+  { name: 'admin-settings-not-built', path: '/t/sgl/admin/settings/integrations' },
   {
     name: 'admin-settings-unsaved',
     path: '/t/sgl/admin/settings/volunteers',
