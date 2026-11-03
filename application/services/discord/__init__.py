@@ -37,6 +37,7 @@ from application.services.discord.discord_member_import_service import (
 from application.services.discord.discord_role_mapping_service import DiscordRoleMappingService
 from application.services.discord.discord_role_sync_service import DiscordRoleSyncService
 from application.services.discord.discord_service import DiscordService
+from application.services.discord.discord_settings_service import DiscordSettingsService
 
 __all__ = [
     'DiscordEmailService',
@@ -50,6 +51,7 @@ __all__ = [
     'DiscordRoleMappingService',
     'DiscordRoleSyncService',
     'DiscordService',
+    'DiscordSettingsService',
     'bot_state',
     'discord_event_worker',
     'discord_guild_ops',

@@ -349,6 +349,10 @@ The `/checkin` desk's actions, behind `EVENT_CHECK_IN`. The rules are the desk p
 - `POST /check-in/events/{id}/walk-ups` (`{user_id}` or `{name}`, `check_in?`) — staff only; `201`. `DELETE /check-in/entrants/{id}` removes a walk-up (staff; Matcherino and comp rows are `400`).
 - `GET /check-in/events/{id}/desk` — the app's desk screen in one read: the event, `can_manage`, and every row with its `badge_codes`, Discord `username`, `has_discord` and `suggestions` (likely accounts for an unlinked row). `GET /check-in/entrants/{id}/suggestions` lists those accounts; `GET /check-in/events/{id}/members?q=&for_link=` searches members not on the roster. `POST /check-in/entrants/{id}/test-dm` re-sends the check-in DM.
 
+### Discord settings (`/api/settings/discord`) · `discord_settings.py`
+- The app's Settings → Discord pane, through `DiscordSettingsService`. Discord ids are **strings** here (a browser client can't hold a snowflake as a JSON number), unlike the older Discord routes.
+- `GET /settings/discord` (link status + which cards the caller may change; Staff or Sync admin) · `POST /disconnect` (Staff) · `GET /mappings` (labelled rows; removal uses `DELETE /discord-role-mappings/{id}`) · `GET /mapping-options` (server roles, grants with `kind`, tournaments, events) · `POST /mappings` (every role × every grant, returns `created`/`skipped`) · `POST /sync` (Sync everyone summary) · `GET /events` (setup problem + each tournament's switch and mirrored count; switching uses `PATCH /discord-events/tournaments/{id}`).
+
 ### Discord role mappings (`/api/discord-role-mappings`) · `discord_role_mappings.py`
 - `GET /discord-role-mappings?guild_id=` (list, optionally per guild) · `POST` (create) · `DELETE /{id}` — manage Discord-guild-role → grant mappings (Staff). A `POST` body sets **either** `app_role` (community-wide) **or** `tournament_grant` + `tournament_id` (Tournament Admin / Crew Coordinator on one event); both or neither is a 400.
 

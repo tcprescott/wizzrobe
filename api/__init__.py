@@ -29,6 +29,7 @@ from api.routers import (
     crew,
     discord_events,
     discord_role_mappings,
+    discord_settings,
     equipment,
     event_hub,
     event_settings,
@@ -105,6 +106,7 @@ router.include_router(my_surveys.router)
 router.include_router(admin_nav.router)
 router.include_router(work.router)
 router.include_router(community_settings.router)
+router.include_router(discord_settings.router)
 router.include_router(event_settings.router)
 router.include_router(my_profile.router)
 router.include_router(admin_tournaments.router)
