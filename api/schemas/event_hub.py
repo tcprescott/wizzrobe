@@ -77,11 +77,19 @@ class TournamentCardResponse(_Base):
     prize_total: Optional[Decimal] = Field(None, description="Prize pool plus bonus, when Payouts is on and there is one.")
 
 
+class BadgesCardResponse(_Base):
+    on_sale: int = Field(..., description="Badge types a member can buy right now.")
+    from_cents: Optional[int] = Field(None, description="The cheapest of them, in the currency's smallest unit.")
+    currency: Optional[str] = None
+    owned: int = Field(..., description="Valid badges you hold for this event.")
+
+
 class EventHubResponse(_Base):
     zone: Optional[str] = Field(None, description="The clock to print times on: the community's pinned zone, else your saved one, else null for the device's.")
     stages: List[StageCardResponse]
     up_next: List[RunSheetRowResponse]
     tournaments: List[TournamentCardResponse]
+    badges: Optional[BadgesCardResponse] = Field(None, description="The Badges card, when this event sells badges or you hold one.")
 
 
 class WatchResponse(_Base):

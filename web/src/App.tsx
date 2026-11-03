@@ -18,6 +18,8 @@ import { EventHub } from './event/EventHub'
 import { RunSheetScreen } from './event/RunSheetScreen'
 import { WatchScreen } from './event/WatchScreen'
 import { SurveyScreen } from './player/survey/SurveyScreen'
+import { BadgesScreen } from './tickets/BadgesScreen'
+import { ClaimScreen } from './tickets/ClaimScreen'
 import { DeskScreen } from './work/DeskScreen'
 import { MyAvailabilityScreen } from './work/MyAvailabilityScreen'
 import { ProctorScreen } from './work/ProctorScreen'
@@ -36,6 +38,8 @@ const tabRoutes: RouteObject[] = [
   { path: 'event', element: <EventHub /> },
   { path: 'event/schedule', element: <RunSheetScreen /> },
   { path: 'event/watch', element: <WatchScreen /> },
+  { path: 'event/badges', element: <BadgesScreen /> },
+  { path: 'badges/claim/:token', element: <ClaimScreen /> },
   { path: 'event/tournament/:tournamentId', element: <BracketScreen /> },
   { path: 'survey/:surveyId', element: <SurveyScreen /> },
   { path: 'survey/:surveyId/:part', element: <SurveyScreen /> },

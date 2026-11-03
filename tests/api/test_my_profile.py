@@ -34,13 +34,14 @@ class TestProfileList:
         assert body['preferred_name'] == 'alice'
         assert body['pronouns'] == 'she/her'
         keys = [s['key'] for s in body['sections']]
-        assert keys[:3] == ['about', 'notifications', 'availability']
+        assert keys[:4] == ['about', 'tickets', 'notifications', 'availability']
         for key in ('accommodation', 'emergency-contact', 'feedback', 'webhooks', 'apps', 'tokens'):
             assert key in keys
         assert 'staff-alerts' not in keys
         summaries = {s['key']: s['summary'] for s in body['sections']}
         assert summaries['availability'] == 'Free all event'
         assert summaries['emergency-contact'] == 'Not added'
+        assert summaries['tickets'] == 'No badge yet'
 
     async def test_a_section_switched_off_drops_out(self, db, app):
         await _flag_off(FeatureFlag.EMERGENCY_CONTACTS)

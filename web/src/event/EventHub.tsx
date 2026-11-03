@@ -1,13 +1,36 @@
 import { useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { Banner, Button, EmptyState, Icon, PageHeader, Panel, Spinner } from '../components'
+import type { Schemas } from '../api/client'
 import { useCommunity } from '../community/CommunityProvider'
+import { money } from '../lib/money'
 import { effectiveZone } from '../lib/time'
 import { useFlash } from '../player/HomeScreen'
 import { useEventInfo } from '../reading/data'
 import { useHub } from './data'
 import { RunSheetRow, StageCard, TournamentCardView } from './parts'
 import './event.css'
+
+/** Buying a badge, or where yours is once you have one. */
+function BadgesCard({ card, base }: { card: Schemas['BadgesCardResponse']; base: string }) {
+  const selling = card.on_sale > 0
+  const sub = [
+    selling && card.from_cents != null ? `From ${money(card.from_cents, card.currency ?? 'usd')}` : null,
+    card.owned ? (card.owned === 1 ? 'You have yours' : `You hold ${card.owned}`) : null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+  return (
+    <Link to={selling ? `${base}/event/badges` : `${base}/me/tickets`} className="hub-info">
+      <Icon name="local_activity" size={22} />
+      <span className="hub-info__text">
+        <strong>{selling ? 'Badges' : 'Your badge'}</strong>
+        <span>{sub || 'Show its QR at the check-in desk'}</span>
+      </span>
+      <Icon name="chevron_right" size={20} />
+    </Link>
+  )
+}
 
 /** The Event tab, layout B: what's on each stage now, what's next anywhere, and each tournament's bracket. */
 export function EventHub() {
@@ -45,6 +68,7 @@ export function EventHub() {
           <Icon name="chevron_right" size={20} />
         </Link>
       )}
+      {data?.badges && <BadgesCard card={data.badges} base={base} />}
       {data && (
         <>
           <section aria-labelledby="hub-now">

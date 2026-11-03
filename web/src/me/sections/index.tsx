@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { useParams } from 'react-router-dom'
+import { MyTickets } from '../../tickets/MyTickets'
 import { About } from './About'
 import { Appearance } from './Appearance'
 import { Availability } from './Availability'
@@ -10,6 +11,7 @@ import { Accommodation, EmergencyContact } from './Records'
 
 const SECTIONS: Record<string, () => ReactNode> = {
   about: About,
+  tickets: MyTickets,
   notifications: Notifications,
   availability: Availability,
   accounts: Accounts,

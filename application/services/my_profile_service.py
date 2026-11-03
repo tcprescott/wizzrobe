@@ -25,6 +25,7 @@ from application.services.player_availability_service import PlayerAvailabilityS
 from application.services.racetime_service import RacetimeService
 from application.services.staff_alert_service import StaffAlertService
 from application.services.startgg_link_service import StartggLinkService
+from application.services.ticket_service import TicketService
 from application.services.timezone_service import MODE_PINNED, TimezoneService
 from application.services.tournament_notification_service import TournamentNotificationService
 from application.services.twitch_service import TwitchService
@@ -32,7 +33,7 @@ from application.services.user_service import UserService
 from application.services.web_push_service import WebPushService
 from application.timezone_context import is_valid_timezone
 from application.utils.discord_avatar import avatar_url
-from models import AccommodationStatus, FeatureFlag, User
+from models import AccommodationStatus, FeatureFlag, TicketStatus, User
 
 
 @dataclass(frozen=True)
@@ -240,6 +241,15 @@ class MyProfileService:
         if tz and not pinned:
             about.append(tz.replace('_', ' '))
         add(ProfileSection('about', 'About you', ' · '.join(about)))
+
+        if FeatureFlag.TICKET_SALES in live:
+            badges = await TicketService().my_badges(user)
+            held = [t for t in badges.own if t.status is TicketStatus.VALID]
+            unclaimed = sum(1 for e in badges.extras if e.claim_path)
+            parts = [_plural(len(held), 'badge') if held else 'No badge yet']
+            if unclaimed:
+                parts.append(f'{unclaimed} to hand out')
+            add(ProfileSection('tickets', 'Tickets', ' · '.join(parts)))
 
         channels: List[str] = []
         if user.discord_id and user.dm_notifications:

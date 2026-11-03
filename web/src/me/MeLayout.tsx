@@ -8,6 +8,7 @@ import './me.css'
 
 const ICON: Record<string, IconName> = {
   about: 'person',
+  tickets: 'local_activity',
   notifications: 'notifications',
   availability: 'event_busy',
   accounts: 'link',
