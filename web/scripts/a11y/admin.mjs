@@ -9,6 +9,22 @@ export const fixtures = {
   "/api/admin/nav": {
     "areas": [
       {
+        "slug": "feedback",
+        "label": "Feedback",
+        "icon": "feedback",
+        "group": "Community",
+        "half": "community",
+        "aliases": []
+      },
+      {
+        "slug": "notifications",
+        "label": "Notifications",
+        "icon": "notifications",
+        "group": "Configuration",
+        "half": "community",
+        "aliases": []
+      },
+      {
         "slug": "setup",
         "label": "Setup",
         "icon": "checklist",

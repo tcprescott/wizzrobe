@@ -12,12 +12,14 @@ from fastapi.routing import APIRoute, RouteContext, iter_route_contexts
 from api.dependencies import (
     require_admin,
     require_api_actor,
+    require_app_super_admin_write,
     require_identity,
     require_staff,
     require_staff_write,
     require_super_admin,
     require_super_admin_write,
     require_volunteer_admin,
+    resolve_identity,
     resolve_token,
     tenant_context_scope,
 )
@@ -76,13 +78,13 @@ def test_every_route_has_a_scope_decision():
 def test_public_entries_are_exactly_the_tokenless_routes():
     wrong = [
         key for key, _, calls in _routes()
-        if (ROUTE_SCOPES[key] is PUBLIC) != (resolve_token not in calls and require_identity not in calls)
+        if (ROUTE_SCOPES[key] is PUBLIC) != (resolve_token not in calls and require_identity not in calls and resolve_identity not in calls)
     ]
     assert not wrong, 'PUBLIC must list exactly the routes that take no token:\n' + '\n'.join(wrong)
 
 
 def test_platform_routes_are_never_open_to_apps():
-    platform_gates = {require_super_admin, require_super_admin_write}
+    platform_gates = {require_super_admin, require_super_admin_write, require_app_super_admin_write}
     leaked = [
         key for key, _, calls in _routes()
         if platform_gates & set(calls) and ROUTE_SCOPES[key] is not PAT_ONLY

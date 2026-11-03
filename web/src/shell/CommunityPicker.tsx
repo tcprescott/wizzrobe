@@ -2,11 +2,13 @@ import * as DM from '@radix-ui/react-dropdown-menu'
 import { useNavigate } from 'react-router-dom'
 import { Icon } from '../components'
 import { useCommunity } from '../community/CommunityProvider'
+import { usePlatformAccess } from '../platform/access'
 
 /** The pill in the top bar: which event (and community) you're looking at. */
 export function CommunityPicker() {
   const { communities, community, event } = useCommunity()
   const navigate = useNavigate()
+  const platform = usePlatformAccess().data?.super_admin
   const label = event?.name ?? community.name
   return (
     <DM.Root modal={false}>
@@ -53,6 +55,15 @@ export function CommunityPicker() {
                     </DM.Item>
                   ))}
               </DM.Group>
+            </>
+          )}
+          {platform && (
+            <>
+              <DM.Separator className="menu__sep" />
+              <DM.Item className="menu__item" onSelect={() => navigate('/platform')}>
+                <Icon name="admin_panel_settings" size={20} />
+                Platform administration
+              </DM.Item>
             </>
           )}
         </DM.Content>
