@@ -105,6 +105,11 @@ class ChallongeRepository:
         await save_fields(connection, 'access_token', 'refresh_token', 'token_expires_at')
 
     @staticmethod
+    async def linked_tournament_count() -> int:
+        """How many of this tenant's tournaments are linked to a Challonge bracket (cross-event: the sign-in is the community's)."""
+        return await scoped(Tournament.filter(challonge_tournament_id__isnull=False)).count()
+
+    @staticmethod
     async def linked_tournament_communities() -> Dict[str, int]:
         """How many of this tenant's linked tournaments, in any event, live on each Challonge community.
 

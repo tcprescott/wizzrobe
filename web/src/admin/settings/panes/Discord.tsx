@@ -4,7 +4,7 @@ import { useCommunity } from '../../../community/CommunityProvider'
 import { Button, Chip, Dialog, FormDialog, Icon, RowMenu, Spinner } from '../../../components'
 import { useEventQuery } from '../../../me/data'
 import { websiteUrl } from '../../../reading/data'
-import { ListCard, LoadError, useAdminQuery } from '../../kit'
+import { CheckList, ListCard, LoadError, useAdminQuery } from '../../kit'
 
 type Link = Schemas['DiscordLinkResponse']
 type Mapping = Schemas['DiscordMappingRow']
@@ -113,46 +113,6 @@ function ServerCard({ link, onChanged }: { link: Link; onChanged: () => void }) 
         )}
       </FormDialog>
     </ListCard>
-  )
-}
-
-function CheckList<V extends string>({
-  legend,
-  items,
-  value,
-  onChange,
-}: {
-  legend: string
-  items: { value: V; label: string; hint?: string; color?: number }[]
-  value: V[]
-  onChange: (value: V[]) => void
-}) {
-  return (
-    <fieldset className="settings-checks">
-      <legend className="field__label">{legend}</legend>
-      <div className="settings-checks__box">
-        {items.map((item) => (
-          <label key={item.value} className="t-check">
-            <input
-              type="checkbox"
-              checked={value.includes(item.value)}
-              onChange={(e) => onChange(e.target.checked ? [...value, item.value] : value.filter((v) => v !== item.value))}
-            />
-            {item.color !== undefined && (
-              <span
-                className="settings-checks__dot"
-                aria-hidden="true"
-                style={{ background: item.color ? `#${item.color.toString(16).padStart(6, '0')}` : undefined }}
-              />
-            )}
-            <span>
-              {item.label}
-              {item.hint && <span className="settings-row__sub"> · {item.hint}</span>}
-            </span>
-          </label>
-        ))}
-      </div>
-    </fieldset>
   )
 }
 

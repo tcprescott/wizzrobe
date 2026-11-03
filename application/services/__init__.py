@@ -115,6 +115,7 @@ from .feedback_service import FeedbackService
 from .friend_service import FriendService
 from .help_service import HelpService
 from .identity_link_service import IdentityLinkProvider, IdentityLinkService
+from .integration_settings_service import IntegrationSettingsService
 from .item_tracker_service import ItemTrackerService
 from .log_level_service import LoggerLevelRow, LogLevelService
 from .match import (
@@ -308,6 +309,7 @@ __all__ = [
     'HoursSummary',
     'IdentityLinkProvider',
     'IdentityLinkService',
+    'IntegrationSettingsService',
     'ItemTrackerService',
     'LogLevelService',
     'LoggerLevelRow',
