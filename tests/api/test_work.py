@@ -4,8 +4,10 @@ from datetime import date, datetime, time, timedelta, timezone
 
 import pytest
 
+import application.services.work_service as work_service
+from application.services.my_timeline_service import event_day
 from application.services.work_service import FULL_SCHEDULE_PREFS_KEY, event_days, opening_day
-from application.utils.timezone import combine_local, today_local
+from application.utils.timezone import combine_local, now_local, to_utc_aware, today_local
 from models import (
     CheckInEntrant,
     CheckInEntrantSource,
@@ -34,9 +36,9 @@ def _now() -> datetime:
     return datetime.now(timezone.utc).replace(microsecond=0)
 
 
-def _today_noon() -> datetime:
-    """Inside the grid the tab opens on (06:00 to 06:00 local), whatever the hour."""
-    return combine_local(today_local(), time(12, 0))
+def _event_day_noon() -> datetime:
+    """Inside the grid the tab opens on (the event day still running, 06:00 to 06:00), whatever the hour."""
+    return combine_local(event_day(now_local()), time(12, 0))
 
 
 async def _shift(position: VolunteerPosition, start: datetime, hours: int = 2, slots: int = 2) -> VolunteerShift:
@@ -105,7 +107,7 @@ class TestSchedule:
         me, raw = await create_user_token(username='vol', roles=[Role.VOLUNTEER])
         desk = await VolunteerPosition.create(name='Desk', display_order=1)
         runner = await VolunteerPosition.create(name='Runner', display_order=2)
-        shift = await _shift(desk, _today_noon())
+        shift = await _shift(desk, _event_day_noon())
         await VolunteerAssignment.create(shift=shift, user=me)
         await _shift(runner, shift.starts_at)
         async with client_for(app, raw) as c:
@@ -118,9 +120,6 @@ class TestSchedule:
         assert body['first_hour'] <= desk_shift['start_hour'] < body['last_hour']
 
     async def test_before_six_opens_on_the_event_day_still_running(self, db, app, monkeypatch):
-        import application.services.work_service as work_service
-        from application.utils.timezone import now_local, to_utc_aware
-
         late = now_local().replace(hour=1, minute=30, second=0, microsecond=0)
         monkeypatch.setattr(work_service, 'now_local', lambda tz=None: late)
         me, raw = await create_user_token(username='owl', roles=[Role.VOLUNTEER])
@@ -136,7 +135,7 @@ class TestSchedule:
         _, raw = await create_user_token(username='vol', roles=[Role.VOLUNTEER])
         desk = await VolunteerPosition.create(name='Desk', display_order=1)
         runner = await VolunteerPosition.create(name='Runner', display_order=2)
-        noon = _today_noon()
+        noon = _event_day_noon()
         await _shift(desk, noon)
         await _shift(runner, noon)
         async with client_for(app, raw) as c:
