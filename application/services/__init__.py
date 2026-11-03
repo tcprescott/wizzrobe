@@ -50,9 +50,11 @@ from .accommodation_service import AccommodationService
 from .admin_brackets_service import AdminBracketsService
 from .admin_match_form_service import AdminMatchFormService
 from .admin_nav_service import AdminAccess, AdminNav, AdminNavService
+from .admin_payouts_service import AdminPayoutsService
 from .admin_presets_service import AdminPresetsService
 from .admin_qualifiers_service import AdminQualifiersService
 from .admin_schedule_service import AdminScheduleService
+from .admin_stream_layouts_service import AdminStreamLayoutsService
 from .admin_tournaments_service import AdminTournamentsService
 from .ai_provider_service import AiProviderService
 from .analytics_service import AnalyticsService
@@ -101,6 +103,7 @@ from .discord import (
 from .emergency_contact_service import EmergencyContactService
 from .equipment_admin_service import EquipmentAdminService
 from .equipment_service import EquipmentService
+from .event_hub_service import EventHubService
 from .event_info_service import EventGuide, EventInfoService
 from .event_service import ArchiveCheck, EventRef, EventService
 from .exports import DataExportService, ExportFile, data_export_worker
@@ -232,9 +235,11 @@ __all__ = [
     'AdminMatchFormService',
     'AdminNav',
     'AdminNavService',
+    'AdminPayoutsService',
     'AdminPresetsService',
     'AdminQualifiersService',
     'AdminScheduleService',
+    'AdminStreamLayoutsService',
     'AdminTournamentsService',
     'AiProviderService',
     'AnalyticsService',
@@ -280,6 +285,7 @@ __all__ = [
     'EquipmentService',
     'EventDraft',
     'EventGuide',
+    'EventHubService',
     'EventInfoService',
     'EventRef',
     'EventService',

@@ -77,6 +77,22 @@ export const fixtures = {
         ]
       },
       {
+        "slug": "payouts",
+        "label": "Payouts",
+        "icon": "payments",
+        "group": "Run the event",
+        "half": "event",
+        "aliases": []
+      },
+      {
+        "slug": "stream-layouts",
+        "label": "Stream Layouts",
+        "icon": "live_tv",
+        "group": "Run the event",
+        "half": "event",
+        "aliases": []
+      },
+      {
         "slug": "event-settings",
         "label": "Event settings",
         "icon": "event",

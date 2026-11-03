@@ -14,6 +14,7 @@ import ArrowBack from '@material-symbols/svg-400/outlined/arrow_back.svg?react'
 import ArrowDownwardIcon from '@material-symbols/svg-400/outlined/arrow_downward.svg?react'
 import ArrowUpwardIcon from '@material-symbols/svg-400/outlined/arrow_upward.svg?react'
 import IAttractions from '@material-symbols/svg-400/outlined/attractions.svg?react'
+import AutorenewIcon from '@material-symbols/svg-400/outlined/autorenew.svg?react'
 import Badge from '@material-symbols/svg-400/outlined/badge.svg?react'
 import BadgeFill from '@material-symbols/svg-400/outlined/badge-fill.svg?react'
 import BlockIcon from '@material-symbols/svg-400/outlined/block.svg?react'
@@ -39,6 +40,7 @@ import IContactPhone from '@material-symbols/svg-400/outlined/contact_phone.svg?
 import IContactSupport from '@material-symbols/svg-400/outlined/contact_support.svg?react'
 import ContentCopy from '@material-symbols/svg-400/outlined/content_copy.svg?react'
 import DarkMode from '@material-symbols/svg-400/outlined/dark_mode.svg?react'
+import DashboardIcon from '@material-symbols/svg-400/outlined/dashboard.svg?react'
 import DateRangeIcon from '@material-symbols/svg-400/outlined/date_range.svg?react'
 import DeleteIcon from '@material-symbols/svg-400/outlined/delete.svg?react'
 import IDescription from '@material-symbols/svg-400/outlined/description.svg?react'
@@ -62,6 +64,7 @@ import GroupAddIcon from '@material-symbols/svg-400/outlined/group_add.svg?react
 import Groups from '@material-symbols/svg-400/outlined/groups.svg?react'
 import Groups2Icon from '@material-symbols/svg-400/outlined/groups_2.svg?react'
 import IHelp from '@material-symbols/svg-400/outlined/help.svg?react'
+import HideImageIcon from '@material-symbols/svg-400/outlined/hide_image.svg?react'
 import History from '@material-symbols/svg-400/outlined/history.svg?react'
 import Home from '@material-symbols/svg-400/outlined/home.svg?react'
 import HomeFill from '@material-symbols/svg-400/outlined/home-fill.svg?react'
@@ -70,6 +73,7 @@ import ImageIcon from '@material-symbols/svg-400/outlined/image.svg?react'
 import Inbox from '@material-symbols/svg-400/outlined/inbox.svg?react'
 import Info from '@material-symbols/svg-400/outlined/info.svg?react'
 import Inventory2 from '@material-symbols/svg-400/outlined/inventory_2.svg?react'
+import KeepIcon from '@material-symbols/svg-400/outlined/keep.svg?react'
 import KeyIcon from '@material-symbols/svg-400/outlined/key.svg?react'
 import KeyboardArrowDown from '@material-symbols/svg-400/outlined/keyboard_arrow_down.svg?react'
 import LeaderboardIcon from '@material-symbols/svg-400/outlined/leaderboard.svg?react'
@@ -142,6 +146,7 @@ import SwapVertIcon from '@material-symbols/svg-400/outlined/swap_vert.svg?react
 import SyncIcon from '@material-symbols/svg-400/outlined/sync.svg?react'
 import SyncAltIcon from '@material-symbols/svg-400/outlined/sync_alt.svg?react'
 import TaskAlt from '@material-symbols/svg-400/outlined/task_alt.svg?react'
+import TextFieldsIcon from '@material-symbols/svg-400/outlined/text_fields.svg?react'
 import TimerIcon from '@material-symbols/svg-400/outlined/timer.svg?react'
 import ToggleOnIcon from '@material-symbols/svg-400/outlined/toggle_on.svg?react'
 import TrophyIcon from '@material-symbols/svg-400/outlined/trophy.svg?react'
@@ -175,6 +180,7 @@ export const ICONS = {
   arrow_downward: ArrowDownwardIcon,
   arrow_upward: ArrowUpwardIcon,
   attractions: IAttractions,
+  autorenew: AutorenewIcon,
   badge: Badge,
   block: BlockIcon,
   brightness_auto: BrightnessAuto,
@@ -198,6 +204,7 @@ export const ICONS = {
   contact_support: IContactSupport,
   content_copy: ContentCopy,
   dark_mode: DarkMode,
+  dashboard: DashboardIcon,
   date_range: DateRangeIcon,
   delete: DeleteIcon,
   description: IDescription,
@@ -221,6 +228,7 @@ export const ICONS = {
   groups: Groups,
   groups_2: Groups2Icon,
   help: IHelp,
+  hide_image: HideImageIcon,
   history: History,
   home: Home,
   how_to_reg: HowToReg,
@@ -228,6 +236,7 @@ export const ICONS = {
   inbox: Inbox,
   info: Info,
   inventory_2: Inventory2,
+  keep: KeepIcon,
   key: KeyIcon,
   keyboard_arrow_down: KeyboardArrowDown,
   leaderboard: LeaderboardIcon,
@@ -298,6 +307,7 @@ export const ICONS = {
   sync: SyncIcon,
   sync_alt: SyncAltIcon,
   task_alt: TaskAlt,
+  text_fields: TextFieldsIcon,
   timer: TimerIcon,
   toggle_on: ToggleOnIcon,
   trophy: TrophyIcon,
