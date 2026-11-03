@@ -45,9 +45,21 @@ export function SideListLayout({ list, detail, open, backTo, backLabel }: SideLi
 }
 
 /** The white card the rows sit in; `label` names the list for a screen reader. */
-export function SideListCard({ label, children, more }: { label: string; children: ReactNode; more?: ReactNode }) {
+export function SideListCard({
+  label,
+  title,
+  children,
+  more,
+}: {
+  label: string
+  /** A small-caps heading inside the card, for a list split into groups (Stages, Layouts). */
+  title?: ReactNode
+  children: ReactNode
+  more?: ReactNode
+}) {
   return (
     <div className="side-list__list">
+      {title && <h2 className="side-list__heading">{title}</h2>}
       <ul className="side-list__rows" aria-label={label}>
         {children}
       </ul>

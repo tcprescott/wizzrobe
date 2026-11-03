@@ -1,0 +1,125 @@
+/* Admin → Payouts: the pool fields, one split line per place, and the sticky save bar. */
+
+.pay-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.pay-editor .detail-head {
+  margin-bottom: 0;
+}
+
+.pay-money {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.pay-pool {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+  align-items: start;
+}
+.pay-pool__total {
+  display: block;
+  padding-top: 10px;
+  font-size: 1.125rem;
+}
+.pay-pool__sync {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.pay-editor {
+  container-type: inline-size;
+}
+
+/* Two rows (place, winner, remove / share, unit, amount) until the pane is wide enough for one. */
+.pay-line {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr) auto;
+  grid-template-areas:
+    'place who del'
+    'share unit amount';
+  gap: var(--space-2);
+  align-items: center;
+}
+.pay-line .input {
+  width: 100%;
+  min-width: 0;
+}
+.pay-line__place {
+  grid-area: place;
+}
+.pay-line__who {
+  grid-area: who;
+}
+.pay-line__share {
+  grid-area: share;
+  width: 100%;
+}
+.pay-line__unit {
+  grid-area: unit;
+  justify-self: start;
+}
+.pay-line__amount {
+  grid-area: amount;
+  text-align: right;
+}
+.pay-line__del {
+  grid-area: del;
+}
+.pay-line__unit label {
+  min-width: 32px;
+  justify-content: center;
+}
+@container (min-width: 640px) {
+  .pay-line {
+    grid-template-columns: 72px minmax(0, 1fr) 96px auto 96px auto;
+    grid-template-areas: 'place who share unit amount del';
+  }
+}
+
+.pay-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-2);
+}
+.pay-bar__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.pay-bar__over {
+  color: var(--status-cancelled);
+}
+
+.pay-sglive__total {
+  font-weight: 400;
+  color: var(--fg-muted);
+}
+
+@media (max-width: 599.98px) {
+  .pay-pool {
+    grid-template-columns: 1fr 1fr;
+  }
+  .pay-pool .field:first-child {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 767.98px) {
+  .pay-bar {
+    bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+  }
+}

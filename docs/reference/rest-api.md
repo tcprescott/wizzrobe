@@ -198,6 +198,13 @@ Screen-shaped reads for the app's Home and Schedule tabs, built by `PlayerHomeSe
 - `GET /me/schedule?past=` — your matches, crew slots and shifts in the event window, soonest first (or ended ones, latest first).
 - `GET /me/bookable` — matchups waiting on you to pick a time, from native brackets, Challonge and start.gg in one list (`source` + `key`). `GET /me/bookable/{source}/{key}/check?at=` returns the booking-window `refusal` and the "Check this time" `clashes` without booking; `POST /me/bookable/{source}/{key}/book` (`scheduled_at`, an instant) books the next game. Both refuse (`400`) a matchup that isn't in your own list.
 
+### Event (`/api/event/…`) · `event_hub.py`
+The app's Event tab, built by `EventHubService`. Event-bound, scope `schedule:read`. Each response carries `zone`, the clock to print times on (as on `GET /me/home`).
+- `GET /event/hub` — each active stage's card (the match seated or playing there now, the next two within a day, the Twitch channel), the next five unstarted matches anywhere, and a card per active tournament (test tournaments left out) with its bracket status, whether `GET /tournaments/{id}/bracket` has something to show (`has_bracket`), and outside bracket and rules links.
+- `GET /event/schedule?start=&end=` — the run sheet: every match scheduled in the window, soonest first, at most 48 hours (`400` past that). Each row has its sides (undecided ones flagged), stage and stations, and its crew slots: needed, approved names, your own signup and whether you can sign up now (`POST /matches/{id}/crew`). `playing` and `watching` are about you.
+- `GET /event/watch` — the stage cards, streamed matches coming up over the next week that the cards don't show, and the tournament cards.
+- `GET /tournaments/{id}/bracket` also returns `your_entrant_ids`, so the app can mark your own sets without seeing anyone's account.
+
 ### Admin shell (`/api/admin/…`) · `admin_nav.py`
 What the app's admin menu draws, built by `AdminNavService`. Scope `staff:read`.
 - `GET /admin/nav` — every admin area the caller may open here (`slug`, `label`, `icon`, `group`, `half`, older `aliases`), in menu order, plus the Settings and Event settings panes and the setup checklist. A member with no admin access gets empty lists, not `403`. The gates mirror the website's admin drawer; `tests/test_admin_nav_drift.py` fails when they disagree.
