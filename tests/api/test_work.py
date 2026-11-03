@@ -1,10 +1,13 @@
 """The app's Work tab: your areas, the volunteer schedule grid, and the desk's reads."""
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 
 import pytest
 
+import application.services.work_service as work_service
+from application.services.my_timeline_service import event_day
 from application.services.work_service import FULL_SCHEDULE_PREFS_KEY, event_days, opening_day
+from application.utils.timezone import combine_local, now_local, to_utc_aware, today_local
 from models import (
     CheckInEntrant,
     CheckInEntrantSource,
@@ -23,7 +26,7 @@ from tests.api_helpers import client_for, create_community_member, create_user_t
 
 @pytest.fixture(autouse=True)
 async def _event_runs_this_week(db):
-    today = date.today()
+    today = today_local()
     await Event.filter(is_default=True).update(
         starts_on=today - timedelta(days=1), ends_on=today + timedelta(days=2),
     )
@@ -31,6 +34,11 @@ async def _event_runs_this_week(db):
 
 def _now() -> datetime:
     return datetime.now(timezone.utc).replace(microsecond=0)
+
+
+def _event_day_noon() -> datetime:
+    """Inside the grid the tab opens on (the event day still running, 06:00 to 06:00), whatever the hour."""
+    return combine_local(event_day(now_local()), time(12, 0))
 
 
 async def _shift(position: VolunteerPosition, start: datetime, hours: int = 2, slots: int = 2) -> VolunteerShift:
@@ -99,8 +107,7 @@ class TestSchedule:
         me, raw = await create_user_token(username='vol', roles=[Role.VOLUNTEER])
         desk = await VolunteerPosition.create(name='Desk', display_order=1)
         runner = await VolunteerPosition.create(name='Runner', display_order=2)
-        now = _now()
-        shift = await _shift(desk, now.replace(minute=0, second=0) + timedelta(minutes=0))
+        shift = await _shift(desk, _event_day_noon())
         await VolunteerAssignment.create(shift=shift, user=me)
         await _shift(runner, shift.starts_at)
         async with client_for(app, raw) as c:
@@ -112,13 +119,25 @@ class TestSchedule:
         assert desk_shift['open_slots'] == 1
         assert body['first_hour'] <= desk_shift['start_hour'] < body['last_hour']
 
+    async def test_before_six_opens_on_the_event_day_still_running(self, db, app, monkeypatch):
+        late = now_local().replace(hour=1, minute=30, second=0, microsecond=0)
+        monkeypatch.setattr(work_service, 'now_local', lambda tz=None: late)
+        me, raw = await create_user_token(username='owl', roles=[Role.VOLUNTEER])
+        desk = await VolunteerPosition.create(name='Desk', display_order=1)
+        shift = await _shift(desk, to_utc_aware(late.replace(hour=1, minute=0)))
+        await VolunteerAssignment.create(shift=shift, user=me)
+        async with client_for(app, raw) as c:
+            body = (await c.get('/api/work/schedule')).json()
+        assert body['day'] == (late.date() - timedelta(days=1)).isoformat()
+        assert [c['position'] for c in body['columns']] == ['Desk']
+
     async def test_columns_save_hide_and_reset(self, db, app):
         _, raw = await create_user_token(username='vol', roles=[Role.VOLUNTEER])
         desk = await VolunteerPosition.create(name='Desk', display_order=1)
         runner = await VolunteerPosition.create(name='Runner', display_order=2)
-        now = _now()
-        await _shift(desk, now)
-        await _shift(runner, now)
+        noon = _event_day_noon()
+        await _shift(desk, noon)
+        await _shift(runner, noon)
         async with client_for(app, raw) as c:
             roles = (await c.put('/api/work/schedule/columns', json={'columns': [
                 {'position_id': runner.id, 'visible': True}, {'position_id': desk.id, 'visible': False},
@@ -204,3 +223,64 @@ class TestDesk:
         async with client_for(app, raw) as c:
             assert (await c.get(f'/api/check-in/events/{event.id}/desk')).status_code == 403
             assert (await c.get(f'/api/check-in/events/{event.id}/members', params={'q': 'ab'})).status_code == 403
+
+
+def _rows(body: dict) -> dict:
+    return {r['id']: (g['label'], r) for g in body['groups'] for r in g['rows']}
+
+
+async def _match(t, at: datetime, *names: str, **fields):
+    from models import Match, MatchPlayers
+
+    match = await Match.create(tournament=t, scheduled_at=at, **fields)
+    for name in names:
+        await MatchPlayers.create(match=match, user=await create_community_member(username=name))
+    return match
+
+
+class TestProctorStation:
+    async def test_proctor_board_groups_and_hides_crew(self, db, app):
+        from models import Tournament
+
+        _, raw = await create_user_token(username='proc', roles=[Role.PROCTOR])
+        cup = await Tournament.create(name='Cup', is_active=True)
+        now = _now()
+        late = await _match(cup, now - timedelta(minutes=30), 'ann', 'bob')
+        seated = await _match(cup, now + timedelta(minutes=10), 'cat', 'dan', seated_at=now)
+        live = await _match(cup, now - timedelta(hours=1), 'eve', 'fay', started_at=now - timedelta(minutes=50))
+        later = await _match(cup, now + timedelta(hours=2), 'gus', 'hal')
+        async with client_for(app, raw) as c:
+            resp = await c.get('/api/work/proctor', params={'tz': 'UTC'})
+            assert resp.status_code == 200
+            body = resp.json()
+            rows = _rows(body)
+            assert rows[late.id][0] == 'Late, check in now'
+            assert rows[late.id][1]['next_step']['event'] == 'seat'
+            assert rows[seated.id][0] == 'Ready to start'
+            assert rows[live.id][0] == 'In play'
+            assert rows[later.id][0] == 'Up next'
+            assert all(r['crew'] == [] for _, r in rows.values())
+            assert body['needs_you'] == []
+            assert body['can_create'] is False
+            assert rows[late.id][1]['can']['run'] is True
+            assert rows[late.id][1]['can']['edit'] is False
+            pane = (await c.get(f'/api/work/proctor/matches/{seated.id}')).json()
+            assert all(i['key'] != 'crew' for i in pane['checklist'])
+
+    async def test_broadcast_tech_sees_only_stage_matches(self, db, app):
+        from models import Stage, Tournament
+
+        _, raw = await create_user_token(username='bt', roles=[Role.STREAM_MANAGER])
+        cup = await Tournament.create(name='Cup', is_active=True)
+        stage = await Stage.create(name='Stage 1')
+        on_stage = await _match(cup, _now() + timedelta(hours=1), 'ann', 'bob', stage=stage)
+        floor = await _match(cup, _now() + timedelta(hours=2), 'cat', 'dan')
+        async with client_for(app, raw) as c:
+            rows = _rows((await c.get('/api/work/proctor')).json())
+            assert list(rows) == [on_stage.id]
+            assert (await c.get(f'/api/work/proctor/matches/{floor.id}')).status_code == 404
+
+    async def test_a_plain_member_is_refused(self, db, app):
+        _, raw = await create_user_token(username='plain')
+        async with client_for(app, raw) as c:
+            assert (await c.get('/api/work/proctor')).status_code == 403

@@ -45,6 +45,7 @@ const tabRoutes: RouteObject[] = [
       { path: 'schedule', element: <VolunteerScheduleScreen /> },
       { path: 'availability', element: <MyAvailabilityScreen /> },
       { path: 'proctor', element: <ProctorScreen /> },
+      { path: 'proctor/:match', element: <ProctorScreen /> },
     ],
   },
   { path: 'me', element: <MeLayout />, children: [{ path: ':section', element: <MeSection /> }] },

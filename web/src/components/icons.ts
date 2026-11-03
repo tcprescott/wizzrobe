@@ -124,10 +124,12 @@ import PinIcon from '@material-symbols/svg-400/outlined/pin.svg?react'
 import PlayArrow from '@material-symbols/svg-400/outlined/play_arrow.svg?react'
 import PlayCircleIcon from '@material-symbols/svg-400/outlined/play_circle.svg?react'
 import PodcastsIcon from '@material-symbols/svg-400/outlined/podcasts.svg?react'
+import PrintIcon from '@material-symbols/svg-400/outlined/print.svg?react'
 import PriorityHigh from '@material-symbols/svg-400/outlined/priority_high.svg?react'
 import IPrivacyTip from '@material-symbols/svg-400/outlined/privacy_tip.svg?react'
 import ProgressActivity from '@material-symbols/svg-400/outlined/progress_activity.svg?react'
 import PublicIcon from '@material-symbols/svg-400/outlined/public.svg?react'
+import QrCode2Icon from '@material-symbols/svg-400/outlined/qr_code_2.svg?react'
 import RadioButtonUncheckedIcon from '@material-symbols/svg-400/outlined/radio_button_unchecked.svg?react'
 import RateReviewIcon from '@material-symbols/svg-400/outlined/rate_review.svg?react'
 import IRecordVoiceOver from '@material-symbols/svg-400/outlined/record_voice_over.svg?react'
@@ -293,10 +295,12 @@ export const ICONS = {
   play_arrow: PlayArrow,
   play_circle: PlayCircleIcon,
   podcasts: PodcastsIcon,
+  print: PrintIcon,
   priority_high: PriorityHigh,
   privacy_tip: IPrivacyTip,
   progress_activity: ProgressActivity,
   public: PublicIcon,
+  qr_code_2: QrCode2Icon,
   radio_button_unchecked: RadioButtonUncheckedIcon,
   rate_review: RateReviewIcon,
   record_voice_over: IRecordVoiceOver,
