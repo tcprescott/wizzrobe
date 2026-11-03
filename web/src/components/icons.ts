@@ -135,6 +135,7 @@ import IPrivacyTip from '@material-symbols/svg-400/outlined/privacy_tip.svg?reac
 import ProgressActivity from '@material-symbols/svg-400/outlined/progress_activity.svg?react'
 import PublicIcon from '@material-symbols/svg-400/outlined/public.svg?react'
 import QrCode2Icon from '@material-symbols/svg-400/outlined/qr_code_2.svg?react'
+import QueryStatsIcon from '@material-symbols/svg-400/outlined/query_stats.svg?react'
 import RadioButtonChecked from '@material-symbols/svg-400/outlined/radio_button_checked.svg?react'
 import RadioButtonUncheckedIcon from '@material-symbols/svg-400/outlined/radio_button_unchecked.svg?react'
 import RateReviewIcon from '@material-symbols/svg-400/outlined/rate_review.svg?react'
@@ -147,6 +148,7 @@ import SchemaIcon from '@material-symbols/svg-400/outlined/schema.svg?react'
 import Search from '@material-symbols/svg-400/outlined/search.svg?react'
 import SendIcon from '@material-symbols/svg-400/outlined/send.svg?react'
 import SettingsIcon from '@material-symbols/svg-400/outlined/settings.svg?react'
+import ShowChartIcon from '@material-symbols/svg-400/outlined/show_chart.svg?react'
 import ShuffleIcon from '@material-symbols/svg-400/outlined/shuffle.svg?react'
 import SkipNextIcon from '@material-symbols/svg-400/outlined/skip_next.svg?react'
 import ISmartToy from '@material-symbols/svg-400/outlined/smart_toy.svg?react'
@@ -166,6 +168,7 @@ import ThumbUp from '@material-symbols/svg-400/outlined/thumb_up.svg?react'
 import TimerIcon from '@material-symbols/svg-400/outlined/timer.svg?react'
 import ToggleOffIcon from '@material-symbols/svg-400/outlined/toggle_off.svg?react'
 import ToggleOnIcon from '@material-symbols/svg-400/outlined/toggle_on.svg?react'
+import TrendingUpIcon from '@material-symbols/svg-400/outlined/trending_up.svg?react'
 import TrophyIcon from '@material-symbols/svg-400/outlined/trophy.svg?react'
 import TuneIcon from '@material-symbols/svg-400/outlined/tune.svg?react'
 import Tv from '@material-symbols/svg-400/outlined/tv.svg?react'
@@ -315,6 +318,7 @@ export const ICONS = {
   progress_activity: ProgressActivity,
   public: PublicIcon,
   qr_code_2: QrCode2Icon,
+  query_stats: QueryStatsIcon,
   radio_button_checked: RadioButtonChecked,
   radio_button_unchecked: RadioButtonUncheckedIcon,
   rate_review: RateReviewIcon,
@@ -327,6 +331,7 @@ export const ICONS = {
   search: Search,
   send: SendIcon,
   settings: SettingsIcon,
+  show_chart: ShowChartIcon,
   shuffle: ShuffleIcon,
   skip_next: SkipNextIcon,
   smart_toy: ISmartToy,
@@ -345,6 +350,7 @@ export const ICONS = {
   timer: TimerIcon,
   toggle_off: ToggleOffIcon,
   toggle_on: ToggleOnIcon,
+  trending_up: TrendingUpIcon,
   trophy: TrophyIcon,
   tune: TuneIcon,
   tv: Tv,

@@ -167,6 +167,7 @@ from .racetime_room_service import RacetimeRoomService
 from .racetime_service import RacetimeService
 from .randomizer_credential_service import RandomizerCredentialService
 from .rate_limit_service import RateLimitService, shared_counters_enabled
+from .reports_screen_service import ReportsScreenService
 from .reports_service import ReportsService
 from .room_token_service import RoomTokenService
 from .round_schedule_service import RoundScheduleService, RoundWindowError, ScheduleStage
@@ -360,6 +361,7 @@ __all__ = [
     'RacetimeService',
     'RandomizerCredentialService',
     'RateLimitService',
+    'ReportsScreenService',
     'ReportsService',
     'RespondentView',
     'RoleScope',

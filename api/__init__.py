@@ -22,6 +22,7 @@ from api.routers import (
     admin_payouts,
     admin_presets,
     admin_qualifiers,
+    admin_reports,
     admin_stream_layouts,
     admin_tournaments,
     async_qualifier_live_races,
@@ -162,6 +163,7 @@ router.include_router(
 )
 router.include_router(discord_role_mappings.router)
 router.include_router(reports.router)
+router.include_router(admin_reports.router)
 router.include_router(telemetry.router)
 router.include_router(
     equipment.router,

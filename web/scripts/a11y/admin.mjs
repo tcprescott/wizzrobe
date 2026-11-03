@@ -9,6 +9,14 @@ export const fixtures = {
   "/api/admin/nav": {
     "areas": [
       {
+        "slug": "reports",
+        "label": "Reports",
+        "icon": "analytics",
+        "group": "System",
+        "half": "community",
+        "aliases": []
+      },
+      {
         "slug": "feedback",
         "label": "Feedback",
         "icon": "feedback",
