@@ -14,7 +14,7 @@ from application.errors import require_found
 from application.repositories import StationRepository
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
-from models import Station, StationSide, User
+from models import Station, StationFormat, StationSide, User
 
 
 def _validate_position(position: Optional[int]) -> None:
@@ -26,6 +26,14 @@ def _validate_position(position: Optional[int]) -> None:
     """
     if position is not None and position < 1:
         raise ValueError("Station position must be 1 or greater.")
+
+
+STATION_FORMAT_LABELS = {
+    StationFormat.FREE: 'Anything (no check)',
+    StationFormat.NUMERIC: 'Numbers only (1, 2, 3…)',
+    StationFormat.STRUCTURED: 'Letter and number (A1, B12)',
+    StationFormat.ALPHANUMERIC: 'Letters, numbers and hyphens',
+}
 
 
 class StationService:

@@ -71,8 +71,14 @@ export function WorkLayout() {
   if (!area && !phone && firstWork) return <Navigate to={firstWork.to} replace />
   if (area && !items.some((i) => i.key === area)) return <Navigate to={`${base}/work`} replace />
 
+  // An area's own sub-screen (a Proctor Station match) brings its own back link.
+  const deeper = /\/work\/[^/]+\/\d+/.test(pathname) && area === 'proctor'
+
   if (phone) {
     return area ? (
+      deeper ? (
+        <Outlet context={{ areas: data, reloadAreas: reload }} />
+      ) : (
       <>
         <NavLink to={`${base}/work`} end className="admin-back">
           <Icon name="chevron_left" size={20} />
@@ -80,6 +86,7 @@ export function WorkLayout() {
         </NavLink>
         <Outlet context={{ areas: data, reloadAreas: reload }} />
       </>
+      )
     ) : (
       <>
         <PageHeader title="Work" lede="What your roles let you do here." />

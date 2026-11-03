@@ -2,7 +2,7 @@
 export const targets = [
   { name: 'admin', path: '/t/sgl/admin' },
   { name: 'admin-setup', path: '/t/sgl/admin/setup' },
-  { name: 'admin-not-built', path: '/t/sgl/admin/members' },
+  { name: 'admin-not-built', path: '/t/sgl/admin/service-health' },
 ]
 
 export const fixtures = {
@@ -83,6 +83,16 @@ export const fixtures = {
         "aliases": []
       },
       {
+        "slug": "check-in-roster",
+        "label": "Check-in Roster",
+        "icon": "fact_check",
+        "group": "Run the event",
+        "half": "event",
+        "aliases": [
+          "check-in"
+        ]
+      },
+      {
         "slug": "payouts",
         "label": "Payouts",
         "icon": "payments",
@@ -117,6 +127,16 @@ export const fixtures = {
         ]
       },
       {
+        "slug": "meetups",
+        "label": "Meetups",
+        "icon": "celebration",
+        "group": "People",
+        "half": "event",
+        "aliases": [
+          "community-events"
+        ]
+      },
+      {
         "slug": "members",
         "label": "Members",
         "icon": "manage_accounts",
@@ -130,6 +150,14 @@ export const fixtures = {
         "slug": "surveys",
         "label": "Surveys",
         "icon": "rate_review",
+        "group": "Community",
+        "half": "community",
+        "aliases": []
+      },
+      {
+        "slug": "equipment",
+        "label": "Equipment",
+        "icon": "inventory_2",
         "group": "Community",
         "half": "community",
         "aliases": []
@@ -247,6 +275,42 @@ export const fixtures = {
         "label": "Dates & hours",
         "icon": "date_range",
         "summary": "When the event runs, and the hours matches can start each day."
+      },
+      {
+        "slug": "capacity",
+        "label": "Capacity",
+        "icon": "groups_2",
+        "summary": "How much the scheduler lets run at the same time."
+      },
+      {
+        "slug": "venue",
+        "label": "Venue",
+        "icon": "chair",
+        "summary": "The stations in the room and the screens on its walls."
+      },
+      {
+        "slug": "timezone",
+        "label": "Timezone",
+        "icon": "schedule",
+        "summary": "The community’s clock, or one of this event’s own."
+      },
+      {
+        "slug": "crew",
+        "label": "Crew",
+        "icon": "podcasts",
+        "summary": "Whether matches take broadcasters as well as commentators and trackers."
+      },
+      {
+        "slug": "reward-tiers",
+        "label": "Volunteer reward tiers",
+        "icon": "military_tech",
+        "summary": "The hour totals that earn a volunteer something."
+      },
+      {
+        "slug": "discord-roles",
+        "label": "Discord Roles from Wizzrobe",
+        "icon": "forum",
+        "summary": "Discord roles this event gives its tournament players, crew and volunteers."
       }
     ],
     "setup": [

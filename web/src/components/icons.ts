@@ -48,6 +48,7 @@ import DateRangeIcon from '@material-symbols/svg-400/outlined/date_range.svg?rea
 import DeleteIcon from '@material-symbols/svg-400/outlined/delete.svg?react'
 import IDescription from '@material-symbols/svg-400/outlined/description.svg?react'
 import Desk from '@material-symbols/svg-400/outlined/desk.svg?react'
+import DesktopWindowsIcon from '@material-symbols/svg-400/outlined/desktop_windows.svg?react'
 import DirectionsRun from '@material-symbols/svg-400/outlined/directions_run.svg?react'
 import IDownload from '@material-symbols/svg-400/outlined/download.svg?react'
 import EditIcon from '@material-symbols/svg-400/outlined/edit.svg?react'
@@ -123,13 +124,16 @@ import PersonRemoveIcon from '@material-symbols/svg-400/outlined/person_remove.s
 import IPets from '@material-symbols/svg-400/outlined/pets.svg?react'
 import IPictureAsPdf from '@material-symbols/svg-400/outlined/picture_as_pdf.svg?react'
 import IPictureInPicture from '@material-symbols/svg-400/outlined/picture_in_picture.svg?react'
+import PinIcon from '@material-symbols/svg-400/outlined/pin.svg?react'
 import PlayArrow from '@material-symbols/svg-400/outlined/play_arrow.svg?react'
 import PlayCircleIcon from '@material-symbols/svg-400/outlined/play_circle.svg?react'
 import PodcastsIcon from '@material-symbols/svg-400/outlined/podcasts.svg?react'
+import PrintIcon from '@material-symbols/svg-400/outlined/print.svg?react'
 import PriorityHigh from '@material-symbols/svg-400/outlined/priority_high.svg?react'
 import IPrivacyTip from '@material-symbols/svg-400/outlined/privacy_tip.svg?react'
 import ProgressActivity from '@material-symbols/svg-400/outlined/progress_activity.svg?react'
 import PublicIcon from '@material-symbols/svg-400/outlined/public.svg?react'
+import QrCode2Icon from '@material-symbols/svg-400/outlined/qr_code_2.svg?react'
 import RadioButtonChecked from '@material-symbols/svg-400/outlined/radio_button_checked.svg?react'
 import RadioButtonUncheckedIcon from '@material-symbols/svg-400/outlined/radio_button_unchecked.svg?react'
 import RateReviewIcon from '@material-symbols/svg-400/outlined/rate_review.svg?react'
@@ -159,6 +163,7 @@ import TaskAlt from '@material-symbols/svg-400/outlined/task_alt.svg?react'
 import TextFieldsIcon from '@material-symbols/svg-400/outlined/text_fields.svg?react'
 import ThumbUp from '@material-symbols/svg-400/outlined/thumb_up.svg?react'
 import TimerIcon from '@material-symbols/svg-400/outlined/timer.svg?react'
+import ToggleOffIcon from '@material-symbols/svg-400/outlined/toggle_off.svg?react'
 import ToggleOnIcon from '@material-symbols/svg-400/outlined/toggle_on.svg?react'
 import TrophyIcon from '@material-symbols/svg-400/outlined/trophy.svg?react'
 import TuneIcon from '@material-symbols/svg-400/outlined/tune.svg?react'
@@ -224,6 +229,7 @@ export const ICONS = {
   delete: DeleteIcon,
   description: IDescription,
   desk: Desk,
+  desktop_windows: DesktopWindowsIcon,
   directions_run: DirectionsRun,
   download: IDownload,
   edit: EditIcon,
@@ -297,13 +303,16 @@ export const ICONS = {
   pets: IPets,
   picture_as_pdf: IPictureAsPdf,
   picture_in_picture: IPictureInPicture,
+  pin: PinIcon,
   play_arrow: PlayArrow,
   play_circle: PlayCircleIcon,
   podcasts: PodcastsIcon,
+  print: PrintIcon,
   priority_high: PriorityHigh,
   privacy_tip: IPrivacyTip,
   progress_activity: ProgressActivity,
   public: PublicIcon,
+  qr_code_2: QrCode2Icon,
   radio_button_checked: RadioButtonChecked,
   radio_button_unchecked: RadioButtonUncheckedIcon,
   rate_review: RateReviewIcon,
@@ -332,6 +341,7 @@ export const ICONS = {
   text_fields: TextFieldsIcon,
   thumb_up: ThumbUp,
   timer: TimerIcon,
+  toggle_off: ToggleOffIcon,
   toggle_on: ToggleOnIcon,
   trophy: TrophyIcon,
   tune: TuneIcon,

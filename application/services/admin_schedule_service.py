@@ -59,7 +59,16 @@ def _instant(ts: Optional[float]) -> Optional[datetime]:
 
 
 class AdminScheduleService:
-    """Screen-shaped reads for the admin Match Schedule. Stateless."""
+    """Screen-shaped reads for the admin Match Schedule. Stateless.
+
+    ``ProctorStationService`` reuses the board with the proctor's grouping,
+    access and row set, so the two screens can't drift apart.
+    """
+
+    group = staticmethod(admin_group)
+    exclude_racetime = False
+    show_crew = True
+    show_needs = True
 
     def __init__(self) -> None:
         self.display = MatchDisplayService()
@@ -88,6 +97,11 @@ class AdminScheduleService:
             raise PermissionError("You don't have access to the Match Schedule.")
         scope = None if (is_staff or is_sm) else frozenset(admin_ids | cc_ids)
         return access, scope
+
+    @staticmethod
+    def keep_row(access: MatchBoardAccess, row: dict) -> bool:
+        """Whether ``row`` belongs on this board at all."""
+        return True
 
     @staticmethod
     async def zone(actor: User, device_zone: Optional[str]) -> str:
@@ -156,14 +170,16 @@ class AdminScheduleService:
             tournament_ids=tournament_ids,
             stage_ids=[stage_id] if stage_id is not None else None,
             scheduled_window=window,
+            exclude_racetime=self.exclude_racetime,
         ) if tournament_ids != [] else []
+        rows = [r for r in rows if self.keep_row(access, r)]
         needle = search.strip().lower()
         if needle:
             rows = [r for r in rows if needle in _haystack(r)]
         await self._stamp(access, actor, rows)
         with tz_scope(zone):
-            arranged = arrange_run_sheet(rows, admin_group)
-        needs = await self.needs_you(access, actor, arranged, scope=scope, tournament_id=tournament_id)
+            arranged = arrange_run_sheet(rows, self.group)
+        needs = await self.needs_you(access, actor, arranged, scope=scope, tournament_id=tournament_id) if self.show_needs else []
         groups: List[Dict[str, Any]] = []
         for row in arranged:
             if row['_group_start']:
@@ -317,7 +333,7 @@ class AdminScheduleService:
                         for p in c['people']
                     ],
                 }
-                for c in row['_crew']
+                for c in (row['_crew'] if self.show_crew else ())
             ],
             'late': [{'label': t['label'], 'note': t['note'] or None} for t in row['_late']],
             'comments': {b['key']: b['n'] for b in row['_comments']},
@@ -341,12 +357,12 @@ class AdminScheduleService:
         access, scope = await self.board_access(actor)
         zone = await self.zone(actor, device_zone)
         row = await self.display.get_match_for_display(match_id)
-        if row is None or (scope is not None and row.get('tournament_id') not in scope):
+        if row is None or (scope is not None and row.get('tournament_id') not in scope) or not self.keep_row(access, row):
             raise NotFoundError('Match not found')
         await self._stamp(access, actor, [row])
         with tz_scope(zone):
-            arrange_run_sheet([row], admin_group)
-            items = readiness(row, crew=access.can_approve_crew_row(row))
+            arrange_run_sheet([row], self.group)
+            items = readiness(row, crew=self.show_crew and access.can_approve_crew_row(row))
         match = await MatchService().get_match_by_id(match_id)
         since_field = _STATE_SINCE.get(row.get('state') or '')
         since = getattr(match, since_field, None) if match and since_field else None

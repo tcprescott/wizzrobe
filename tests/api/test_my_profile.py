@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from application.utils.timezone import today_local
 from models import (
     FeatureFlag,
     TenantFeatureFlag,
@@ -14,7 +15,7 @@ from models import (
 )
 from tests.api._bracket_api import token_for
 from tests.api_helpers import client_for
-from tests.factories import make_member
+from tests.factories import make_member, set_setting
 
 
 def _soon(minutes: int) -> datetime:
@@ -161,6 +162,10 @@ class TestDeveloperTools:
 class TestShiftCheckIn:
     @pytest.fixture
     async def shift(self, db):
+        # Without dates the event is today alone, from 06:00, so a shift soon after midnight drops out.
+        today = today_local()
+        await set_setting(name='event_start_date', value=(today - timedelta(days=1)).isoformat())
+        await set_setting(name='event_end_date', value=(today + timedelta(days=1)).isoformat())
         alice = await make_member(discord_id=9551, username='alice')
         pos = await VolunteerPosition.create(name='Desk')
         shift = await VolunteerShift.create(position=pos, starts_at=_soon(15), ends_at=_soon(135))
