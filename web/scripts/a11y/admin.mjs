@@ -2,7 +2,7 @@
 export const targets = [
   { name: 'admin', path: '/t/sgl/admin' },
   { name: 'admin-setup', path: '/t/sgl/admin/setup' },
-  { name: 'admin-not-built', path: '/t/sgl/admin/members' },
+  { name: 'admin-not-built', path: '/t/sgl/admin/service-health' },
 ]
 
 export const fixtures = {
@@ -83,6 +83,16 @@ export const fixtures = {
         "aliases": []
       },
       {
+        "slug": "check-in-roster",
+        "label": "Check-in Roster",
+        "icon": "fact_check",
+        "group": "Run the event",
+        "half": "event",
+        "aliases": [
+          "check-in"
+        ]
+      },
+      {
         "slug": "payouts",
         "label": "Payouts",
         "icon": "payments",
@@ -117,6 +127,16 @@ export const fixtures = {
         ]
       },
       {
+        "slug": "meetups",
+        "label": "Meetups",
+        "icon": "celebration",
+        "group": "People",
+        "half": "event",
+        "aliases": [
+          "community-events"
+        ]
+      },
+      {
         "slug": "members",
         "label": "Members",
         "icon": "manage_accounts",
@@ -125,6 +145,14 @@ export const fixtures = {
         "aliases": [
           "users"
         ]
+      },
+      {
+        "slug": "equipment",
+        "label": "Equipment",
+        "icon": "inventory_2",
+        "group": "Community",
+        "half": "community",
+        "aliases": []
       },
       {
         "slug": "events",

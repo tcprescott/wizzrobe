@@ -150,6 +150,7 @@ class AuditActions:
     TIMEZONE_UPDATED = 'timezone.updated'
     USER_TIMEZONE_UPDATED = 'user.timezone_updated'
     USER_HOUR_CYCLE_UPDATED = 'user.hour_cycle_updated'
+    USER_MESSAGED = 'user.messaged'
     PROFILE_NUDGES_UPDATED = 'profile_nudges.updated'
     PROFILE_NUDGE_DISMISSED = 'profile_nudge.dismissed'
 
