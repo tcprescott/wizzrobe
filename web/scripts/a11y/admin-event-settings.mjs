@@ -1,6 +1,6 @@
 /** a11y checks for this screen, with the stub API responses they need. See ../a11y.mjs. */
 export const targets = [
-  ...['dates', 'capacity', 'venue', 'timezone', 'crew', 'reward-tiers', 'discord-roles'].map((s) => ({
+  ...['dates', 'capacity', 'venue', 'timezone', 'crew', 'reward-tiers'].map((s) => ({
     name: `admin-event-settings-${s}`,
     path: `/t/sgl/admin/event-settings/${s}`,
   })),

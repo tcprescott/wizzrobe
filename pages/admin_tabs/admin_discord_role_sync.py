@@ -18,6 +18,7 @@ from application.services import (
     get_user_from_session,
 )
 from application.services.discord.discord_role_sync_service import (
+    BADGE_LABELS,
     NO_DISCORD,
     RoleSyncOverview,
     RoleSyncResult,
@@ -37,12 +38,6 @@ from theme.steady import steady_refreshable
 from theme.tables.admin_crud import refresh_button, wire_tab_refresh
 
 TAB_LABEL = 'Discord Roles from Wizzrobe'
-
-_BADGES = (
-    (CheckInTierLanyard.VIP, 'VIP badge'),
-    (CheckInTierLanyard.BASE, 'Base badge'),
-    (CheckInTierLanyard.DAY_PASS, 'Day pass'),
-)
 
 _NO_ROLE = 0
 
@@ -172,7 +167,7 @@ async def admin_discord_role_sync_page() -> None:
 
             if overview.badges_available or any(k.startswith('badge:') for k in overview.rules):
                 _group_title('Badges')
-                for lanyard, label in _BADGES:
+                for lanyard, label in BADGE_LABELS:
                     await _rule_line(service, overview, actor, label,
                                      'Given when the badge is bought, taken back on a refund',
                                      DiscordRoleRuleKind.BADGE, lanyard=lanyard)
