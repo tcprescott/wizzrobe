@@ -14,8 +14,10 @@ from api.routers import (
     admin_brackets,
     admin_match_schedule,
     admin_nav,
+    admin_payouts,
     admin_presets,
     admin_qualifiers,
+    admin_stream_layouts,
     admin_tournaments,
     async_qualifier_live_races,
     async_qualifiers,
@@ -27,6 +29,7 @@ from api.routers import (
     discord_events,
     discord_role_mappings,
     equipment,
+    event_hub,
     event_settings,
     events,
     exports,
@@ -96,6 +99,7 @@ router.include_router(stages.router)
 router.include_router(stage_actions.router)
 router.include_router(me.router)
 router.include_router(my_schedule.router)
+router.include_router(event_hub.router)
 router.include_router(my_surveys.router)
 router.include_router(admin_nav.router)
 router.include_router(work.router)
@@ -124,6 +128,14 @@ router.include_router(
 router.include_router(
     payouts.router,
     dependencies=[Depends(require_feature(FeatureFlag.PAYOUTS))],
+)
+router.include_router(
+    admin_payouts.router,
+    dependencies=[Depends(require_feature(FeatureFlag.PAYOUTS))],
+)
+router.include_router(
+    admin_stream_layouts.router,
+    dependencies=[Depends(require_feature(FeatureFlag.STREAM_LAYOUTS))],
 )
 router.include_router(notifications.router)
 router.include_router(audit.router)

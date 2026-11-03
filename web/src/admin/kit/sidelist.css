@@ -22,6 +22,19 @@
   box-shadow: var(--shadow-1);
   overflow: hidden;
 }
+.side-list__heading {
+  margin: 0;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-secondary);
+}
+.side-list__list + .side-list__list {
+  margin-top: var(--space-3);
+}
 .side-list__rows {
   list-style: none;
   margin: 0;

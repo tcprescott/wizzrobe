@@ -1,7 +1,7 @@
 export { AREA_ROUTES } from './registry'
 export { DataTable, type Column } from './DataTable'
 export { Detail, DetailEmpty, DetailLine, DetailSection, SideList, SideListCard, SideListLayout, SideListRow } from './SideList'
-export { ListCard, RadioRows, SettingsCard, SwitchRow, UnsavedChangesGuard, useDraft } from './SettingsCard'
+export { ListCard, RadioRows, SettingsCard, SwitchRow, UnsavedChangesGuard, useDraft, useUnsavedFlag } from './SettingsCard'
 export { SectionNav, type SectionGroup, type SectionItem } from './SectionNav'
 export type { AdminAreaInfo, AdminAreaRoute, AdminNav } from './types'
 export { useAdmin } from './useAdminNav'
