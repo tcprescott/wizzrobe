@@ -11,9 +11,11 @@ zero, but two things need a connection held open around the clock:
 
 Run it with ``uvicorn bots:app`` beside the API started with
 ``DISCORD_GATEWAY=off`` and ``RACETIME_BOT_ENABLED=off``, so exactly one
-process holds each connection. It serves only ``/api/health``, so a platform
-that wants an HTTP port (Cloud Run) has one to probe. The API applies
-migrations; this process only connects to the database.
+process holds each connection. It serves only ``/api/health``, so Docker's
+health check has something to probe. The API applies migrations; this process
+only connects to the database. With ``MULTI_INSTANCE`` on in both, the live
+relay carries the API's racetime room messages and bot restarts here, and this
+process's live refreshes back to the API.
 
 The single-process deployment (``main.py`` with both switches on) keeps
 working without this file.
@@ -29,9 +31,10 @@ from tortoise import Tortoise
 
 from api.routers import health
 from application import bot_runtime
+from application.events import live_relay
 from application.utils.log_levels import default_root_level, register_trace_level
 from application.utils.sentry import flush_sentry, init_sentry
-from migrations.tortoise_config import TORTOISE_ORM
+from migrations.tortoise_config import DB_URL, TORTOISE_ORM
 
 # This process is the gateway, whatever the API's environment says.
 os.environ['DISCORD_GATEWAY'] = 'on'
@@ -60,6 +63,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     from racetimebot import close_racetime_bot, init_racetime_bot
 
     await Tortoise.init(config=TORTOISE_ORM)
+    await live_relay.start(DB_URL)
     await _apply_stored_log_levels()
     import discordbot  # noqa: F401
     bot_runtime.start_delivery()
@@ -75,6 +79,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             await pending_actions.flush_all()
             await race_room_worker.stop()
             await close_racetime_bot()
+            await live_relay.stop()
             await bot_runtime.stop_delivery()
             await bot_runtime.close_discord()
             await Tortoise.close_connections()

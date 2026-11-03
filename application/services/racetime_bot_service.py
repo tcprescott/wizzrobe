@@ -15,9 +15,12 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from application.errors import require_found
+from application.events import live_relay
 from application.repositories import RacetimeBotRepository
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
+from application.utils.clients.racetime_room_actions import RESTART_KIND
+from application.utils.environment import racetime_bot_enabled
 from models import BotStatus, RacetimeBot, RacetimeBotTenant, User
 
 
@@ -153,7 +156,15 @@ class RacetimeBotService:
         """Drop and respawn one bot's racetime connection, for every community using it."""
         await self._ensure_super_admin(actor)
         assert actor is not None
-        await self._require(bot_id)
+        bot = await self._require(bot_id)
+        if not racetime_bot_enabled() and live_relay.active():
+            # The runtime is in the bots container; it respawns on this signal.
+            await self.audit_service.write_log(
+                actor, AuditActions.RACETIME_BOT_RESTARTED,
+                {'bot_id': bot_id, 'category': bot.category},
+            )
+            live_relay.forward(RESTART_KIND, bot_id)
+            return bot
         # Lazy: racetimebot.manager imports this module.
         from racetimebot import get_racetime_manager
 
