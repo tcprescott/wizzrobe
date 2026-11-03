@@ -1851,6 +1851,28 @@ One checkout: `buyer`, `provider`, `status`, `total_cents`, `refunded_cents`, `c
 
 One badge: `order`, `ticket_type`, `owner` (null until an extra is claimed), `status`, `price_cents`, `code` (unique; what the desk scans), `claim_token` (sealed, purpose `ticket_claim`) + `claim_lookup` (sha256, unique), `claimed_at`, `comp_refund_cents` / `comp_refunded_at` / `comp_refunded_by` (money sent back because the owner was comped; the badge stays valid), `refunded_at`.
 
+### Patreon
+
+Patron badges from each community's own Patreon campaign. Gated by `FeatureFlag.PATREON`; managed by `PatreonCampaignService`, `PatreonLinkService` and `PatronService` (the entitlement every later perk reads). Lives in `models/patreon.py`. Detail: [docs/features/patreon.md](../features/patreon.md).
+
+#### `PatreonCampaign` (tenant-owned)
+
+One per community (`tenant` is a `OneToOneField`). `access_token`, `refresh_token` (purpose `patreon_token`) and `webhook_secret` (purpose `patreon_webhook`) are sealed with `secret_box`, tenant id as context. `webhook_token` (unique) is the opaque part of `/api/patreon-webhooks/{token}`; `webhook_id` the webhook registered on the campaign. Also `campaign_id`, `campaign_name`, `token_expires_at`, `connected_by`, `connected_at`, `last_synced_at`, `last_sync_error`, `sync_requested_at` (a full pass is queued).
+
+#### `PatreonTierBadge` (tenant-owned)
+
+The campaign's tiers (`tier_id`, `tier_title`) with the label staff gave each (`badge_label`, null = "Patron") and their order (`sort`; the first tier someone holds picks their label). `unique_together (('tenant', 'tier_id'),)`.
+
+#### `PatreonMembership` (tenant-owned)
+
+A linked member's standing in this community's campaign: `user`, `patreon_member_id`, `patron_status` (Patreon's string; `active_patron` is a badge), `tier_ids` (JSON list), `synced_at`. Never an amount. Only linked members get a row. `unique_together (('tenant', 'user'),)`.
+
+#### `PatreonOAuthState` (tenant-owned)
+
+A Patreon sign-in in flight: `state_hash` (SHA-256 of the state sent to Patreon, unique), `purpose` (`PatreonOAuthPurpose`: `creator` / `member`), `user`, `expires_at` (ten minutes). Deleted when used.
+
+On `User` (global): `patreon_user_id` (unique), `patreon_username` (shown only to them), `patreon_linked_at`, `patreon_badge_hidden`.
+
 ### Volunteering
 
 Onsite-volunteer subsystem: coordinator-defined positions and shifts, assignments, qualifications, and availability. Coordinated via the `VolunteerScheduleService` / `VolunteerAutoscheduleService` family; gated by `VOLUNTEER_COORDINATOR` (or Staff) for management, with availability for anyone holding a volunteer role. The assignable pool is every VOLUNTEER or STAFF role holder in the tenant; there is no opt-in record. See [services.md](services.md).

@@ -41,10 +41,13 @@ In:
   hidden, owning services `@requires_feature`. `get_patron_status` is the
   soft-integration carve-out: with the flag off it returns "not a patron"
   instead of raising, so a later caller never breaks.
-- Audit rows: `patreon.connected`, `patreon.disconnected`, `patreon.linked`,
-  `patreon.unlinked`, `patreon.badge_granted`, `patreon.badge_revoked`, plus
-  matching `EventType`s. Disconnect and unlink write one summary row with the
-  count of badges removed rather than one per person.
+- Audit rows: `patreon.connected`, `patreon.disconnected`,
+  `patreon.tiers_updated`, `patreon.linked`, `patreon.unlinked`,
+  `patreon.badge_granted`, `patreon.badge_revoked`. No `EventType`s: who backs
+  a community stays between them and its staff, so none of this reaches
+  outbound webhooks (recorded in `_EXCLUDED_BY_DESIGN`). Disconnect writes one
+  summary row with the count of badges removed; unlink writes a revoke row in
+  each community where the badge was on, then one unlink row.
 
 Out:
 - Triforce text submission, paid bidding, credits, payouts.
@@ -59,7 +62,8 @@ Out:
 1. Staff open the Patreon card under Settings → Integrations, tap Connect, sign
    in to Patreon as the creator and approve. Patreon returns to
    `/api/patreon/callback`, which stores the sealed tokens, picks the creator's
-   campaign (asks which one if there are several), registers the webhook, runs
+   campaign (the first one Patreon lists, since a creator account has one
+   campaign in practice), registers the webhook, runs
    a first sync in the background, and redirects back to the card.
 2. Staff optionally map tiers to labels ("Hero tier" → "Hero") and reorder them.
 3. A member opens Me → Accounts, taps Link Patreon, signs in and approves. We
@@ -106,13 +110,13 @@ member sheet unchanged).
 
 Modules: `application/utils/clients/patreon_client.py` (async httpx, OAuth,
 identity, campaigns, members, webhooks) + `application/utils/mocks/mock_patreon.py`
-(`PATREON_MOCK`), `PatreonRepository`, `PatreonCampaignService`,
+(`MOCK_PATREON`), `PatreonRepository`, `PatreonCampaignService`,
 `PatreonLinkService`, `PatronService`, `patreon_sync_worker.py` (registered in
 `WORKERS`, `run_worker_loop`, `for_each_tenant_scoped`, skips a tenant with the
 flag off). Refreshes take a `shared_lock` per community, since Patreon rotates
 the refresh token.
 
-Routes: `GET/DELETE /api/integration-settings/patreon`, `POST .../connect`
+Routes: `GET/DELETE /api/settings/integrations/patreon`, `POST .../connect`
 (returns the authorize URL), `PUT .../tiers`, `POST .../sync`;
 `GET/DELETE /api/me/patreon`, `POST /api/me/patreon/link`,
 `PATCH /api/me/patreon`; `GET /api/patreon/callback`;
@@ -127,17 +131,19 @@ The OAuth `state` is server-issued, single-use, bound to the user, tenant and
 purpose (creator vs member).
 
 Env vars: `PATREON_CLIENT_ID`, `PATREON_CLIENT_SECRET`, `PATREON_REDIRECT_URI`
-(defaults to `<base>/api/patreon/callback`), `PATREON_MOCK`. No new Python
-dependencies, so pip-audit is unaffected. A service health probe joins
-`_PROBES`.
+(defaults to `<base>/api/patreon/callback`), `MOCK_PATREON`. No new Python
+dependencies, so pip-audit is unaffected. A `patreon` service health probe
+joins `_PROBES` (warns when a campaign's last sync failed).
 
 ## PR plan
 
-1. This spec (draft until signed off).
+One PR (#807), in order:
+1. This spec.
 2. Backend: models + migration, client + mock, repository, services, webhook,
-   worker, REST, MCP `patron` block, flag, audit/event types, seed rows, tests.
-3. UI after the mockup pick: Integrations card, tier dialog, Me → Accounts,
-   badge chip; changelog file; `docs/features/patreon.md`; delete this spec.
+   worker, REST, MCP `patron` block, flag, audit rows, health probe, seed rows,
+   `docs/features/patreon.md`, tests.
+3. App screens after the badge style pick: Integrations card, tier dialog,
+   Me → Accounts, badge chip; changelog file; delete this spec.
 
 ## Acceptance
 
@@ -181,3 +187,6 @@ dependencies, so pip-audit is unaffected. A service health probe joins
 - 2026-11-03 — Thomas picked members list + profiles for phase 1.
 - 2026-11-03 — Thomas: Patreon phase 1 is badges only; Wizzrobe never handles
   money; future perks gate on `get_patron_status`.
+- 2026-11-03 — Build: if a creator has several campaigns, the first is used.
+  Both sign-ins return to the app (`/admin/settings/integrations`,
+  `/me/accounts`) with `?patreon=<outcome>`.

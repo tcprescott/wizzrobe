@@ -67,6 +67,7 @@ async def cards(actor: User = Depends(require_api_actor)):
     c = await IntegrationSettingsService().cards(actor)
     return IntegrationCardsResponse(
         challonge=c.challonge, startgg=c.startgg, webhooks=c.webhooks, randomizer_keys=c.randomizer_keys, ai=c.ai,
+        patreon=c.patreon,
     )
 
 

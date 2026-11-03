@@ -150,6 +150,9 @@ from .notification_settings_service import NotificationSettingsService
 from .oauth_app_service import OAuthAppService
 from .oauth_grant_service import OAuthGrantService
 from .password_auth_service import PasswordAuthService
+from .patreon_campaign_service import CampaignOverview, PatreonCampaignService, PatreonSignatureError
+from .patreon_link_service import MyPatreon, PatreonLinkService, PatreonOAuthService
+from .patron_service import PatronService, PatronStatus
 from .payout_service import PayoutService
 from .personal_webhook_service import PersonalWebhookService
 from .platform_admin_service import AccountOverview, CommunityOverview, PlatformAdminService
@@ -267,6 +270,7 @@ __all__ = [
     'BracketSetService',
     'BrowserMonitoringService',
     'BuilderSummary',
+    'CampaignOverview',
     'CancellationMixin',
     'ChallongeService',
     'CheckInAdminService',
@@ -331,6 +335,7 @@ __all__ = [
     'MemberDetailsService',
     'MembersAdminService',
     'MissingAnswer',
+    'MyPatreon',
     'MyProfileService',
     'MyTimelineService',
     'NativePushService',
@@ -341,6 +346,12 @@ __all__ = [
     'OAuthAppService',
     'OAuthGrantService',
     'PasswordAuthService',
+    'PatreonCampaignService',
+    'PatreonLinkService',
+    'PatreonOAuthService',
+    'PatreonSignatureError',
+    'PatronService',
+    'PatronStatus',
     'PayoutService',
     'PersonalWebhookService',
     'PlatformAdminService',

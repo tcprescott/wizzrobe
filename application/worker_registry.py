@@ -121,6 +121,7 @@ WORKERS: Dict[str, WorkerSpec] = {s.key: s for s in (
     _spec('check_in_sync', 'application.services.check_in_sync_worker'),
     _spec('sglive_pool', 'application.services.sglive_pool_worker'),
     _spec('startgg_sync', 'application.services.startgg_sync_worker'),
+    _spec('patreon_sync', 'application.services.patreon_sync_worker'),
     _spec('challonge_sync', 'application.services.challonge_sync_worker'),
     _spec('data_export', 'application.services.exports.data_export_worker', task_handler='handle_task'),
     _spec('webhook_outbox', 'application.services.webhook_outbox_worker'),

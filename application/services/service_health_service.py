@@ -201,6 +201,19 @@ async def _probe_twitch_oauth() -> Tuple[ServiceStatus, str]:
     return ServiceStatus.UNKNOWN, 'Twitch OAuth not configured (optional)'
 
 
+async def _probe_patreon() -> Tuple[ServiceStatus, str]:
+    from application.repositories import PatreonRepository
+    from application.utils.mocks.mock_patreon import is_mock_patreon
+    if is_mock_patreon():
+        return ServiceStatus.MOCK, 'Mock Patreon (MOCK_PATREON)'
+    if not _all_set('PATREON_CLIENT_ID', 'PATREON_CLIENT_SECRET'):
+        return ServiceStatus.UNKNOWN, 'Patreon not configured (optional)'
+    total, failing = await PatreonRepository.campaign_sync_health()
+    if failing:
+        return ServiceStatus.CREDENTIAL_WARNING, f"{failing}/{total} campaign(s) failed their last sync"
+    return ServiceStatus.HEALTHY, f'Client configured, {total} campaign(s) connected'
+
+
 async def _probe_racetime() -> Tuple[ServiceStatus, str]:
     from application.services.racetime_bot_service import RacetimeBotService
     from application.utils.mocks.mock_racetime import is_mock_racetime
@@ -354,6 +367,7 @@ _PROBES: List[_Probe] = [
     _Probe('speedgaming', 'SpeedGaming feed', 'integrations', _probe_speedgaming),
     _Probe('challonge', 'Challonge', 'integrations', _probe_challonge),
     _Probe('twitch_oauth', 'Twitch OAuth', 'integrations', _probe_twitch_oauth),
+    _Probe('patreon', 'Patreon', 'integrations', _probe_patreon),
     _Probe('seedgen_alttpr', 'ALTTPR (alttpr.com)', 'seedgen', _seedgen_probe('alttpr.com', 'alttpr')),
     _Probe('seedgen_ootr', 'OoT Randomizer (ootrandomizer.com)', 'seedgen', _seedgen_probe('ootrandomizer.com', 'ootr')),
     _Probe('seedgen_maprando', 'Map Rando (maprando.com)', 'seedgen', _seedgen_probe('maprando.com', 'smmap')),

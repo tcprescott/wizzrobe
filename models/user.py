@@ -35,6 +35,10 @@ class User(Model):
     startgg_user_id = fields.CharField(max_length=64, null=True, unique=True)
     startgg_username = fields.CharField(max_length=255, null=True)
     startgg_linked_at = fields.DatetimeField(null=True)
+    patreon_user_id = fields.CharField(max_length=64, null=True, unique=True)
+    patreon_username = fields.CharField(max_length=255, null=True)
+    patreon_linked_at = fields.DatetimeField(null=True)
+    patreon_badge_hidden = fields.BooleanField(default=False)
     is_placeholder = fields.BooleanField(default=False)
     speedgaming_id = fields.CharField(max_length=64, null=True, unique=True)
     # Deliberately not unique: a typo would lock the rightful owner out of their handle.

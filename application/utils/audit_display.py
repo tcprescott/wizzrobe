@@ -42,6 +42,7 @@ AREAS: tuple[AuditArea, ...] = (
     )),
     AuditArea('equipment', 'Equipment', ('equipment.',)),
     AuditArea('tickets', 'Tickets', ('ticket_store.', 'ticket_type.', 'ticket_order.', 'ticket.')),
+    AuditArea('patreon', 'Patreon', ('patreon.',)),
     AuditArea('challonge', 'Challonge', ('challonge.',)),
     AuditArea('startgg', 'start.gg', ('startgg.',)),
     AuditArea('community', 'Community', ('community_event.', 'feedback.', 'survey.')),
@@ -461,6 +462,13 @@ ACTION_LABELS: dict[str, str] = {
     'ticket_order.refunded': 'Refunded a badge order',
     'ticket.claimed': 'Claimed a badge',
     'ticket.comp_refunded': 'Refunded a comped badge',
+    'patreon.connected': 'Connected the Patreon campaign',
+    'patreon.disconnected': 'Disconnected the Patreon campaign',
+    'patreon.tiers_updated': 'Changed the Patreon badge labels',
+    'patreon.linked': 'Linked a Patreon account',
+    'patreon.unlinked': 'Unlinked a Patreon account',
+    'patreon.badge_granted': 'Patron badge turned on',
+    'patreon.badge_revoked': 'Patron badge turned off',
 }
 
 

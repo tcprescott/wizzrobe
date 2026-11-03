@@ -66,6 +66,7 @@ from .notification_preference_repository import NotificationPreferenceRepository
 from .notification_setting_repository import NotificationSettingRepository
 from .oauth_app_repository import OAuthAppRepository
 from .oauth_handoff_repository import OAuthHandoffRepository
+from .patreon_repository import PatreonRepository
 from .personal_webhook_outbox_repository import PersonalWebhookOutboxRepository
 from .personal_webhook_repository import PersonalWebhookRepository
 from .player_availability_repository import PlayerAvailabilityRepository
@@ -169,6 +170,7 @@ __all__ = [
     'NotificationSettingRepository',
     'OAuthAppRepository',
     'OAuthHandoffRepository',
+    'PatreonRepository',
     'PersonalWebhookOutboxRepository',
     'PersonalWebhookRepository',
     'PlayedPermalinks',

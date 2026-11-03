@@ -81,6 +81,7 @@ from .enums import (
     NotificationPreset,
     NotificationRecipient,
     OAuthClientType,
+    PatreonOAuthPurpose,
     PresetOverride,
     ProviderTaskStatus,
     RaceRoomHoldReason,
@@ -126,6 +127,7 @@ from .mcp import McpAuthorizationCode, McpOAuthClient
 from .notification_preference import NotificationPreference
 from .notification_setting import NotificationSetting
 from .oauth_app import OAuthApp, OAuthAppBlock, OAuthAppCode
+from .patreon import PatreonCampaign, PatreonMembership, PatreonOAuthState, PatreonTierBadge
 from .preferences import UserFriend, UserTablePreference
 from .racetime import RaceRoomProfile, RacetimeBot, RacetimeBotTenant, RacetimeRoom
 from .speedgaming import SpeedGamingEpisode, SpeedGamingEventLink
@@ -311,6 +313,11 @@ __all__ = [
     'OAuthAppCode',
     'OAuthClientType',
     'OAuthHandoff',
+    'PatreonCampaign',
+    'PatreonMembership',
+    'PatreonOAuthPurpose',
+    'PatreonOAuthState',
+    'PatreonTierBadge',
     'PersonalWebhook',
     'PersonalWebhookOutbox',
     'PlayerAvailability',

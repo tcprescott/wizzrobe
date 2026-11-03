@@ -28,6 +28,7 @@ from application.services.notification_preference_service import (
     MyNotificationRow,
     NotificationPreferenceService,
 )
+from application.services.patron_service import PatronService, PatronStatus
 from application.utils.discord_avatar import avatar_url
 from models import (
     FeatureFlag,
@@ -125,6 +126,7 @@ class MemberDetails:
     equipment_out: Optional[List[str]]
     check_in: Optional[str]
     emergency_contacts: bool = field(default=False)
+    patron: Optional[PatronStatus] = None
 
     @property
     def preset_label(self) -> str:
@@ -263,4 +265,5 @@ class MemberDetailsService:
             equipment_out=equipment,
             check_in=check_in,
             emergency_contacts=FeatureFlag.EMERGENCY_CONTACTS in live,
+            patron=await PatronService().get_patron_status(member) if FeatureFlag.PATREON in live else None,
         )

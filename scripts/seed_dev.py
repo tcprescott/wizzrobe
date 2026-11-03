@@ -99,6 +99,7 @@ from scripts.seed_online import (
 )
 from scripts.seed_onsite import seed_onsite_for_tenant
 from scripts.seed_password import seed_password_sign_in
+from scripts.seed_patreon import seed_patreon_for_tenant, seed_patreon_users
 from scripts.seed_payouts import seed_matcherino_handles, seed_payouts_for_tenant
 from scripts.seed_play_in import seed_play_in_for_tenant
 from scripts.seed_preferences import seed_friends, seed_notification_channels, seed_table_preferences
@@ -373,6 +374,7 @@ async def seed_for_tenant(
 
         await seed_payouts_for_tenant(tenant, players)
         await seed_tickets_for_tenant(tenant, players[0])
+        await seed_patreon_for_tenant(tenant, users, staff)
 
         racers = players + [users[name] for name, _display, _full in RACER_SPECS]
         await seed_play_in_for_tenant(tenant, tournament, staff, racers, now)
@@ -803,6 +805,7 @@ async def seed_all() -> None:
     own in-memory connection — see tests/test_seed_coverage.py.
     """
     users = await seed_users()
+    await seed_patreon_users(users)
     await seed_super_admin(users)
     await seed_log_levels(users)
     await seed_browser_monitoring(users)

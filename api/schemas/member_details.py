@@ -5,6 +5,7 @@ from typing import List, Optional, Self
 
 from pydantic import BaseModel, Field
 
+from api.schemas.patreon import PatronStatusInfo
 from api.schemas.sent_messages import SentMessageEntry
 from application.services import MemberDetails
 
@@ -93,6 +94,9 @@ class MemberDetailsResponse(BaseModel):
     check_in: Optional[str] = Field(
         None, description="Their event check-in status. Null when check-in is turned off.",
     )
+    patron: Optional[PatronStatusInfo] = Field(
+        None, description="Their Patreon patron status here. Null when Patreon is turned off.",
+    )
 
     @classmethod
     def build(cls, d: MemberDetails) -> Self:
@@ -133,4 +137,5 @@ class MemberDetailsResponse(BaseModel):
             ),
             equipment_out=d.equipment_out,
             check_in=d.check_in,
+            patron=PatronStatusInfo.build(d.patron) if d.patron is not None else None,
         )

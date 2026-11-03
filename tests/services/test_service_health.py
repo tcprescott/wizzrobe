@@ -127,6 +127,21 @@ class TestMockMode:
         monkeypatch.setattr(shs, '_challonge_token_health', none)
         assert (await shs._probe_challonge())[0] == ServiceStatus.MOCK
 
+    async def test_patreon_probe_warns_on_a_failed_sync(self, db, monkeypatch):
+        from models import PatreonCampaign
+
+        monkeypatch.delenv('MOCK_PATREON', raising=False)
+        monkeypatch.delenv('PATREON_CLIENT_ID', raising=False)
+        assert (await shs._probe_patreon())[0] == ServiceStatus.UNKNOWN
+        monkeypatch.setenv('PATREON_CLIENT_ID', 'id')
+        monkeypatch.setenv('PATREON_CLIENT_SECRET', 'secret')
+        assert (await shs._probe_patreon())[0] == ServiceStatus.HEALTHY
+        await PatreonCampaign.create(
+            tenant_id=1, campaign_id='c', campaign_name='C', access_token='x', webhook_token='t',
+            last_sync_error='Reconnect Patreon',
+        )
+        assert (await shs._probe_patreon())[0] == ServiceStatus.CREDENTIAL_WARNING
+
     def test_mock_ranks_between_healthy_and_unknown(self):
         assert _worst([ServiceStatus.HEALTHY, ServiceStatus.MOCK]) == ServiceStatus.MOCK
         assert _worst([ServiceStatus.MOCK, ServiceStatus.UNKNOWN]) == ServiceStatus.UNKNOWN
