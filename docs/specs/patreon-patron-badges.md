@@ -63,8 +63,7 @@ Out:
 2. Staff optionally map tiers to labels ("Hero tier" → "Hero") and reorder them.
 3. A member opens Me → Accounts, taps Link Patreon, signs in and approves. We
    keep their Patreon user id (and the name shown as "Linked as …" to them
-   only), read their memberships once, then discard the token (pending the
-   token question below).
+   only), read their memberships once, then discard the token.
 4. Status changes arrive by webhook. The community is resolved from the
    webhook URL's row, never from the payload; the member is matched by Patreon
    user id. Deliveries for people who haven't linked are ignored and stored
@@ -164,7 +163,6 @@ dependencies, so pip-audit is unaffected. A service health probe joins
 
 ## Open questions
 
-- Keep or drop the member's Patreon token after linking.
 - Who sees the badge, and whether a member can hide it.
 - Where the badge appears in phase 1.
 - Risk to check in the build: Patreon may only return memberships to the OAuth
@@ -176,5 +174,7 @@ dependencies, so pip-audit is unaffected. A service health probe joins
 
 - 2026-11-03 — Thomas picked new app only: screens in `web/` (Settings →
   Integrations card, Me → Accounts); NiceGUI untouched.
+- 2026-11-03 — Thomas picked drop after linking: only the member's Patreon
+  user id is kept; their OAuth token is used once and discarded.
 - 2026-11-03 — Thomas: Patreon phase 1 is badges only; Wizzrobe never handles
   money; future perks gate on `get_patron_status`.
