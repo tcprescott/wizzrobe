@@ -253,3 +253,23 @@ async def test_seed_is_idempotent_when_arrival_demo_meets_a_shift_block(db, monk
     before = await VolunteerShift.filter(tenant_id=DEFAULT_TEST_TENANT_ID).count()
     await seed_dev.seed_all()
     assert await VolunteerShift.filter(tenant_id=DEFAULT_TEST_TENANT_ID).count() == before
+
+
+async def test_seed_leaves_out_published_secrets(db, monkeypatch):
+    """SANDBOX_MODE (the public beta stack) seeds without any fixture whose secret is in this repo."""
+    from application.services.password_auth_service import verify_password
+    from models import ApiToken, McpOAuthClient, OAuthApp, OAuthClientType
+    from scripts.seed_dev import FIRST_PARTY_CLIENT_ID, seed_all
+    from scripts.seed_password import DEV_PASSWORD
+
+    monkeypatch.setenv('SANDBOX_MODE', 'on')
+    monkeypatch.setenv('APP_REDIRECT_URIS', 'https://beta.example.org/auth/callback')
+    await seed_all()
+
+    for user in await User.filter(password_hash__not_isnull=True):
+        assert not await verify_password(DEV_PASSWORD, user.password_hash)
+    assert not await ApiToken.all().exists()
+    assert not await McpOAuthClient.all().exists()
+    assert not await OAuthApp.filter(client_type=OAuthClientType.CONFIDENTIAL).exists()
+    app = await OAuthApp.get(client_id=FIRST_PARTY_CLIENT_ID)
+    assert 'https://beta.example.org/auth/callback' in app.redirect_uris

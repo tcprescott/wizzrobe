@@ -1,7 +1,8 @@
 """SANDBOX_MODE: the beta stack (deploy/beta/) must never reach a real person.
 
-Each outbound channel stops at its last step, and the dev seed leaves out every
-fixture whose secret is published in this repo.
+Each outbound channel stops at its last step. The seed's half (no published
+secrets on a sandbox) lives in test_seed_coverage.py, the one module allowed to
+run the seed itself.
 """
 
 from types import SimpleNamespace
@@ -10,7 +11,6 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from application.utils import environment
-from models import ApiToken, McpOAuthClient, OAuthApp, OAuthClientType, User
 
 
 @pytest.fixture
@@ -96,19 +96,3 @@ async def test_community_webhook_closes_the_delivery_unsent(sandbox):
     assert kwargs['success'] is False
     assert 'sandbox' in kwargs['error']
 
-
-async def test_seed_leaves_out_published_secrets(db, sandbox, monkeypatch):
-    from application.services.password_auth_service import verify_password
-    from scripts.seed_dev import FIRST_PARTY_CLIENT_ID, seed_all
-    from scripts.seed_password import DEV_PASSWORD
-
-    monkeypatch.setenv('APP_REDIRECT_URIS', 'https://beta.example.org/auth/callback')
-    await seed_all()
-
-    for user in await User.filter(password_hash__not_isnull=True):
-        assert not await verify_password(DEV_PASSWORD, user.password_hash)
-    assert not await ApiToken.all().exists()
-    assert not await McpOAuthClient.all().exists()
-    assert not await OAuthApp.filter(client_type=OAuthClientType.CONFIDENTIAL).exists()
-    app = await OAuthApp.get(client_id=FIRST_PARTY_CLIENT_ID)
-    assert 'https://beta.example.org/auth/callback' in app.redirect_uris
