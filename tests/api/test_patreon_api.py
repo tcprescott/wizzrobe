@@ -7,7 +7,7 @@ from urllib.parse import parse_qs, urlparse
 
 import pytest
 
-from application.utils.mocks.mock_patreon import MOCK_WEBHOOK_SECRET
+from application.utils.mocks.mock_patreon import MOCK_SIGNING_KEY
 from models import FeatureFlag, PatreonCampaign, Role, TenantFeatureFlag
 from tests.api_helpers import build_api_app, client_for, create_user_token
 
@@ -44,7 +44,7 @@ async def test_connect_link_webhook_and_no_secrets_in_responses():
     async with client_for(app, staff_token) as client:
         card = await client.get('/api/settings/integrations/patreon')
         assert card.json()['connected'] is True and card.json()['campaign_name'] == 'Mock Campaign'
-        assert 'mock-access' not in card.text and MOCK_WEBHOOK_SECRET not in card.text
+        assert 'mock-access' not in card.text and MOCK_SIGNING_KEY not in card.text
         r = await client.put('/api/settings/integrations/patreon/tiers', json={'tiers': [
             {'tier_id': 't-hero', 'badge_label': 'Hero patron'}, {'tier_id': 't-supporter', 'badge_label': None}]})
         assert r.status_code == 200 and r.json()['tiers'][0]['badge_label'] == 'Hero patron'
@@ -71,7 +71,7 @@ async def test_connect_link_webhook_and_no_secrets_in_responses():
     campaign = await PatreonCampaign.get()
     body = json.dumps({'data': {'type': 'member', 'id': 'm-1', 'attributes': {'patron_status': 'former_patron'},
                                 'relationships': {'user': {'data': {'type': 'user', 'id': 'p-1001'}}}}}).encode()
-    good = hmac.new(MOCK_WEBHOOK_SECRET.encode(), body, hashlib.md5).hexdigest()
+    good = hmac.new(MOCK_SIGNING_KEY.encode(), body, hashlib.md5).hexdigest()
     async with client_for(app) as anonymous:
         hook = f'/api/patreon-webhooks/{campaign.webhook_token}'
         assert (await anonymous.post(hook, content=body, headers={'X-Patreon-Signature': '0' * 32})).status_code == 403

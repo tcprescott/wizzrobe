@@ -27,7 +27,7 @@ from models import PatreonCampaign, PatreonOAuthPurpose, User
 CALLBACK_PATH = '/api/patreon/callback'
 STATE_TTL = timedelta(minutes=10)
 
-TOKEN_PURPOSE = 'patreon_token'
+SEAL_PURPOSE = 'patreon_token'
 WEBHOOK_PURPOSE = 'patreon_webhook'
 
 
@@ -53,11 +53,11 @@ def api_client(access_token: str) -> Any:
     return PatreonClient(access_token)
 
 
-def seal_for(tenant_id: int, value: str, purpose: str = TOKEN_PURPOSE) -> str:
+def seal_for(tenant_id: int, value: str, purpose: str = SEAL_PURPOSE) -> str:
     return seal(value, purpose=purpose, context=str(tenant_id))
 
 
-def open_for(campaign: PatreonCampaign, value: Optional[str], purpose: str = TOKEN_PURPOSE) -> Optional[str]:
+def open_for(campaign: PatreonCampaign, value: Optional[str], purpose: str = SEAL_PURPOSE) -> Optional[str]:
     if not value:
         return None
     return open_(value, purpose=purpose, context=str(campaign.tenant_id))

@@ -19,7 +19,7 @@ from application.utils.clients.patreon_client import (
 from application.utils.environment import env_flag, is_production
 
 MOCK_CAMPAIGN_ID = 'mock-campaign'
-MOCK_WEBHOOK_SECRET = 'mock-webhook-secret'
+MOCK_SIGNING_KEY = 'mock-webhook-secret'
 MOCK_LINKED_ACCOUNTS = {'player_one': 'p-1001', 'player_two': 'p-1002'}
 
 _TIERS = [Tier('t-hero', 'Hero'), Tier('t-supporter', 'Supporter')]
@@ -74,7 +74,7 @@ class MockPatreonClient:
         return list(_MEMBERS), None
 
     async def create_webhook(self, campaign_id: str, uri: str) -> Tuple[str, str]:
-        return 'mock-webhook', MOCK_WEBHOOK_SECRET
+        return 'mock-webhook', MOCK_SIGNING_KEY
 
     async def delete_webhook(self, webhook_id: str) -> None:
         return None

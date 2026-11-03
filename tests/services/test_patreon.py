@@ -21,7 +21,7 @@ from application.services.patron_service import PatronService
 from application.tenant_context import tenant_scope
 from application.utils.clients.patreon_client import ACTIVE_PATRON, MemberStatus, signature_ok
 from application.utils.mocks import mock_patreon
-from application.utils.mocks.mock_patreon import MOCK_CAMPAIGN_ID, MOCK_WEBHOOK_SECRET
+from application.utils.mocks.mock_patreon import MOCK_CAMPAIGN_ID, MOCK_SIGNING_KEY
 from application.utils.secret_box import open_
 from models import (
     AuditLog,
@@ -76,7 +76,7 @@ async def _link(user) -> str:
     return back
 
 
-def _signed(body: bytes, secret: str = MOCK_WEBHOOK_SECRET) -> dict:
+def _signed(body: bytes, secret: str = MOCK_SIGNING_KEY) -> dict:
     return {'X-Patreon-Signature': hmac.new(secret.encode(), body, hashlib.md5).hexdigest(),
             'X-Patreon-Event': 'members:update'}
 
@@ -110,8 +110,8 @@ async def test_staff_connect_seals_tokens_registers_the_webhook_and_queues_a_syn
     assert campaign.campaign_id == MOCK_CAMPAIGN_ID and campaign.campaign_name == 'Mock Campaign'
     assert 'mock-access' not in campaign.access_token and 'mock-refresh' not in (campaign.refresh_token or '')
     assert oauth.open_for(campaign, campaign.access_token) == 'mock-access-mock'
-    assert oauth.open_for(campaign, campaign.webhook_secret, oauth.WEBHOOK_PURPOSE) == MOCK_WEBHOOK_SECRET
-    assert open_(campaign.access_token, purpose=oauth.TOKEN_PURPOSE, context='999') is None
+    assert oauth.open_for(campaign, campaign.webhook_secret, oauth.WEBHOOK_PURPOSE) == MOCK_SIGNING_KEY
+    assert open_(campaign.access_token, purpose=oauth.SEAL_PURPOSE, context='999') is None
     assert campaign.webhook_id == 'mock-webhook' and campaign.sync_requested_at is not None
     assert [t.tier_title for t in await PatreonTierBadge.all().order_by('sort')] == ['Hero', 'Supporter']
     assert await _actions(AuditActions.PATREON_CONNECTED) == 1

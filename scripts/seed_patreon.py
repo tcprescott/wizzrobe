@@ -10,8 +10,8 @@ sheet, and Me → Accounts all have something to show.
 
 from datetime import datetime, timedelta, timezone
 
-from application.services._patreon_oauth import TOKEN_PURPOSE, WEBHOOK_PURPOSE
-from application.utils.mocks.mock_patreon import MOCK_CAMPAIGN_ID, MOCK_LINKED_ACCOUNTS, MOCK_WEBHOOK_SECRET
+from application.services._patreon_oauth import SEAL_PURPOSE, WEBHOOK_PURPOSE
+from application.utils.mocks.mock_patreon import MOCK_CAMPAIGN_ID, MOCK_LINKED_ACCOUNTS, MOCK_SIGNING_KEY
 from application.utils.secret_box import seal
 from models import PatreonCampaign, PatreonMembership, PatreonTierBadge, Tenant, User
 
@@ -39,10 +39,10 @@ async def seed_patreon_for_tenant(tenant: Tenant, users: dict[str, User], staff:
         tenant=tenant,
         defaults={
             'campaign_id': MOCK_CAMPAIGN_ID, 'campaign_name': 'Mock Campaign',
-            'access_token': seal('mock-access-seed', purpose=TOKEN_PURPOSE, context=context),
-            'refresh_token': seal('mock-refresh', purpose=TOKEN_PURPOSE, context=context),
+            'access_token': seal('mock-access-seed', purpose=SEAL_PURPOSE, context=context),
+            'refresh_token': seal('mock-refresh', purpose=SEAL_PURPOSE, context=context),
             'token_expires_at': now + timedelta(days=30), 'webhook_id': 'mock-webhook',
-            'webhook_secret': seal(MOCK_WEBHOOK_SECRET, purpose=WEBHOOK_PURPOSE, context=context),
+            'webhook_secret': seal(MOCK_SIGNING_KEY, purpose=WEBHOOK_PURPOSE, context=context),
             'webhook_token': f'seed-patreon-{tenant.slug}', 'connected_by': staff, 'last_synced_at': now,
         },
     )
