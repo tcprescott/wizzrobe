@@ -16,7 +16,8 @@ from application.services import (
     get_user_from_session,
 )
 from application.services.discord.discord_link_service import connect_redirect_uri
-from application.services.discord.discord_settings_service import GRANT_LABELS, mapping_labels as _mapping_labels
+from application.services.discord.discord_settings_service import GRANT_LABELS
+from application.services.discord.discord_settings_service import mapping_labels as _mapping_labels
 from application.tenant_context import get_current_tenant_id, is_host_mode, require_tenant_id
 from application.utils.mocks.mock_discord import is_mock_discord
 from models import Role, TournamentGrant
