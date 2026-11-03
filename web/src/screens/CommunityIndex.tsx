@@ -3,11 +3,13 @@ import { useQuery } from '../api/useQuery'
 import { Banner, Button, EmptyState, Icon, PageHeader, Panel, Spinner } from '../components'
 import { LAST_COMMUNITY_KEY, loadMyCommunities } from '../community/CommunityProvider'
 import { readStored } from '../lib/storage'
+import { usePlatformAccess } from '../platform/access'
 import './screens.css'
 
 /** `/`: straight into your last (or only) community, else a list to pick from. */
 export function CommunityIndex() {
   const { data, error, loading, reload } = useQuery('me/communities', loadMyCommunities)
+  const platform = usePlatformAccess().data?.super_admin
   if (loading && !data) return <Spinner label="Loading your communities…" />
   if (error) {
     return (
@@ -43,6 +45,17 @@ export function CommunityIndex() {
           ))
         )}
       </Panel>
+      {platform && (
+        <Panel>
+          <Link to="/platform" className="list-link">
+            <span>
+              Platform administration
+              <span className="list-link__sub">Every community and account, across Wizzrobe</span>
+            </span>
+            <Icon name="chevron_right" />
+          </Link>
+        </Panel>
+      )}
     </main>
   )
 }

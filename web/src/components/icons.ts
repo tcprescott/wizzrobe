@@ -19,6 +19,7 @@ import Badge from '@material-symbols/svg-400/outlined/badge.svg?react'
 import BadgeFill from '@material-symbols/svg-400/outlined/badge-fill.svg?react'
 import BlockIcon from '@material-symbols/svg-400/outlined/block.svg?react'
 import BrightnessAuto from '@material-symbols/svg-400/outlined/brightness_auto.svg?react'
+import BugReportIcon from '@material-symbols/svg-400/outlined/bug_report.svg?react'
 import CalendarMonth from '@material-symbols/svg-400/outlined/calendar_month.svg?react'
 import CalendarMonthFill from '@material-symbols/svg-400/outlined/calendar_month-fill.svg?react'
 import CalendarViewWeekIcon from '@material-symbols/svg-400/outlined/calendar_view_week.svg?react'
@@ -28,6 +29,7 @@ import CelebrationIcon from '@material-symbols/svg-400/outlined/celebration.svg?
 import ChairIcon from '@material-symbols/svg-400/outlined/chair.svg?react'
 import ChangeHistoryIcon from '@material-symbols/svg-400/outlined/change_history.svg?react'
 import ChatIcon from '@material-symbols/svg-400/outlined/chat.svg?react'
+import ChatBubbleIcon from '@material-symbols/svg-400/outlined/chat_bubble.svg?react'
 import Check from '@material-symbols/svg-400/outlined/check.svg?react'
 import CheckCircle from '@material-symbols/svg-400/outlined/check_circle.svg?react'
 import ChecklistIcon from '@material-symbols/svg-400/outlined/checklist.svg?react'
@@ -56,6 +58,7 @@ import EventBusy from '@material-symbols/svg-400/outlined/event_busy.svg?react'
 import EventNoteIcon from '@material-symbols/svg-400/outlined/event_note.svg?react'
 import ExtensionIcon from '@material-symbols/svg-400/outlined/extension.svg?react'
 import FactCheckIcon from '@material-symbols/svg-400/outlined/fact_check.svg?react'
+import FavoriteIcon from '@material-symbols/svg-400/outlined/favorite.svg?react'
 import Feedback from '@material-symbols/svg-400/outlined/feedback.svg?react'
 import FlagIcon from '@material-symbols/svg-400/outlined/flag.svg?react'
 import FormatListNumberedIcon from '@material-symbols/svg-400/outlined/format_list_numbered.svg?react'
@@ -75,6 +78,7 @@ import Info from '@material-symbols/svg-400/outlined/info.svg?react'
 import Inventory2 from '@material-symbols/svg-400/outlined/inventory_2.svg?react'
 import KeepIcon from '@material-symbols/svg-400/outlined/keep.svg?react'
 import KeyIcon from '@material-symbols/svg-400/outlined/key.svg?react'
+import KeyOffIcon from '@material-symbols/svg-400/outlined/key_off.svg?react'
 import KeyboardArrowDown from '@material-symbols/svg-400/outlined/keyboard_arrow_down.svg?react'
 import LeaderboardIcon from '@material-symbols/svg-400/outlined/leaderboard.svg?react'
 import LightMode from '@material-symbols/svg-400/outlined/light_mode.svg?react'
@@ -99,6 +103,8 @@ import MonitorHeartIcon from '@material-symbols/svg-400/outlined/monitor_heart.s
 import MoreVert from '@material-symbols/svg-400/outlined/more_vert.svg?react'
 import IMusicNote from '@material-symbols/svg-400/outlined/music_note.svg?react'
 import Notifications from '@material-symbols/svg-400/outlined/notifications.svg?react'
+import NotificationsActiveIcon from '@material-symbols/svg-400/outlined/notifications_active.svg?react'
+import NotificationsOffIcon from '@material-symbols/svg-400/outlined/notifications_off.svg?react'
 import OpenInNew from '@material-symbols/svg-400/outlined/open_in_new.svg?react'
 import Palette from '@material-symbols/svg-400/outlined/palette.svg?react'
 import PauseIcon from '@material-symbols/svg-400/outlined/pause.svg?react'
@@ -108,6 +114,7 @@ import Person from '@material-symbols/svg-400/outlined/person.svg?react'
 import PersonFill from '@material-symbols/svg-400/outlined/person-fill.svg?react'
 import PersonAddIcon from '@material-symbols/svg-400/outlined/person_add.svg?react'
 import PersonCheckIcon from '@material-symbols/svg-400/outlined/person_check.svg?react'
+import PersonOffIcon from '@material-symbols/svg-400/outlined/person_off.svg?react'
 import PersonRemoveIcon from '@material-symbols/svg-400/outlined/person_remove.svg?react'
 import IPets from '@material-symbols/svg-400/outlined/pets.svg?react'
 import IPictureAsPdf from '@material-symbols/svg-400/outlined/picture_as_pdf.svg?react'
@@ -184,6 +191,7 @@ export const ICONS = {
   badge: Badge,
   block: BlockIcon,
   brightness_auto: BrightnessAuto,
+  bug_report: BugReportIcon,
   calendar_month: CalendarMonth,
   calendar_view_week: CalendarViewWeekIcon,
   campaign: Campaign,
@@ -192,6 +200,7 @@ export const ICONS = {
   chair: ChairIcon,
   change_history: ChangeHistoryIcon,
   chat: ChatIcon,
+  chat_bubble: ChatBubbleIcon,
   check: Check,
   check_circle: CheckCircle,
   checklist: ChecklistIcon,
@@ -220,6 +229,7 @@ export const ICONS = {
   event_note: EventNoteIcon,
   extension: ExtensionIcon,
   fact_check: FactCheckIcon,
+  favorite: FavoriteIcon,
   feedback: Feedback,
   flag: FlagIcon,
   format_list_numbered: FormatListNumberedIcon,
@@ -238,6 +248,7 @@ export const ICONS = {
   inventory_2: Inventory2,
   keep: KeepIcon,
   key: KeyIcon,
+  key_off: KeyOffIcon,
   keyboard_arrow_down: KeyboardArrowDown,
   leaderboard: LeaderboardIcon,
   light_mode: LightMode,
@@ -262,6 +273,8 @@ export const ICONS = {
   more_vert: MoreVert,
   music_note: IMusicNote,
   notifications: Notifications,
+  notifications_active: NotificationsActiveIcon,
+  notifications_off: NotificationsOffIcon,
   open_in_new: OpenInNew,
   palette: Palette,
   pause: PauseIcon,
@@ -270,6 +283,7 @@ export const ICONS = {
   person: Person,
   person_add: PersonAddIcon,
   person_check: PersonCheckIcon,
+  person_off: PersonOffIcon,
   person_remove: PersonRemoveIcon,
   pets: IPets,
   picture_as_pdf: IPictureAsPdf,

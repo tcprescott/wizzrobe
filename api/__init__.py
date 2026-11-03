@@ -14,6 +14,7 @@ from api.routers import (
     admin_brackets,
     admin_match_schedule,
     admin_nav,
+    admin_notifications,
     admin_payouts,
     admin_presets,
     admin_qualifiers,
@@ -142,6 +143,7 @@ router.include_router(sent_messages.router)
 router.include_router(exports.router)
 router.include_router(system_config.router)
 router.include_router(notification_settings.router)
+router.include_router(admin_notifications.router)
 router.include_router(tokens.router)
 router.include_router(
     volunteers.router,
