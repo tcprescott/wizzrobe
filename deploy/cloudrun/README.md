@@ -1,5 +1,11 @@
 # Cloud Run deploy
 
+> **Not in use.** Since 2026-11-03 Wizzrobe runs only in Docker
+> ([deploy/production/](../production/README.md), [deploy/beta/](../beta/README.md)).
+> This folder, `scripts/cloudrun.py` and the "Deploy to Cloud Run" workflow are
+> kept switched off in case Google Cloud comes back; nothing here has ever been
+> applied.
+
 Config for running Wizzrobe on Google Cloud Run (step 5 of
 [the mobile app spec](../../docs/specs/mobile-app.md)). Today's production server
 doesn't use any of this: it stays a `git pull` and restart until the switch-over.

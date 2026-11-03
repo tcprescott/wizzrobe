@@ -7,7 +7,10 @@ badge types in the default event (Weekend covers comps, VIP is capped at 50,
 Sunday is off sale), and four orders for ``player_one``: a paid one with their
 own Weekend badge plus an unclaimed extra, one mid-checkout, one that lapsed
 and one refunded, plus a paid PayPal order. So My badges, the claim link, the orders list and the
-comp-refunds panel all have something to show.
+comp-refunds panel all have something to show. A second player holds a paid VIP
+badge, so after the check-in seed (which runs later and syncs) the roster has a
+``WIZZROBE`` row, and ``player_one``'s badges sit on the Matcherino row the mock
+sales link to them.
 """
 
 import json
@@ -38,7 +41,7 @@ _TYPES = [
 ]
 
 
-async def seed_tickets_for_tenant(tenant: Tenant, buyer: User) -> None:
+async def seed_tickets_for_tenant(tenant: Tenant, buyer: User, vip_holder: User) -> None:
     """Idempotent: types by name, the order by its fake Stripe session id."""
     event_id = await EventService.default_event_id(tenant.id)
     if event_id is None:
@@ -67,10 +70,23 @@ async def seed_tickets_for_tenant(tenant: Tenant, buyer: User) -> None:
         )
         types[name] = row
 
+    now = datetime.now(timezone.utc)
+    vip = types['VIP badge']
+    vip_ref = f'cs_seed_{tenant.slug}_vip'
+    if not await TicketOrder.filter(tenant=tenant, provider_ref=vip_ref).exists():
+        vip_order = await TicketOrder.create(
+            tenant=tenant, event_id=event_id, buyer=vip_holder, provider=TicketProvider.STRIPE,
+            status=TicketOrderStatus.PAID, total_cents=vip.price_cents, currency='usd', provider_ref=vip_ref,
+            payment_ref=f'pi_seed_{tenant.slug}_vip', hold_expires_at=now, paid_at=now,
+        )
+        await Ticket.create(
+            tenant=tenant, event_id=event_id, order=vip_order, ticket_type=vip, owner=vip_holder,
+            status=TicketStatus.VALID, price_cents=vip.price_cents, code=f'SVP{tenant.id:05d}',
+        )
+
     ref = f'cs_seed_{tenant.slug}'
     if await TicketOrder.filter(tenant=tenant, provider_ref=ref).exists():
         return
-    now = datetime.now(timezone.utc)
     weekend = types['Weekend badge']
     order = await TicketOrder.create(
         tenant=tenant, event_id=event_id, buyer=buyer, provider=TicketProvider.STRIPE,
@@ -87,7 +103,6 @@ async def seed_tickets_for_tenant(tenant: Tenant, buyer: User) -> None:
         price_cents=weekend.price_cents, code=f'SEEX{tenant.id:04d}',
         claim_token=seal(token, purpose=CLAIM_PURPOSE, context=str(tenant.id)), claim_lookup=claim_lookup(token),
     )
-    vip = types['VIP badge']
     for status, ticket_status, hold, suffix in (
         (TicketOrderStatus.PENDING, TicketStatus.PENDING, now + timedelta(minutes=30), 'P'),
         (TicketOrderStatus.EXPIRED, TicketStatus.VOID, now - timedelta(days=1), 'X'),

@@ -1,8 +1,10 @@
-"""Matcherino check-in sync worker.
+"""Check-in sync worker.
 
-Polls each open :class:`~models.CheckInEvent` that has a venue, on that event's
-own ``sync_interval_minutes``, so the desk's roster keeps up with late
-registrations without anyone pressing Sync. Each event's work runs inside its
+Polls each open :class:`~models.CheckInEvent` that has a Matcherino venue, comp
+rules or badges sold in Wizzrobe, on that event's own
+``sync_interval_minutes``, so the desk's roster keeps up with late
+registrations without anyone pressing Sync. A badge bought, claimed or refunded
+in Wizzrobe since the last sync makes the event due on the next tick. Each event's work runs inside its
 tenant's ``tenant_scope`` as the reserved system ``User``, and skips tenants
 that have check-in turned off.
 
@@ -26,9 +28,11 @@ logger = logging.getLogger(__name__)
 TICK_SECONDS = 60
 
 
-def _due(event, now: datetime) -> bool:
+def _due(event, now: datetime, badge_changed: Optional[datetime] = None) -> bool:
     interval = timedelta(minutes=event.sync_interval_minutes or 5)
     last = event.last_synced_at
+    if badge_changed is not None and not event.last_sync_error and (last is None or badge_changed > last):
+        return True
     if event.last_sync_error and event.updated_at is not None:
         # A failed sync leaves last_synced_at at the last *good* sync; back off
         # from the failure instead so a dead endpoint isn't hit every tick.
@@ -50,13 +54,14 @@ def _failure_level(error: ValueError, previous_error: Optional[str]) -> int:
 
 
 async def _tick() -> None:
-    from application.repositories import CheckInEventRepository
+    from application.repositories import CheckInEventRepository, TicketRepository
     from application.services.check_in_service import CheckInService
     from application.services.feature_flag_service import FeatureFlagService
     from application.services.user_service import UserService
     from models import FeatureFlag
 
-    events = await CheckInEventRepository.list_syncable_all()
+    badge_changes = await TicketRepository.badge_changes_by_event()
+    events = await CheckInEventRepository.list_syncable_all(badge_changes.keys())
     if not events:
         return
 
@@ -65,7 +70,7 @@ async def _tick() -> None:
     service = CheckInService()
 
     async def _sync(event) -> None:
-        if not _due(event, now):
+        if not _due(event, now, badge_changes.get(event.event_id)):
             return
         if not await FeatureFlagService().is_enabled(FeatureFlag.EVENT_CHECK_IN):
             return

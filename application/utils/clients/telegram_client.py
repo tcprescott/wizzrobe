@@ -15,6 +15,8 @@ from typing import List, Optional
 
 import httpx
 
+from application.utils.environment import outbound_blocked
+
 logger = logging.getLogger(__name__)
 
 _TIMEOUT = httpx.Timeout(40.0, connect=5.0)
@@ -62,6 +64,8 @@ async def aclose() -> None:
 
 
 async def _call(method: str, payload: dict, http_timeout: httpx.Timeout = _SEND_TIMEOUT) -> Optional[dict]:
+    if outbound_blocked(f'Telegram {method}'):
+        return None
     try:
         response = await _get_client().post(_url(method), json=payload, timeout=http_timeout)
     except httpx.HTTPError as exc:

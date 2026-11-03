@@ -1,7 +1,8 @@
 name: Deploy to Cloud Run
 
-# Manual only: the Run workflow button on the Actions tab. Today's production is
-# a git pull + restart on its own server and never uses this. Signs in to Google
+# Not in use: since 2026-11-03 Wizzrobe runs only in Docker (deploy/production/,
+# deploy/beta/). Kept, switched off, in case Google Cloud comes back. Manual
+# only: the Run workflow button on the Actions tab. Signs in to Google
 # through Workload Identity Federation (no key file); the one-time setup is in
 # deploy/cloudrun/README.md.
 on:

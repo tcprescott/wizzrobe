@@ -128,11 +128,9 @@ async def _refresh_bots(table) -> None:
 
 
 async def _restart_bot(actor, table, row) -> None:
-    from racetimebot import get_racetime_manager
-
     async def do_restart() -> None:
         try:
-            await get_racetime_manager().restart(actor, row['id'])
+            await _bot_service.restart_connection(actor, row['id'])
         except (ValueError, PermissionError) as e:
             notify_error(e)
             return

@@ -34,3 +34,11 @@ profile.html
 .DS_Store
 .door-seeds/
 sidecars/
+
+# The new app's local build output and native projects (web/Dockerfile builds its own)
+web/node_modules
+web/dist
+web/ios
+web/android
+web/openapi.json
+web/src/api/schema.d.ts

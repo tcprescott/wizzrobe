@@ -37,7 +37,7 @@ from application.services.audit_service import AuditActions, AuditService
 from application.services.native_push_service import NativePushService
 from application.services.sent_message_service import SentMessageRef, SentMessageService
 from application.utils import web_push as protocol
-from application.utils.environment import get_base_url, is_production
+from application.utils.environment import get_base_url, is_production, outbound_blocked
 from application.utils.ssrf import ensure_public_host
 from models import User, WebPushSubscription
 
@@ -375,6 +375,8 @@ class WebPushService:
         payload: bytes,
         config: _VapidConfig,
     ) -> bool:
+        if outbound_blocked('web push'):
+            return False
         try:
             body = await asyncio.to_thread(
                 protocol.encrypt_payload, payload, subscription.p256dh, subscription.auth

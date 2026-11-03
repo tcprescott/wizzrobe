@@ -5,7 +5,7 @@ Check-in events, the entrants on their rosters, and the Matcherino badge
 types and badges behind them.
 """
 
-from typing import Dict, Iterable, List, Optional
+from typing import AbstractSet, Dict, Iterable, List, Optional
 
 from tortoise.expressions import Q
 
@@ -58,15 +58,18 @@ class CheckInEventRepository(EventScopedRepository[CheckInEvent]):
         return await event_scoped(CheckInEvent.filter(matcherino_venue_id=venue_id)).first()
 
     @staticmethod
-    async def list_syncable_all() -> List[CheckInEvent]:
-        """Open events with a Matcherino venue or comp rules, across every tenant.
+    async def list_syncable_all(badge_event_ids: AbstractSet[int] = frozenset()) -> List[CheckInEvent]:
+        """Open events with a Matcherino venue, comp rules or Wizzrobe badges, across every tenant.
 
-        Deliberately cross-tenant and cross-event: this is the sync worker's
-        scan, which then runs each one inside its own tenant and event scope.
+        ``badge_event_ids`` names the events (:class:`~models.Event` ids) that
+        have badges sold in Wizzrobe. Deliberately cross-tenant and
+        cross-event: this is the sync worker's scan, which then runs each one
+        inside its own tenant and event scope.
         """
         return [
             event for event in await CheckInEvent.filter(status=CheckInEventStatus.OPEN)
             if event.matcherino_venue_id is not None or event.comp_roles or event.comp_volunteers
+            or event.event_id in badge_event_ids
         ]
 
 
@@ -168,11 +171,17 @@ class CheckInTierRepository(TenantScopedRepository[CheckInTier]):
 
     @staticmethod
     async def by_pass_id(event: CheckInEvent) -> Dict[int, CheckInTier]:
-        return {tier.matcherino_pass_id: tier for tier in await scoped(CheckInTier.filter(event=event))}
+        rows = await scoped(CheckInTier.filter(event=event, matcherino_pass_id__isnull=False))
+        return {tier.matcherino_pass_id: tier for tier in rows if tier.matcherino_pass_id is not None}
 
     @staticmethod
     async def list_for_event(event: CheckInEvent) -> List[CheckInTier]:
         return await scoped(CheckInTier.filter(event=event)).order_by('-amount_cents', 'title')
+
+    @staticmethod
+    async def by_ticket_type_id(event: CheckInEvent) -> Dict[int, CheckInTier]:
+        rows = await scoped(CheckInTier.filter(event=event, ticket_type_id__isnull=False))
+        return {tier.ticket_type_id: tier for tier in rows if tier.ticket_type_id is not None}
 
     @staticmethod
     async def save(tier: CheckInTier, fields: Iterable[str]) -> None:
@@ -184,7 +193,13 @@ class CheckInPassRepository(TenantScopedRepository[CheckInPass]):
 
     @staticmethod
     async def by_purchase_id(event: CheckInEvent) -> Dict[int, CheckInPass]:
-        return {p.matcherino_purchase_id: p for p in await scoped(CheckInPass.filter(event=event))}
+        rows = await scoped(CheckInPass.filter(event=event, matcherino_purchase_id__isnull=False))
+        return {p.matcherino_purchase_id: p for p in rows if p.matcherino_purchase_id is not None}
+
+    @staticmethod
+    async def by_ticket_id(event: CheckInEvent) -> Dict[int, CheckInPass]:
+        rows = await scoped(CheckInPass.filter(event=event, ticket_id__isnull=False))
+        return {p.ticket_id: p for p in rows if p.ticket_id is not None}
 
     @staticmethod
     async def bulk_create(passes: List[CheckInPass]) -> None:

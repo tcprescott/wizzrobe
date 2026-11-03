@@ -72,6 +72,9 @@ class CheckInEntrant(Model):
     A buyer whose every badge is refunded or gone, and who isn't comped, gets
     ``withdrawn_at`` (so does a ``COMP`` row that stops qualifying) rather than
     being deleted, so a check-in already recorded against them survives.
+
+    A ``WIZZROBE`` row holds a badge bought in Wizzrobe (:class:`~models.Ticket`),
+    linked to its owner from the start.
     """
 
     id = fields.IntField(pk=True)
@@ -127,6 +130,9 @@ class CheckInTier(Model):
     change it, after which the sync leaves it alone.
     A tier Matcherino stops listing is kept: badges already sold still point
     at it.
+
+    A tier with ``ticket_type`` set mirrors a Wizzrobe badge type instead, and
+    has no ``matcherino_pass_id``; its lanyard follows the badge type's.
     """
 
     id = fields.IntField(pk=True)
@@ -138,7 +144,11 @@ class CheckInTier(Model):
         'models.CheckInEvent', related_name='tiers', on_delete=fields.CASCADE,
     )
     event_id: int
-    matcherino_pass_id = fields.IntField()
+    matcherino_pass_id = fields.IntField(null=True)
+    ticket_type: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
+        'models.TicketType', related_name='check_in_tiers', null=True, on_delete=fields.CASCADE,
+    )
+    ticket_type_id: Optional[int]
     title = fields.CharField(max_length=255)
     amount_cents = fields.IntField(default=0)
     role = fields.CharField(max_length=32, null=True)
@@ -150,7 +160,7 @@ class CheckInTier(Model):
 
     class Meta:
         table = 'checkintier'
-        unique_together = (('event', 'matcherino_pass_id'),)
+        unique_together = (('event', 'matcherino_pass_id'), ('event', 'ticket_type'))
 
 
 class CheckInPass(Model):
@@ -165,6 +175,9 @@ class CheckInPass(Model):
     an entrant is withdrawn rather than deleted. ``source_data`` holds the
     purchase as served, minus the buyer's contact details and the payment
     ledger, which check-in has no use for.
+
+    A pass with ``ticket`` set mirrors a Wizzrobe badge: no Matcherino ids, the
+    badge's own ``code``, and ``entrant`` is whoever owns it now.
     """
 
     id = fields.IntField(pk=True)
@@ -184,8 +197,12 @@ class CheckInPass(Model):
         'models.CheckInEntrant', related_name='passes', null=True, on_delete=fields.SET_NULL,
     )
     entrant_id: Optional[int]
-    matcherino_purchase_id = fields.IntField()
-    buyer_matcherino_user_id = fields.CharField(max_length=64)
+    matcherino_purchase_id = fields.IntField(null=True)
+    buyer_matcherino_user_id = fields.CharField(max_length=64, null=True)
+    ticket: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
+        'models.Ticket', related_name='check_in_passes', null=True, on_delete=fields.CASCADE,
+    )
+    ticket_id: Optional[int]
     code = fields.CharField(max_length=32)
     purchased_at = fields.DatetimeField(null=True)
     refunded_at = fields.DatetimeField(null=True)
@@ -196,7 +213,7 @@ class CheckInPass(Model):
 
     class Meta:
         table = 'checkinpass'
-        unique_together = (('event', 'matcherino_purchase_id'),)
+        unique_together = (('event', 'matcherino_purchase_id'), ('event', 'ticket'))
         indexes = (('event', 'code'),)
 
 

@@ -538,11 +538,13 @@ the same delivery queues as the main app so events its handlers publish still
 reach webhooks. Today's single process needs none of this: leave
 `DISCORD_GATEWAY` on and `bots.py` unused.
 
-Not yet split across processes, for the Cloud Run step of
-[the mobile app spec](../specs/mobile-app.md): the racetime bot's room actions
-and the platform page's "restart bot" call into the in-process runtime, and the
-seed-rolled event that posts a seed to a room fires on the API. Both need the
-cross-process event bus.
+**Across the two containers** (`deploy/production/`, `SEPARATE_BOTS=on` in
+both), the Postgres live relay carries what the API can't do itself: racetime
+room messages and invites (`racetime_room_actions.send` forwards when no
+runtime is in-process, so a seed rolled on the API still posts to its room) and
+the platform "restart bot" call (`RacetimeBotService.restart_connection` audits,
+then asks the bots container to respawn). Live refreshes the bots publish reach
+the API's open screens the same way.
 
 ## Mock mode
 

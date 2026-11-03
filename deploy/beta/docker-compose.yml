@@ -1,0 +1,63 @@
+# The beta stack: the new app (web/) and the backend on seeded test data, on
+# the same machine as production but walled off from it. See README.md.
+#
+# The deploy workflow (.github/workflows/deploy-beta.yml) copies this file into
+# the stack folder on the server, next to beta.env, and runs it from there.
+
+name: wizzrobe-beta
+
+services:
+  api:
+    image: ghcr.io/tcprescott/wizzrobe:beta
+    env_file:
+      - beta.env
+    environment:
+      # Production's hardening (Secure cookies, HSTS, webhook address checks, no
+      # mock logins) with SANDBOX_MODE stopping every send to a real person.
+      ENVIRONMENT: production
+      SANDBOX_MODE: "on"
+      DISCORD_GATEWAY: "off"
+      RACETIME_BOT_ENABLED: "off"
+      # Postgres runs on the host, outside Docker.
+      DB_HOST: host.docker.internal
+      NICEGUI_REDIS_URL: redis://redis:6379/0
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:${BETA_API_PORT:-8100}:8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks: [beta]
+    restart: unless-stopped
+    stop_grace_period: 30s
+
+  app:
+    image: ghcr.io/tcprescott/wizzrobe-app:beta
+    ports:
+      - "127.0.0.1:${BETA_APP_PORT:-8101}:8080"
+    networks: [beta]
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "60", "1", "--appendonly", "no"]
+    volumes:
+      - redis_data:/data
+    networks: [beta]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+networks:
+  # A fixed subnet so the host's pg_hba.conf can allow exactly this stack.
+  beta:
+    ipam:
+      config:
+        - subnet: 172.30.42.0/24
+
+volumes:
+  redis_data:

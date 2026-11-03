@@ -31,7 +31,7 @@ from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
 from application.services.event_service import EventService
 from application.tenant_context import require_tenant_id, tenant_scope
-from application.utils.environment import is_production
+from application.utils.environment import is_production, outbound_blocked
 from application.utils.ssrf import ensure_public_host, pin_public_url
 from models import User, Webhook, WebhookDelivery
 
@@ -350,6 +350,12 @@ class WebhookService:
         self, webhook: Webhook, delivery: WebhookDelivery, *, body: str, event_type: str,
         delivery_uuid: str, prior_attempts: int = 0,
     ) -> None:
+        if outbound_blocked('community webhook'):
+            await self.delivery_repository.finish(
+                delivery, response_status=None, attempt_count=prior_attempts, success=False,
+                error='Not sent: this is a sandbox (SANDBOX_MODE).', delivered_at=None,
+            )
+            return
         timestamp = str(int(datetime.now(timezone.utc).timestamp()))
         signature = hmac.new(
             webhook.secret.encode(), f"{timestamp}.{body}".encode(), hashlib.sha256

@@ -6,8 +6,11 @@ on one would never refresh a screen held open on another. This relay forwards
 each signal as a ``NOTIFY`` and replays signals other instances sent to this
 process's subscribers.
 
-Off unless ``MULTI_INSTANCE`` is set: a single process has nobody to tell, and
-the relay costs one dedicated database connection. Each process tags what it
+Off unless ``MULTI_INSTANCE`` or ``SEPARATE_BOTS`` is set: a single process has
+nobody to tell, and the relay costs one dedicated database connection.
+``SEPARATE_BOTS`` is the one API beside a ``bots`` container: it needs the relay
+(racetime room actions, live refreshes from the bots) but not the rest of what
+``MULTI_INSTANCE`` turns on, such as rate limits counted in the database. Each process tags what it
 sends with a random origin and ignores its own echoes, since local subscribers
 were already called directly.
 
@@ -42,7 +45,7 @@ _q = CoroutineQueue('live relay', logger=logger)
 
 
 def multi_instance() -> bool:
-    return env_flag('MULTI_INSTANCE')
+    return env_flag('MULTI_INSTANCE') or env_flag('SEPARATE_BOTS')
 
 
 def register(kind: str, deliver: Deliver) -> None:
@@ -125,7 +128,7 @@ async def _send(payload: str) -> None:
 
 
 async def start(dsn: str) -> bool:
-    """Open the listening connection when ``MULTI_INSTANCE`` is on and ``dsn`` is Postgres."""
+    """Open the listening connection when another process needs it and ``dsn`` is Postgres."""
     global _dsn
     if not multi_instance() or not dsn.startswith(('postgres://', 'postgresql://')):
         return False

@@ -17,6 +17,8 @@ dev DB); tenant B is a second community.
 import asyncio
 import hashlib
 import json
+import os
+import secrets
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -29,6 +31,7 @@ from application.services.audit_service import AuditActions
 from application.services.event_service import EventService
 from application.services.feature_flag_service import FeatureFlagService
 from application.services.mcp_auth_service import READ_SCOPE, WRITE_SCOPE
+from application.services.password_auth_service import hash_password
 from application.tenant_context import tenant_scope
 from application.utils.timezone import now_local, parse_local_datetime
 from models import (
@@ -170,6 +173,10 @@ async def seed_users() -> dict[str, User]:
     # Before anything else writes a provider id, so a re-seed restores these unlinked fixtures.
     await reset_unlinked_probe_users(users)
     await seed_password_sign_in(users)
+    if _public():
+        # A fresh random password nobody knows; the desk account has no Discord and must keep one.
+        for user in await User.filter(password_hash__not_isnull=True):
+            await User.filter(id=user.id).update(password_hash=await hash_password(secrets.token_urlsafe(32)))
     print("  users ok (global)")
     return users
 
@@ -373,7 +380,7 @@ async def seed_for_tenant(
         print(f"    [{tenant.slug}] on-site tournament ok")
 
         await seed_payouts_for_tenant(tenant, players)
-        await seed_tickets_for_tenant(tenant, players[0])
+        await seed_tickets_for_tenant(tenant, players[0], users["racer_08"])
         await seed_patreon_for_tenant(tenant, users, staff)
 
         racers = players + [users[name] for name, _display, _full in RACER_SPECS]
@@ -417,9 +424,9 @@ async def seed_for_tenant(
 
         await seed_check_in_for_tenant(tenant, users)
 
-        await seed_tokens_for_tenant(tenant, staff, now)
-
-        await seed_oauth_apps_for_tenant(tenant, staff, now)
+        if not _public():
+            await seed_tokens_for_tenant(tenant, staff, now)
+            await seed_oauth_apps_for_tenant(tenant, staff, now)
 
 
         triforce_specs = [
@@ -616,6 +623,16 @@ async def seed_mcp_oauth(users: dict[str, User]) -> None:
         print(f"  mcp oauth ok (global; {kind} dev bearer: {oauth_bearer})")
 
 
+def _public() -> bool:
+    """A sandbox on a public address: leave out every fixture whose secret is in this repo.
+
+    The dev password, bearer and room tokens and the confidential OAuth secret are
+    published here, so on the beta stack they would let anyone in as seeded staff.
+    """
+    from application.utils.environment import sandbox_mode
+    return sandbox_mode()
+
+
 FIRST_PARTY_CLIENT_ID = "wizzrobe-app"
 FIRST_PARTY_DEV_REDIRECTS = ["http://localhost:5173/auth/callback", "http://localhost:4173/auth/callback"]
 
@@ -624,9 +641,11 @@ async def seed_first_party_app(users: dict[str, User]) -> None:
     """Wizzrobe's own app (web/), so ``npm run dev`` can sign in against this backend.
 
     Production registers it once with scripts/register_first_party_app.py;
-    here it points at the Vite dev and preview servers.
+    here it points at the Vite dev and preview servers, plus any address in
+    ``APP_REDIRECT_URIS`` (comma-separated), which is how the beta stack's app signs in.
     """
     from application.api_scopes import ApiScope
+    extra = [uri.strip() for uri in os.environ.get("APP_REDIRECT_URIS", "").split(",") if uri.strip()]
     app, _ = await OAuthApp.get_or_create(
         client_id=FIRST_PARTY_CLIENT_ID,
         defaults={
@@ -639,6 +658,10 @@ async def seed_first_party_app(users: dict[str, User]) -> None:
             "first_party": True,
         },
     )
+    missing = [uri for uri in extra if uri not in (app.redirect_uris or [])]
+    if missing:
+        app.redirect_uris = [*(app.redirect_uris or []), *missing]
+        await app.save(update_fields=["redirect_uris"])
     print(f"  first-party app ok (client_id {app.client_id})")
 
 
@@ -811,7 +834,8 @@ async def seed_all() -> None:
     await seed_browser_monitoring(users)
     await seed_table_preferences(users)
     await seed_friends(users)
-    await seed_mcp_oauth(users)
+    if not _public():
+        await seed_mcp_oauth(users)
     await seed_first_party_app(users)
     await seed_push_devices(users)
     await seed_notification_channels(users)
@@ -876,9 +900,10 @@ async def seed() -> None:
     from dotenv import load_dotenv
     load_dotenv()
 
-    from application.utils.environment import is_production
-    if is_production():
+    from application.utils.environment import is_production, sandbox_mode
+    if is_production() and not sandbox_mode():
         # Never against production: the seed plants published bearer and room tokens.
+        # A sandbox (the beta stack) runs production settings but leaves those out.
         raise SystemExit('Refusing to seed: ENVIRONMENT is production.')
 
     from migrations.tortoise_config import TORTOISE_ORM

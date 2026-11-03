@@ -70,8 +70,8 @@ elif [ "$1" = "prod" ]; then
     exec poetry run uvicorn main:app "${GRACEFUL_SHUTDOWN[@]}" --workers 1 --log-level info --port 8000 --host 0.0.0.0
 elif [ "$1" = "bots" ]; then
     # The always-on bot service (bots.py) beside an API started with
-    # DISCORD_GATEWAY=off and RACETIME_BOT_ENABLED=off. Cloud Run's bots service
-    # runs this; today's single-process deploy never does.
+    # DISCORD_GATEWAY=off and RACETIME_BOT_ENABLED=off: the `bots` container in
+    # deploy/production/docker-compose.yml. A single-process deploy never runs it.
     echo "Starting the bot service in production mode..."
     export ENVIRONMENT=production
     exec poetry run uvicorn bots:app "${GRACEFUL_SHUTDOWN[@]}" --workers 1 --log-level info --port "${PORT:-8000}" --host 0.0.0.0
