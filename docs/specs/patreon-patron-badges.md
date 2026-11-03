@@ -51,6 +51,7 @@ Out:
 - Pledge amounts anywhere: we request only `patron_status` and the entitled
   tier ids/titles from Patreon (sparse fieldsets), so amounts never reach us.
 - Per-community Patreon OAuth apps (one platform app serves every community).
+- Any change to the NiceGUI app.
 
 ## Flow
 
@@ -163,7 +164,6 @@ dependencies, so pip-audit is unaffected. A service health probe joins
 
 ## Open questions
 
-- Where the UI goes (new app vs NiceGUI).
 - Keep or drop the member's Patreon token after linking.
 - Who sees the badge, and whether a member can hide it.
 - Where the badge appears in phase 1.
@@ -174,5 +174,7 @@ dependencies, so pip-audit is unaffected. A service health probe joins
 
 ## Decisions
 
+- 2026-11-03 — Thomas picked new app only: screens in `web/` (Settings →
+  Integrations card, Me → Accounts); NiceGUI untouched.
 - 2026-11-03 — Thomas: Patreon phase 1 is badges only; Wizzrobe never handles
   money; future perks gate on `get_patron_status`.
