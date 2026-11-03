@@ -88,7 +88,6 @@ class TableKeys:
     ADMIN_STAGES = 'admin.stages'
     ADMIN_VOLUNTEER_ROSTER = 'admin.volunteer_roster'
     ADMIN_ROM_PATCHES = 'admin.rom_patches'
-    ADMIN_WEBHOOKS = 'admin.webhooks'
     ADMIN_WEBHOOK_DELIVERIES = 'admin.webhook_deliveries'
 
     CHECK_IN_DESK = 'check_in.desk'

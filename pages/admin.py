@@ -25,8 +25,8 @@ from pages.admin_tabs.admin_community_events import admin_community_events_page
 from pages.admin_tabs.admin_equipment import admin_equipment_page
 from pages.admin_tabs.admin_events import admin_events_page
 from pages.admin_tabs.admin_feedback import admin_feedback_page
-from pages.admin_tabs.admin_patches import admin_patches_page
 from pages.admin_tabs.admin_notifications import admin_notifications_page
+from pages.admin_tabs.admin_patches import admin_patches_page
 from pages.admin_tabs.admin_payouts import admin_payouts_page
 from pages.admin_tabs.admin_presets import admin_presets_page
 from pages.admin_tabs.admin_qualifiers import admin_qualifiers_page
