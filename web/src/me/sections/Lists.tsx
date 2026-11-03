@@ -4,6 +4,7 @@ import { AUTH_ORIGIN, API_BASE } from '../../auth/config'
 import { Banner, Button, Chip, EmptyState, FormDialog, Icon, Panel, PanelRow, Spinner } from '../../components'
 import { done, message, useSection } from '../data'
 import { useProfile } from '../MeLayout'
+import { PatreonPanel } from './Patreon'
 
 /** The website's origin: linking an outside account still runs through its sign-in pages. */
 function site(path: string): string {
@@ -53,6 +54,7 @@ export function Accounts() {
 
   return (
     <div className="me-stack">
+      <PatreonPanel />
       <Panel title="Connected accounts">
         <PanelRow>
           <p className="me-note">Link outside accounts so we can find your bracket and race matches for scheduling.</p>

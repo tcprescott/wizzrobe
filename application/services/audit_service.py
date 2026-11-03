@@ -249,6 +249,14 @@ class AuditActions:
     TICKET_CLAIMED = 'ticket.claimed'
     TICKET_COMP_REFUNDED = 'ticket.comp_refunded'
 
+    PATREON_CONNECTED = 'patreon.connected'
+    PATREON_DISCONNECTED = 'patreon.disconnected'
+    PATREON_TIERS_UPDATED = 'patreon.tiers_updated'
+    PATREON_LINKED = 'patreon.linked'
+    PATREON_UNLINKED = 'patreon.unlinked'
+    PATREON_BADGE_GRANTED = 'patreon.badge_granted'
+    PATREON_BADGE_REVOKED = 'patreon.badge_revoked'
+
     PLAYER_AVAILABILITY_UPDATED = 'player.availability_updated'
 
     CHALLONGE_CONNECTED = 'challonge.connected'

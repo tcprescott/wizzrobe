@@ -44,6 +44,7 @@ export const fixtures = {
         "username": "kirby",
         "display_name": "Kirby",
         "preferred_name": "Kirby",
+        "patron_badge": "Hero patron",
         "pronouns": "they/them",
         "avatar_url": null,
         "is_active": true,
@@ -207,6 +208,13 @@ export const fixtures = {
         "name": "kirbyrando"
       }
     ],
+    "patron": {
+      "is_patron": true,
+      "tier_ids": ["t-hero"],
+      "badge_label": "Hero patron",
+      "badge_hidden": false,
+      "last_synced": "{{now-12m}}"
+    },
     "preset": "needs_me",
     "notifications": [
       {

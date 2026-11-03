@@ -17,6 +17,7 @@ from application.repositories.user_repository import UserRepository
 from application.services.accommodation_service import AccommodationService
 from application.services.auth_service import AuthService
 from application.services.feature_flag_service import FeatureFlagService
+from application.services.patron_service import PatronService
 from application.services.player_home_service import PlayerHomeService
 from application.services.tenant_membership_service import TenantMembershipService
 from application.services.user_service import UserService
@@ -79,6 +80,7 @@ class MemberRow:
     joined_via: Optional[str]
     joined_recently: bool
     ada: Optional[MemberAda] = None
+    patron_badge: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -145,6 +147,7 @@ class MembersAdminService:
         )
         ada_by_user = await AccommodationService().open_requests_by_user(actor) if accommodations else {}
         cutoff = datetime.now(timezone.utc) - RECENT_JOIN_WINDOW
+        badges = await PatronService().visible_badges()
 
         rows: List[MemberRow] = []
         for u in values:
@@ -175,6 +178,7 @@ class MembersAdminService:
                     label=ADA_STATUS_LABELS[request.status],
                     changed_since_arranged=request.changed_since_arranged,
                 ) if request is not None else None,
+                patron_badge=badges.get(u['id']),
             ))
 
         return MembersBoard(

@@ -56,6 +56,7 @@ from api.routers import (
     my_surveys,
     notification_settings,
     notifications,
+    patreon,
     payouts,
     platform,
     player_availability,
@@ -188,6 +189,18 @@ router.include_router(
     tickets.me_router,
     dependencies=[Depends(require_feature(FeatureFlag.TICKET_SALES))],
 )
+router.include_router(
+    patreon.router,
+    dependencies=[Depends(require_feature(FeatureFlag.PATREON))],
+)
+router.include_router(
+    patreon.me_router,
+    dependencies=[Depends(require_feature(FeatureFlag.PATREON))],
+)
+# No token on purpose: the stored single-use state ties the sign-in to whoever started it.
+router.include_router(patreon.callback_router)
+# No token on purpose: Patreon posts it, and its signature, checked against the campaign's secret, is the proof.
+router.include_router(patreon.webhook_router)
 # No token on purpose: a store posts it, and its signature, checked against that store's secret, is the proof.
 router.include_router(tickets.webhook_router)
 # No auth dependency on purpose: the service worker has no session and proves subscription ownership instead.

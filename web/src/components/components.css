@@ -119,6 +119,21 @@
 .chip--cancelled { --tone: var(--status-cancelled); }
 .chip--info { --tone: var(--status-info); }
 
+.patron-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  line-height: 1.5;
+  white-space: nowrap;
+  vertical-align: middle;
+  color: var(--link);
+  background: var(--accent-soft);
+}
+
 .count-badge {
   display: inline-flex;
   align-items: center;

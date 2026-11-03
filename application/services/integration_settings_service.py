@@ -28,6 +28,7 @@ class IntegrationCards:
     webhooks: bool
     randomizer_keys: bool
     ai: bool
+    patreon: bool = False
 
 
 @dataclass(frozen=True)
@@ -83,6 +84,7 @@ class IntegrationSettingsService:
             webhooks=staff,
             randomizer_keys=staff or access.is_preset_manager,
             ai=staff and FeatureFlag.SURVEYS in live,
+            patreon=staff and FeatureFlag.PATREON in live,
         )
 
     async def challonge(self, actor: User) -> ChallongeOverview:

@@ -133,6 +133,7 @@ class FeatureFlag(str, Enum):
     THIRD_PARTY_APPS = 'third_party_apps'
     SURVEYS = 'surveys'
     TICKET_SALES = 'ticket_sales'
+    PATREON = 'patreon'
 
 
 class BracketFormat(str, Enum):
@@ -821,3 +822,10 @@ class TicketStatus(str, Enum):
     VALID = 'valid'
     VOID = 'void'
     REFUNDED = 'refunded'
+
+
+class PatreonOAuthPurpose(str, Enum):
+    """Which Patreon sign-in a pending OAuth state belongs to."""
+
+    CREATOR = 'creator'
+    MEMBER = 'member'

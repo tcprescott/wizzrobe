@@ -2,7 +2,7 @@ import './components.css'
 
 export { Banner } from './Banner'
 export { Button, type ButtonProps, type ButtonVariant } from './Button'
-export { Chip, CountBadge, type Tone } from './Chip'
+export { Chip, CountBadge, PatronBadge, type Tone } from './Chip'
 export { ConfirmDialog } from './ConfirmDialog'
 export { Dialog, FormDialog } from './Dialog'
 export { EmptyState, Spinner } from './EmptyState'

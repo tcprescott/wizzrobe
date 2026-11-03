@@ -118,6 +118,15 @@ _EXCLUDED_BY_DESIGN = frozenset({
     AuditActions.TICKET_STORE_DISCONNECTED,
     # A volunteer's comp refund is between them and staff, not an outside listener.
     AuditActions.TICKET_COMP_REFUNDED,
+    # Patreon: who backs a community is between them and its staff, not an outside listener;
+    # the connection itself is a credential.
+    AuditActions.PATREON_CONNECTED,
+    AuditActions.PATREON_DISCONNECTED,
+    AuditActions.PATREON_TIERS_UPDATED,
+    AuditActions.PATREON_LINKED,
+    AuditActions.PATREON_UNLINKED,
+    AuditActions.PATREON_BADGE_GRANTED,
+    AuditActions.PATREON_BADGE_REVOKED,
     AuditActions.APITOKEN_CREATED,
     AuditActions.APITOKEN_REVOKED,
     AuditActions.OAUTH_APP_CREATED,

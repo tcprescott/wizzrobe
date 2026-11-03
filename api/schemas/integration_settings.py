@@ -16,6 +16,7 @@ class IntegrationCardsResponse(BaseModel):
     webhooks: bool = Field(..., description="Outbound webhooks (Staff).")
     randomizer_keys: bool = Field(..., description="Randomizer API keys (Staff or Preset manager).")
     ai: bool = Field(..., description="AI writing help for surveys (Staff, Surveys feature on).")
+    patreon: bool = Field(False, description="Patreon campaign (Staff, Patreon feature on).")
 
 
 class ChallongeCommunityItem(BaseModel):

@@ -305,6 +305,17 @@ FEATURE_FLAG_REGISTRY: Dict[FeatureFlag, FeatureFlagSpec] = {
                              'application/services/ticket_comp_refund_service.py',
                              'application/services/ticket_store_service.py'),
         ),
+        FeatureFlagSpec(
+            FeatureFlag.PATREON,
+            'Patreon Patron Badges',
+            "Connect the community's Patreon campaign so members who link their "
+            'Patreon account get a Patron badge here. Wizzrobe never sees pledge amounts.',
+            'Community',
+            service_modules=('application/services/patron_service.py',
+                             'application/services/patreon_campaign_service.py',
+                             'application/services/patreon_link_service.py',
+                             'application/services/patreon_sync_worker.py'),
+        ),
     )
 }
 

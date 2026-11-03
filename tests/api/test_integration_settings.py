@@ -12,11 +12,15 @@ async def test_cards_by_role(db, app):
     async with client_for(app, staff) as c:
         assert (await c.get('/api/settings/integrations')).json() == {
             'challonge': True, 'startgg': True, 'webhooks': True, 'randomizer_keys': True, 'ai': True,
+            'patreon': True,
         }
     _, presets = await create_user_token(username='presets', roles=[Role.PRESET_MANAGER])
     async with client_for(app, presets) as c:
         body = (await c.get('/api/settings/integrations')).json()
-        assert body == {'challonge': False, 'startgg': False, 'webhooks': False, 'randomizer_keys': True, 'ai': False}
+        assert body == {
+            'challonge': False, 'startgg': False, 'webhooks': False, 'randomizer_keys': True, 'ai': False,
+            'patreon': False,
+        }
         assert (await c.get('/api/settings/integrations/webhooks')).status_code == 403
         assert len((await c.get('/api/settings/integrations/randomizer-keys')).json()) == 3
     _, player = await create_user_token(username='player')

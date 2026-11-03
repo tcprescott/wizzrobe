@@ -28,10 +28,16 @@ from tests.conftest import DEFAULT_TEST_TENANT_ID, _scoped_models
 EXEMPT: dict[str, str] = {
     'PersonalWebhookOutbox': 'a send queue: the outbox worker sends and deletes any row within minutes, '
                              'so a seeded one would not survive to be looked at',
+    'PatreonOAuthState': 'a sign-in in flight: it lives ten minutes and is deleted when Patreon sends the '
+                         'browser back, so a seeded one would be a dead row nobody can use',
 }
 
 # An entry here claims seeding the missing values would be wrong, not merely inconvenient.
 ENUM_EXEMPT: dict[str, str] = {
+    'PatreonOAuthState.purpose': (
+        'PatreonOAuthState itself is in EXEMPT: a sign-in in flight lives ten '
+        'minutes, so there is no seeded row to carry either purpose.'
+    ),
     'DiscordRoleMapping.app_role': (
         'A community maps the roles its own guild happens to have, so a mapping '
         'per Role would describe no real guild — and SUPER_ADMIN is global and '

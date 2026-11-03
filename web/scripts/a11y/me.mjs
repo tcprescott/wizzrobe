@@ -10,6 +10,7 @@ export const targets = [
   { name: 'me-block-time', path: '/t/sgl/me/availability', act: (p) => p.getByRole('button', { name: 'Block a time' }).click(), wait: 'role=dialog' },
   { name: 'me-add-webhook', path: '/t/sgl/me/webhooks', act: (p) => p.getByRole('button', { name: 'Add webhook' }).click(), wait: 'role=dialog' },
   { name: 'me-register-app', path: '/t/sgl/me/apps', act: (p) => p.getByRole('button', { name: 'Register an app' }).click(), wait: 'role=dialog' },
+  { name: 'me-patreon-unlink', path: '/t/sgl/me/accounts', act: (p) => p.getByRole('button', { name: 'Patreon actions' }).click(), wait: 'role=menu' },
   { name: 'me-sign-out', path: '/t/sgl/me/appearance', act: (p) => p.getByRole('button', { name: 'Sign out' }).click(), wait: 'role=dialog' },
 ]
 
@@ -221,6 +222,19 @@ export const fixtures = {
       "note": null
     }
   ],
+  "/api/me/patreon": {
+    "configured": true,
+    "linked": true,
+    "username": "Sam R.",
+    "linked_at": "{{now-30d}}",
+    "badge_hidden": false,
+    "connected_here": true,
+    "here": { "is_patron": true, "tier_ids": ["t-supporter"], "badge_label": "Patron", "badge_hidden": false, "last_synced": "{{now-1h}}" },
+    "communities": [
+      { "community": "SpeedGaming Live", "is_patron": true, "badge_label": "Patron" },
+      { "community": "ALTTPR Community", "is_patron": false, "badge_label": null }
+    ]
+  },
   "/api/me/accounts": [
     {
       "key": "challonge",

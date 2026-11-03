@@ -45,6 +45,7 @@ class MemberRowResponse(BaseModel):
     joined_via: Optional[str] = Field(None, description="How they joined, ready to print.")
     joined_recently: bool = Field(..., description="Joined in the last 7 days.")
     ada: Optional[MemberAdaResponse] = Field(None, description="Their open ADA request. Only when the community takes them.")
+    patron_badge: Optional[str] = Field(None, description="Their Patreon patron badge label, unless they hide it. Null when Patreon is off.")
 
 
 class MembersSwitchesResponse(BaseModel):
