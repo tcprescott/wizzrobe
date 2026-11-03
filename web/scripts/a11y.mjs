@@ -15,6 +15,7 @@
  *   A11Y_WIDTHS=360,393,412,440   phone widths to check (default 360)
  *   PW_CHROMIUM=/path/to/chrome   use an already-installed Chromium
  *   A11Y_ONLY=me-notifications    only targets whose name starts with this
+ *   A11Y_JOBS=4                   checks run at once (default 4)
  */
 import { spawn } from 'node:child_process'
 import { mkdirSync, readdirSync, readFileSync } from 'node:fs'
@@ -32,6 +33,7 @@ const GUIDE_PDF = readFileSync(join(root, '..', 'application', 'event_info', 'co
 
 const PORT = 4173
 const BASE = `http://localhost:${PORT}`
+const JOBS = Math.max(1, Number(process.env.A11Y_JOBS) || 4)
 const PHONES = (process.env.A11Y_WIDTHS || '360').split(',').map((w) => Number(w.trim()))
 const DESKTOP = { width: 1440, height: 900 }
 const SCHEMES = ['light', 'dark']
@@ -180,21 +182,40 @@ try {
     ...PHONES.map((width) => ({ label: `phone${width}`, viewport: { width, height: 780 } })),
     { label: 'desktop', viewport: DESKTOP },
   ]
+  const runs = []
   for (const target of TARGETS.filter((t) => t.name.startsWith(process.env.A11Y_ONLY || ''))) {
     for (const { label, viewport } of viewports) {
-      for (const scheme of SCHEMES) {
-        const problems = await check(browser, target, scheme, viewport, label)
-        const tag = `${target.name} @ ${label} ${scheme}`
-        if (problems.length) {
-          failures += problems.length
-          console.log(`✗ ${tag}`)
-          for (const problem of problems) console.log(`    ${problem}`)
-        } else {
-          console.log(`✓ ${tag}`)
-        }
-      }
+      for (const scheme of SCHEMES) runs.push({ target, label, viewport, scheme })
     }
   }
+  // Each check has its own browser context, so they run side by side; reports print in order.
+  const results = new Array(runs.length)
+  let next = 0
+  let printed = 0
+  const flush = () => {
+    while (printed < runs.length && results[printed]) {
+      const { target, label, scheme } = runs[printed]
+      const problems = results[printed]
+      const tag = `${target.name} @ ${label} ${scheme}`
+      if (problems.length) {
+        failures += problems.length
+        console.log(`✗ ${tag}`)
+        for (const problem of problems) console.log(`    ${problem}`)
+      } else {
+        console.log(`✓ ${tag}`)
+      }
+      printed++
+    }
+  }
+  const worker = async () => {
+    while (next < runs.length) {
+      const i = next++
+      const { target, label, viewport, scheme } = runs[i]
+      results[i] = await check(browser, target, scheme, viewport, label)
+      flush()
+    }
+  }
+  await Promise.all(Array.from({ length: JOBS }, worker))
 } finally {
   await browser.close()
   preview.kill()
