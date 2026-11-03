@@ -63,7 +63,7 @@ from application.utils.app_links import (
     qualifier_runs_url,
     volunteer_my_shifts_url,
 )
-from application.utils.environment import is_production
+from application.utils.environment import is_production, outbound_blocked
 from application.utils.ssrf import ensure_public_host, pin_public_url
 from application.utils.tenant_urls import event_path, tenant_url
 from models import FeatureFlag, PersonalWebhook, PersonalWebhookOutbox, User
@@ -444,6 +444,8 @@ class PersonalWebhookService:
         self, webhook: PersonalWebhook, event_type: str, view: _View, occurred_at: datetime,
         delivery_id: Optional[str] = None,
     ) -> Tuple[bool, Optional[int], Optional[str]]:
+        if outbound_blocked('personal webhook'):
+            return False, None, 'Not sent: this is a sandbox (SANDBOX_MODE).'
         discord = is_discord_url(webhook.url)
         if discord:
             body = json.dumps(await self._discord_body(view, occurred_at))

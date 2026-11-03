@@ -35,7 +35,7 @@ from application.services.notification_links import settings_footnote
 from application.services.sent_message_service import SentMessageRef, SentMessageService
 from application.services.web_push_service import WebPushService
 from application.utils.discord_messages import DMLink
-from application.utils.environment import discord_gateway_enabled
+from application.utils.environment import discord_gateway_enabled, sandbox_mode
 from application.utils.settings_footnote import SettingsFootnote
 from models import SentMessageStatus
 
@@ -348,7 +348,7 @@ async def sign_in_for_rest() -> bool:
     """
     global _rest_login_lock
     token = os.environ.get('DISCORD_TOKEN')
-    if not token or is_mock_discord():
+    if not token or is_mock_discord() or sandbox_mode():
         return False
     bot = get_discord_bot()
     if _rest_login_lock is None:

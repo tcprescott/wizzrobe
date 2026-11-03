@@ -83,6 +83,10 @@ async def start_discord(*, gateway: bool) -> None:
     if is_mock_discord():
         logger.info('MOCK_DISCORD enabled — skipping Discord bot start.')
         return
+    from application.utils.environment import sandbox_mode
+    if sandbox_mode():
+        logger.info('SANDBOX_MODE on: Discord stays signed out, so no DMs or bot actions.')
+        return
     token = os.environ.get('DISCORD_TOKEN')
     if not token:
         logger.warning('DISCORD_TOKEN not set. Discord features will not work.')

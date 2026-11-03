@@ -94,6 +94,10 @@ Wizzrobe ships as a single application container plus PostgreSQL and a Redis ses
 
 The compose file builds locally. To deploy a published image instead, replace `build: .` / `image: wizzrobe:latest` in the `wizzrobe` service with `image: ghcr.io/tcprescott/wizzrobe:<tag>`.
 
+## Beta stack
+
+A second, walled-off stack for trying the new app (`web/`) before cutover: the backend and the app as two containers on seeded test data, its own database on the host's Postgres, `SANDBOX_MODE` on, deployed by `.github/workflows/deploy-beta.yml` on a self-hosted runner. Production is untouched. Setup and the one-time checklist: [deploy/beta/README.md](../deploy/beta/README.md).
+
 ## Environment variables
 
 Template: [`.env.example`](../.env.example). Three loading paths:
@@ -169,6 +173,8 @@ Every boolean variable below uses one grammar (`env_flag` in `application/utils/
 | `RACETIME_REDIRECT_URI` | no | `{BASE_URL}/racetime/oauth/callback` | `application/services/racetime_service.py` | Must match the URI registered with the racetime OAuth app. |
 | `MOCK_RACETIME` | no | off | `application/utils/mocks/mock_racetime.py` | Fakes a verified racetime identity, drives the bot runtime against a scripted event-emitting fake, **and** opens race rooms without calling racetime.gg (their `mock-room-…` slugs don't exist there). **Refused in production.** |
 | `RACETIME_BOT_ENABLED` | no | off | `application/utils/environment.py` | Master switch for the racetime bot runtime (`racetimebot/`). Off → lifespan skips it, no outbound connections. On → one connection per active `RacetimeBot` category. |
+| `SANDBOX_MODE` | no | off | `application/utils/environment.py` | The beta stack's switch ([deploy/beta/](../deploy/beta/README.md)). On → Discord never signs in, and email, Telegram, web and native push and both kinds of webhook stop at their last step; the racetime, SpeedGaming, Discord-events and health-DM workers stay off. Independent of `ENVIRONMENT`, so a sandbox keeps production's hardening, and it lets `scripts/seed_dev.py` run under `ENVIRONMENT=production` without the fixtures whose secrets are published in the repo (dev password, bearer and room tokens, confidential OAuth secret). |
+| `APP_REDIRECT_URIS` | no | — | `scripts/seed_dev.py` | Comma-separated sign-in returns the dev seed adds to the first-party app (`wizzrobe-app`), beside the Vite dev servers. The beta stack sets its app's `/auth/callback`; CORS follows from it. |
 | `MOCK_RACETIME_IDENTITY` | no | `1` | `application/utils/clients/racetime_client.py` | Which canned mock identity the mock link flow returns. Only read under `MOCK_RACETIME`. |
 | `TWITCH_CLIENT_ID` | no | — | `application/services/twitch_service.py`, `application/services/service_health_service.py` | Twitch OAuth client ID. The account-link feature counts as configured only when this and the secret are both set. |
 | `TWITCH_CLIENT_SECRET` | no | — | `application/services/twitch_service.py`, `application/services/service_health_service.py` | Used once per link for the code exchange, then discarded (no token stored). |
