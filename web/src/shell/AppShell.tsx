@@ -14,7 +14,8 @@ function currentTitle(pathname: string): string {
   const parts = pathname.split('/').filter(Boolean)
   const reading = parts.find((part) => part in READING_TITLES)
   if (reading) return READING_TITLES[reading] ?? 'Wizzrobe'
-  return TABS.find((tab) => tab.key === parts.at(-1))?.label ?? 'Wizzrobe'
+  const at = parts[2] === 'e' ? 4 : 2
+  return TABS.find((tab) => tab.key === parts[at])?.label ?? 'Wizzrobe'
 }
 
 export function AppShell() {

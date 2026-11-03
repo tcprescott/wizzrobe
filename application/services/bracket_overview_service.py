@@ -156,6 +156,7 @@ class TournamentBracketView:
     url: Optional[str] = None
     last_synced_at: Optional[datetime] = None
     filtered: bool = False
+    your_entrant_ids: List[int] = field(default_factory=list)
 
 
 def _value(enum_or_str: Any) -> Optional[str]:
@@ -246,14 +247,27 @@ class BracketOverviewService:
         tournament = require_found(
             await TournamentService().get_for_viewer(viewer, tournament_id), 'Tournament',
         )
-        show_users = await self._sees_accounts(viewer, tournament.id)
         if tournament.startgg_event_slug:
-            view = await self._startgg(tournament, show_users)
+            view = await self._startgg(tournament, True)
         elif tournament.challonge_tournament_id:
-            view = await self._challonge(tournament, show_users)
+            view = await self._challonge(tournament, True)
         else:
-            view = await self._native(viewer, tournament, show_users)
+            view = await self._native(viewer, tournament, True)
+        if viewer is not None:
+            view.your_entrant_ids = [e.id for e in view.entrants if e.user_id == viewer.id]
+        if not await self._sees_accounts(viewer, tournament.id):
+            self._hide_accounts(view)
         return self._apply(view, filters)
+
+    @staticmethod
+    def _hide_accounts(view: TournamentBracketView) -> None:
+        for entrant in view.entrants:
+            entrant.user_id = None
+        for phase in view.phases:
+            for pool in phase.pools:
+                for row in pool.sets:
+                    for slot in row.slots:
+                        slot.user_id = None
 
     @staticmethod
     async def _sees_accounts(viewer: Optional[User], tournament_id: int) -> bool:
