@@ -2,7 +2,7 @@
 Ticket Store Service - Business Logic Layer
 
 The store accounts a community sells badges through. Staff paste their own
-Stripe restricted key (or, later, PayPal credentials); Wizzrobe registers its
+Stripe restricted key or PayPal REST app credentials; Wizzrobe registers its
 webhook on that account and seals both secrets per community. Nothing here ever
 hands a secret back out: pages and the API see the provider, the account name,
 test mode and who connected it.
@@ -91,10 +91,18 @@ class TicketStoreService:
         return [row.provider for row in await self.repository.list_all()]
 
     @requires_feature(FeatureFlag.TICKET_SALES)
-    async def connect(self, actor: User, provider: TicketProvider, secret: str) -> StoreView:
-        """Connect ``provider`` with a pasted key, replacing any earlier connection to it."""
+    async def connect(
+        self, actor: User, provider: TicketProvider, secret: str,
+        *, client_id: Optional[str] = None, sandbox: bool = True,
+    ) -> StoreView:
+        """Connect ``provider`` with pasted credentials, replacing any earlier connection to it.
+
+        Stripe takes a restricted key. PayPal takes a REST app's client id and
+        secret, from the app's sandbox side unless ``sandbox`` is false, so a
+        community tests with PayPal's sandbox before it switches to live.
+        """
         await AuthService.ensure(await AuthService.can_manage_tickets(actor), 'Only staff can manage ticket stores.')
-        secret = validate_secret(provider, secret)
+        secret = validate_secret(provider, secret, client_id=client_id, sandbox=sandbox)
         existing = await self.repository.get_by_provider(provider)
         token = existing.webhook_token if existing else secrets.token_urlsafe(24)
         probe = TicketStore(tenant_id=require_tenant_id(), provider=provider, webhook_token=token)

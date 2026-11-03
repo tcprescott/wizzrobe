@@ -317,7 +317,7 @@ class TicketService:
             if store is None or not order.payment_ref:
                 raise ValueError(f'{order.provider.label} isn\'t connected any more. Refund it there instead.')
             await store_gateway(store).refund(
-                order.payment_ref, remaining, idempotency_key=f'wizzrobe-refund-{order.id}',
+                order.payment_ref, remaining, currency=order.currency, idempotency_key=f'wizzrobe-refund-{order.id}',
             )
         now = datetime.now(timezone.utc)
         order.status = TicketOrderStatus.REFUNDED

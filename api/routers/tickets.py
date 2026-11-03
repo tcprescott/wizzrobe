@@ -38,7 +38,7 @@ from application.services import (
     TicketService,
     TicketStoreService,
 )
-from application.services.ticket_gateways import GatewaySignatureError
+from application.services.ticket_gateways import GatewayError, GatewaySignatureError
 from models import TicketOrder, TicketProvider, TicketType, User
 
 _BINDING = Depends(event_binding(type_id=TicketType, order_id=TicketOrder))
@@ -69,7 +69,9 @@ async def list_stores(actor: User = Depends(require_api_actor)):
             description=("Connects the community's own account with a pasted key and registers Wizzrobe's webhook on it. "
                          f"Reconnecting replaces the old key.\n\nFails with 400 when the key is the wrong kind or the store refuses it.\n\n{STAFF}"))
 async def connect_store(provider: TicketProvider, body: ConnectStoreRequest, actor: User = Depends(require_write_actor)):
-    return StoreResponse.from_view(await TicketStoreService().connect(actor, provider, body.secret))
+    return StoreResponse.from_view(await TicketStoreService().connect(
+        actor, provider, body.secret, client_id=body.client_id, sandbox=body.sandbox,
+    ))
 
 
 @router.delete("/stores/{provider}", status_code=status.HTTP_204_NO_CONTENT, summary="Disconnect a store account",
@@ -190,4 +192,6 @@ async def store_webhook(provider: TicketProvider, token: str, request: Request):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Unknown webhook') from exc
     except GatewaySignatureError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Bad signature') from exc
+    except GatewayError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail='Store call failed; retry') from exc
     return {'ok': True, 'outcome': outcome}

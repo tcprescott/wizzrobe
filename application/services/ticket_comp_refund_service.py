@@ -159,7 +159,8 @@ class TicketCompRefundService:
             return CompRefundResult(ticket.id, False, 0, f'{order.provider.label} isn\'t connected any more.')
         try:
             await store_gateway(store).refund(
-                order.payment_ref, row.amount_cents, idempotency_key=f'wizzrobe-comp-{ticket.id}',
+                order.payment_ref, row.amount_cents, currency=order.currency,
+                idempotency_key=f'wizzrobe-comp-{ticket.id}',
             )
         except (GatewayError, ValueError) as exc:
             return CompRefundResult(ticket.id, False, 0, str(exc))
