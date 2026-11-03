@@ -145,8 +145,8 @@ async function check(browser, target, scheme, viewport, label) {
   page.on('pageerror', (err) => problems.push(`page error: ${err.message}`))
   await page.goto(BASE + target.path, { waitUntil: 'networkidle' })
   await page.locator('h1').first().waitFor({ timeout: 10000 })
-  if (target.act) {
-    await target.act(page)
+  if (target.act) await target.act(page)
+  if (target.wait) {
     await page.locator(target.wait).first().waitFor({ timeout: 5000 })
     await page.waitForTimeout(250)
   }

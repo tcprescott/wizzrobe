@@ -164,6 +164,8 @@ TAG_GROUPS: List[tuple[str, List[tuple[str, str]]]] = [
         ('Tournaments', 'Tournaments, their admins and crew coordinators, and signing up.'),
         ('Admin: tournaments', "The app's Tournaments board: players, dropping a player, bracket entrants, sync and link, and the round schedule."),
         ('Admin: qualifiers', "The app's Qualifiers screen: the review queue, the top of the leaderboard, pools and live races."),
+        ('Admin: payouts', "The app's Payouts screen: each tournament's pool and split, edited in place, and the sglive links."),
+        ('Admin: stream layouts', "The app's Stream Layouts screen: what each stage's overlay shows, pins, and the box editor."),
         ('Admin: brackets', "The app's Brackets screen: each native stage's next step, its seeds, roster and open matchups."),
         ('Admin: seed presets', "The app's Seed Presets screen: editor hints, checking a pasted value, test rolls and importing published presets."),
         ('Payouts', 'Prize pools and payouts per tournament.'),
