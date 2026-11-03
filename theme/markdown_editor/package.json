@@ -15,6 +15,6 @@
     "@tiptap/starter-kit": "3.31.4"
   },
   "devDependencies": {
-    "esbuild": "0.25.10"
+    "esbuild": "0.28.1"
   }
 }
