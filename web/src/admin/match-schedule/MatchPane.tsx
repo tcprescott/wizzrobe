@@ -18,6 +18,8 @@ interface PaneProps {
   closeTo?: string
   /** On a phone the pane is the whole screen, so its title is the page's heading. */
   standalone?: boolean
+  /** Proctor Station: read from its routes, and a proctor records who won. */
+  station?: boolean
 }
 
 const STEP_LABEL: Record<string, string> = {
@@ -28,8 +30,8 @@ const STEP_LABEL: Record<string, string> = {
 }
 
 /** One match beside the board (its own screen on a phone): run it, check it, staff its crew. */
-export function MatchPane({ matchId, board, onChanged, onGone, onEdit, closeTo, standalone = false }: PaneProps) {
-  const { data, error, loading, reload } = usePane(matchId)
+export function MatchPane({ matchId, board, onChanged, onGone, onEdit, closeTo, standalone = false, station = false }: PaneProps) {
+  const { data, error, loading, reload } = usePane(matchId, station ? 'proctor' : 'admin')
   const [busy, setBusy] = useState<string | null>(null)
   const [failure, setFailure] = useState<string | null>(null)
   const [dialog, setDialog] = useState<null | 'rewind' | 'calloff' | 'delete' | 'stations'>(null)
@@ -162,7 +164,7 @@ export function MatchPane({ matchId, board, onChanged, onGone, onEdit, closeTo, 
           </Banner>
         )}
         {failure && <Banner tone="error">{failure}</Banner>}
-        <Primary pane={m} busy={busy} run={run} />
+        <Primary pane={m} busy={busy} run={run} station={station} />
       </header>
 
       <div className="ms-pane__body">
@@ -298,7 +300,7 @@ export function MatchPane({ matchId, board, onChanged, onGone, onEdit, closeTo, 
 
 type Run = (key: string, call: () => Promise<unknown>, gone?: boolean) => Promise<void>
 
-function Primary({ pane: m, busy, run }: { pane: Pane; busy: string | null; run: Run }) {
+function Primary({ pane: m, busy, run, station }: { pane: Pane; busy: string | null; run: Run; station: boolean }) {
   if (m.pending_result) return <p className="ms-note">{m.pending_result}</p>
   if (m.played_on_site && m.can.confirm) {
     const site = m.played_on_site
@@ -343,7 +345,7 @@ function Primary({ pane: m, busy, run }: { pane: Pane; busy: string | null; run:
     )
   }
   const winners = m.winners ?? []
-  if (winners.length > 0 && m.can.confirm) {
+  if (winners.length > 0 && (m.can.confirm || (station && m.can.run))) {
     return (
       <div className="ms-primary" role="group" aria-label="Who won?">
         <span className="ms-primary__ask">Who won?</span>

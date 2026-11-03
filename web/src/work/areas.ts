@@ -69,7 +69,7 @@ export const WORK_AREAS: WorkArea[] = [
     icon: 'sports_esports',
     path: 'work/proctor',
     shown: (a) => a.proctor,
-    sub: () => 'Coming to the app next',
+    sub: () => 'Check in, start and finish matches',
   },
   {
     key: 'admin',

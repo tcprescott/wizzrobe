@@ -21,6 +21,7 @@ EVENT_OWNED_PREFIXES = (
     '/api/stages', '/api/tournaments', '/api/triforce-texts', '/api/volunteers',
     '/api/reschedule-requests', '/api/me/home', '/api/me/schedule', '/api/me/bookable',
     '/api/tickets', '/api/me/tickets',
+    '/api/admin/members', '/api/admin/meetups', '/api/admin/check-in',
 )
 NOT_ROWS = {
     'user_id': 'a person, community-wide',

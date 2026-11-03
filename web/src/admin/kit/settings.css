@@ -16,6 +16,7 @@
   flex: none;
 }
 .settings-card__heading {
+  flex: 1 1 0;
   min-width: 0;
 }
 .settings-card__title {
@@ -260,4 +261,50 @@
 .settings-warning {
   font-size: var(--text-sm);
   color: var(--status-pending);
+}
+.settings-card__action {
+  margin-left: auto;
+  flex: none;
+}
+.settings-hours {
+  display: grid;
+  grid-template-columns: minmax(6.5rem, auto) 1fr 1fr;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+.settings-hours__day {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.settings-hours__head {
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+}
+.settings-text-field {
+  max-width: 20rem;
+}
+.settings-hours__row {
+  display: contents;
+}
+.settings-hours input {
+  min-width: 0;
+}
+@media (max-width: 767.98px) {
+  .settings-card__head:has(.settings-card__action) {
+    flex-wrap: wrap;
+  }
+  .settings-card__action {
+    flex-basis: 100%;
+    margin-left: 28px;
+  }
+  .settings-hours {
+    grid-template-columns: 1fr 1fr;
+  }
+  .settings-hours__head:first-child {
+    display: none;
+  }
+  .settings-hours__day {
+    grid-column: 1 / -1;
+    margin-top: var(--space-1, 4px);
+  }
 }
