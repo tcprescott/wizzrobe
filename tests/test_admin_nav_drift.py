@@ -11,7 +11,13 @@ from dataclasses import fields
 
 import pytest
 
-from application.services.admin_nav_service import AdminAccess, admin_areas, event_settings_panes, settings_panes
+from application.services.admin_nav_service import (
+    APP_ONLY_AREAS,
+    AdminAccess,
+    admin_areas,
+    event_settings_panes,
+    settings_panes,
+)
 from application.services.tenant_setup_service import SetupStep
 from models import FeatureFlag
 from pages.admin import build_admin_tabs
@@ -32,7 +38,7 @@ NOT_READY = [SetupStep('staff', 'Give the community a staff member', False, '', 
 def test_areas_match_the_admin_drawer(ready):
     for access, live in itertools.product(ACCESSES, FLAG_SETS):
         website = build_admin_tabs(access, live, {}, None if ready else NOT_READY)
-        app = admin_areas(access, live, setup_ready=ready)
+        app = [a for a in admin_areas(access, live, setup_ready=ready) if a.slug not in APP_ONLY_AREAS]
         assert [t['label'] for t in website] == [a.label for a in app], (access, sorted(live))
         assert [tab_slug(t['label']) for t in website] == [a.slug for a in app]
         assert [tuple(t.get('aliases', ())) for t in website if t['label'] != 'Settings'] == [

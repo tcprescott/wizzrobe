@@ -23,6 +23,8 @@ SYSTEM = 'System'
 
 ADMIN_GROUP_ORDER = [RUN_THE_EVENT, ONLINE_PLAY, PEOPLE, COMMUNITY, CONFIGURATION, SYSTEM]
 EVENT_GROUPS = frozenset({RUN_THE_EVENT, ONLINE_PLAY, PEOPLE})
+# Areas built only in the new app; the website's admin drawer never gets them.
+APP_ONLY_AREAS = frozenset({'tickets'})
 
 
 @dataclass(frozen=True)
@@ -102,6 +104,7 @@ def admin_areas(access: AdminAccess, live: set, setup_ready: bool = True) -> lis
     add((staff or sm) and FeatureFlag.STREAM_LAYOUTS in live, 'stream-layouts', 'Stream Layouts', 'live_tv', RUN_THE_EVENT)
     add(staff and FeatureFlag.EVENT_CHECK_IN in live, 'check-in-roster', 'Check-in Roster', 'fact_check', RUN_THE_EVENT, 'check-in')
     add((staff or ta) and FeatureFlag.PAYOUTS in live, 'payouts', 'Payouts', 'payments', RUN_THE_EVENT)
+    add(staff and FeatureFlag.TICKET_SALES in live, 'tickets', 'Tickets', 'local_activity', RUN_THE_EVENT)
     add((staff or ta) and FeatureFlag.TRIFORCE_TEXTS in live, 'triforce-texts', 'Triforce Texts', 'change_history', RUN_THE_EVENT)
     add(bool(event_settings_panes(access, live)), 'event-settings', 'Event settings', 'event', RUN_THE_EVENT)
     add((staff or access.is_qualifier_admin or access.is_qualifier_owner) and FeatureFlag.ASYNC_QUALIFIERS in live,

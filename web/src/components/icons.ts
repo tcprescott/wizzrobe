@@ -90,6 +90,7 @@ import LinkIcon from '@material-symbols/svg-400/outlined/link.svg?react'
 import LinkOff from '@material-symbols/svg-400/outlined/link_off.svg?react'
 import IList from '@material-symbols/svg-400/outlined/list.svg?react'
 import LiveTvIcon from '@material-symbols/svg-400/outlined/live_tv.svg?react'
+import LocalActivityIcon from '@material-symbols/svg-400/outlined/local_activity.svg?react'
 import LocationOn from '@material-symbols/svg-400/outlined/location_on.svg?react'
 import Lock from '@material-symbols/svg-400/outlined/lock.svg?react'
 import LockOpenIcon from '@material-symbols/svg-400/outlined/lock_open.svg?react'
@@ -270,6 +271,7 @@ export const ICONS = {
   link_off: LinkOff,
   list: IList,
   live_tv: LiveTvIcon,
+  local_activity: LocalActivityIcon,
   location_on: LocationOn,
   lock: Lock,
   lock_open: LockOpenIcon,
