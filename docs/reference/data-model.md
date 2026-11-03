@@ -322,7 +322,7 @@ Used by `Event.status` (`max_length=16`, default `DRAFT`): `DRAFT` = `'draft'` (
 
 ### `TicketProvider` / `TicketOrderStatus` / `TicketStatus`
 
-`TicketStore.provider` and `TicketOrder.provider` (`max_length=16`): `STRIPE` = `'stripe'`, `PAYPAL` = `'paypal'` (checkout lands in a later PR). `TicketOrder.status` (`max_length=16`, default `PENDING`): `PENDING` = `'pending'` (sent to the store, badges held until `hold_expires_at`), `PAID` = `'paid'` (only the store's signed webhook sets it), `EXPIRED` = `'expired'` (abandoned; holds released), `REFUNDED` = `'refunded'` (fully refunded, from Wizzrobe or the store's dashboard). `Ticket.status`: `PENDING`, `VALID`, `VOID` (its order expired), `REFUNDED`. Spec: [docs/specs/ticket-sales.md](../specs/ticket-sales.md).
+`TicketStore.provider` and `TicketOrder.provider` (`max_length=16`): `STRIPE` = `'stripe'`, `PAYPAL` = `'paypal'` (a REST app; its sealed secret is JSON client id + secret + sandbox, and an approved order is captured by the `CHECKOUT.ORDER.APPROVED` webhook). `TicketOrder.status` (`max_length=16`, default `PENDING`): `PENDING` = `'pending'` (sent to the store, badges held until `hold_expires_at`), `PAID` = `'paid'` (only the store's signed webhook sets it), `EXPIRED` = `'expired'` (abandoned; holds released), `REFUNDED` = `'refunded'` (fully refunded, from Wizzrobe or the store's dashboard). `Ticket.status`: `PENDING`, `VALID`, `VOID` (its order expired), `REFUNDED`. Spec: [docs/specs/ticket-sales.md](../specs/ticket-sales.md).
 
 ### `CheckInEventStatus` / `CheckInEntrantSource` / `CheckInLinkMethod`
 

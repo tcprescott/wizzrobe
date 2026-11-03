@@ -24,7 +24,9 @@ class StoreResponse(BaseModel):
 
 
 class ConnectStoreRequest(BaseModel):
-    secret: str = Field(..., min_length=1, max_length=500, description="For Stripe, a restricted key (`rk_live_…` or `rk_test_…`) with write access to Checkout Sessions, Refunds and Webhook Endpoints.")
+    secret: str = Field(..., min_length=1, max_length=500, description="For Stripe, a restricted key (`rk_live_…` or `rk_test_…`) with write access to Checkout Sessions, Refunds and Webhook Endpoints. For PayPal, the REST app's secret.")
+    client_id: Optional[str] = Field(None, max_length=200, description="PayPal only: the REST app's client ID.")
+    sandbox: bool = Field(False, description="PayPal only: the credentials are from the app's sandbox side.")
 
 
 class TicketTypeResponse(BaseModel):

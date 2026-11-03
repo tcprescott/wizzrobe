@@ -37,7 +37,7 @@ from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
 from application.services.tenant_membership_service import TenantMembershipService
 from application.services.ticket_dm import money, tickets_bought
-from application.services.ticket_gateways import GatewayEvent, GatewaySignatureError
+from application.services.ticket_gateways import GatewayEvent, TicketGateway
 from application.services.ticket_service import CLAIM_PURPOSE, claim_lookup, sale_state
 from application.services.ticket_store_service import store_gateway, store_webhook_secret
 from application.services.user_service import UserService
@@ -175,10 +175,11 @@ class TicketCheckoutService:
         if store is None or store.provider is not provider:
             raise NotFoundError('Unknown webhook.')
         with tenant_scope(store.tenant_id):
-            secret = store_webhook_secret(store)
-            if secret is None:
-                raise GatewaySignatureError('No webhook secret on file for this store.')
-            event = store_gateway(store).read_webhook(body, {k.lower(): v for k, v in headers.items()}, secret)
+            gateway = store_gateway(store)
+            event = await gateway.read_webhook(
+                body, {k.lower(): v for k, v in headers.items()},
+                webhook_secret=store_webhook_secret(store), webhook_id=store.webhook_id,
+            )
             if event is None:
                 return 'ignored'
             order = await self._order_for(provider, event)
@@ -186,6 +187,8 @@ class TicketCheckoutService:
                 logger.info('ticket webhook %s for an order Wizzrobe never made', event.id)
                 return 'unknown order'
             with event_scope(order.event_id, store.tenant_id):
+                if event.kind == 'approved':
+                    return await self._capture(gateway, order, event)
                 if event.kind == 'paid':
                     return await self._settle_paid(order, event)
                 if event.kind == 'expired':
@@ -200,6 +203,20 @@ class TicketCheckoutService:
         if event.payment_ref:
             return await self.orders.get_by_payment_ref(provider, event.payment_ref)
         return None
+
+    async def _capture(self, gateway: TicketGateway, order: TicketOrder, event: GatewayEvent) -> str:
+        """Take the money for an approved PayPal order, unless its hold already lapsed.
+
+        A lapsed buyer is never captured, so PayPal never charges them. A
+        failed capture raises, so the store retries the webhook.
+        """
+        if order.status is not TicketOrderStatus.PENDING:
+            return 'already settled'
+        if order.hold_expires_at <= datetime.now(timezone.utc):
+            await self._void(order, TicketOrderStatus.EXPIRED)
+            return 'expired, not captured'
+        payment_ref = await gateway.capture(order.provider_ref or '')
+        return await self._settle_paid(order, GatewayEvent(event.id, 'paid', event.order_ref, payment_ref))
 
     async def _settle_paid(self, order: TicketOrder, event: GatewayEvent) -> str:
         now = datetime.now(timezone.utc)
