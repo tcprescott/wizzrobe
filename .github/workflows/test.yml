@@ -122,6 +122,7 @@ jobs:
       postgres: ${{ steps.diff.outputs.postgres }}
       a11y: ${{ steps.diff.outputs.a11y }}
       web: ${{ steps.diff.outputs.web }}
+      web_ui: ${{ steps.diff.outputs.web_ui }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -133,7 +134,7 @@ jobs:
         # a broken `changes` job can never turn a skipped check into a green one.
         run: |
           run_all() {
-            for job in swiss postgres a11y web; do echo "$job=true" >> "$GITHUB_OUTPUT"; done
+            for job in swiss postgres a11y web web_ui; do echo "$job=true" >> "$GITHUB_OUTPUT"; done
             exit 0
           }
           [ "${{ github.event_name }}" = "pull_request" ] || run_all
@@ -166,6 +167,11 @@ jobs:
             # schema on every run, so anything that can change a route or a
             # response model re-typechecks it.
             echo "web=$(touches '^(api/|application/|models/|web/|scripts/export_openapi\.py$|poetry\.lock$|pyproject\.toml$|\.github/)')"
+
+            # The app's a11y scan renders against stubbed fixtures in web/, so a
+            # backend-only change can't alter what it sees: the typecheck above
+            # already catches a response shape the fixtures no longer match.
+            echo "web_ui=$(touches '^(web/|\.github/)')"
           } >> "$GITHUB_OUTPUT"
 
   web:
@@ -224,15 +230,17 @@ jobs:
         run: npm run build
 
       - name: Install Chromium
+        if: needs.changes.outputs.web_ui == 'true'
         run: npx playwright install --with-deps chromium
 
       - name: Accessibility and contrast (light and dark, phone and desktop)
+        if: needs.changes.outputs.web_ui == 'true'
         env:
           A11Y_WIDTHS: ${{ github.event_name == 'pull_request' && '360' || '360,393,412,440' }}
         run: npm run a11y
 
       - name: Upload screenshots
-        if: always()
+        if: always() && needs.changes.outputs.web_ui == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: web-a11y-screenshots
