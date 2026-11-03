@@ -9,6 +9,7 @@ deploying by git pull + restart.
 |---|---|---|
 | `api` | `main.py`: the website, REST, GraphQL, MCP, Discord DMs (REST sign-in), every background worker except the racetime room opener. Applies migrations on start. | 127.0.0.1:8000 |
 | `bots` | `bots.py`: the Discord gateway (buttons, member updates, slash commands) and the racetime room bot. | none |
+| `door-rando` | The [Door Randomizer sidecar](../../docs/deployment.md#door-rando-service): rolls door seeds for the API and the racetime bot. Holds no ROM. | none |
 | `redis` | Sign-in sessions, so a redeploy doesn't sign anyone out. | none |
 | `app` | The new app (`web/`), only from the cutover on (the `app` profile). | 127.0.0.1:8001 |
 
@@ -38,6 +39,18 @@ Read `production.env.example` beside this file: drop `DB_HOST`,
 `NICEGUI_REDIS_URL`, `DISCORD_GATEWAY` from the copy (compose sets them), and
 keep `RACETIME_BOT_ENABLED` as production has it, since the bots container reads
 it. A different folder works: set the repository variable `PROD_STACK_DIR`.
+
+Give the Door Randomizer sidecar its shared token, the same value in both files:
+
+```bash
+TOKEN=$(python3 -c "import secrets; print(secrets.token_urlsafe(32))")
+echo "DOOR_RANDO_TOKEN=$TOKEN" | sudo tee -a /opt/wizzrobe/production.env >/dev/null
+echo "DOOR_RANDO_TOKEN=$TOKEN" | sudo tee /opt/wizzrobe/door-rando.env >/dev/null
+sudo chmod 600 /opt/wizzrobe/door-rando.env
+```
+
+The sidecar reads only `door-rando.env`, never `production.env`. Door seeds and
+hosted ROM patches live on the `door_seeds` volume; back it up with the database.
 
 ### 2. Let the stack reach the host's Postgres
 

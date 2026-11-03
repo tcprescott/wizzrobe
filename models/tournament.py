@@ -1,4 +1,4 @@
-from typing import Iterable
+from typing import Iterable, Optional
 
 from tortoise import fields
 from tortoise.models import Model
@@ -276,6 +276,9 @@ class RomPatch(Model):
     uploaded_by = fields.ForeignKeyField(  # type: ignore[var-annotated]
         'models.User', related_name='rom_patches', null=True, on_delete=fields.SET_NULL,
     )
+    tenant_id: int
+    tournament_id: Optional[int]
+    uploaded_by_id: Optional[int]
     download_count = fields.IntField(default=0)
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)

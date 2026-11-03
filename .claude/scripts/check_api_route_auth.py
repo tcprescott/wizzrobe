@@ -55,6 +55,8 @@ ALLOWLIST = {
     ("patreon", "patreon_callback"), ("patreon", "patreon_webhook"),
     # POST only to carry a body; both read and save nothing (READ_ONLY_POSTS in api/scopes.py).
     ("admin_match_schedule", "check_time"), ("admin_match_schedule", "suggest_time"),
+    # A signed-out player's download bumps the count staff see; the patch token is the key.
+    ("rom_patches", "hosted_patch_downloaded"),
 }
 
 
