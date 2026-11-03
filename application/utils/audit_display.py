@@ -41,6 +41,7 @@ AREAS: tuple[AuditArea, ...] = (
         'check_in_event.', 'check_in_tier.', 'check_in_entrant.', 'matcherino_login.',
     )),
     AuditArea('equipment', 'Equipment', ('equipment.',)),
+    AuditArea('tickets', 'Tickets', ('ticket_store.', 'ticket_type.', 'ticket_order.', 'ticket.')),
     AuditArea('challonge', 'Challonge', ('challonge.',)),
     AuditArea('startgg', 'start.gg', ('startgg.',)),
     AuditArea('community', 'Community', ('community_event.', 'feedback.', 'survey.')),
@@ -451,6 +452,15 @@ ACTION_LABELS: dict[str, str] = {
     'tenant.deleted': 'Deleted the community',
     'platform.super_admin_granted': 'Made someone a platform admin',
     'platform.super_admin_revoked': 'Removed a platform admin',
+    'ticket_store.connected': 'Connected a ticket store',
+    'ticket_store.disconnected': 'Disconnected a ticket store',
+    'ticket_type.created': 'Added a badge type',
+    'ticket_type.updated': 'Edited a badge type',
+    'ticket_type.deleted': 'Deleted a badge type',
+    'ticket_order.paid': 'Badge order paid',
+    'ticket_order.refunded': 'Refunded a badge order',
+    'ticket.claimed': 'Claimed a badge',
+    'ticket.comp_refunded': 'Refunded a comped badge',
 }
 
 

@@ -32,6 +32,14 @@ EXEMPT: dict[str, str] = {
 
 # An entry here claims seeding the missing values would be wrong, not merely inconvenient.
 ENUM_EXEMPT: dict[str, str] = {
+    'TicketStore.provider': (
+        'PayPal checkout lands in a later PR of ticket sales; until then a '
+        'PayPal store row would offer buyers a checkout that refuses them.'
+    ),
+    'TicketOrder.provider': (
+        'Orders follow their store: no PayPal store yet, so no PayPal order '
+        '(see TicketStore.provider).'
+    ),
     'DiscordRoleMapping.app_role': (
         'A community maps the roles its own guild happens to have, so a mapping '
         'per Role would describe no real guild — and SUPER_ADMIN is global and '

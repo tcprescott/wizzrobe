@@ -20,6 +20,7 @@ EVENT_OWNED_PREFIXES = (
     '/api/matches', '/api/race-rooms', '/api/reports', '/api/seeds', '/api/speedgaming',
     '/api/stages', '/api/tournaments', '/api/triforce-texts', '/api/volunteers',
     '/api/reschedule-requests', '/api/me/home', '/api/me/schedule', '/api/me/bookable',
+    '/api/tickets', '/api/me/tickets',
     '/api/admin/members', '/api/admin/meetups', '/api/admin/check-in',
 )
 NOT_ROWS = {
@@ -31,6 +32,8 @@ NOT_ROWS = {
     'stage_key': 'a bracket stage key, not a Stage row',
     'source': 'a bracket site name',
     'key': "a matchup id within its source's own table, checked against the caller's own list",
+    'provider': 'a ticket store name (stripe, paypal), community-wide',
+    'token': 'a badge claim token, resolved within the community by the service',
 }
 
 

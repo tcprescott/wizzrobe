@@ -239,6 +239,16 @@ class AuditActions:
     MATCHERINO_LOGIN_CLEARED = 'matcherino_login.cleared'
     MATCHERINO_LOGIN_ALERTS_UPDATED = 'matcherino_login.alerts_updated'
 
+    TICKET_STORE_CONNECTED = 'ticket_store.connected'
+    TICKET_STORE_DISCONNECTED = 'ticket_store.disconnected'
+    TICKET_TYPE_CREATED = 'ticket_type.created'
+    TICKET_TYPE_UPDATED = 'ticket_type.updated'
+    TICKET_TYPE_DELETED = 'ticket_type.deleted'
+    TICKET_ORDER_PAID = 'ticket_order.paid'
+    TICKET_ORDER_REFUNDED = 'ticket_order.refunded'
+    TICKET_CLAIMED = 'ticket.claimed'
+    TICKET_COMP_REFUNDED = 'ticket.comp_refunded'
+
     PLAYER_AVAILABILITY_UPDATED = 'player.availability_updated'
 
     CHALLONGE_CONNECTED = 'challonge.connected'

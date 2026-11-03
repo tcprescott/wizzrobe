@@ -72,6 +72,7 @@ from api.routers import (
     surveys,
     system_config,
     telemetry,
+    tickets,
     tokens,
     tournament_actions,
     tournaments,
@@ -171,6 +172,16 @@ router.include_router(
     surveys.router,
     dependencies=[Depends(require_feature(FeatureFlag.SURVEYS))],
 )
+router.include_router(
+    tickets.router,
+    dependencies=[Depends(require_feature(FeatureFlag.TICKET_SALES))],
+)
+router.include_router(
+    tickets.me_router,
+    dependencies=[Depends(require_feature(FeatureFlag.TICKET_SALES))],
+)
+# No token on purpose: a store posts it, and its signature, checked against that store's secret, is the proof.
+router.include_router(tickets.webhook_router)
 # No auth dependency on purpose: the service worker has no session and proves subscription ownership instead.
 router.include_router(web_push.router)
 router.include_router(webhooks.router)
