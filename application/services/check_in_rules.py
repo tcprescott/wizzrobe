@@ -109,7 +109,7 @@ def active_badges(badges: Iterable[CheckInPass]) -> List[CheckInPass]:
     """
     return sorted(
         (b for b in badges if is_active_badge(b)),
-        key=lambda b: (-b.tier.amount_cents, b.tier.title, b.matcherino_purchase_id),
+        key=lambda b: (-b.tier.amount_cents, b.tier.title, b.matcherino_purchase_id or 0, b.id or 0),
     )
 
 
@@ -191,10 +191,15 @@ def entrant_details(entrant: CheckInEntrant) -> Dict[str, object]:
 
 
 def refuse_comp_row(entrant: CheckInEntrant) -> None:
-    """A comp row belongs to the account it was given to; the desk can't relink it."""
+    """A comp row, or a Wizzrobe badge row, belongs to its account; the desk can't relink it."""
     if entrant.source == CheckInEntrantSource.COMP:
         raise ValueError(
             "A comp is tied to the account it was given to. Change the event's comp rules instead."
+        )
+    if entrant.source == CheckInEntrantSource.WIZZROBE:
+        raise ValueError(
+            'This badge was bought in Wizzrobe and belongs to the account that holds it. '
+            'Refund it under Admin → Tickets if it needs to go.'
         )
 
 

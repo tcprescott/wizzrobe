@@ -14,6 +14,11 @@ badge; who has *arrived* is recorded here.
 Matching to an account is a nice-to-have. An unlinked buyer checks in like
 anyone else.
 
+Badges sold in Wizzrobe itself (`FeatureFlag.TICKET_SALES`) land on the same
+roster, already linked to their owner, as `WIZZROBE` rows beside the Matcherino
+ones. A check-in event can run on those alone, with no venue. See
+[ticket-sales.md](ticket-sales.md#on-the-check-in-roster).
+
 Until October 2026 the roster came from the bounty's participant list
 (`/bounties/participants`). That path is gone: the bounty had no badge tiers,
 and every badge buyer is auto-joined to the tournaments bounty anyway.
@@ -116,9 +121,9 @@ message.
 | Model | What |
 |---|---|
 | `CheckInEvent` | Tenant-scoped. `name`, nullable `matcherino_venue_id` (unique per tenant), the comp rules `comp_roles` (list of `Role` values) and `comp_volunteers`, `status` (`DRAFT`/`OPEN`/`CLOSED`), `sync_interval_minutes`, and the sync bookkeeping `last_synced_at`/`last_sync_error`/`last_sync_count` (buyers holding a badge) |
-| `CheckInEntrant` | One person on a roster. `source` (`MATCHERINO`/`WALK_UP`/`COMP`), `matcherino_user_id`, `display_name`, the identity hints (`auth_provider`, `auth_id`), `registered_at` (their first badge purchase), `comp_reasons` (why they're comped: `Role` values and `'volunteer'`), `source_data` (their trimmed Matcherino account), the matched `user` + `link_method` + `linked_by`, `withdrawn_at`, `checked_in_at` + `checked_in_by` |
-| `CheckInTier` | Tenant-scoped. One badge type on the venue: `matcherino_pass_id`, `title`, `amount_cents`, `role` (`player`/`spectator`) |
-| `CheckInPass` | Tenant-scoped. One purchase: `tier`, the buyer's `entrant`, `buyer_matcherino_user_id`, the door `code`, `purchased_at`, `refunded_at`, `removed_at`, trimmed `source_data` |
+| `CheckInEntrant` | One person on a roster. `source` (`MATCHERINO`/`WALK_UP`/`COMP`/`WIZZROBE`), `matcherino_user_id`, `display_name`, the identity hints (`auth_provider`, `auth_id`), `registered_at` (their first badge purchase), `comp_reasons` (why they're comped: `Role` values and `'volunteer'`), `source_data` (their trimmed Matcherino account), the matched `user` + `link_method` + `linked_by`, `withdrawn_at`, `checked_in_at` + `checked_in_by` |
+| `CheckInTier` | Tenant-scoped. One badge type on the venue (`matcherino_pass_id`) or a mirrored Wizzrobe badge type (`ticket_type`): `title`, `amount_cents`, `role` (`player`/`spectator`) |
+| `CheckInPass` | Tenant-scoped. One purchase, from Matcherino (`matcherino_purchase_id`) or Wizzrobe (`ticket`): `tier`, the buyer's `entrant`, `buyer_matcherino_user_id`, the door `code`, `purchased_at`, `refunded_at`, `removed_at`, trimmed `source_data` |
 | `User.matcherino_user_id` | Matcherino's numeric account id. Global and **unique**, unlike the self-entered `matcherino_username` |
 
 `unique_together` on the entrant is `(event, matcherino_user_id)` and

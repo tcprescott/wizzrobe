@@ -137,6 +137,7 @@ import IPrivacyTip from '@material-symbols/svg-400/outlined/privacy_tip.svg?reac
 import ProgressActivity from '@material-symbols/svg-400/outlined/progress_activity.svg?react'
 import PublicIcon from '@material-symbols/svg-400/outlined/public.svg?react'
 import QrCode2Icon from '@material-symbols/svg-400/outlined/qr_code_2.svg?react'
+import QrCodeScannerIcon from '@material-symbols/svg-400/outlined/qr_code_scanner.svg?react'
 import QueryStatsIcon from '@material-symbols/svg-400/outlined/query_stats.svg?react'
 import RadioButtonChecked from '@material-symbols/svg-400/outlined/radio_button_checked.svg?react'
 import RadioButtonUncheckedIcon from '@material-symbols/svg-400/outlined/radio_button_unchecked.svg?react'
@@ -322,6 +323,7 @@ export const ICONS = {
   progress_activity: ProgressActivity,
   public: PublicIcon,
   qr_code_2: QrCode2Icon,
+  qr_code_scanner: QrCodeScannerIcon,
   query_stats: QueryStatsIcon,
   radio_button_checked: RadioButtonChecked,
   radio_button_unchecked: RadioButtonUncheckedIcon,

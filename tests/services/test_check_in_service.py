@@ -649,7 +649,7 @@ class TestWorker:
         monkeypatch.setattr(
             'application.services.check_in_service.get_matcherino_client', lambda refresh_token: failing,
         )
-        monkeypatch.setattr(check_in_sync_worker, '_due', lambda event, now: True)
+        monkeypatch.setattr(check_in_sync_worker, '_due', lambda event, now, badge_changed=None: True)
 
         def levels():
             return [r.levelno for r in caplog.records if r.name == check_in_sync_worker.__name__]
