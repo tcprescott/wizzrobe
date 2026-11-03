@@ -46,6 +46,9 @@ class TestAccess:
         '/api/platform/users',
         '/api/platform/feature-groups',
         '/api/platform/log-levels',
+        '/api/platform/apps',
+        '/api/platform/browser-monitoring',
+        '/api/platform/browser-monitoring/rules',
     ])
     async def test_staff_of_a_community_is_refused(self, db, app, path):
         _, raw = await create_user_token(username='staff', roles=[Role.STAFF])
@@ -261,3 +264,79 @@ class TestBotRestart:
         _, raw = await create_user_token(username='staff', roles=[Role.STAFF])
         async with client_for(app, raw) as c:
             assert (await c.post(f'/api/racetime-bots/{bot.id}/restart')).status_code == 403
+
+
+class TestApps:
+    async def test_list_then_disable_and_enable(self, db, app):
+        from models import OAuthApp, OAuthClientType
+        user, raw = await _super()
+        registered = await OAuthApp.create(
+            owner=user, name='Seed Helper', client_type=OAuthClientType.PUBLIC, client_id='seed-helper',
+        )
+        async with client_for(app, raw) as c:
+            rows = (await c.get('/api/platform/apps')).json()
+            assert [r['name'] for r in rows] == ['Seed Helper']
+            assert rows[0]['kind'] == 'device' and rows[0]['disabled'] is False
+            assert (await c.post(f'/api/platform/apps/{registered.id}/disable', json={'reason': ''})).status_code == 400
+            rows = (await c.post(f'/api/platform/apps/{registered.id}/disable', json={'reason': 'Phishing'})).json()
+            assert rows[0]['disabled'] is True and rows[0]['disabled_reason'] == 'Phishing'
+            rows = (await c.post(f'/api/platform/apps/{registered.id}/enable')).json()
+            assert rows[0]['disabled'] is False and rows[0]['disabled_reason'] is None
+        assert await AuditLog.filter(action=AuditActions.OAUTH_APP_DISABLED).exists()
+
+    async def test_read_only_token_cannot_disable(self, db, app):
+        from models import OAuthApp, OAuthClientType
+        user, raw = await _super(read_only=True)
+        registered = await OAuthApp.create(
+            owner=user, name='X', client_type=OAuthClientType.PUBLIC, client_id='x-app',
+        )
+        async with client_for(app, raw) as c:
+            resp = await c.post(f'/api/platform/apps/{registered.id}/disable', json={'reason': 'r'})
+        assert resp.status_code == 403
+        await registered.refresh_from_db()
+        assert registered.disabled_at is None
+
+
+class TestBrowserMonitoring:
+    async def test_settings_round_trip(self, db, app):
+        _, raw = await _super()
+        async with client_for(app, raw) as c:
+            body = (await c.get('/api/platform/browser-monitoring')).json()
+            assert body['enabled'] is True and 0.5 in body['sample_rates']
+            payload = {'enabled': True, 'replay_on_error': False, 'sample_rate': 0.5}
+            body = (await c.put('/api/platform/browser-monitoring', json=payload)).json()
+            assert body['replay_on_error'] is False and body['sample_rate'] == 0.5
+            assert body['updated_by'] == 'root'
+            bad = {**payload, 'sample_rate': 0.3}
+            assert (await c.put('/api/platform/browser-monitoring', json=bad)).status_code == 400
+
+    async def test_add_and_remove_rule(self, db, app):
+        _, raw = await _super()
+        async with client_for(app, raw) as c:
+            resp = await c.post('/api/platform/browser-monitoring/rules', json={'pattern': 'ResizeObserver loop xyz'})
+            assert resp.status_code == 201
+            added = [r for r in resp.json() if not r['builtin']]
+            assert [r['pattern'] for r in added] == ['ResizeObserver loop xyz']
+            assert any(r['builtin'] for r in resp.json())
+            short = await c.post('/api/platform/browser-monitoring/rules', json={'pattern': 'ab'})
+            assert short.status_code == 400
+            rows = (await c.delete(f"/api/platform/browser-monitoring/rules/{added[0]['id']}")).json()
+            assert not [r for r in rows if not r['builtin']]
+
+
+async def test_feature_catalog_lists_every_flag(db, app):
+    _, raw = await _super()
+    async with client_for(app, raw) as c:
+        rows = (await c.get('/api/platform/features')).json()
+    assert {r['flag'] for r in rows} == {f.value for f in FeatureFlag}
+    assert all(r['label'] for r in rows)
+
+
+async def test_guild_id_round_trips_as_a_string(db, app):
+    _, raw = await _super()
+    guild = '1234567890123456789'
+    async with client_for(app, raw) as c:
+        resp = await c.post('/api/platform/communities', json={'name': 'Big', 'slug': 'big', 'discord_guild_id': guild})
+        assert resp.status_code in (200, 201), resp.text
+        assert resp.json()['discord_guild_id_str'] == guild
+    assert (await Tenant.get(slug='big')).discord_guild_id == int(guild)

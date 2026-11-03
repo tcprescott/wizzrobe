@@ -6,13 +6,17 @@ import { TooltipProvider } from './components'
 import { CallbackScreen } from './screens/CallbackScreen'
 import { CommunityIndex } from './screens/CommunityIndex'
 import { KitScreen } from './screens/KitScreen'
+import { PlatformShell } from './platform/PlatformShell'
 import { MeLayout } from './me/MeLayout'
 import { MeSection } from './me/sections'
 import { NotFoundScreen } from './screens/NotFoundScreen'
 import { SignInScreen } from './screens/SignInScreen'
 import { HomeScreen } from './player/HomeScreen'
 import { ScheduleScreen } from './player/ScheduleScreen'
-import { EventScreen } from './screens/TabScreens'
+import { BracketScreen } from './event/BracketScreen'
+import { EventHub } from './event/EventHub'
+import { RunSheetScreen } from './event/RunSheetScreen'
+import { WatchScreen } from './event/WatchScreen'
 import { DeskScreen } from './work/DeskScreen'
 import { MyAvailabilityScreen } from './work/MyAvailabilityScreen'
 import { ProctorScreen } from './work/ProctorScreen'
@@ -28,7 +32,10 @@ const tabRoutes: RouteObject[] = [
   { index: true, element: <Navigate to="home" replace /> },
   { path: 'home', element: <HomeScreen /> },
   { path: 'schedule', element: <ScheduleScreen /> },
-  { path: 'event', element: <EventScreen /> },
+  { path: 'event', element: <EventHub /> },
+  { path: 'event/schedule', element: <RunSheetScreen /> },
+  { path: 'event/watch', element: <WatchScreen /> },
+  { path: 'event/tournament/:tournamentId', element: <BracketScreen /> },
   {
     path: 'work',
     element: <WorkLayout />,
@@ -62,6 +69,14 @@ export const routes: RouteObject[] = [
     element: (
       <RequireAuth>
         <CommunityIndex />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: '/platform/:section?',
+    element: (
+      <RequireAuth>
+        <PlatformShell />
       </RequireAuth>
     ),
   },

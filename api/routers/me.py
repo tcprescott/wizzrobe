@@ -10,7 +10,7 @@ from typing import List
 from fastapi import APIRouter, Depends
 
 from api.dependencies import ServiceErrorRoute, require_identity
-from api.schemas.me import MyCommunity, MyCommunityEvent
+from api.schemas.me import MyCommunity, MyCommunityEvent, MyPlatformAccess
 from application.services import AuthService, EventService
 from application.services.tenant_service import TenantService
 from application.tenant_context import tenant_scope
@@ -48,3 +48,16 @@ async def my_communities(actor: User = Depends(require_identity)) -> List[MyComm
             ],
         ))
     return out
+
+
+@router.get(
+    '/platform',
+    response_model=MyPlatformAccess,
+    summary='Whether I may open platform administration',
+    description=(
+        "Lets the app decide whether to offer a Platform link. Needs no community header.\n\n"
+        "**Who can call this:** Any signed-in person, with Wizzrobe's own app or a personal token."
+    ),
+)
+async def my_platform_access(actor: User = Depends(require_identity)) -> MyPlatformAccess:
+    return MyPlatformAccess(user_id=actor.id, super_admin=await AuthService.is_super_admin(actor))

@@ -1,6 +1,6 @@
 # Wizzrobe as a mobile app on a serverless backend
 
-Status: Building · Size: full · PRs: #760 (spec), #761 (step 3), #762 (step 4), #763 (step 2), #764 (step 6), #770 (step 5), #771 (step 7 Home + Schedule), #772 (step 7 Me + shift check-in), step 12 native shells (this PR) · Requested: 2026-10-31, Thomas
+Status: Building · Size: full · PRs: #760 (spec), #761 (step 3), #762 (step 4), #763 (step 2), #764 (step 6), #770 (step 5), #771 (step 7 Home + Schedule), #772 (step 7 Me + shift check-in), #779 (step 12 native shells), step 8 Event tab (this PR) · Requested: 2026-10-31, Thomas
 
 ## Problem
 
@@ -256,3 +256,18 @@ in TypeScript.
   store app: a "This phone" row with Turn on, and phones listed with the other
   devices, tagged "Wizzrobe app". Mockups:
   `/mnt/project-files/mobile-app/native-push-mockups/`.
+- 2026-11-02 — Step 8 splits in two. Thomas picked the event-day screens first
+  (run sheet, brackets, Watch; the reading pages follow in their own thread),
+  and Event tab layout B, an event hub: a card per stage with what's on now and
+  next, the next few matches, and a card per tournament. The full schedule and
+  Watch open as their own screens with a back link; on a phone the bracket shows
+  one round at a time. Mockups: `/mnt/project-files/mobile-app/event-mockups/`.
+- 2026-11-02 — Step 11 (Platform): side list, like Admin and Me (Thomas: "I like the side
+  list format"). `/platform/<section>` sits outside any community, reached from
+  Platform administration in the community menu; the eight sections are grouped
+  Communities and people / Connections / Operations. Super-admin routes now bind no
+  community, so the app calls them without the header. Mockups:
+  `/mnt/project-files/mobile-app/platform-mockups/`.
+- 2026-11-02 — Thomas picked app-only endpoints for passwords and password accounts:
+  `require_app_super_admin_write` accepts only Wizzrobe's own app, so personal tokens
+  and MCP never carry a password. Platform ships as one PR (all eight sections).

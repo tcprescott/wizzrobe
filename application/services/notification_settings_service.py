@@ -18,11 +18,17 @@ from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
 from application.services.notification_catalog import (
     CATALOG,
+    GROUPS,
+    SECTIONS,
+    STAFF_RECIPIENTS,
     Notice,
     NoticeTarget,
     StaffChoice,
     notices,
     staff_choice_for,
+    staff_choice_help,
+    staff_choice_label,
+    staff_choices,
     staff_modes,
 )
 from application.tenant_context import get_current_tenant_id
@@ -50,6 +56,123 @@ class NotificationSettingRow:
     @property
     def changed(self) -> bool:
         return self.mode != self.default
+
+
+STAFF_COLUMN = 'staff_alerts'
+SCREEN_COLUMNS: Tuple[str, ...] = (
+    NotificationRecipient.PLAYERS.value, NotificationRecipient.CREW.value,
+    NotificationRecipient.WATCHERS.value, NotificationRecipient.FOLLOWERS.value,
+    NotificationRecipient.VOLUNTEERS.value, STAFF_COLUMN, NotificationRecipient.MEMBERS.value,
+)
+
+
+@dataclass(frozen=True)
+class StaffChoiceOption:
+    choice: StaffChoice
+    label: str
+    help: str
+
+
+@dataclass(frozen=True)
+class NotificationCell:
+    """One recipient column of one message; the Staff column folds on-shift, admins and all staff."""
+
+    column: str
+    label: str
+    who: str
+    mode: NotificationMode
+    default: NotificationMode
+    changed: bool
+    staff_choice: Optional[StaffChoice] = None
+    staff_label: str = ''
+    staff_default: Optional[StaffChoice] = None
+    staff_options: Tuple[StaffChoiceOption, ...] = ()
+    staff_mix: str = ''
+
+
+@dataclass(frozen=True)
+class NotificationMessage:
+    key: str
+    title: str
+    when: str
+    cells: Tuple[NotificationCell, ...]
+
+    @property
+    def changed(self) -> bool:
+        return any(c.changed for c in self.cells)
+
+
+@dataclass(frozen=True)
+class NotificationCard:
+    group: str
+    section: str
+    columns: Tuple[str, ...]
+    messages: Tuple[NotificationMessage, ...]
+
+
+_CHOICE_MODE = {
+    StaffChoice.PING_ALL: NotificationMode.PING,
+    StaffChoice.PING_ON_DUTY: NotificationMode.PING,
+    StaffChoice.SILENT: NotificationMode.SILENT,
+    StaffChoice.OFF: NotificationMode.OFF,
+}
+
+
+def _column_label(column: str) -> str:
+    return 'Staff' if column == STAFF_COLUMN else NotificationRecipient(column).label
+
+
+def _staff_cell(notice: Notice, rows: List[NotificationSettingRow]) -> NotificationCell:
+    modes = {r.recipient: r.mode for r in rows}
+    choice = staff_choice_for(notice, modes)
+    default = staff_choice_for(notice, notice.defaults)
+    who = '; '.join(
+        f'{r.recipient.label}: {notice.who[r.recipient]}' for r in rows if notice.who.get(r.recipient)
+    )
+    return NotificationCell(
+        column=STAFF_COLUMN, label='Staff', who=who,
+        mode=_CHOICE_MODE[choice] if choice else NotificationMode.SILENT,
+        default=_CHOICE_MODE[default] if default else NotificationMode.SILENT,
+        changed=any(r.changed for r in rows),
+        staff_choice=choice, staff_label=staff_choice_label(notice, choice), staff_default=default,
+        staff_options=tuple(
+            StaffChoiceOption(c, staff_choice_label(notice, c), staff_choice_help(notice, c))
+            for c in staff_choices(notice)
+        ),
+        staff_mix=' · '.join(f'{r.recipient.label}: {r.mode.value.capitalize()}' for r in rows),
+    )
+
+
+def _message(notice: Notice, rows: List[NotificationSettingRow]) -> NotificationMessage:
+    by_column: Dict[str, NotificationCell] = {}
+    staff = [r for r in rows if r.recipient in STAFF_RECIPIENTS]
+    if staff:
+        by_column[STAFF_COLUMN] = _staff_cell(notice, staff)
+    for r in rows:
+        if r.recipient not in STAFF_RECIPIENTS:
+            by_column[r.recipient.value] = NotificationCell(
+                column=r.recipient.value, label=r.recipient.label,
+                who=notice.who.get(r.recipient, ''), mode=r.mode, default=r.default, changed=r.changed,
+            )
+    return NotificationMessage(
+        notice.key, notice.title, notice.when,
+        tuple(by_column[c] for c in SCREEN_COLUMNS if c in by_column),
+    )
+
+
+def _cards(messages: Dict[str, Tuple[Notice, NotificationMessage]]) -> List[NotificationCard]:
+    cards: List[NotificationCard] = []
+    for group in GROUPS:
+        in_group = [(n, m) for n, m in messages.values() if n.group == group]
+        for section in [name for name, _ in SECTIONS.get(group, ())] or ['']:
+            members = tuple(m for n, m in in_group if n.section == section)
+            if not members:
+                continue
+            used = {c.column for m in members for c in m.cells}
+            cards.append(NotificationCard(
+                group, section, tuple(c for c in SCREEN_COLUMNS if c in used), members,
+            ))
+    return cards
 
 
 class NotificationSettingsService:
@@ -92,6 +215,18 @@ class NotificationSettingsService:
         )
         overrides = await NotificationSettingRepository.overrides()
         return [row for n in notices() for row in cls._rows(n, overrides)]
+
+    @classmethod
+    async def screen(cls, actor: Optional[User]) -> List[NotificationCard]:
+        """Admin → Notifications as cards: one per subheading, a column per kind of recipient. Staff only."""
+        rows = await cls.list_settings(actor)
+        by_notice: Dict[str, List[NotificationSettingRow]] = {}
+        for row in rows:
+            by_notice.setdefault(row.notice.key, []).append(row)
+        messages = {
+            key: (CATALOG[key], _message(CATALOG[key], members)) for key, members in by_notice.items()
+        }
+        return _cards(messages)
 
     @staticmethod
     def _rows(notice: Notice, overrides: Overrides) -> List[NotificationSettingRow]:

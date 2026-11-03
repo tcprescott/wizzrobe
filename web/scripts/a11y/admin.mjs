@@ -9,6 +9,22 @@ export const fixtures = {
   "/api/admin/nav": {
     "areas": [
       {
+        "slug": "feedback",
+        "label": "Feedback",
+        "icon": "feedback",
+        "group": "Community",
+        "half": "community",
+        "aliases": []
+      },
+      {
+        "slug": "notifications",
+        "label": "Notifications",
+        "icon": "notifications",
+        "group": "Configuration",
+        "half": "community",
+        "aliases": []
+      },
+      {
         "slug": "setup",
         "label": "Setup",
         "icon": "checklist",
@@ -62,6 +78,22 @@ export const fixtures = {
         "slug": "triforce-texts",
         "label": "Triforce Texts",
         "icon": "change_history",
+        "group": "Run the event",
+        "half": "event",
+        "aliases": []
+      },
+      {
+        "slug": "payouts",
+        "label": "Payouts",
+        "icon": "payments",
+        "group": "Run the event",
+        "half": "event",
+        "aliases": []
+      },
+      {
+        "slug": "stream-layouts",
+        "label": "Stream Layouts",
+        "icon": "live_tv",
         "group": "Run the event",
         "half": "event",
         "aliases": []

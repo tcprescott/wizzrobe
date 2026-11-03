@@ -662,6 +662,31 @@ def staff_modes(notice: Notice, choice: StaffChoice) -> Dict[NotificationRecipie
     return {r: mode for r in recipients}
 
 
+_FALLBACK_NOTE = "All staff if nobody's on shift."
+_CHOICE_HELP = {
+    StaffChoice.PING_ALL: f"Whoever's on shift, plus the tournament's own admins or coordinators. {_FALLBACK_NOTE}",
+    StaffChoice.PING_ON_DUTY: f"Only whoever's on shift. {_FALLBACK_NOTE}",
+    StaffChoice.SILENT: 'The same people, without a sound or buzz.',
+    StaffChoice.OFF: 'Sends nothing.',
+}
+
+
+def staff_choice_label(notice: Notice, choice: Optional[StaffChoice]) -> str:
+    """How the Staff dropdown names ``choice`` for this message; ``Custom`` for a mix."""
+    if choice is None:
+        return 'Custom'
+    if choice is StaffChoice.PING_ALL and ON_DUTY not in notice.staff_recipients:
+        return 'Ping'
+    return choice.label
+
+
+def staff_choice_help(notice: Notice, choice: StaffChoice) -> str:
+    """The one-line explanation under ``choice`` in the Staff dropdown."""
+    if ON_DUTY not in notice.staff_recipients and choice is StaffChoice.PING_ALL:
+        return notice.who.get(notice.staff_recipients[0], '') or 'Pings as normal.'
+    return _CHOICE_HELP[choice]
+
+
 def staff_choices(notice: Notice) -> List[StaffChoice]:
     """The choices the Staff dropdown offers for ``notice``."""
     if not notice.staff_recipients:

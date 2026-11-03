@@ -132,6 +132,7 @@ def api_description() -> str:
 TAG_GROUPS: List[tuple[str, List[tuple[str, str]]]] = [
     ('Event day', [
         ('My schedule', "A player's own Home and Schedule: next match, what's waiting on them, and picking a time."),
+        ('Event', "The app's Event tab: what's on each stage, the run sheet, and Watch."),
         ('Admin shell', "Which admin areas and settings panes the caller may open, for the app's admin menu."),
         ('Community settings', "A community's own settings, one group per pane of Admin → Settings: colours and logo, clock, joining, profile reminders, Watch page, volunteers, meetups, features and connected apps."),
         ('Matches', 'The schedule, and running a match from seating to a confirmed result.'),
@@ -164,6 +165,8 @@ TAG_GROUPS: List[tuple[str, List[tuple[str, str]]]] = [
         ('Tournaments', 'Tournaments, their admins and crew coordinators, and signing up.'),
         ('Admin: tournaments', "The app's Tournaments board: players, dropping a player, bracket entrants, sync and link, and the round schedule."),
         ('Admin: qualifiers', "The app's Qualifiers screen: the review queue, the top of the leaderboard, pools and live races."),
+        ('Admin: payouts', "The app's Payouts screen: each tournament's pool and split, edited in place, and the sglive links."),
+        ('Admin: stream layouts', "The app's Stream Layouts screen: what each stage's overlay shows, pins, and the box editor."),
         ('Admin: brackets', "The app's Brackets screen: each native stage's next step, its seeds, roster and open matchups."),
         ('Admin: seed presets', "The app's Seed Presets screen: editor hints, checking a pasted value, test rolls and importing published presets."),
         ('Payouts', 'Prize pools and payouts per tournament.'),
@@ -196,6 +199,8 @@ TAG_GROUPS: List[tuple[str, List[tuple[str, str]]]] = [
         ('Platform users', 'Every account on the platform, and switching one off.'),
         ('Feature groups', 'Tiers that decide which features a community may use.'),
         ('Log levels', 'How much each part of the server writes to its log.'),
+        ('Platform apps', 'Every app people registered to sign in with Wizzrobe, and switching one off.'),
+        ('Browser monitoring', 'Whether browsers report errors to Sentry, and the errors to ignore.'),
         ('Racetime bots', 'racetime.gg bot accounts shared across communities.'),
         ('Service health', 'Whether the outside services Wizzrobe depends on are up.'),
         ('Health', 'Liveness check for the server itself.'),

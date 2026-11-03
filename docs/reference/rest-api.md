@@ -191,12 +191,20 @@ Behind `FeatureFlag.PAYOUTS` (the whole router 404s when the community lacks it)
 - `POST /users/{id}/membership` · `DELETE /users/{id}/membership` (Staff) — add someone to this community or take them out, as the Users tab does. Removing is `400` while they hold a role here or admin or coordinate a tournament.
 
 - `GET /me/communities` (`me.py`) — the caller's active communities with their roles and openable events, for the app's community picker. Spans communities, so it takes no community header; a third-party app's grant is refused (`403`).
+- `GET /me/platform` (`me.py`) — `{user_id, super_admin}`, so the app knows whether to offer Platform. Same rules as `/me/communities`.
 
 ### My schedule (`/api/me/…`) · `my_schedule.py`
 Screen-shaped reads for the app's Home and Schedule tabs, built by `PlayerHomeService` (which merges `MyTimelineService`, the bracket sources, reschedule requests and acknowledgements). Event-bound (`?event=`), scope `play`.
 - `GET /me/home` — `next_up` (your next unfinished match), `needs_you` (`book`, `agree`, `acknowledge`) and the rest of `today`. `zone` is the clock to print times on: the community's pinned zone, else your saved one, else `null` for the device's.
 - `GET /me/schedule?past=` — your matches, crew slots and shifts in the event window, soonest first (or ended ones, latest first).
 - `GET /me/bookable` — matchups waiting on you to pick a time, from native brackets, Challonge and start.gg in one list (`source` + `key`). `GET /me/bookable/{source}/{key}/check?at=` returns the booking-window `refusal` and the "Check this time" `clashes` without booking; `POST /me/bookable/{source}/{key}/book` (`scheduled_at`, an instant) books the next game. Both refuse (`400`) a matchup that isn't in your own list.
+
+### Event (`/api/event/…`) · `event_hub.py`
+The app's Event tab, built by `EventHubService`. Event-bound, scope `schedule:read`. Each response carries `zone`, the clock to print times on (as on `GET /me/home`).
+- `GET /event/hub` — each active stage's card (the match seated or playing there now, the next two within a day, the Twitch channel), the next five unstarted matches anywhere, and a card per active tournament (test tournaments left out) with its bracket status, whether `GET /tournaments/{id}/bracket` has something to show (`has_bracket`), and outside bracket and rules links.
+- `GET /event/schedule?start=&end=` — the run sheet: every match scheduled in the window, soonest first, at most 48 hours (`400` past that). Each row has its sides (undecided ones flagged), stage and stations, and its crew slots: needed, approved names, your own signup and whether you can sign up now (`POST /matches/{id}/crew`). `playing` and `watching` are about you.
+- `GET /event/watch` — the stage cards, streamed matches coming up over the next week that the cards don't show, and the tournament cards.
+- `GET /tournaments/{id}/bracket` also returns `your_entrant_ids`, so the app can mark your own sets without seeing anyone's account.
 
 ### Admin shell (`/api/admin/…`) · `admin_nav.py`
 What the app's admin menu draws, built by `AdminNavService`. Scope `staff:read`.
@@ -390,13 +398,22 @@ The `/platform` page's other tabs. Reads use `require_super_admin`, writes
 `require_super_admin_write`; communities are named by id and include switched-off
 ones. Composite reads come from `PlatformAdminService`; writes go through the
 owning service (`TenantService`, `FeatureFlagService`, `PasswordAuthService.set_active`,
-`LogLevelService`). Passwords and account creation stay on the page.
+`LogLevelService`, `OAuthAppService`, `BrowserMonitoringService`, `PasswordAuthService`). Password writes take `require_app_super_admin_write`: Wizzrobe's own app only, so a personal token or chat client (which could leave the password in a transcript) is refused with `403`.
+Super-admin routes (these and racetime bots, service-health board) resolve the token with `resolve_identity`,
+so they bind no community: the app calls them with no `X-Wizzrobe-Community` header, a PAT bound to any
+community works, a third-party app's grant is refused, and audit rows land with `tenant=NULL`.
+Community responses carry `discord_guild_id_str` beside `discord_guild_id`, and the guild id is accepted as a
+digit string, because a Discord id is larger than a JavaScript number holds exactly.
 - `GET /platform/communities` · `/{id}` (setup checklist + Staff); `POST` · `PATCH /{id}` (`null` clears `domain`/`discord_guild_id`; `is_active` switches it off).
 - `POST /platform/communities/{id}/staff` (`{user_id}`) — first-admin grant (`TenantService.bootstrap_staff`).
 - `GET /platform/communities/{id}/features` · `PUT /{id}/feature-group` (`{group_id|null}`) · `PUT /{id}/features/{flag}` (`{available: true|false|null}`).
 - `GET /platform/users` (`q`, `has_password`, `is_active`, `limit`) · `/{id}` · `PUT /{id}/active` (`{is_active}`).
+- App only: `POST /platform/users` (`{display_name, login_name, password}`, a password-only account) · `PUT /{id}/password` (`{login_name, password}`) · `DELETE /{id}/password`.
 - `GET /platform/feature-groups`; `POST` · `PATCH /{id}` · `DELETE /{id}`.
+- `GET /platform/features` — every feature a group can make available (key, label, description, category).
 - `GET /platform/log-levels` · `PUT` (`{logger, level}`) · `DELETE ?logger=`.
+- `GET /platform/apps` (every registered app with people/community reach) · `POST /{id}/disable` (`{reason}`) · `POST /{id}/enable`.
+- `GET /platform/browser-monitoring` · `PUT` (`{enabled, replay_on_error, sample_rate}`); `GET /browser-monitoring/rules` · `POST` (`{pattern, match}`) · `DELETE /rules/{id}`. Built-in rules come back with `id: null`.
 
 ### Race rooms (`/api/race-rooms`) · `race_rooms.py`
 - `GET /race-rooms/open` (Staff or Sync admin, checked in the service; filtered to your tenant) · `GET /race-rooms/by-match/{match_id}`.
