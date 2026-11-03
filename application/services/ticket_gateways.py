@@ -150,7 +150,7 @@ class PayPalGateway:
 
     def __init__(self, secret: str) -> None:
         creds = json.loads(secret)
-        self.sandbox = bool(creds.get('sandbox'))
+        self.sandbox = bool(creds.get('sandbox', True))
         self._client = paypal.paypal_client(creds['client_id'], creds['client_secret'], sandbox=self.sandbox)
 
     async def connect(self, webhook_url: str) -> Connected:
@@ -210,7 +210,7 @@ class PayPalGateway:
 
 
 def validate_secret(
-    provider: TicketProvider, secret: str, *, client_id: Optional[str] = None, sandbox: bool = False,
+    provider: TicketProvider, secret: str, *, client_id: Optional[str] = None, sandbox: bool = True,
 ) -> str:
     """What to seal for ``provider``, or a ``ValueError`` saying what's wrong with the paste.
 

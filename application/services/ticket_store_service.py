@@ -93,12 +93,13 @@ class TicketStoreService:
     @requires_feature(FeatureFlag.TICKET_SALES)
     async def connect(
         self, actor: User, provider: TicketProvider, secret: str,
-        *, client_id: Optional[str] = None, sandbox: bool = False,
+        *, client_id: Optional[str] = None, sandbox: bool = True,
     ) -> StoreView:
         """Connect ``provider`` with pasted credentials, replacing any earlier connection to it.
 
         Stripe takes a restricted key. PayPal takes a REST app's client id and
-        secret, and ``sandbox`` for the sandbox side of the app.
+        secret, from the app's sandbox side unless ``sandbox`` is false, so a
+        community tests with PayPal's sandbox before it switches to live.
         """
         await AuthService.ensure(await AuthService.can_manage_tickets(actor), 'Only staff can manage ticket stores.')
         secret = validate_secret(provider, secret, client_id=client_id, sandbox=sandbox)

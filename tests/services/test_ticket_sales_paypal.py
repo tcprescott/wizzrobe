@@ -62,7 +62,7 @@ async def buyer():
 
 @pytest.fixture
 async def store(staff):
-    await TicketStoreService().connect(staff, TicketProvider.PAYPAL, 'app-secret', client_id='app-id', sandbox=True)
+    await TicketStoreService().connect(staff, TicketProvider.PAYPAL, 'app-secret', client_id='app-id')
     return await TicketStore.get(provider=TicketProvider.PAYPAL)
 
 
@@ -83,11 +83,13 @@ async def _approved(buyer, weekend, store, quantity=1):
     return order, await _post(store, 'CHECKOUT.ORDER.APPROVED', {'id': order.provider_ref})
 
 
-async def test_connecting_seals_the_app_credentials(staff, store):
+async def test_connecting_seals_the_app_credentials_and_defaults_to_sandbox(staff, store):
     assert store.test_mode is True and store.webhook_id.startswith('WH-MOCK-')
     sealed = json.loads(open_(store.secret, purpose=STORE_SEAL_PURPOSE, context=str(store.tenant_id)))
     assert sealed == {'client_id': 'app-id', 'client_secret': 'app-secret', 'sandbox': True}
     assert 'app-secret' not in store.secret
+    await TicketStoreService().connect(staff, TicketProvider.PAYPAL, 'live-secret', client_id='live-id', sandbox=False)
+    assert (await TicketStore.get(provider=TicketProvider.PAYPAL)).test_mode is False
     with pytest.raises(ValueError, match='client ID'):
         await TicketStoreService().connect(staff, TicketProvider.PAYPAL, 'app-secret')
 
