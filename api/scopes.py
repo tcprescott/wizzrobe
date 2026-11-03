@@ -178,6 +178,8 @@ _ROUTES: Dict[RouteScope, tuple[str, ...]] = {
         'GET /work/schedule',
         'PUT /work/schedule/columns',
         'DELETE /work/schedule/columns',
+        'GET /work/proctor',
+        'GET /work/proctor/matches/{match_id}',
         'GET /volunteers/me/assignments',
         'DELETE /volunteers/me/assignments/{assignment_id}',
         'POST /volunteers/me/assignments/{assignment_id}/arrival',

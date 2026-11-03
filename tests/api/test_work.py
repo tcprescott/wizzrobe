@@ -223,3 +223,64 @@ class TestDesk:
         async with client_for(app, raw) as c:
             assert (await c.get(f'/api/check-in/events/{event.id}/desk')).status_code == 403
             assert (await c.get(f'/api/check-in/events/{event.id}/members', params={'q': 'ab'})).status_code == 403
+
+
+def _rows(body: dict) -> dict:
+    return {r['id']: (g['label'], r) for g in body['groups'] for r in g['rows']}
+
+
+async def _match(t, at: datetime, *names: str, **fields):
+    from models import Match, MatchPlayers
+
+    match = await Match.create(tournament=t, scheduled_at=at, **fields)
+    for name in names:
+        await MatchPlayers.create(match=match, user=await create_community_member(username=name))
+    return match
+
+
+class TestProctorStation:
+    async def test_proctor_board_groups_and_hides_crew(self, db, app):
+        from models import Tournament
+
+        _, raw = await create_user_token(username='proc', roles=[Role.PROCTOR])
+        cup = await Tournament.create(name='Cup', is_active=True)
+        now = _now()
+        late = await _match(cup, now - timedelta(minutes=30), 'ann', 'bob')
+        seated = await _match(cup, now + timedelta(minutes=10), 'cat', 'dan', seated_at=now)
+        live = await _match(cup, now - timedelta(hours=1), 'eve', 'fay', started_at=now - timedelta(minutes=50))
+        later = await _match(cup, now + timedelta(hours=2), 'gus', 'hal')
+        async with client_for(app, raw) as c:
+            resp = await c.get('/api/work/proctor', params={'tz': 'UTC'})
+            assert resp.status_code == 200
+            body = resp.json()
+            rows = _rows(body)
+            assert rows[late.id][0] == 'Late, check in now'
+            assert rows[late.id][1]['next_step']['event'] == 'seat'
+            assert rows[seated.id][0] == 'Ready to start'
+            assert rows[live.id][0] == 'In play'
+            assert rows[later.id][0] == 'Up next'
+            assert all(r['crew'] == [] for _, r in rows.values())
+            assert body['needs_you'] == []
+            assert body['can_create'] is False
+            assert rows[late.id][1]['can']['run'] is True
+            assert rows[late.id][1]['can']['edit'] is False
+            pane = (await c.get(f'/api/work/proctor/matches/{seated.id}')).json()
+            assert all(i['key'] != 'crew' for i in pane['checklist'])
+
+    async def test_broadcast_tech_sees_only_stage_matches(self, db, app):
+        from models import Stage, Tournament
+
+        _, raw = await create_user_token(username='bt', roles=[Role.STREAM_MANAGER])
+        cup = await Tournament.create(name='Cup', is_active=True)
+        stage = await Stage.create(name='Stage 1')
+        on_stage = await _match(cup, _now() + timedelta(hours=1), 'ann', 'bob', stage=stage)
+        floor = await _match(cup, _now() + timedelta(hours=2), 'cat', 'dan')
+        async with client_for(app, raw) as c:
+            rows = _rows((await c.get('/api/work/proctor')).json())
+            assert list(rows) == [on_stage.id]
+            assert (await c.get(f'/api/work/proctor/matches/{floor.id}')).status_code == 404
+
+    async def test_a_plain_member_is_refused(self, db, app):
+        _, raw = await create_user_token(username='plain')
+        async with client_for(app, raw) as c:
+            assert (await c.get('/api/work/proctor')).status_code == 403

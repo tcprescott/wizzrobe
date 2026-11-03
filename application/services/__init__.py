@@ -152,6 +152,7 @@ from .platform_admin_service import AccountOverview, CommunityOverview, Platform
 from .player_availability_service import PlayerAvailabilityService
 from .player_home_service import PlayerHomeService
 from .preset_service import PresetService
+from .proctor_station_service import ProctorStationService
 from .profile_nudge_service import ProfileNudgeService
 from .provider_task_service import ProviderTaskService
 from .race_room_bot_service import RaceRoomBotService
@@ -337,6 +338,7 @@ __all__ = [
     'PlayerLateService',
     'PresetService',
     'ProbeResult',
+    'ProctorStationService',
     'ProfileNudgeService',
     'ProviderTaskService',
     'RaceRoomBotService',

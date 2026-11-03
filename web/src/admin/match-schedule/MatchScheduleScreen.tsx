@@ -16,7 +16,7 @@ const ALL = 'all'
 const FOLD_KEY = 'wiz.admin-schedule.folded'
 
 /** The board's address, so a match link (or a DM's) opens the same filters. */
-function useFilters(): [BoardFilters, (next: Partial<BoardFilters>) => void] {
+export function useFilters(): [BoardFilters, (next: Partial<BoardFilters>) => void] {
   const [params, setParams] = useSearchParams()
   const filters: BoardFilters = {
     day: params.get('day'),
@@ -45,10 +45,10 @@ function useFilters(): [BoardFilters, (next: Partial<BoardFilters>) => void] {
   return [filters, set]
 }
 
-function useFolded(): [Record<string, boolean>, (label: string, folded: boolean) => void] {
+export function useFolded(key: string = FOLD_KEY): [Record<string, boolean>, (label: string, folded: boolean) => void] {
   const [folded, setFolded] = useState<Record<string, boolean>>(() => {
     try {
-      return JSON.parse(readStored(FOLD_KEY) ?? '{}') as Record<string, boolean>
+      return JSON.parse(readStored(key) ?? '{}') as Record<string, boolean>
     } catch {
       return {}
     }
@@ -56,10 +56,10 @@ function useFolded(): [Record<string, boolean>, (label: string, folded: boolean)
   const set = useCallback((label: string, value: boolean) => {
     setFolded((prev) => {
       const next = { ...prev, [label]: value }
-      writeStored(FOLD_KEY, JSON.stringify(next))
+      writeStored(key, JSON.stringify(next))
       return next
     })
-  }, [])
+  }, [key])
   return [folded, set]
 }
 
@@ -90,7 +90,8 @@ function Matchup({ row }: { row: BoardRow }) {
   )
 }
 
-function Row({ row, zone, selected, to }: { row: BoardRow; zone: string; selected: boolean; to: string }) {
+/** One board line. `stations` names the stage and the stations together, for Proctor Station. */
+export function Row({ row, zone, selected, to, stations = false }: { row: BoardRow; zone: string; selected: boolean; to: string; stations?: boolean }) {
   const comments = (row.comments?.player ?? 0) + (row.comments?.staff ?? 0)
   const time = row.started_at ?? row.scheduled_at
   return (
@@ -108,7 +109,9 @@ function Row({ row, zone, selected, to }: { row: BoardRow; zone: string; selecte
         <span className="ms-row__line">
           <span className="ms-row__place">
             <Icon name={row.stage ? 'videocam' : 'tv'} size={16} />
-            {row.stage ?? row.seat_line ?? (row.stream_candidate ? 'Stream candidate' : 'No stage')}
+            {stations
+              ? [row.stage ?? 'Floor', row.seat_line].filter(Boolean).join(' · ')
+              : row.stage ?? row.seat_line ?? (row.stream_candidate ? 'Stream candidate' : 'No stage')}
           </span>
           <Chip tone={row.tone as Tone}>{row.status}</Chip>
         </span>
@@ -140,7 +143,7 @@ function Row({ row, zone, selected, to }: { row: BoardRow; zone: string; selecte
   )
 }
 
-function DaySwitch({ board, day, zone, onDay }: { board: Board; day: string; zone: string; onDay: (d: string) => void }) {
+export function DaySwitch({ board, day, zone, onDay }: { board: Board; day: string; zone: string; onDay: (d: string) => void }) {
   const options = [
     ...board.days.map((d) => ({ value: d, label: formatDay(`${d}T12:00:00Z`, 'UTC') })),
     { value: ALL, label: 'All days' },
