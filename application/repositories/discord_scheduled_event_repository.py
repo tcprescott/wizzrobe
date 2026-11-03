@@ -37,7 +37,7 @@ class DiscordScheduledEventRepository(EventScopedRepository[DiscordScheduledEven
         for tournament_id in await event_scoped(Match.filter(id__in=list(match_ids))).values_list(
             'tournament_id', flat=True
         ):
-            counts[tournament_id] = counts.get(tournament_id, 0) + 1
+            counts[tournament_id] = counts.get(tournament_id, 0) + 1  # type: ignore[index,call-overload]
         return counts
 
     async def get_by_id(self, event_id: int) -> Optional[DiscordScheduledEvent]:

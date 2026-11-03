@@ -136,10 +136,10 @@ class DiscordSettingsService:
         await self._ensure_staff(actor)
         guild_id = await self._guild_id()
         ok, payload = await DiscordService().list_guild_roles(guild_id)
-        if not ok:
+        if not ok or isinstance(payload, str):
             raise ValueError(str(payload))
         roles = sorted(
-            (r for r in payload if r.get('mappable', True)),  # type: ignore[union-attr]
+            (r for r in payload if r.get('mappable', True)),
             key=lambda r: str(r['name']).casefold(),
         )
         grants = [
