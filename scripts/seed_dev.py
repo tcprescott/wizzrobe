@@ -373,7 +373,7 @@ async def seed_for_tenant(
         print(f"    [{tenant.slug}] on-site tournament ok")
 
         await seed_payouts_for_tenant(tenant, players)
-        await seed_tickets_for_tenant(tenant, players[0])
+        await seed_tickets_for_tenant(tenant, players[0], users["racer_08"])
         await seed_patreon_for_tenant(tenant, users, staff)
 
         racers = players + [users[name] for name, _display, _full in RACER_SPECS]

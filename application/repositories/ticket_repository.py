@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import Dict, Iterable, List, Optional
 
 from tortoise.expressions import Q
-from tortoise.functions import Count
+from tortoise.functions import Count, Max
 
 from application.event_writes import guarded_update
 from application.repositories._base import EventScopedRepository, TenantScopedRepository
@@ -176,6 +176,27 @@ class TicketRepository(EventScopedRepository[Ticket]):
         return await event_scoped(
             Ticket.filter(Q(owner_id__isnull=True) | ~Q(owner_id=user_id), order__buyer_id=user_id, status=TicketStatus.VALID),
         ).prefetch_related('ticket_type', 'owner').order_by('id')
+
+    @staticmethod
+    async def for_check_in(event_id: int) -> List[Ticket]:
+        """Every owned badge, held or refunded, in the event a check-in roster belongs to."""
+        # event-scope: exempt — the check-in event names its own event, whatever event the caller is in.
+        return await scoped(Ticket.filter(
+            event_id=event_id, owner_id__isnull=False, status__in=[TicketStatus.VALID, TicketStatus.REFUNDED],
+        )).prefetch_related('ticket_type', 'order', 'owner').order_by('id')
+
+    @staticmethod
+    async def badge_changes_by_event() -> Dict[int, datetime]:
+        """When an owned badge (held or refunded) last changed, per event, across every tenant.
+
+        The check-in sync worker's scan: an event with badges syncs on its own
+        interval, and sooner once one of them has changed since its last sync.
+        """
+        # event-scope: exempt — a cross-tenant worker scan; each event then syncs in its own scope.
+        rows = await Ticket.filter(
+            owner_id__isnull=False, status__in=[TicketStatus.VALID, TicketStatus.REFUNDED],
+        ).annotate(changed=Max('updated_at')).group_by('event_id').values('event_id', 'changed')
+        return {row['event_id']: row['changed'] for row in rows}
 
     @staticmethod
     async def get_by_claim_lookup(lookup: str) -> Optional[Ticket]:

@@ -322,11 +322,11 @@ Used by `Event.status` (`max_length=16`, default `DRAFT`): `DRAFT` = `'draft'` (
 
 ### `TicketProvider` / `TicketOrderStatus` / `TicketStatus`
 
-`TicketStore.provider` and `TicketOrder.provider` (`max_length=16`): `STRIPE` = `'stripe'`, `PAYPAL` = `'paypal'` (a REST app; its sealed secret is JSON client id + secret + sandbox, and an approved order is captured by the `CHECKOUT.ORDER.APPROVED` webhook). `TicketOrder.status` (`max_length=16`, default `PENDING`): `PENDING` = `'pending'` (sent to the store, badges held until `hold_expires_at`), `PAID` = `'paid'` (only the store's signed webhook sets it), `EXPIRED` = `'expired'` (abandoned; holds released), `REFUNDED` = `'refunded'` (fully refunded, from Wizzrobe or the store's dashboard). `Ticket.status`: `PENDING`, `VALID`, `VOID` (its order expired), `REFUNDED`. Spec: [docs/specs/ticket-sales.md](../specs/ticket-sales.md).
+`TicketStore.provider` and `TicketOrder.provider` (`max_length=16`): `STRIPE` = `'stripe'`, `PAYPAL` = `'paypal'` (a REST app; its sealed secret is JSON client id + secret + sandbox, and an approved order is captured by the `CHECKOUT.ORDER.APPROVED` webhook). `TicketOrder.status` (`max_length=16`, default `PENDING`): `PENDING` = `'pending'` (sent to the store, badges held until `hold_expires_at`), `PAID` = `'paid'` (only the store's signed webhook sets it), `EXPIRED` = `'expired'` (abandoned; holds released), `REFUNDED` = `'refunded'` (fully refunded, from Wizzrobe or the store's dashboard). `Ticket.status`: `PENDING`, `VALID`, `VOID` (its order expired), `REFUNDED`. Feature doc: [ticket-sales.md](../features/ticket-sales.md).
 
 ### `CheckInEventStatus` / `CheckInEntrantSource` / `CheckInLinkMethod`
 
-`CheckInEvent.status` (`max_length=16`, default `DRAFT`): `DRAFT` = `'draft'` (being set up; can still be synced by hand), `OPEN` = `'open'` (the only status the sync worker polls and the desk lists), `CLOSED` = `'closed'`. `CheckInEntrant.source` (`max_length=16`): `MATCHERINO` = `'matcherino'` (a buyer on the event's Matcherino venue), `WALK_UP` = `'walk_up'` (added by staff at the desk), `COMP` = `'comp'` (comped by the event's comp rules without buying a badge). `CheckInEntrant.link_method` (`max_length=24`, null = unlinked) records how the row got its `user`: the four automatic rules `MATCHERINO_ID` = `'matcherino_id'`, `DISCORD_ID` = `'discord_id'`, `TWITCH_ID` = `'twitch_id'`, `MATCHERINO_HANDLE` = `'matcherino_handle'` (tried in that order; the former `TWITCH_LOGIN` was folded into `TWITCH_ID` by migration 83), then `MANUAL` = `'manual'` (a staff link; with `user` NULL it marks a deliberate unlink the sync never overrides), `WALK_UP` = `'walk_up'` and `COMP` = `'comp'` (a `COMP` row's account). See [event-check-in.md](../features/event-check-in.md#matching-buyers-to-accounts).
+`CheckInEvent.status` (`max_length=16`, default `DRAFT`): `DRAFT` = `'draft'` (being set up; can still be synced by hand), `OPEN` = `'open'` (the only status the sync worker polls and the desk lists), `CLOSED` = `'closed'`. `CheckInEntrant.source` (`max_length=16`): `MATCHERINO` = `'matcherino'` (a buyer on the event's Matcherino venue), `WALK_UP` = `'walk_up'` (added by staff at the desk), `COMP` = `'comp'` (comped by the event's comp rules without buying a badge), `WIZZROBE` = `'wizzrobe'` (holds a badge bought in Wizzrobe; see [ticket-sales.md](../features/ticket-sales.md#on-the-check-in-roster)). `CheckInEntrant.link_method` (`max_length=24`, null = unlinked) records how the row got its `user`: the four automatic rules `MATCHERINO_ID` = `'matcherino_id'`, `DISCORD_ID` = `'discord_id'`, `TWITCH_ID` = `'twitch_id'`, `MATCHERINO_HANDLE` = `'matcherino_handle'` (tried in that order; the former `TWITCH_LOGIN` was folded into `TWITCH_ID` by migration 83), then `MANUAL` = `'manual'` (a staff link; with `user` NULL it marks a deliberate unlink the sync never overrides), `WALK_UP` = `'walk_up'`, `COMP` = `'comp'` (a `COMP` row's account) and `TICKET` = `'ticket'` (a `WIZZROBE` row: the badge owner's account). See [event-check-in.md](../features/event-check-in.md#matching-buyers-to-accounts).
 
 ### `StationSide`
 
@@ -1785,18 +1785,19 @@ Relationships: reverse accessor `passes`. Constraints: `unique_together (('event
 
 #### `CheckInTier`
 
-One badge type sold on the event's venue (a Matcherino *pass*: Base, VIP, Day Pass). Kept when the venue deletes it, since badges sold under it still point at it.
+One badge type sold on the event's venue (a Matcherino *pass*: Base, VIP, Day Pass), or a Wizzrobe `TicketType` mirrored onto the roster. Kept when the venue deletes it, since badges sold under it still point at it.
 
 | Field | Type | Null / default | Notes |
 |---|---|---|---|
 | `event` | FK → `CheckInEvent` | not null, `CASCADE` | `related_name='tiers'` |
-| `matcherino_pass_id` | `IntField` | not null | The sync's upsert key |
+| `matcherino_pass_id` | `IntField` | null | The Matcherino sync's upsert key |
+| `ticket_type` | FK → `TicketType` | null, `CASCADE` | The Wizzrobe badge type it mirrors; the ticket mirror's upsert key. `related_name='check_in_tiers'` |
 | `title` | `CharField(255)` | not null | |
 | `amount_cents` | `IntField` | default `0` | Price; orders tiers, dearest first |
 | `role` | `CharField(32)` | null | Matcherino's `player` / `spectator` |
 | `lanyard` | `CharEnumField(CheckInTierLanyard)` | default `BASE` | `max_length=16`. What its holders get at the desk: `VIP` = `'vip'`, `BASE` = `'base'`, `DAY_PASS` = `'day_pass'`. Guessed from the title when first synced, then staff-owned |
 
-Relationships: reverse accessor `passes`. Constraint: `unique_together (('event', 'matcherino_pass_id'),)`.
+Relationships: reverse accessor `passes`. Constraints: `unique_together (('event', 'matcherino_pass_id'), ('event', 'ticket_type'))`.
 
 #### `CheckInPass`
 
@@ -1807,14 +1808,15 @@ One badge purchase. Per purchase rather than per person: a buyer can hold severa
 | `event` | FK → `CheckInEvent` | not null, `CASCADE` | `related_name='passes'` |
 | `tier` | FK → `CheckInTier` | not null, `CASCADE` | `related_name='passes'` |
 | `entrant` | FK → `CheckInEntrant` | null, `SET_NULL` | The buyer's roster row. `related_name='passes'` |
-| `matcherino_purchase_id` | `IntField` | not null | The sync's upsert key |
-| `buyer_matcherino_user_id` | `CharField(64)` | not null | |
+| `matcherino_purchase_id` | `IntField` | null | The Matcherino sync's upsert key |
+| `buyer_matcherino_user_id` | `CharField(64)` | null | |
+| `ticket` | FK → `Ticket` | null, `CASCADE` | The Wizzrobe badge it mirrors; the ticket mirror's upsert key. `related_name='check_in_passes'` |
 | `code` | `CharField(32)` | not null | The door code the badge's QR encodes; the desk searches it |
-| `purchased_at` / `refunded_at` | `DatetimeField` | null | Matcherino's |
+| `purchased_at` / `refunded_at` | `DatetimeField` | null | Matcherino's, or the Wizzrobe order's `paid_at` and the badge's refund |
 | `removed_at` | `DatetimeField` | null | Dropped out of the feed; cleared if it returns |
 | `source_data` | `JSONField` | null | The purchase trimmed to an allowlist: never the buyer's name, email, phone, address or payment ledger |
 
-Constraint: `unique_together (('event', 'matcherino_purchase_id'),)`. Index on `(event, code)`.
+Constraints: `unique_together (('event', 'matcherino_purchase_id'), ('event', 'ticket'))`. Index on `(event, code)`.
 
 #### `MatcherinoLogin`
 
@@ -1833,7 +1835,7 @@ Constraint: `unique_together (('tenant',),)`.
 
 ### Ticket sales
 
-Event badges sold through each community's own store account. Gated by `FeatureFlag.TICKET_SALES`; managed by `TicketStoreService`, `TicketService`, `TicketCheckoutService` and `TicketCompRefundService`. Lives in `models/ticket.py`. Spec: [docs/specs/ticket-sales.md](../specs/ticket-sales.md).
+Event badges sold through each community's own store account. Gated by `FeatureFlag.TICKET_SALES`; managed by `TicketStoreService`, `TicketService`, `TicketCheckoutService` and `TicketCompRefundService`. Lives in `models/ticket.py`. Feature doc: [ticket-sales.md](../features/ticket-sales.md).
 
 #### `TicketStore` (tenant-owned)
 

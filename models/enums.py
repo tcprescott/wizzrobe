@@ -331,6 +331,7 @@ class CheckInEntrantSource(str, Enum):
     MATCHERINO = 'matcherino'
     WALK_UP = 'walk_up'
     COMP = 'comp'
+    WIZZROBE = 'wizzrobe'
 
 
 class CheckInTierLanyard(str, Enum):
@@ -369,6 +370,7 @@ class CheckInLinkMethod(str, Enum):
     MANUAL = 'manual'
     WALK_UP = 'walk_up'
     COMP = 'comp'
+    TICKET = 'ticket'
 
 
 class CheckInDmStatus(str, Enum):

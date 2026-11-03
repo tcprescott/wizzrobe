@@ -10,6 +10,7 @@ import {
   EmptyState,
   FormDialog,
   Icon,
+  IconButton,
   PageHeader,
   Panel,
   PanelRow,
@@ -21,6 +22,7 @@ import { useCommunity } from '../community/CommunityProvider'
 import { effectiveZone, formatTime } from '../lib/time'
 import { done, message, useEventQuery } from '../me/data'
 import { usePolling, useWorkQuery, type Desk, type DeskRow, type Member } from './data'
+import { canScanBadges, ScanBadgeDialog } from './ScanBadge'
 
 const FILTERS = [
   { value: 'all', label: 'All' },
@@ -140,6 +142,7 @@ function DeskForEvent({ eventId }: { eventId: number }) {
   const [confirm, setConfirm] = useState<{ title: string; body: string; label: string; run: () => Promise<void>; destructive?: boolean } | null>(null)
   const [walkUp, setWalkUp] = useState(false)
   const [syncing, setSyncing] = useState(false)
+  const [scanning, setScanning] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
   const toastTimer = useRef<number | undefined>(undefined)
 
@@ -230,9 +233,10 @@ function DeskForEvent({ eventId }: { eventId: number }) {
   function menuFor(row: DeskRow): MenuItem[] {
     const items: MenuItem[] = []
     const name = row.display_name
+    const ownAccount = row.source === 'comp' || row.source === 'wizzrobe'
     if (row.user_id == null) {
-      if (row.source !== 'comp') items.push({ label: 'Link account…', icon: 'link', onSelect: () => setLinking({ row, thenCheckIn: false }) })
-    } else if (row.source !== 'comp') {
+      if (!ownAccount) items.push({ label: 'Link account…', icon: 'link', onSelect: () => setLinking({ row, thenCheckIn: false }) })
+    } else if (!ownAccount) {
       items.push({
         label: 'Unlink account',
         icon: 'link_off',
@@ -327,8 +331,10 @@ function DeskForEvent({ eventId }: { eventId: number }) {
             autoComplete="off"
             onChange={(e) => setSearch(e.target.value)}
           />
+          {canScanBadges() && <IconButton icon="qr_code_scanner" label="Scan a badge QR" onClick={() => setScanning(true)} />}
         </label>
       </div>
+      <ScanBadgeDialog open={scanning} onOpenChange={setScanning} onCode={setSearch} />
       <div className="filter-chips" role="radiogroup" aria-label="Show">
         {FILTERS.map((f) => (
           <span key={f.value}>

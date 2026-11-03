@@ -61,6 +61,7 @@ from application.services.check_in_rules import (
     summarize,
 )
 from application.services.check_in_sales import apply_badges, apply_tiers, buyer_fields, buyers_of
+from application.services.check_in_tickets import apply_tickets, holders, ticket_badges
 from application.services.feature_flag_service import FeatureFlagService
 from application.services.matcherino_login_service import MatcherinoLoginService
 from application.utils.clients.matcherino_client import (
@@ -288,32 +289,37 @@ class CheckInService:
 
         Comps are worked out first, so a comped buyer is never withdrawn for
         having no badge; then the badge sales (when there is a venue); then the
-        comp rows (:mod:`check_in_comps`). A Matcherino failure changes nothing,
+        badges bought in Wizzrobe (:mod:`check_in_tickets`); then the comp rows
+        (:mod:`check_in_comps`). A Matcherino failure changes nothing,
         comps included. ``audit=False`` is the worker's poll: it still publishes
         the domain event, but writes no audit row every few minutes.
         """
         await AuthService.ensure(await AuthService.can_run_check_in_desk(actor), _DESK_DENIED)
         async with shared_lock('check_in.sync', event_id):
             event = await ensure_desk_sees(actor, require_found(await self.events.get_by_id(event_id), 'Check-in event'))
-            if event.matcherino_venue_id is None and not has_comp_rules(event):
+            tickets = await ticket_badges(event)
+            if event.matcherino_venue_id is None and not has_comp_rules(event) and not tickets:
                 raise ValueError(
-                    "This event has no Matcherino venue and comps nobody, so there's nothing to sync."
+                    "This event has no Matcherino venue, sells no badges and comps nobody, so there's nothing to sync."
                 )
             comped = await comped_users(event)
             if event.matcherino_venue_id is not None:
-                result = await self._sync_sales(actor, event, comped)
+                kept = {**{user_id: [] for user_id in holders(tickets)}, **comped}
+                result = await self._sync_sales(actor, event, kept)
             else:
                 result = SyncResult()
             now = datetime.now(timezone.utc)
             try:
+                bought = await apply_tickets(self.entrants, self.tiers, self.passes, event, tickets, comped, now)
                 comps = await apply_comps(self.entrants, event, comped, now)
             except IntegrityError as e:
                 raise ValueError(
                     'The roster changed while syncing. Try Sync again in a moment.'
                 ) from e
-            result.added += comps.added
-            result.withdrawn += comps.withdrawn
-            result.rejoined += comps.rejoined
+            result.added += comps.added + bought.added
+            result.withdrawn += comps.withdrawn + bought.withdrawn
+            result.rejoined += comps.rejoined + bought.rejoined
+            result.badges += bought.badges
             result.comped = len(comped)
             await self.events.record_sync(
                 event, last_synced_at=now, last_sync_error=None, last_sync_count=result.total,
@@ -765,6 +771,7 @@ class CheckInService:
                 "Comps come from the event's comp rules and come back on the next sync. "
                 'Change the rules to remove someone.'
             )
+        refuse_comp_row(entrant)
         if entrant.source != CheckInEntrantSource.WALK_UP:
             raise ValueError(
                 "Matcherino badge holders come back on the next sync, so they can't be "
