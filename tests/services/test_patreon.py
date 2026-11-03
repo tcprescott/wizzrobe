@@ -16,7 +16,7 @@ from application.services.feature_flag_service import reset_flag_cache
 from application.services.member_details_service import MemberDetailsService
 from application.services.members_admin_service import MembersAdminService
 from application.services.patreon_campaign_service import PatreonCampaignService, PatreonSignatureError
-from application.services.patreon_link_service import PatreonLinkService, PatreonOAuthService
+from application.services.patreon_link_service import PatreonLinkService, PatreonOAuthService, SignInResult
 from application.services.patron_service import PatronService
 from application.tenant_context import tenant_scope
 from application.utils.clients.patreon_client import ACTIVE_PATRON, MemberStatus, signature_ok
@@ -65,11 +65,11 @@ def _state(url: str) -> str:
 async def _connect(staff) -> PatreonCampaign:
     url = await PatreonCampaignService().start_connect(staff)
     back = await PatreonOAuthService().finish(_state(url), 'mock', None)
-    assert 'patreon=connected' in back, back
+    assert back.outcome == 'connected', back
     return await PatreonCampaign.get(tenant_id=DEFAULT_TEST_TENANT_ID)
 
 
-async def _link(user) -> str:
+async def _link(user) -> SignInResult:
     url = await PatreonLinkService().start_link(user)
     back = await PatreonOAuthService().finish(_state(url), 'mock', None)
     await user.refresh_from_db()
@@ -121,17 +121,17 @@ async def test_staff_connect_seals_tokens_registers_the_webhook_and_queues_a_syn
 async def test_a_sign_in_state_works_once(staff):
     url = await PatreonCampaignService().start_connect(staff)
     state = _state(url)
-    assert 'patreon=connected' in await PatreonOAuthService().finish(state, 'mock', None)
-    assert 'patreon=expired' in await PatreonOAuthService().finish(state, 'mock', None)
-    assert 'patreon=expired' in await PatreonOAuthService().finish('made-up', 'mock', None)
+    assert (await PatreonOAuthService().finish(state, 'mock', None)).outcome == 'connected'
+    assert (await PatreonOAuthService().finish(state, 'mock', None)).outcome == 'expired'
+    assert (await PatreonOAuthService().finish('made-up', 'mock', None)).outcome == 'expired'
 
 
 async def test_cancelled_and_lapsed_sign_ins_change_nothing(staff):
     url = await PatreonCampaignService().start_connect(staff)
-    assert 'patreon=cancelled' in await PatreonOAuthService().finish(_state(url), None, 'access_denied')
+    assert (await PatreonOAuthService().finish(_state(url), None, 'access_denied')).outcome == 'cancelled'
     url = await PatreonCampaignService().start_connect(staff)
     await PatreonOAuthState.all().update(expires_at=datetime.now(timezone.utc) - timedelta(minutes=1))
-    assert 'patreon=expired' in await PatreonOAuthService().finish(_state(url), 'mock', None)
+    assert (await PatreonOAuthService().finish(_state(url), 'mock', None)).outcome == 'expired'
     assert await PatreonCampaign.all().count() == 0
 
 
@@ -167,7 +167,7 @@ async def test_another_communitys_staff_see_only_their_own(two_tenants, staff):
 async def test_link_keeps_only_the_patreon_id_and_grants_the_badge(staff, player):
     await _connect(staff)
     back = await _link(player)
-    assert 'patreon=linked' in back
+    assert back.outcome == 'linked'
     await player.refresh_from_db()
     assert player.patreon_user_id == 'p-1001' and player.patreon_username == 'Mock Patron'
     status = await PatronService().get_patron_status(player)
@@ -185,7 +185,7 @@ async def test_one_patreon_account_links_to_one_wizzrobe_account(staff, player):
     await _connect(staff)
     await _link(player)
     second = await make_member(802, 'second')
-    assert 'patreon=taken' in await _link(second)
+    assert (await _link(second)).outcome == 'taken'
     await second.refresh_from_db()
     assert second.patreon_user_id is None
 

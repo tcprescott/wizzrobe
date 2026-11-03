@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Navigate, NavLink, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api, unwrap, type Schemas } from '../../api/client'
-import { ActionsMenu, Banner, Button, Chip, CountBadge, EmptyState, PageHeader, Panel, PanelRow, Spinner } from '../../components'
+import { ActionsMenu, Banner, Button, Chip, CountBadge, EmptyState, PageHeader, Panel, PanelRow, PatronBadge, Spinner } from '../../components'
 import { useCommunity } from '../../community/CommunityProvider'
 import { effectiveZone, formatDay } from '../../lib/time'
 import { DetailEmpty, SideListCard, SideListLayout, SideListRow } from '../kit/SideList'
@@ -133,7 +133,15 @@ function MemberList({ board, base, reload }: { board: Board; base: string; reloa
               key={m.id}
               to={`${base}/${m.id}`}
               leading={<Avatar name={m.preferred_name} url={m.avatar_url} />}
-              title={m.preferred_name}
+              title={
+                m.patron_badge ? (
+                  <>
+                    {m.preferred_name} <PatronBadge label={m.patron_badge} />
+                  </>
+                ) : (
+                  m.preferred_name
+                )
+              }
               sub={`${roleText(m)}${m.joined_at ? ` · joined ${formatDay(m.joined_at, zone)}` : ''}`}
               end={
                 !m.is_active ? (

@@ -9,7 +9,7 @@ proves itself with Patreon's signature.
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from fastapi.responses import RedirectResponse
+from fastapi.responses import HTMLResponse
 
 from api.dependencies import (
     ServiceErrorRoute,
@@ -18,6 +18,7 @@ from api.dependencies import (
     require_staff_write,
     require_write_actor,
 )
+from api.routers._patreon_done import done_page
 from api.schemas.patreon import (
     MyPatreonResponse,
     MyPatreonUpdate,
@@ -112,9 +113,10 @@ async def unlink(actor: User = Depends(require_write_actor)):
 
 # ── Sign-in callback and webhook (no token) ────────────────────────────
 
-@callback_router.get("/callback")
+@callback_router.get("/callback", response_class=HTMLResponse)
 async def patreon_callback(state: Optional[str] = None, code: Optional[str] = None, error: Optional[str] = None):
-    return RedirectResponse(await PatreonOAuthService().finish(state, code, error), status_code=status.HTTP_303_SEE_OTHER)
+    result = await PatreonOAuthService().finish(state, code, error)
+    return HTMLResponse(done_page(result.outcome, creator=result.creator), headers={'Cache-Control': 'no-store'})
 
 
 @webhook_router.post("/{token}", status_code=status.HTTP_200_OK)

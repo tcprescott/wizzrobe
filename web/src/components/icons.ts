@@ -60,6 +60,7 @@ import EventNoteIcon from '@material-symbols/svg-400/outlined/event_note.svg?rea
 import ExtensionIcon from '@material-symbols/svg-400/outlined/extension.svg?react'
 import FactCheckIcon from '@material-symbols/svg-400/outlined/fact_check.svg?react'
 import FavoriteIcon from '@material-symbols/svg-400/outlined/favorite.svg?react'
+import FavoriteFill from '@material-symbols/svg-400/outlined/favorite-fill.svg?react'
 import Feedback from '@material-symbols/svg-400/outlined/feedback.svg?react'
 import FlagIcon from '@material-symbols/svg-400/outlined/flag.svg?react'
 import FormatListNumberedIcon from '@material-symbols/svg-400/outlined/format_list_numbered.svg?react'
@@ -352,6 +353,7 @@ export const FILLED: Partial<Record<IconName, Svg>> = {
   stadium: StadiumFill,
   badge: BadgeFill,
   person: PersonFill,
+  favorite: FavoriteFill,
 }
 
 export type IconName = keyof typeof ICONS

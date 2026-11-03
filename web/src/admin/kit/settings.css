@@ -377,3 +377,58 @@
   cursor: pointer;
   min-height: 24px;
 }
+
+/* Patreon card */
+.patreon-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.patreon-facts {
+  display: grid;
+  grid-template-columns: minmax(96px, max-content) 1fr;
+  gap: 6px 24px;
+  margin: 0;
+}
+.patreon-facts dt {
+  color: var(--fg-muted);
+}
+.patreon-facts dd {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+.patreon-actions {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.patreon-actions > .btn {
+  flex: none;
+  width: auto;
+}
+.patreon-tiers .settings-list__row {
+  gap: 8px;
+}
+.patreon-tiers__move {
+  display: inline-flex;
+  flex-direction: column;
+}
+.patreon-tiers__input {
+  width: 160px;
+  flex: none;
+}
+@media (max-width: 599.98px) {
+  .patreon-facts {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .patreon-facts dd {
+    margin-bottom: 8px;
+  }
+  .patreon-tiers__input {
+    width: 120px;
+  }
+}

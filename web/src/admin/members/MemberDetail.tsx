@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { api, unwrap, type Schemas } from '../../api/client'
-import { Banner, Button, Chip, FormDialog, IconButton, RowMenu, Spinner, type MenuItem } from '../../components'
+import { Banner, Button, Chip, FormDialog, IconButton, PatronBadge, RowMenu, Spinner, type MenuItem } from '../../components'
 import { useCommunity } from '../../community/CommunityProvider'
 import { effectiveZone, formatDay, formatDayTime } from '../../lib/time'
 import { Detail, DetailLine, DetailSection } from '../kit/SideList'
@@ -200,7 +200,8 @@ export function MemberDetail({
       leading={<Avatar name={name} url={row?.avatar_url} size={48} />}
       title={
         <>
-          {name} {!data.is_active && <Chip tone="cancelled">Deactivated</Chip>}
+          {name} {data.patron?.is_patron && data.patron.badge_label && !data.patron.badge_hidden && <PatronBadge label={data.patron.badge_label} />}{' '}
+          {!data.is_active && <Chip tone="cancelled">Deactivated</Chip>}
         </>
       }
       sub={subBits.filter(Boolean).join(' · ')}
@@ -254,6 +255,21 @@ export function MemberDetail({
         </Button>
       </DetailSection>
       <Footprint d={data} zone={zone} />
+      {data.patron?.is_patron && (
+        <DetailSection title="Patreon">
+          <DetailLine
+            icon="favorite"
+            sub={[
+              data.patron.last_synced ? `Checked ${formatDayTime(data.patron.last_synced, zone)}` : null,
+              data.patron.badge_hidden ? 'they hide their badge' : 'badge shown',
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          >
+            Active patron · {data.patron.badge_label ?? 'Patron'}
+          </DetailLine>
+        </DetailSection>
+      )}
       {data.linked_accounts.length > 0 && (
         <DetailSection title="Linked accounts">
           {data.linked_accounts.map((a) => (

@@ -5,15 +5,11 @@ import { Button, Chip, Dialog, FormDialog, Icon, RowMenu, Spinner, type MenuItem
 import { effectiveZone, formatDayTime } from '../../../lib/time'
 import { websiteUrl } from '../../../reading/data'
 import { CheckList, ListCard, LoadError, SettingsCard, useAdminQuery, useDraft } from '../../kit'
+import { ago, DisconnectDialog, message, noContent, Notes, plural, useAction } from './integrationKit'
+import { PatreonCard } from './PatreonCard'
 
 type Webhook = Schemas['WebhookRow']
 type KeyRow = Schemas['RandomizerKeyRow']
-
-function message(err: unknown): string {
-  return err instanceof Error ? err.message : String(err)
-}
-
-const plural = (n: number, noun: string) => `${n} ${noun}${n === 1 ? '' : 's'}`
 
 const AUTO_SYNC: Record<number, string> = {
   0: 'Off',
@@ -22,24 +18,6 @@ const AUTO_SYNC: Record<number, string> = {
   60: 'Every hour',
   120: 'Every 2 hours',
   360: 'Every 6 hours',
-}
-
-function Notes({ note, failure }: { note?: string | null; failure?: string | null }) {
-  if (!note && !failure) return null
-  return (
-    <div className="settings-card__body">
-      {note && (
-        <p className="settings-saved" role="status">
-          {note}
-        </p>
-      )}
-      {failure && (
-        <p className="form-error" role="alert">
-          {failure}
-        </p>
-      )}
-    </div>
-  )
 }
 
 /** Sign-ins come back to the website, so connecting opens it there. */
@@ -51,71 +29,6 @@ function SignInButton({ label }: { label: string }) {
         {label}
       </a>
     </Button>
-  )
-}
-
-function useAction(reload: () => void) {
-  const [busy, setBusy] = useState(false)
-  const [note, setNote] = useState<string | null>(null)
-  const [failure, setFailure] = useState<string | null>(null)
-  async function run(action: () => Promise<string | null>): Promise<boolean> {
-    setBusy(true)
-    setFailure(null)
-    setNote(null)
-    try {
-      setNote(await action())
-      reload()
-      return true
-    } catch (err) {
-      setFailure(message(err))
-      return false
-    } finally {
-      setBusy(false)
-    }
-  }
-  return { busy, note, failure, run, clearFailure: () => setFailure(null) }
-}
-
-async function noContent(r: { response: Response; error?: unknown }) {
-  if (!r.response.ok) unwrap(r as never)
-}
-
-function DisconnectDialog({
-  service,
-  open,
-  onOpenChange,
-  description,
-  busy,
-  failure,
-  onConfirm,
-}: {
-  service: string
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  description: string
-  busy: boolean
-  failure: string | null
-  onConfirm: () => void
-}) {
-  return (
-    <FormDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title={`Disconnect ${service}?`}
-      description={description}
-      primaryLabel="Disconnect"
-      destructive
-      busy={busy}
-      busyLabel="Disconnecting…"
-      onPrimary={onConfirm}
-      size="sm"
-    >
-      {failure && (
-        <p className="form-error" role="alert">
-          {failure}
-        </p>
-      )}
-    </FormDialog>
   )
 }
 
@@ -369,14 +282,6 @@ function host(url: string): string {
   } catch {
     return url
   }
-}
-
-function ago(iso: string): string {
-  const minutes = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000))
-  if (minutes < 1) return 'just now'
-  if (minutes < 60) return `${minutes} min ago`
-  const hours = Math.round(minutes / 60)
-  return `${plural(hours, 'hour')} ago`
 }
 
 function webhookSub(w: Webhook): string {
@@ -923,6 +828,7 @@ export function Integrations() {
       {data.webhooks && <WebhooksCard />}
       {data.randomizer_keys && <RandomizerKeysCard />}
       {data.ai && <AiCard />}
+      {data.patreon && <PatreonCard />}
     </>
   )
 }

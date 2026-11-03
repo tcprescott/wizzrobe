@@ -28,13 +28,10 @@ from application.services.patreon_campaign_service import PatreonCampaignService
 from application.services.patron_service import PatronService, PatronStatus
 from application.tenant_context import tenant_scope
 from application.utils.clients.patreon_client import MEMBER_SCOPE, PatreonError
-from application.utils.environment import get_base_url
 from models import FeatureFlag, PatreonOAuthPurpose, User
 
 logger = logging.getLogger(__name__)
 
-CREATOR_RETURN = '/admin/settings/integrations'
-MEMBER_RETURN = '/me/accounts'
 
 
 class PatreonLinkTaken(ValueError):
@@ -148,6 +145,14 @@ class PatreonLinkService:
                     await self.repository.save_campaign(campaign, 'sync_requested_at')
 
 
+@dataclass(frozen=True)
+class SignInResult:
+    """How a Patreon sign-in ended: ``connected``, ``linked``, ``taken``, ``cancelled``, ``expired`` or ``failed``."""
+
+    outcome: str
+    creator: bool = False
+
+
 class PatreonOAuthService:
     """Where both Patreon sign-ins land: ``GET /api/patreon/callback``."""
 
@@ -155,16 +160,15 @@ class PatreonOAuthService:
         self.repository = PatreonRepository()
 
     # feature-gate: exempt — binds the sign-in's community and checks the flag there itself.
-    async def finish(self, state: Optional[str], code: Optional[str], error: Optional[str]) -> str:
-        """Complete the sign-in ``state`` names and return the URL to send the browser back to."""
+    async def finish(self, state: Optional[str], code: Optional[str], error: Optional[str]) -> SignInResult:
+        """Complete the sign-in ``state`` names and say how it went."""
         pending = await self.repository.pop_state(oauth.hash_state(state)) if state else None
         if pending is None:
-            return f'{get_base_url()}{MEMBER_RETURN}?patreon=expired'
+            return SignInResult('expired')
         creator = pending.purpose is PatreonOAuthPurpose.CREATOR
-        path = CREATOR_RETURN if creator else MEMBER_RETURN
         with tenant_scope(pending.tenant_id):
             outcome = await self._complete(pending.user_id, creator, pending.expires_at, code, error)
-            return await self._return_url(path, outcome)
+        return SignInResult(outcome, creator)
 
     async def _complete(
         self, user_id: int, creator: bool, expires_at: datetime, code: Optional[str], error: Optional[str],
@@ -191,13 +195,3 @@ class PatreonOAuthService:
         except ValueError as e:
             logger.info('Patreon sign-in did not finish: %s', e)
             return 'failed'
-
-    @staticmethod
-    async def _return_url(path: str, outcome: str) -> str:
-        from application.services import notification_links
-
-        link = await notification_links.link_for('Patreon', path)
-        base = link.url if link is not None else f'{get_base_url()}{path}'
-        joiner = '&' if '?' in base else '?'
-        return f'{base}{joiner}patreon={outcome}'
-

@@ -13,6 +13,12 @@ export const targets = [
     act: (p) => p.getByLabel('OoT Randomizer API key').fill('new-key'),
     wait: 'text=Unsaved changes',
   },
+  {
+    name: 'admin-settings-integrations-patreon-labels',
+    path: '/t/sgl/admin/settings/integrations',
+    act: (p) => p.getByRole('button', { name: 'Badge labels…' }).click(),
+    wait: 'role=dialog',
+  },
 ]
 
 export const fixtures = {
@@ -21,7 +27,24 @@ export const fixtures = {
     "startgg": true,
     "webhooks": true,
     "randomizer_keys": true,
-    "ai": true
+    "ai": true,
+    "patreon": true
+  },
+  "/api/settings/integrations/patreon": {
+    "configured": true,
+    "connected": true,
+    "campaign_name": "SpeedGaming",
+    "connected_by": "Thomas (you)",
+    "connected_at": "{{now-2d}}",
+    "last_synced_at": "{{now-12m}}",
+    "last_sync_error": null,
+    "sync_pending": false,
+    "linked_members": 37,
+    "patrons": 31,
+    "tiers": [
+      { "tier_id": "t-hero", "title": "Hero", "badge_label": "Hero patron" },
+      { "tier_id": "t-supporter", "title": "Supporter", "badge_label": null }
+    ]
   },
   "/api/settings/integrations/challonge": {
     "configured": true,

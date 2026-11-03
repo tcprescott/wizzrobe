@@ -38,8 +38,8 @@ async def test_connect_link_webhook_and_no_secrets_in_responses():
         url = r.json()['authorize_url']
     async with client_for(app) as anonymous:
         r = await anonymous.get('/api/patreon/callback', params={'state': _state(url), 'code': 'mock'})
-        assert r.status_code == 303 and 'patreon=connected' in r.headers['location']
-        assert '/admin/settings/integrations' in r.headers['location']
+        assert r.status_code == 200 and 'Patreon is connected' in r.text
+        assert r.headers['cache-control'] == 'no-store'
 
     async with client_for(app, staff_token) as client:
         card = await client.get('/api/settings/integrations/patreon')
@@ -54,7 +54,9 @@ async def test_connect_link_webhook_and_no_secrets_in_responses():
         url = (await client.post('/api/me/patreon/link')).json()['authorize_url']
     async with client_for(app) as anonymous:
         r = await anonymous.get('/api/patreon/callback', params={'state': _state(url), 'code': 'mock'})
-        assert 'patreon=linked' in r.headers['location'] and '/me/accounts' in r.headers['location']
+        assert r.status_code == 200 and 'Patreon is linked' in r.text
+        r = await anonymous.get('/api/patreon/callback', params={'state': _state(url), 'code': 'mock'})
+        assert 'That sign-in has expired' in r.text
     async with client_for(app, member_token) as client:
         mine = (await client.get('/api/me/patreon')).json()
         assert mine['linked'] and mine['here']['is_patron'] and mine['here']['badge_label'] == 'Hero patron'

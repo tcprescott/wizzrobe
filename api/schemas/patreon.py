@@ -65,7 +65,7 @@ class PatreonTierLabelsUpdate(BaseModel):
 
 
 class SignInUrlResponse(BaseModel):
-    authorize_url: str = Field(..., description="Open this in the browser; Patreon sends the person back to the app.")
+    authorize_url: str = Field(..., description="Open this in a browser tab. The tab ends on a page saying how it went; reload the card when the app comes back into focus.")
 
 
 class SyncQueuedResponse(BaseModel):

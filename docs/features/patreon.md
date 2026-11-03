@@ -4,7 +4,11 @@ A community connects its Patreon campaign; members link their Patreon account;
 active patrons get a badge in that community. Wizzrobe never handles money and
 never sees a pledge amount. Behind `FeatureFlag.PATREON` (off by default).
 
-Spec while it's being built: [docs/specs/patreon-patron-badges.md](../specs/patreon-patron-badges.md).
+Phase 1 is badges only. Thomas's picks (2026-11-03): screens in the new app
+only (NiceGUI has none), the member's token is dropped after linking, everyone
+sees the badge but a member can hide theirs, and it shows on the members list
+and the member sheet. Patron status never reaches outbound webhooks: there are
+no Patreon `EventType`s, on purpose.
 
 ## The entitlement
 
@@ -20,13 +24,16 @@ apply. `visible_badges()` is the bulk form for member lists.
 One platform Patreon OAuth app (`PATREON_CLIENT_ID` / `_SECRET`, see
 [deployment](../deployment.md)) serves both:
 
-| Who | Scopes | Starts at | Lands on |
-|---|---|---|---|
-| Staff, as the campaign's creator | `identity campaigns campaigns.members w:campaigns.webhook` | `POST /api/settings/integrations/patreon/connect` | `/admin/settings/integrations?patreon=…` |
-| Any member | `identity identity.memberships` | `POST /api/me/patreon/link` | `/me/accounts?patreon=…` |
+| Who | Scopes | Starts at |
+|---|---|---|
+| Staff, as the campaign's creator | `identity campaigns campaigns.members w:campaigns.webhook` | `POST /api/settings/integrations/patreon/connect` |
+| Any member | `identity identity.memberships` | `POST /api/me/patreon/link` |
 
-Both return an `authorize_url`; Patreon sends the browser to
-`GET /api/patreon/callback`, which has no session. A `PatreonOAuthState` row
+Both return an `authorize_url`, which the app opens in a browser tab (the
+in-app browser on a phone). Patreon sends that tab to
+`GET /api/patreon/callback`, which has no session and ends on a small page
+(`api/routers/_patreon_done.py`) saying how it went and to go back to the app;
+the app's card reloads when its window comes back into focus. A `PatreonOAuthState` row
 (SHA-256 of the state, single use, ten minutes) says who started it, in which
 community, and for what. Outcomes: `connected`, `linked`, `taken` (that Patreon
 account is linked to someone else), `cancelled`, `expired`, `failed`.
@@ -51,6 +58,9 @@ Patreon user id and name are kept, one Patreon account per Wizzrobe account.
   campaign's members 1,000 at a time, waits out 429s, and corrects every linked
   member's row; rows for people who left the community go.
 
+If a creator account has several campaigns, the first one Patreon lists is
+used.
+
 Every badge turning on or off writes `patreon.badge_granted` /
 `patreon.badge_revoked` (source `webhook`, `sync`, `link` or `unlink`).
 
@@ -63,6 +73,11 @@ Every badge turning on or off writes `patreon.badge_granted` /
   revoke row in each community where the badge was on, and `patreon.unlinked`.
 
 ## Surfaces
+
+In the app: the Patreon card on Settings → Integrations (Connect, Badge
+labels…, Sync now, ⋮ Disconnect…), the Patreon panel on Me → Accounts (Link,
+Show my badge, ⋮ Unlink…), and `PatronBadge` (filled heart plus label) beside
+the name on Admin → Members and the member sheet.
 
 REST as above plus `GET|PUT /api/settings/integrations/patreon[/tiers]`,
 `POST …/sync`, `DELETE …`, `GET|PATCH|DELETE /api/me/patreon`. Admin → Members
