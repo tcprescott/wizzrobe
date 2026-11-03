@@ -11,7 +11,13 @@ from dataclasses import fields
 
 import pytest
 
-from application.services.admin_nav_service import APP_ONLY_AREAS, AdminAccess, admin_areas, event_settings_panes, settings_panes
+from application.services.admin_nav_service import (
+    APP_ONLY_AREAS,
+    AdminAccess,
+    admin_areas,
+    event_settings_panes,
+    settings_panes,
+)
 from application.services.tenant_setup_service import SetupStep
 from models import FeatureFlag
 from pages.admin import build_admin_tabs
