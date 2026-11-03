@@ -285,6 +285,7 @@ _ROUTES: Dict[RouteScope, tuple[str, ...]] = {
         'GET /users/{user_id}/details',
         'GET /sent-messages',
         'GET /notification-settings',
+        'GET /admin/notifications',
         'GET /exports',
         'GET /exports/{export_id}',
         'GET /exports/{export_id}/download',

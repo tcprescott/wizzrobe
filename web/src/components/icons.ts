@@ -29,6 +29,7 @@ import CelebrationIcon from '@material-symbols/svg-400/outlined/celebration.svg?
 import ChairIcon from '@material-symbols/svg-400/outlined/chair.svg?react'
 import ChangeHistoryIcon from '@material-symbols/svg-400/outlined/change_history.svg?react'
 import ChatIcon from '@material-symbols/svg-400/outlined/chat.svg?react'
+import ChatBubbleIcon from '@material-symbols/svg-400/outlined/chat_bubble.svg?react'
 import Check from '@material-symbols/svg-400/outlined/check.svg?react'
 import CheckCircle from '@material-symbols/svg-400/outlined/check_circle.svg?react'
 import ChecklistIcon from '@material-symbols/svg-400/outlined/checklist.svg?react'
@@ -57,6 +58,7 @@ import EventBusy from '@material-symbols/svg-400/outlined/event_busy.svg?react'
 import EventNoteIcon from '@material-symbols/svg-400/outlined/event_note.svg?react'
 import ExtensionIcon from '@material-symbols/svg-400/outlined/extension.svg?react'
 import FactCheckIcon from '@material-symbols/svg-400/outlined/fact_check.svg?react'
+import FavoriteIcon from '@material-symbols/svg-400/outlined/favorite.svg?react'
 import Feedback from '@material-symbols/svg-400/outlined/feedback.svg?react'
 import FlagIcon from '@material-symbols/svg-400/outlined/flag.svg?react'
 import FormatListNumberedIcon from '@material-symbols/svg-400/outlined/format_list_numbered.svg?react'
@@ -101,6 +103,8 @@ import MonitorHeartIcon from '@material-symbols/svg-400/outlined/monitor_heart.s
 import MoreVert from '@material-symbols/svg-400/outlined/more_vert.svg?react'
 import IMusicNote from '@material-symbols/svg-400/outlined/music_note.svg?react'
 import Notifications from '@material-symbols/svg-400/outlined/notifications.svg?react'
+import NotificationsActiveIcon from '@material-symbols/svg-400/outlined/notifications_active.svg?react'
+import NotificationsOffIcon from '@material-symbols/svg-400/outlined/notifications_off.svg?react'
 import OpenInNew from '@material-symbols/svg-400/outlined/open_in_new.svg?react'
 import Palette from '@material-symbols/svg-400/outlined/palette.svg?react'
 import PauseIcon from '@material-symbols/svg-400/outlined/pause.svg?react'
@@ -193,6 +197,7 @@ export const ICONS = {
   chair: ChairIcon,
   change_history: ChangeHistoryIcon,
   chat: ChatIcon,
+  chat_bubble: ChatBubbleIcon,
   check: Check,
   check_circle: CheckCircle,
   checklist: ChecklistIcon,
@@ -221,6 +226,7 @@ export const ICONS = {
   event_note: EventNoteIcon,
   extension: ExtensionIcon,
   fact_check: FactCheckIcon,
+  favorite: FavoriteIcon,
   feedback: Feedback,
   flag: FlagIcon,
   format_list_numbered: FormatListNumberedIcon,
@@ -264,6 +270,8 @@ export const ICONS = {
   more_vert: MoreVert,
   music_note: IMusicNote,
   notifications: Notifications,
+  notifications_active: NotificationsActiveIcon,
+  notifications_off: NotificationsOffIcon,
   open_in_new: OpenInNew,
   palette: Palette,
   pause: PauseIcon,

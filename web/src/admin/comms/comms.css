@@ -1,0 +1,53 @@
+/* Shared by the comms admin areas: the search box and toggle chips in their toolbars. */
+.notify-search {
+  flex: 1 1 240px;
+  max-width: 360px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  padding: 0 10px;
+  min-height: 40px;
+  background: var(--surface);
+  color: var(--fg-muted);
+}
+.notify-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  outline: none;
+}
+.notify-search:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.filter-chip {
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  padding: 6px 12px;
+  min-height: 36px;
+  background: var(--surface);
+  color: var(--fg-secondary);
+  font: inherit;
+  font-weight: 700;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+.filter-chip--on {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--link);
+}
+.filter-chip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+@media (max-width: 767.98px) {
+  .notify-search {
+    max-width: none;
+  }
+}
