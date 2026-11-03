@@ -81,7 +81,6 @@ class TestMatchRoster:
             added = await c.patch(f'/api/matches/{match_id}', json={'player_ids': [member.id, outsider.id]})
             assert added.status_code == 404
 
-            # Someone already on the match who has since left stays editable around.
             await TenantMembershipRepository.remove(member.id, DEFAULT_TEST_TENANT_ID)
             edited = await c.patch(f'/api/matches/{match_id}', json={'comment': 'moved to stage 2'})
             assert edited.status_code == 200, edited.text

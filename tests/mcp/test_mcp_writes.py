@@ -17,16 +17,18 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from models import Match, MatchPlayers, Role, Stage, Tournament, User
+from application.api_scopes import READ_SCOPES, ApiScope, parse_scope
+from models import Commentator, Match, MatchPlayers, Role, Stage, Tournament, User
 from tests.api_helpers import create_community_member
 from tests.mcp.conftest import call_tool, create_oauth_token, mcp_session
 
 TENANT = 'default'
+READS = READ_SCOPES - {ApiScope.STAFF_READ}
 
-# Every write tool with arguments that reach the gate rather than failing
-# validation first. The gate runs before the tool body, so these need not name
-# rows that exist.
+# Arguments must reach the gate rather than fail validation first.
 WRITE_CALLS = {
+    'export_tournaments': {},
+    'export_volunteer_data': {'start': '2026-10-22T00:00:00', 'end': '2026-10-26T00:00:00'},
     'create_match': {
         'tournament_id': 1, 'scheduled_date': '2026-05-01',
         'scheduled_time': '18:00', 'player_ids': [1, 2],
@@ -37,6 +39,11 @@ WRITE_CALLS = {
     },
     'update_match': {'match_id': 1, 'comment': 'x'},
     'delete_match': {'match_id': 1},
+    'extend_match_to_set': {
+        'match_id': 1,
+        'later_games': [{'scheduled_date': '2026-05-01', 'scheduled_time': '20:00'},
+                        {'scheduled_date': '2026-05-01', 'scheduled_time': '22:00'}],
+    },
     'set_match_stream_candidate': {'match_id': 1, 'flag': True},
     'assign_match_stage': {'match_id': 1, 'stage_id': 1},
     'assign_match_stations': {'match_id': 1, 'assignments': {}},
@@ -47,6 +54,7 @@ WRITE_CALLS = {
     'record_match_result': {'match_id': 1, 'winner_id': 1},
     'set_match_review': {'match_id': 1, 'needs_review': True},
     'generate_match_seed': {'match_id': 1},
+    'set_crew_approval': {'crew_id': 1, 'role': 'commentator', 'approved': True},
     'signup_as_crew': {'match_id': 1, 'role': 'commentator'},
     'withdraw_crew_signup': {'match_id': 1, 'role': 'commentator'},
     'acknowledge_match': {'match_id': 1},
@@ -61,6 +69,9 @@ WRITE_CALLS = {
     'add_walk_up': {'event_id': 1, 'user_id': 1},
     'sync_check_in_event': {'event_id': 1},
     'check_in_volunteer': {'assignment_id': 1},
+    'call_off_volunteer': {'assignment_id': 1},
+    'call_off_volunteer_shift': {'shift_id': 1},
+    'undo_volunteer_call_off': {'assignment_id': 1},
     'approve_join_request': {'request_id': 1},
     'deny_join_request': {'request_id': 1},
     'create_tournament': {'name': 'Gate Cup'},
@@ -72,6 +83,7 @@ WRITE_CALLS = {
     'remove_crew_coordinator': {'tournament_id': 1, 'user_id': 1},
     'enroll_tournament_player': {'tournament_id': 1, 'user_id': 1},
     'remove_tournament_player': {'tournament_id': 1, 'user_id': 1},
+    'drop_tournament_player': {'tournament_id': 1, 'user_id': 1, 'reason': 'withdrew'},
     'link_challonge_tournament': {'tournament_id': 1, 'challonge': 'abc'},
     'unlink_challonge_tournament': {'tournament_id': 1},
     'sync_challonge_tournament': {'tournament_id': 1},
@@ -177,6 +189,26 @@ class TestTheRoleGateUnderneath:
         assert 'forbidden:' in payload, payload
         assert await Match.filter(id=match.id).exists()
 
+    async def test_broadcast_tech_runs_only_a_match_on_a_stage(self, db):
+        """Their Proctor Station lists stage matches only; this is the gate
+        that keeps an off-stage match out of reach over MCP too."""
+        _, raw = await create_oauth_token(roles=[Role.STREAM_MANAGER], write=True)
+        player = await create_community_member(discord_id=772101, username='p-stage')
+        off_stage = await _match(players=[player])
+        on_stage = await _match(players=[player])
+        stage = await Stage.create(name='Main Stage', is_active=True)
+        await Match.filter(id=on_stage.id).update(stage_id=stage.id)
+        async with mcp_session() as client:
+            is_error, payload = await call_tool(
+                client, raw, 'seat_match', tenant=TENANT, match_id=off_stage.id,
+            )
+            assert is_error, payload
+            assert 'forbidden:' in payload, payload
+            is_error, payload = await call_tool(
+                client, raw, 'seat_match', tenant=TENANT, match_id=on_stage.id,
+            )
+            assert not is_error, payload
+
 
 class TestTheWritesLand:
     async def test_create_match_returns_the_new_match(self, db):
@@ -221,8 +253,6 @@ class TestTheWritesLand:
             assert not is_error, payload
             assert payload['stage']['id'] == stage.id
 
-            # Omitting the id clears the stage rather than leaving it alone —
-            # the one argument whose absence means something.
             is_error, payload = await call_tool(
                 client, raw, 'assign_match_stage', tenant=TENANT,
                 match_id=match.id,
@@ -240,6 +270,35 @@ class TestTheWritesLand:
         assert not is_error, payload
         assert payload['ok'] is True
         assert not await Match.filter(id=match.id).exists()
+
+    async def test_a_crew_coordinator_approves_a_signup(self, db):
+        coordinator, raw = await create_oauth_token(roles=[Role.VOLUNTEER], write=True)
+        match = await _match()
+        await match.tournament.crew_coordinators.add(coordinator)
+        crew = await create_community_member(discord_id=771010, username='caster')
+        signup = await Commentator.create(match=match, user=crew)
+        async with mcp_session() as client:
+            is_error, payload = await call_tool(
+                client, raw, 'set_crew_approval', tenant=TENANT,
+                crew_id=signup.id, role='commentator', approved=True,
+            )
+        assert not is_error, payload
+        await signup.refresh_from_db()
+        assert signup.approved is True
+
+    async def test_crew_approval_refuses_a_plain_volunteer(self, db):
+        _, raw = await create_oauth_token(roles=[Role.VOLUNTEER], write=True)
+        match = await _match()
+        crew = await create_community_member(discord_id=771011, username='caster')
+        signup = await Commentator.create(match=match, user=crew)
+        async with mcp_session() as client:
+            is_error, payload = await call_tool(
+                client, raw, 'set_crew_approval', tenant=TENANT,
+                crew_id=signup.id, role='commentator', approved=True,
+            )
+        assert is_error and 'forbidden:' in payload, payload
+        await signup.refresh_from_db()
+        assert signup.approved is False
 
     async def test_a_tournament_in_another_community_cannot_be_scheduled_into(self, db):
         """A bare id must not be able to plant a match across the boundary.
@@ -324,50 +383,65 @@ class TestOrientationReportsTheGrant:
 
 
 class TestConsentDecidesTheGrant:
-    async def test_approving_without_the_box_mints_a_read_only_token(self, db):
-        from application.services.mcp_auth_service import READ_SCOPE, WRITE_SCOPE
-
-        _, token = await _approve(allow_write=False)
+    async def test_approving_the_reads_mints_a_read_only_token(self, db):
+        _, token = await _approve(scopes=READS)
         assert token.read_only is True
-        assert token.scope == READ_SCOPE
-        assert WRITE_SCOPE not in (token.scope or '')
+        assert parse_scope(token.scope) == READS
 
-    async def test_approving_with_the_box_mints_a_writing_token(self, db):
-        from application.services.mcp_auth_service import WRITE_SCOPE
-
-        _, token = await _approve(allow_write=True)
+    async def test_approving_a_change_mints_a_writing_token(self, db):
+        _, token = await _approve(scopes=READS | {ApiScope.PLAY})
         assert token.read_only is False
-        assert WRITE_SCOPE in token.scope
+        assert ApiScope.PLAY in parse_scope(token.scope)
+        assert ApiScope.CREW not in parse_scope(token.scope)
 
     @pytest.mark.parametrize('typed', [None, '', 'this is fine', 'dangerous'])
     async def test_write_without_the_phrase_is_refused(self, db, typed):
-        """Ticking the box is not enough; the sentence has to be typed."""
+        """Ticking a change is not enough; the sentence has to be typed."""
         service, user, txn = await _pending_grant()
         with pytest.raises(ValueError, match='this is dangerous'):
-            await service.approve(txn, user, allow_write=True, write_confirmation=typed)
-        # A typo must not burn the request: the same screen can try again.
+            await service.approve(txn, user, scopes={ApiScope.PLAY}, write_confirmation=typed)
         raw_code, _, _ = await service.approve(
-            txn, user, allow_write=True, write_confirmation='this is dangerous',
+            txn, user, scopes={ApiScope.PLAY}, write_confirmation='this is dangerous',
         )
         assert raw_code
 
     @pytest.mark.parametrize('typed', ['This Is Dangerous', '  this  is dangerous '])
     async def test_case_and_spacing_are_forgiven(self, db, typed):
         service, user, txn = await _pending_grant()
-        assert await service.approve(txn, user, allow_write=True, write_confirmation=typed)
+        assert await service.approve(txn, user, scopes={ApiScope.CREW}, write_confirmation=typed)
 
-    async def test_read_only_needs_no_phrase(self, db):
+    async def test_reads_need_no_phrase(self, db):
         service, user, txn = await _pending_grant()
-        assert await service.approve(txn, user, allow_write=False)
+        assert await service.approve(txn, user, scopes=READS)
 
-    async def test_a_client_requesting_write_still_gets_read_only(self, db):
+    async def test_nothing_ticked_is_refused(self, db):
+        service, user, txn = await _pending_grant()
+        with pytest.raises(ValueError, match='at least one'):
+            await service.approve(txn, user, scopes=set())
+
+    async def test_staff_areas_are_refused_without_a_staff_role(self, db):
+        service, user, txn = await _pending_grant()
+        assert ApiScope.STAFF_READ not in await service.offered_scopes(user)
+        with pytest.raises(ValueError, match='roles'):
+            await service.approve(txn, user, scopes={ApiScope.STAFF_READ})
+
+    async def test_staff_somewhere_is_offered_the_staff_areas(self, db):
+        from models import UserRole
+
+        service, user, _ = await _pending_grant()
+        await UserRole.create(user=user, role=Role.STAFF, tenant_id=1)
+        from application.repositories.tenant_membership_repository import TenantMembershipRepository
+        await TenantMembershipRepository.add(user, 1)
+        assert set(await service.offered_scopes(user)) == set(ApiScope)
+
+    async def test_a_client_requesting_write_still_gets_what_was_ticked(self, db):
         """The client asks; the human decides. Nothing else does.
 
         Without this, a client that pads its authorize request with
-        `scope=wizzrobe:write` would be granted it by default, and the box on
+        `scope=wizzrobe:write` would be granted it by default, and the boxes on
         the consent screen would be decoration.
         """
-        _, token = await _approve(allow_write=False, requested_scopes=[
+        _, token = await _approve(scopes=READS, requested_scopes=[
             'wizzrobe:read', 'wizzrobe:write',
         ])
         assert token.read_only is True
@@ -376,10 +450,11 @@ class TestConsentDecidesTheGrant:
         """Rotation re-keys the row, so the grant is fixed at consent."""
         from application.services import McpAuthService
 
-        _, token = await _approve(allow_write=False)
+        _, token = await _approve(scopes=READS)
         await McpAuthService().exchange_refresh(token)
         await token.refresh_from_db()
         assert token.read_only is True
+        assert parse_scope(token.scope) == READS
 
 
 async def _pending_grant(requested_scopes: list[str] | None = None):
@@ -414,7 +489,7 @@ async def _pending_grant(requested_scopes: list[str] | None = None):
     return service, user, txn
 
 
-async def _approve(*, allow_write: bool, requested_scopes: list[str] | None = None):
+async def _approve(*, scopes, requested_scopes: list[str] | None = None):
     """Drive one grant through consent and return ``(user, token)``."""
     from application.services.mcp_auth_service import WRITE_CONFIRMATION_PHRASE
     from models import ApiToken
@@ -422,8 +497,7 @@ async def _approve(*, allow_write: bool, requested_scopes: list[str] | None = No
     service, user, txn = await _pending_grant(requested_scopes)
     client_id = service.get_pending(txn).client_id
     raw_code, _, _ = await service.approve(
-        txn, user, allow_write=allow_write,
-        write_confirmation=WRITE_CONFIRMATION_PHRASE if allow_write else None,
+        txn, user, scopes=scopes, write_confirmation=WRITE_CONFIRMATION_PHRASE,
     )
     code = await service.load_code(client_id, raw_code)
     await service.exchange_code(code)

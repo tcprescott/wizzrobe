@@ -31,7 +31,7 @@ def _assignment(*, starts_in_min=10, length_min=120, **overrides):
     )
     defaults = dict(
         id=7, shift_id=3, shift=shift, user_id=42, auto_generated=False,
-        checked_in_at=None, checked_in_by_id=None, late_minutes=None,
+        checked_in_at=None, checked_in_by_id=None, late_minutes=None, called_off_at=None,
     )
     defaults.update(overrides)
     return SimpleNamespace(**defaults)

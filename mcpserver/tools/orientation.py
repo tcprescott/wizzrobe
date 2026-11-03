@@ -10,12 +10,14 @@ from typing import List
 
 from mcp.server.mcpserver import MCPServer
 
-from application.services import AuthService, FeatureFlagService
+from application.services import AuthService, EventService, FeatureFlagService
 from application.services.tenant_service import TenantService
 from application.tenant_context import tenant_scope
+from application.utils.build_info import build_info
 from mcpserver.auth import Gate, belongs_to_tenant, current_actor
 from mcpserver.registry import register
-from mcpserver.schemas import TenantInfo, WhoAmI
+from mcpserver.schemas import ServerVersion, TenantInfo, WhoAmI
+from mcpserver.tools.events import event_info
 
 
 async def _tenants_for_actor() -> List[TenantInfo]:
@@ -33,23 +35,19 @@ async def _tenants_for_actor() -> List[TenantInfo]:
     for tenant in await TenantService.list_tenants():
         if not tenant.is_active:
             continue
-        # Roles and flags are both per-tenant, so they have to be read inside
-        # each community's scope — the same predicate returns different answers
-        # per binding.
+        # Read inside each community's scope: roles and flags are per-tenant.
         with tenant_scope(tenant.id):
             if not is_super and not await belongs_to_tenant(actor.user):
                 continue
             roles = await AuthService.get_roles(actor.user)
-            # One query per community, and the reason a caller can skip a tool
-            # instead of discovering its `not_found` a round-trip later. A flag
-            # is not a permission: it is reported to everyone who can see the
-            # community, exactly as the feature's absence would be.
             features = await FeatureFlagService().enabled_flags()
+            events = [event_info(e) for e in await EventService.visible_events(actor.user)]
         out.append(TenantInfo(
             slug=tenant.slug,
             name=tenant.name,
             roles=sorted(role.value for role in roles),
             features=sorted(flag.value for flag in features),
+            events=events,
         ))
     return out
 
@@ -75,13 +73,27 @@ async def whoami() -> WhoAmI:
         username=actor.user.username,
         display_name=actor.user.display_name,
         is_super_admin=await AuthService.is_super_admin(actor.user),
-        # A property of the connection, not the person: the same user can hold
-        # a writing grant in one client and a reading one in another.
         can_write=not actor.token.read_only,
         tenants=await _tenants_for_actor(),
     )
 
 
+async def server_version() -> ServerVersion:
+    """Report which build of Wizzrobe is running: version, commit and its date.
+
+    Quote it when reporting a bug, or to check whether a fix has been deployed.
+    """
+    info = build_info()
+    return ServerVersion(
+        version=info.version,
+        commit=info.commit,
+        commit_short=info.commit_short,
+        commit_date=info.commit_date,
+        source_url=info.source_url,
+    )
+
+
 def register_tools(mcp: MCPServer) -> None:
-    register(mcp, list_tenants, gate=Gate.GLOBAL, title='List communities')
-    register(mcp, whoami, gate=Gate.GLOBAL, title='Who am I')
+    register(mcp, list_tenants, gate=Gate.GLOBAL, scope=None, title='List communities')
+    register(mcp, whoami, gate=Gate.GLOBAL, scope=None, title='Who am I')
+    register(mcp, server_version, gate=Gate.GLOBAL, scope=None, title='Server version')

@@ -32,7 +32,9 @@ def stub_storage(monkeypatch):
     async def fake_get_or_none(**kwargs):
         name = kwargs.get('name')
         if name in storage:
-            return SimpleNamespace(name=name, value=storage[name], save=AsyncMock())
+            return SimpleNamespace(
+                name=name, value=storage[name], save=AsyncMock(), _meta=SimpleNamespace(fields_map={}),
+            )
         return None
 
     async def fake_create(**kwargs):
@@ -47,6 +49,17 @@ def stub_storage(monkeypatch):
         'application.services.system_config_service.SystemConfiguration.create',
         fake_create,
     )
+
+    async def fake_get_event_raw(key):
+        return storage.get(key)
+
+    async def fake_set_event_raw(key, value):
+        old = storage.get(key)
+        storage[key] = value
+        return old
+
+    monkeypatch.setattr(SystemConfigService, '_get_event_raw', staticmethod(fake_get_event_raw))
+    monkeypatch.setattr(SystemConfigService, '_set_event_raw', staticmethod(fake_set_event_raw))
     return storage
 
 
@@ -64,11 +77,6 @@ def bypass_audit(monkeypatch):
 
 def make_user(user_id=1):
     return SimpleNamespace(id=user_id, username='staff')
-
-
-# ---------------------------------------------------------------------------
-# get_raw / get_int / get_date
-# ---------------------------------------------------------------------------
 
 
 class TestGetRaw:
@@ -119,26 +127,20 @@ class TestGetDate:
         assert await SystemConfigService.get_date('d', default=None) is None
 
 
-# ---------------------------------------------------------------------------
-# set_raw — permission gate, upsert, audit
-# ---------------------------------------------------------------------------
-
-
 class TestSetRaw:
     async def test_creates_new_when_missing(self, stub_storage, bypass_audit):
         await SystemConfigService.set_raw('new_key', 'new_value', make_user())
         assert stub_storage['new_key'] == 'new_value'
 
     async def test_updates_existing(self, stub_storage, bypass_audit, monkeypatch):
-        # Use a stronger stub that lets save() mutate the storage dict.
         stub_storage['k'] = 'old'
 
         async def fake_get_or_none(**kwargs):
             name = kwargs.get('name')
             if name not in stub_storage:
                 return None
-            obj = SimpleNamespace(name=name, value=stub_storage[name])
-            async def _save():
+            obj = SimpleNamespace(name=name, value=stub_storage[name], _meta=SimpleNamespace(fields_map={}))
+            async def _save(update_fields=None):
                 stub_storage[name] = obj.value
             obj.save = _save
             return obj
@@ -153,13 +155,12 @@ class TestSetRaw:
     async def test_writes_audit_log_with_old_and_new_values(self, stub_storage, bypass_audit):
         stub_storage['k'] = 'before'
 
-        # Replace get_or_none to return a settable namespace.
         async def fake_get_or_none(**kwargs):
             name = kwargs.get('name')
             if name not in stub_storage:
                 return None
-            ns = SimpleNamespace(name=name, value=stub_storage[name])
-            async def _save():
+            ns = SimpleNamespace(name=name, value=stub_storage[name], _meta=SimpleNamespace(fields_map={}))
+            async def _save(update_fields=None):
                 stub_storage[name] = ns.value
             ns.save = _save
             return ns
@@ -193,11 +194,6 @@ class TestSetRaw:
             await SystemConfigService.set_raw('k', 'v', make_user())
 
 
-# ---------------------------------------------------------------------------
-# get_event_window — fallback chain
-# ---------------------------------------------------------------------------
-
-
 def _patch_match_minmax(monkeypatch, first_at=None, last_at=None):
     """Patch Match.all().order_by('scheduled_at').first() and the reverse."""
     first_match = SimpleNamespace(scheduled_at=first_at) if first_at else None
@@ -218,12 +214,11 @@ def _patch_match_minmax(monkeypatch, first_at=None, last_at=None):
                 return last_match
             return None
 
-    def fake_filter(**_kwargs):
-        # The service now scopes by tenant: Match.filter(tenant_id=...).
-        return FakeQS('match_qs')
-
     monkeypatch.setattr(
-        'application.services.system_config_service.Match.filter', fake_filter,
+        'application.services.system_config_service.Match.all', lambda: FakeQS('match_qs'),
+    )
+    monkeypatch.setattr(
+        'application.services.system_config_service.event_scoped', lambda qs, *_a: qs,
     )
 
 
@@ -241,7 +236,6 @@ class TestGetEventWindow:
     ):
         _patch_match_minmax(
             monkeypatch,
-            # UTC 19:30 on Jan 15 = 14:30 Eastern Jan 15
             first_at=datetime(2025, 1, 15, 19, 30, tzinfo=timezone.utc),
             last_at=datetime(2025, 1, 18, 19, 30, tzinfo=timezone.utc),
         )
@@ -264,24 +258,18 @@ class TestGetEventWindow:
     async def test_falls_back_to_today_when_no_config_or_matches(
         self, stub_storage, monkeypatch,
     ):
-        _patch_match_minmax(monkeypatch)  # no matches
+        _patch_match_minmax(monkeypatch)
         start, end = await SystemConfigService.get_event_window()
-        # end falls back to start when only one date is derived.
         assert start == end
 
     async def test_end_never_before_start(self, stub_storage, monkeypatch):
         stub_storage[KEY_EVENT_START_DATE] = '2025-10-20'
-        stub_storage[KEY_EVENT_END_DATE] = '2025-10-15'  # before start
+        stub_storage[KEY_EVENT_END_DATE] = '2025-10-15'
         _patch_match_minmax(monkeypatch)
         start, end = await SystemConfigService.get_event_window()
         assert end >= start
         assert start == date(2025, 10, 20)
         assert end == date(2025, 10, 20)
-
-
-# ---------------------------------------------------------------------------
-# get_max_concurrent_players / get_max_concurrent_stages
-# ---------------------------------------------------------------------------
 
 
 class TestGetMaxConcurrentPlayers:
@@ -302,14 +290,12 @@ class TestGetMaxConcurrentPlayers:
 class TestGetMaxConcurrentStages:
     async def test_returns_configured_value(self, stub_storage, monkeypatch):
         stub_storage['max_concurrent_stages'] = '3'
-        # Stage.filter shouldn't be called when config has a positive value.
         assert await SystemConfigService.get_max_concurrent_stages() == 3
 
     async def test_falls_back_to_default(self, stub_storage):
         assert await SystemConfigService.get_max_concurrent_stages(default=4) == 4
 
     async def test_falls_back_to_active_stage_count(self, stub_storage, monkeypatch):
-        # No config, no default -> count of active stages.
         class FakeFilter:
             def __init__(self, count):
                 self._count = count
@@ -321,12 +307,10 @@ class TestGetMaxConcurrentStages:
             'application.services.system_config_service.Stage.filter',
             lambda **_kw: FakeFilter(5),
         )
+        monkeypatch.setattr(
+            'application.services.system_config_service.event_scoped', lambda qs, *_a: qs,
+        )
         assert await SystemConfigService.get_max_concurrent_stages() == 5
-
-
-# ---------------------------------------------------------------------------
-# get_station_format
-# ---------------------------------------------------------------------------
 
 
 class TestGetStationFormat:

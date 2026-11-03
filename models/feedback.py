@@ -1,3 +1,5 @@
+from typing import Optional
+
 from tortoise import fields
 from tortoise.models import Model
 
@@ -14,6 +16,10 @@ class Feedback(Model):
 
     id = fields.IntField(pk=True)
     tenant = fields.ForeignKeyField('models.Tenant', related_name='feedback', on_delete=fields.CASCADE)
+    event: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
+        'models.Event', related_name='feedback', on_delete=fields.SET_NULL, null=True,
+    )
+    event_id: Optional[int]
     user = fields.ForeignKeyField('models.User', related_name='feedback_submissions', on_delete=fields.CASCADE)
     category = fields.CharEnumField(FeedbackCategory, default=FeedbackCategory.OTHER, max_length=20)
     message = fields.TextField()

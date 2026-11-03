@@ -10,8 +10,6 @@ from models import Match, RacetimeBot, Tournament
 
 @pytest.fixture
 def display_service():
-    # _get_match_state / _format_match_for_display are pure formatting helpers
-    # (no repository access), so a plain instance is sufficient.
     return MatchDisplayService()
 
 
@@ -28,9 +26,11 @@ def make_match(**overrides):
         scheduled_at=datetime(2025, 1, 15, 19, 30),
         comment=None,
         tournament=SimpleNamespace(
-            name="Test Tournament", seed_generator=None, is_racetime_enabled=False,
-            required_commentators=1, required_trackers=1,
+            name="Test Tournament", short_label="Test", seed_generator=None,
+            is_racetime_enabled=False, required_commentators=1, required_trackers=1,
+            required_broadcasters=1,
         ),
+        event_id=1,
         stage=None,
         stage_id=None,
         generated_seed=None,
@@ -39,6 +39,7 @@ def make_match(**overrides):
         players=[],
         commentators=[],
         trackers=[],
+        broadcasters=[],
     )
     defaults.update(overrides)
     return SimpleNamespace(**defaults)
@@ -57,15 +58,11 @@ def make_player(name, *, discord_id="111", dm_notifications=True,
             discord_id=discord_id,
             dm_notifications=dm_notifications,
         ),
+        id=user_id + 1000,
         user_id=user_id,
         finish_rank=finish_rank,
         assigned_station=station,
     )
-
-
-# ---------------------------------------------------------------------------
-# _get_match_state
-# ---------------------------------------------------------------------------
 
 
 class TestGetMatchState:
@@ -93,14 +90,8 @@ class TestGetMatchState:
 
     def test_confirmed_beats_finished(self, display_service):
         now = datetime.now()
-        # Even without started_at, confirmed_at should dominate
         match = make_match(finished_at=now, confirmed_at=now)
         assert display_service._get_match_state(match) == "Confirmed"
-
-
-# ---------------------------------------------------------------------------
-# _format_match_for_display
-# ---------------------------------------------------------------------------
 
 
 class TestHasResult:
@@ -169,6 +160,15 @@ class TestFormatMatchForDisplay:
         result = display_service._format_match_for_display(match)
         assert result["stage_url"] == ""
 
+    def test_no_crew_needed_without_a_stage(self, display_service):
+        result = display_service._format_match_for_display(make_match(stage=None, stage_id=None))
+        assert result["crew_required"] == {"commentators": 0, "trackers": 0, "broadcasters": 0}
+
+    def test_crew_needed_once_on_a_stage(self, display_service):
+        match = make_match(stage=SimpleNamespace(name="Stage 1", stream_url=None), stage_id=3)
+        result = display_service._format_match_for_display(match)
+        assert result["crew_required"] == {"commentators": 1, "trackers": 1, "broadcasters": 0}
+
     def test_seed_empty_when_none(self, display_service):
         result = display_service._format_match_for_display(make_match(generated_seed=None))
         assert result["seed"] == ""
@@ -189,6 +189,7 @@ class TestFormatMatchForDisplay:
     def test_tournament_name_in_result(self, display_service):
         result = display_service._format_match_for_display(make_match())
         assert result["tournament"] == "Test Tournament"
+        assert result["tournament_short"] == "Test"
 
     def test_tournament_empty_when_none(self, display_service):
         match = make_match(tournament=None)
@@ -199,7 +200,7 @@ class TestFormatMatchForDisplay:
         player = make_player("Alice", discord_id="111", finish_rank=1, station="A")
         result = display_service._format_match_for_display(make_match(players=[player]))
         assert result["players"] == [
-            {"name": "Alice", "user_id": 7, "finish_rank": 1, "station": "A", "discord_id": "111"}
+            {"id": 1007, "name": "Alice", "user_id": 7, "finish_rank": 1, "station": "A", "discord_id": "111", "seed_ready": False}
         ]
 
     def test_multiple_players_all_included(self, display_service):
@@ -229,6 +230,8 @@ class TestFormatMatchForDisplay:
                 "acknowledged": False,
                 "ack_ts": "",
                 "id": 11,
+                "invited_by_id": None,
+                "with": "",
             }
         ]
 
@@ -276,11 +279,6 @@ class TestFormatMatchForDisplay:
         match = make_match(scheduled_at=None)
         result = display_service._format_match_for_display(match)
         assert result["scheduled_at"] == ""
-
-
-# ---------------------------------------------------------------------------
-# _format_match_for_display — proctor-board sort key and overdue flag
-# ---------------------------------------------------------------------------
 
 
 class TestFormatMatchOverdue:
@@ -332,11 +330,6 @@ class TestFormatMatchOverdue:
         assert result["scheduled_ts"] == datetime(2020, 1, 1, 12, 0, tzinfo=timezone.utc).timestamp()
 
 
-# ---------------------------------------------------------------------------
-# get_matches_for_display — exclude_racetime
-# ---------------------------------------------------------------------------
-
-
 @pytest.mark.asyncio
 class TestExcludeRacetime:
     async def test_exclude_racetime_omits_racetime_tournament_matches(self, db, display_service):
@@ -364,11 +357,6 @@ class TestExcludeRacetime:
         rows = await display_service.get_matches_for_display()
 
         assert {r['id'] for r in rows} == {onsite_match.id, online_match.id}
-
-
-# ---------------------------------------------------------------------------
-# get_matches_for_display — match_ids (the deep-linked board)
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
@@ -402,11 +390,6 @@ class TestMatchIdsFilter:
         assert {r['id'] for r in rows} == {one.id, two.id}
 
 
-# ---------------------------------------------------------------------------
-# _format_match_for_display — is_stream_candidate field
-# ---------------------------------------------------------------------------
-
-
 class TestFormatMatchIsStreamCandidate:
     def test_is_stream_candidate_false_by_default(self, display_service):
         result = display_service._format_match_for_display(make_match())
@@ -425,7 +408,8 @@ class TestFormatMatchIsRacetime:
     def test_is_racetime_true_when_tournament_racetime_enabled(self, display_service):
         match = make_match(
             tournament=SimpleNamespace(
-                name="Online Cup", seed_generator=None, is_racetime_enabled=True,
+                name="Online Cup", short_label="Online Cup", seed_generator=None,
+                is_racetime_enabled=True,
                 required_commentators=1, required_trackers=1,
             )
         )

@@ -9,23 +9,24 @@ from typing import Any, Dict, List, Optional
 from mcp.server.mcpserver import MCPServer
 
 from api._helpers import load_community_user_or_404
-from api._match_view import MATCH_PREFETCH
 from api.schemas.memberships import JoinRequestResponse
-from application.errors import require_found
+from application.api_scopes import ApiScope
 from application.services import (
     AuthService,
+    CrewService,
+    MemberDetailsService,
     PlayerAvailabilityService,
     ReportsService,
     TenantMembershipService,
     UserService,
 )
-from application.tenant_context import require_tenant_id
 from mcpserver.auth import Gate, current_actor
 from mcpserver.registry import register
 from mcpserver.schemas import (
     AvailabilityWindow,
     CrewMemberInfo,
     MatchCrew,
+    MemberDetailsInfo,
     PlayerAvailability,
     TenantArg,
     UserDetail,
@@ -33,8 +34,6 @@ from mcpserver.schemas import (
 )
 from mcpserver.tools._args import window as _window
 
-# A scheduling question asks about a squad, not a census. The cap keeps one call
-# from turning into a whole-community availability dump.
 MAX_AVAILABILITY_USERS = 50
 
 
@@ -56,8 +55,6 @@ async def list_users(
         except ValueError as exc:
             valid = ', '.join(r.value for r in Role)
             raise ValueError(f"Unknown role '{role}'. Valid roles: {valid}") from exc
-    # The community's members, not the platform's user table — a session
-    # resolves one tenant and every other tool here is community-scoped.
     users = await UserService().get_community_people(role=parsed, has_discord=has_discord)
     return [UserSummary.model_validate(u, from_attributes=True) for u in users]
 
@@ -74,13 +71,10 @@ async def get_user(
     actor = current_actor()
     if user_id != actor.user.id and not await AuthService.is_staff(actor.user):
         raise PermissionError('Staff access required to view another user')
-    # Scoped, like `list_users` above and the REST route this mirrors: `User` is
-    # global, so a bare id lookup let staff of any one community read every
-    # account on the platform by counting upwards.
+    # Must stay community-scoped: User is global, so a bare id lookup would expose every account.
     user = await load_community_user_or_404(user_id, actor.user)
     roles = await AuthService.get_roles(user)
-    # Built field by field: `User.roles` is the ORM's reverse relation, which
-    # `from_attributes` would try (and fail) to read as the list of role names.
+    # Build field by field: from_attributes would read the User.roles reverse relation as role names.
     return UserDetail(
         **UserSummary.model_validate(user, from_attributes=True).model_dump(),
         roles=sorted(r.value for r in roles),
@@ -90,24 +84,36 @@ async def get_user(
     )
 
 
+async def get_member_details(
+    user_id: int,
+    tenant: TenantArg = None,
+) -> MemberDetailsInfo:
+    """Everything this community knows about one member, for troubleshooting.
+
+    Requires staff. The same data as clicking a name on Admin → Members: roles,
+    tournaments, upcoming matches and shifts, how DMs reach them (Discord,
+    devices, email, Telegram), every message they can get with the community's
+    setting, their own choice and what they actually get (`effective`, with a
+    `reason` when the two differ), and the last DMs sent to them here. Use it to
+    answer "why didn't they get told?". Someone outside this community is not
+    found. Times are UTC.
+    """
+    details = await MemberDetailsService().get(user_id, actor=current_actor().user)
+    return MemberDetailsInfo.build(details)
+
+
 async def list_match_crew(
     match_id: int,
     tenant: TenantArg = None,
 ) -> MatchCrew:
-    """List a match's commentators and trackers, including pending signups.
+    """List a match's crew (commentators, trackers, broadcasters), including pending signups.
 
-    Requires admin access. `get_match` deliberately hides unapproved crew from
-    everyone; this is the coordinator's view of who has actually volunteered, so
-    it sits behind a higher gate than the match itself.
+    Staff, or an admin or crew coordinator of the match's tournament. `get_match`
+    deliberately hides unapproved crew from everyone; this is the approver's
+    view of who has actually volunteered, so it sits behind the same gate as
+    approving them.
     """
-    from models import Match
-
-    match = require_found(
-        await Match.filter(id=match_id, tenant_id=require_tenant_id())
-        .prefetch_related(*MATCH_PREFETCH)
-        .first(),
-        'Match',
-    )
+    match = await CrewService().get_match_crew(match_id, current_actor().user)
 
     def to_info(row) -> CrewMemberInfo:
         return CrewMemberInfo(
@@ -124,6 +130,7 @@ async def list_match_crew(
         match_id=match.id,
         commentators=[to_info(c) for c in match.commentators],
         trackers=[to_info(t) for t in match.trackers],
+        broadcasters=[to_info(b) for b in match.broadcasters],  # type: ignore[attr-defined]
     )
 
 
@@ -136,12 +143,15 @@ async def crew_coverage_report(
 ) -> Dict[str, Any]:
     """Crew coverage across a window: which matches have commentary and tracking.
 
-    Requires admin access. `start` and `end` are ISO 8601 timestamps.
+    `tournament_rows` answers "who crewed how many matches of each tournament":
+    approved crew on finished matches that went to a stage, split into
+    commentary, tracker and broadcast. The other counts include unstaged and upcoming
+    matches. Requires admin access. `start` and `end` are ISO 8601 timestamps.
     """
     start_dt, end_dt = _window(start, end)
     return await ReportsService().crew_coverage(
         start=start_dt, end=end_dt,
-        tournament_id=tournament_id, approved_only=approved_only,
+        tournament_id=tournament_id, approved_only=approved_only, actor=current_actor().user,
     )
 
 
@@ -169,16 +179,15 @@ async def get_player_availability(
         raise ValueError(
             f'user_ids is limited to {MAX_AVAILABILITY_USERS} players per call'
         )
-    if wanted != [actor.user.id] and not await AuthService.is_staff(actor.user):
-        raise PermissionError("Staff access required to view other players' availability")
+    # Staff-or-self check first, so naming strangers reveals nothing about membership.
+    windows_by_user = await PlayerAvailabilityService().availability_map_as(
+        wanted, start_dt, end_dt, actor=actor.user,
+    )
     await TenantMembershipService.require_community_users(
         [uid for uid in wanted if uid != actor.user.id], actor.user,
     )
 
     service = UserService()
-    windows_by_user = await PlayerAvailabilityService().availability_map(
-        wanted, start_dt, end_dt,
-    )
     out: List[PlayerAvailability] = []
     for user_id in wanted:
         user = await service.get_user_by_id(user_id)
@@ -210,12 +219,14 @@ async def list_join_requests(tenant: TenantArg = None) -> List[JoinRequestRespon
 
 
 def register_tools(mcp: MCPServer) -> None:
-    register(mcp, list_join_requests, gate=Gate.STAFF, title='List join requests')
-    register(mcp, list_users, gate=Gate.STAFF, title='List users')
-    register(mcp, get_user, gate=Gate.ACTOR, title='Get user')
+    register(mcp, list_join_requests, gate=Gate.STAFF, scope=ApiScope.STAFF_READ, title='List join requests')
+    register(mcp, list_users, gate=Gate.STAFF, scope=ApiScope.STAFF_READ, title='List users')
+    register(mcp, get_user, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ, title='Get user')
+    register(mcp, get_member_details, gate=Gate.STAFF, scope=ApiScope.STAFF_READ, title='Get member details')
     register(
-        mcp, get_player_availability, gate=Gate.ACTOR,
+        mcp, get_player_availability, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ,
         title='Get player availability',
+        event=True,
     )
-    register(mcp, list_match_crew, gate=Gate.ADMIN, title='List match crew')
-    register(mcp, crew_coverage_report, gate=Gate.ADMIN, title='Crew coverage report')
+    register(mcp, list_match_crew, gate=Gate.ADMIN, scope=ApiScope.STAFF_READ, title='List match crew', event=True)
+    register(mcp, crew_coverage_report, gate=Gate.ADMIN, scope=ApiScope.STAFF_READ, title='Crew coverage report', event=True)

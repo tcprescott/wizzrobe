@@ -10,14 +10,17 @@ from typing import Optional
 
 from nicegui import ui
 
+from application.api_scopes import parse_scope
 from application.services import ApiTokenService
 from application.utils.environment import get_base_url
 from application.utils.timezone import format_local_date, format_local_display
 from models import ApiTokenOrigin, User
+from pages.home_tabs.developer_apps_section import SCOPE_LABELS
 from theme.clipboard import copy_to_clipboard
 from theme.dialog._helpers import dialog_actions, form_dialog
 from theme.dialog.confirmation_dialog import ConfirmationDialog
 from theme.dialog.secret_dialog import show_secret_dialog
+from theme.steady import steady_refreshable
 
 EXPIRY_CHOICES: dict[str, Optional[timedelta]] = {
     '8 hours': timedelta(hours=8),
@@ -41,7 +44,7 @@ def expiry_hint(choice: str, now: datetime) -> str:
 async def render_api_tokens_section(user: User) -> None:
     service = ApiTokenService()
 
-    @ui.refreshable
+    @steady_refreshable
     async def token_list() -> None:
         tokens = await service.list_tokens(user)
         if not tokens:
@@ -50,6 +53,7 @@ async def render_api_tokens_section(user: User) -> None:
         with ui.column().classes('input-full-width gap-0'):
             for i, t in enumerate(tokens):
                 is_oauth = t.origin == ApiTokenOrigin.OAUTH.value
+                is_app = t.origin == ApiTokenOrigin.APP.value
                 if i:
                     ui.separator().classes('q-my-sm')
                 with ui.row().classes('items-center no-wrap w-full gap-2'):
@@ -57,16 +61,11 @@ async def render_api_tokens_section(user: User) -> None:
                         with ui.row().classes('items-center gap-1'):
                             ui.label(t.name).classes('text-weight-medium')
                             if is_oauth:
-                                # The row's label is already the client name (it
-                                # is what the token was named at issue), so the
-                                # badge marks the *kind* rather than repeating it.
                                 ui.badge('AI client').props('color=primary')
-                                # Only the writing grant is badged. Read-only is
-                                # the default and the unremarkable case; the
-                                # badge is here to make the other one visible on
-                                # a page people skim.
                                 if not t.read_only:
                                     ui.badge('can make changes').props('color=warning')
+                            elif is_app:
+                                ui.badge('App').props('color=primary')
                             elif t.read_only:
                                 ui.badge('read-only').props('color=grey')
                         used = (
@@ -74,17 +73,22 @@ async def render_api_tokens_section(user: User) -> None:
                             if t.last_used_at else 'Never used'
                         )
                         expires = ''
-                        if t.expires_at:
-                            # A short-lived token needs the hour; a date alone reads as "all day".
+                        if t.expires_at and not is_app:
                             soon = t.expires_at - datetime.now(timezone.utc) < timedelta(days=2)
                             fmt = format_local_display if soon else format_local_date
                             expires = f' · Expires {fmt(t.expires_at)}'
-                        prefix = '' if is_oauth else f'{t.token_prefix}… · '
+                        prefix = '' if (is_oauth or is_app) else f'{t.token_prefix}… · '
                         ui.label(prefix + used + expires) \
                             .classes('text-caption text-grey-7') \
                             .style('overflow-wrap: anywhere')
-                    label = f'Disconnect {t.name}' if is_oauth else f'Revoke {t.name}'
-                    ui.button(icon='delete', on_click=lambda _, tid=t.id, o=is_oauth: revoke(tid, o)) \
+                        areas = parse_scope(t.scope) if (is_app or is_oauth) else frozenset()
+                        if areas:
+                            with ui.row().classes('items-center gap-1'):
+                                for scope in sorted(areas, key=list(SCOPE_LABELS).index):
+                                    ui.badge(SCOPE_LABELS[scope]).props('outline color=grey-8')
+                    connected = is_oauth or is_app
+                    label = f'Disconnect {t.name}' if connected else f'Revoke {t.name}'
+                    ui.button(icon='delete', on_click=lambda _, tid=t.id, o=connected: revoke(tid, o)) \
                         .classes('col-auto') \
                         .props('flat dense round color=negative') \
                         .tooltip(label)
@@ -99,7 +103,7 @@ async def render_api_tokens_section(user: User) -> None:
             token_list.refresh()
 
         message = (
-            'Disconnect this AI client? It will lose access immediately and must '
+            'Disconnect this? It will lose access immediately and must '
             'be reconnected to use Wizzrobe again.'
             if is_oauth else
             'Revoke this token? Any integration using it will stop working immediately.'
@@ -164,8 +168,6 @@ async def render_api_tokens_section(user: User) -> None:
         that is the OAuth flow, which signs them in and shows a consent screen.
         """
         mcp_url = f'{get_base_url()}/mcp'
-        # Not a nested card: inside the expansion a second border and padding
-        # cost a phone a third of its width, and the URL was cut to a few letters.
         with ui.row().classes('items-center gap-2 no-wrap'):
             ui.icon('smart_toy').classes('text-primary')
             ui.label('Connect an AI client').classes('subsection-title')
@@ -173,8 +175,6 @@ async def render_api_tokens_section(user: User) -> None:
             'Add this URL as a custom connector in Claude or any MCP client. '
             "It's read-only unless you allow changes when you approve it."
         ).classes('text-muted text-caption')
-        # Shown whole, wrapping if it must: a readonly input cut the URL to a
-        # few letters on a phone, and the copy button is how it gets used.
         with ui.row().classes('items-center no-wrap w-full gap-2 q-mt-xs'):
             ui.label(mcp_url).classes('col min-w-0') \
                 .style('font-family: var(--font-mono); font-size: 0.8125rem; overflow-wrap: anywhere')
@@ -184,8 +184,6 @@ async def render_api_tokens_section(user: User) -> None:
             ).classes('col-auto').props('flat dense round').tooltip('Copy MCP server URL')
         ui.separator().classes('q-my-md')
 
-    # Developer-only surface — collapsed by default so it doesn't dominate the
-    # profile for the majority of users who never touch the REST API.
     with ui.card().classes('card-full-width'):
         with ui.expansion('API tokens & AI clients', icon='vpn_key').classes('w-full') \
                 .props('header-class=text-weight-bold'):

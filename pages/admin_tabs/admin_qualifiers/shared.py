@@ -49,17 +49,12 @@ def enum_value(value: Any) -> str:
     return value.value if hasattr(value, 'value') else str(value)
 
 
-# Terminal run states a reattempt can be granted on — an in-progress run is
-# finished or forfeited first.
 GRANTABLE_STATUSES = {'finished', 'forfeit', 'disqualified'}
 
 _FINISHED = AsyncQualifierRunStatus.FINISHED.value
 _PENDING = AsyncQualifierReviewStatus.PENDING.value
 
-# The drill-down's tabs, by name rather than by element: the name is what
-# ``state['tab']`` carries across a rebuild, and what each per-tab loader is keyed
-# on. A refreshable detail view resets its panel to the default on every rebuild,
-# so without this a reviewer is thrown out of the queue after each verdict.
+# Tabs are addressed by name so `state['tab']` survives a rebuild of the detail view.
 POOLS_TAB = 'Pools'
 LIVE_TAB = 'Live Races'
 QUEUE_TAB = 'Review Queue'
@@ -67,20 +62,12 @@ RUNS_TAB = 'Runs'
 BOARD_TAB = 'Leaderboard'
 REVIEWERS_TAB = 'Reviewers'
 
-# Client-side paging over rows already loaded, matching the family boards. Absent
-# a pagination prop, ``page_size`` resolves to 0 — Quasar's "every row" — and a
-# real qualifier's Runs tab renders thousands of rows into a single page.
+# Keep a pagination prop: without one Quasar renders every row on one page.
 RUNS_PAGE = {'rowsPerPage': 25, 'page': 1}
 BOARD_PAGE = {'rowsPerPage': 50, 'page': 1}
-# The review queue is cards rather than a table, so it cannot page: it renders
-# this many and offers the rest behind a control. Working a queue is a
-# front-to-back job, so the tail is the part nobody is looking at yet.
 QUEUE_PAGE_SIZE = 20
-# A pool's permalinks are a plain list of links. Past this many the Pools tab is
-# scrolling rather than showing, so the tail goes behind an expansion.
 POOL_PERMALINK_PREVIEW = 10
 
-# ``v-if`` on the row's own flag: a voided or in-progress run offers nothing.
 GRANT_ACTION = '''
     <q-btn v-if="props.row.grantable" flat dense icon="restart_alt" color="primary"
            label="Grant reattempt"
@@ -101,7 +88,7 @@ RUNS_COLUMNS: Sequence[Dict[str, Any]] = [
      'sortable': True},
     {'name': 'status', 'label': 'Status', 'field': 'status', 'sortable': True},
     {'name': 'review', 'label': 'Review', 'field': 'review', 'sortable': True},
-    # HH:MM:SS is zero-padded, so a lexical sort is a chronological one.
+    # Zero-padded HH:MM:SS, so a lexical sort is chronological.
     {'name': 'claimed', 'label': 'Claimed', 'field': 'claimed', 'sortable': True},
     {'name': 'timed', 'label': 'Timed', 'field': 'timed', 'sortable': True},
     {'name': 'score', 'label': 'Score', 'field': 'score', 'sortable': True},
@@ -114,7 +101,7 @@ BOARD_COLUMNS: Sequence[Dict[str, Any]] = [
      'sortable': True},
     {'name': 'actual', 'label': 'Score', 'field': 'actual', 'sortable': True},
     {'name': 'estimate', 'label': 'Estimate', 'field': 'estimate', 'sortable': True},
-    # Not sortable: 'filled/total' is a composite, and 2/9 would sort above 10/10.
+    # Not sortable: 'filled/total' sorts 2/9 above 10/10.
     {'name': 'slots', 'label': 'Slots', 'field': 'slots'},
 ]
 
@@ -147,8 +134,6 @@ def run_rows(runs) -> list:
             'id': run.id,
             'player': run.user.display_name or run.user.username,
             'pool': (run.permalink.pool.name if run.permalink and run.permalink.pool else '—'),
-            # Humanised rather than the raw enum: both tables were rendering the
-            # database's vocabulary at people.
             'status': status_label(run) + (' (voided)' if run.reattempted else ''),
             'review': review_label(run),
             'claimed': format_hms(run.elapsed_seconds),
@@ -156,8 +141,6 @@ def run_rows(runs) -> list:
             'score': '' if run.score is None else round(run.score, 1),
             'grantable': (not run.reattempted
                           and enum_value(run.status) in GRANTABLE_STATUSES),
-            # A verdict can only be overturned where there is one: a finished run
-            # already approved or rejected, and not since voided.
             'reversible': (not run.reattempted
                            and enum_value(run.status) == _FINISHED
                            and enum_value(run.review_status) != _PENDING),

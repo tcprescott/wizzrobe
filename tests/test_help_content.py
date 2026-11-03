@@ -232,7 +232,6 @@ class TestCatalogue:
         body = plain_text(list(article.blocks))
         snippet_body = plain_text(list(get_snippet('match-states').blocks))
         assert ':::' not in body
-        # Every sentence the popup shows is also in the article it links to.
         assert snippet_body[:60] in body
 
     def test_search_narrows_as_terms_are_added(self):

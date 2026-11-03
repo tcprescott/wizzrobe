@@ -26,7 +26,7 @@ The intro, including the getting-started recipes, is `api_description()` in the 
 
 ## Authentication
 
-**Every endpoint requires a personal bearer token**, with two exceptions: the unauthenticated `GET /api/health` liveness probe (see [Health](#health-apihealth--healthpy)) and `POST /api/web-push/rotate` (see [Web push](#web-push-apiweb-push--web_pushpy)), whose only caller is a service worker with no session to present.
+**Every endpoint requires a personal bearer token**, with three exceptions: the unauthenticated `GET /api/health` liveness probe (see [Health](#health-apihealth--healthpy)), `GET /api/version` (see [Version](#version-apiversion--versionpy)), and `POST /api/web-push/rotate` (see [Web push](#web-push-apiweb-push--web_pushpy)), whose only caller is a service worker with no session to present.
 
 Generate a token on the home **Profile** tab (the *API tokens & AI clients* card), then send it on each request:
 
@@ -43,12 +43,26 @@ Tokens can also be managed programmatically via the `/api/tokens` endpoints (cre
 
 **MCP tokens are not REST credentials.** `ApiToken` also stores the platform-wide OAuth tokens issued to MCP clients (`origin='oauth'`, `tenant=NULL`); those are refused here with `401`, and a personal access token is refused at `/mcp` with `401` plus the OAuth challenge. A credential minted for one surface can never be replayed against the other. The MCP server is a sibling entry surface, not part of this API — see [features/mcp-server.md](../features/mcp-server.md).
 
+### Wizzrobe's own app (first-party)
+
+The new app in [`web/`](../../web/README.md) signs in once at the `/oauth` server as a **first-party public client** (`OAuthApp.first_party`, set only by `scripts/register_first_party_app.py`; the dev seed registers `wizzrobe-app` for `localhost:5173`/`4173`). It skips the consent screen, and its grant (`origin='app'`, `tenant=NULL`) names no community. Instead **every call names one in the `X-Wizzrobe-Community: <slug>` header**: missing is `400`, an unknown slug `404`, and a community the person doesn't belong to `403` (a super-admin excepted), exactly as for a PAT. The scope table and the `third_party_apps` flag don't apply to it. Signing in on a second device keeps the first one signed in. `GET /api/me/communities` (no header needed; first-party or PAT only) lists the communities, roles and openable events to pick from.
+
+### App scopes
+
+Third-party apps signed in through OAuth call this same API with tokens of `origin='app'`. Such a token carries the scopes its user approved, space-separated in `ApiToken.scope`, and `resolve_token` refuses any route outside them with `403` and `WWW-Authenticate: Bearer error="insufficient_scope", scope="<needed>"`.
+
+- **Personal access tokens are unscoped** and skip the check entirely; a read-only PAT is still limited by `require_write_actor` as before.
+- **The vocabulary** (eight area scopes: `profile`, `profile:write`, `schedule:read`, `play`, `crew`, `volunteer`, `staff:read`, `staff:write`, with their consent wording) lives in [`application/api_scopes.py`](../../application/api_scopes.py), shared with the authorization server.
+- **The route table** in [`api/scopes.py`](../../api/scopes.py) lists every route exactly once: under the scope an app needs, under `PAT_ONLY` (tokens, webhooks, config, Discord role mappings, service health, racetime bots, `/platform`), or under `PUBLIC` (the two tokenless routes). A route missing from the table is refused for apps. `tests/api/test_scopes.py` fails when a route is unmapped, when a staff-gated route sits under a non-staff scope, when a super-admin route isn't `PAT_ONLY`, or when a read lands on a write-only scope (or the reverse). **Adding an endpoint means adding a line there.**
+- **Scopes only narrow.** The service's own role checks still run, so `staff:read` on a player's grant reaches nothing.
+- `/api/docs` shows each endpoint's scope (or "Apps: can't call this") and declares a `WizzrobeApps` OAuth 2 security scheme with the scope list.
+
 ### Status codes
 
 | Code | Meaning |
 |---|---|
 | `401` | Missing, malformed, unknown, revoked, or expired token |
-| `403` | Inactive account or tenant, read-only token used for a write, or the user lacks the required role/scope (`PermissionError` from a service) |
+| `403` | Inactive account or tenant, read-only token used for a write, an app token without the route's scope, or the user lacks the required role (`PermissionError` from a service) |
 | `400` | Validation/business-rule error (`ValueError` from a service) |
 | `404` | Entity not found (`NotFoundError` from a service, including `FeatureDisabledError`), or a feature-flag-gated router the tenant hasn't enabled |
 | `422` | Request body/query failed schema validation |
@@ -63,6 +77,33 @@ Tokens can also be managed programmatically via the `/api/tokens` endpoints (cre
 
 It runs **before** authentication, so unauthenticated floods are capped too. The client IP is always enforced as a ceiling; a *well-formed* bearer token additionally gets its own bucket (keyed by SHA-256 hash, never the raw secret) so one client's traffic is throttled independently below that ceiling. Garbage or rotating bearer values fall through to the IP key — the `wizzrobe_pat_` prefix is public, so bucketing solely on a presented token would let an attacker mint a fresh empty bucket per request. `X-Forwarded-For` is trusted only when `TRUST_PROXY_FORWARDED_FOR` is set, since the header is client-spoofable.
 
+A third-party app's calls also count against one bucket for the whole app (`API_APP_RATE_LIMIT_PER_MIN`, default 600), checked once its grant is resolved. A refusal there says so (`This app is making too many requests`) with `Retry-After`. See [OAuth apps › Limits](../features/oauth-apps.md#limits-and-browser-access), which also covers CORS for browser apps.
+
+### Events
+
+A token is bound to one community; within it, a call works in one **event**
+([events.md](../features/events.md)).
+
+- **Event-owned routers** (matches, tournaments, brackets, stages, volunteers,
+  check-in, qualifiers, race rooms, reports, seeds, triforce texts, SpeedGaming,
+  crew, payouts, reschedule requests, Discord events) attach
+  `Depends(event_binding(**rows))` from `api/dependencies.py`. It reads an
+  optional `?event=<slug>`; leaving it out keeps the default event. `rows` maps
+  each path parameter that names a row to its model (`match_id=Match`): such a
+  call works in the row's own event, and an `event` that names another one is
+  `404`, the same wall as another community's row. A draft is `404` for anyone
+  `EventService.can_view` refuses. `tests/api/test_event_binding.py` fails when
+  an event-owned router has no binding, or a path parameter is neither mapped
+  nor listed in its `NOT_ROWS`.
+- **A write in an archived event is `409`** (`EventArchivedError`).
+- **Community-wide reports** (audit, sent messages, telemetry) take
+  `Depends(event_filter)` instead: `?event=` narrows the rows to that event and
+  binds nothing; left out, every row comes back, including ones that belong to
+  no event.
+- **Exports** bind the event on `POST /exports/tournaments` and
+  `/exports/volunteers`; the worker builds the export in the event it was asked
+  for in, archived ones included.
+
 ## Architecture
 
 API handlers are a thin presentation layer: they authenticate, then delegate to the **service layer**, passing the token's user as `actor`. Services enforce permissions, validate, write audit logs, and queue Discord notifications — so the API automatically inherits all of that behaviour. Handlers contain no business logic and (aside from simple read lookups) no direct ORM writes.
@@ -76,23 +117,27 @@ One module per group under [`api/routers/`](../../api/routers/), named after the
 ### Health (`/api/health`) · `health.py`
 - `GET /health` — **unauthenticated** liveness probe. Performs a trivial DB round-trip and returns `{"status": "ok"}`; returns `503` when the database is unreachable. Used by the container `HEALTHCHECK`.
 
+### Version (`/api/version`) · `version.py`
+- `GET /version` — **unauthenticated**. Which build is answering: `version` (the tag, else the commit's UTC date as `YYYY.MM.DD`, else `dev`), `commit`, `commit_short`, `commit_date` and `source_url`, from `application/utils/build_info.py`. The same values are printed on `/about` and returned by the MCP `server_version` tool.
+
 ### Web push (`/api/web-push`) · `web_push.py`
 - `POST /web-push/rotate` — **unauthenticated**. Called by `static/sw.js` on `pushsubscriptionchange` to re-point a stored device row at the subscription its push service reissued. There is no session or token in that context; the request authenticates by carrying the retired subscription's `auth` secret, and a wrong secret returns the same `404` as an unknown endpoint. Detail: [features/web-push.md](../features/web-push.md#authenticating-a-rotation).
 
 ### Matches (`/api/matches`) · `matches.py`, `match_actions.py`
-- `GET /matches` — list with filters (`match_id`, `stage_id`, `tournament_id`, `start_date`, `end_date`, `limit`); only approved crew are exposed.
+- `GET /matches` — list with filters (`match_id`, `stage_id`, `tournament_id`, `start_date`, `end_date`, `limit`); only approved crew are exposed. The filter lives in the route handler (`api.get_matches`), not the response schema: Pydantic v2 serializes by attribute access and never calls a custom `from_orm`, so filtering there would silently do nothing.
 - `GET /matches/{id}` — single match. Alongside the lifecycle timestamps the response carries `needs_review`, the proctor's dispute flag. It is a bare flag: there is no note field, and confirming clears it.
 - `POST /matches` — create (Staff/TA). `POST /matches/request` — player-initiated request.
 - `PATCH /matches/{id}` · `DELETE /matches/{id}`.
+- `POST /matches/{id}/extend-to-set` (`{later_games: [{scheduled_date, scheduled_time}], allow_outside_round?}`) turns a Challonge or start.gg booking made as one game into game 1 of a best-of set and books games 2 and up with the same players. The match keeps its crew, seed, stage and comments. `400` once it's in a set, started, unlinked from a bracket, or a time is out of order or outside the stage's window. Staff or the tournament's admins.
 - `POST /matches/{id}/stream-candidate` · `/stage` · `/stations`.
 - `POST /matches/{id}/stations/suggest` — draw a random seating (opposite sides, spread out) without applying it. Returns `{assignments, relaxations}`. Takes the **write** actor even though it writes nothing: it is a preview of `POST /stations`, and a read-only token has no business drawing seats it cannot then take.
-- Lifecycle: `POST /matches/{id}/seat` · `/start` · `/finish` · `/confirm` · `/result` · `/seed`. `/confirm` returns `400` unless the match is finished **and** a winner has been recorded.
+- Lifecycle: `POST /matches/{id}/seat` · `/start` · `/finish` · `/confirm` · `/result` · `/seed` · `/rewind` (`to_step`: back to `scheduled`, `checked_in`, `started` or `finished`, clearing later steps together; `MatchService.rewind_match`) · `/cancel` (`reason`; calls the match off and DMs everyone, `204`; Staff or the tournament's admins). `/confirm` returns `400` unless the match is finished **and** a winner has been recorded.
 - `POST /matches/{id}/review` — `{needs_review}`. Raises or drops the dispute flag on a recorded result, returning the updated match. The two directions gate differently: flagging is `can_run_match` (the proctor's own call, and `400` unless the match is finished), clearing is `can_confirm_match` (`403` for a proctor). `/confirm` clears the flag on its own — see [match-participation.md](../features/match-participation.md#disputed-results).
-- Self-actions: `POST /matches/{id}/crew` (sign up) · `DELETE /matches/{id}/crew/{role}` · `POST /matches/{id}/acknowledge`.
+- Self-actions: `POST /matches/{id}/crew` (sign up) · `DELETE /matches/{id}/crew/{role}` · `POST /matches/{id}/acknowledge` · `POST /matches/{id}/running-late` (`minutes` 10/20/30 plus an optional note; same window and refusals as the website's Running late, via `PlayerLateService.report_late`).
 - Watching: `GET /matches/watching` (matches you watch) · `POST /matches/{id}/watch` · `DELETE /matches/{id}/watch`.
 - Stream offer: `POST /matches/{id}/stream-offer` · `DELETE /matches/{id}/stream-offer` — a player offers their own match for stream coverage, or takes it back. `400` for someone not in the match, or for an offer once it has started (withdrawing is allowed after). Stream managers see the offer; it does not set `is_stream_candidate`.
 
-- `GET /matches/{id}/crew` — the coordinator's crew list, **including unapproved signups** (admin). `GET /matches/{id}` hides those from everyone, so this sits behind a higher gate than the match itself; the peer of the MCP `list_match_crew` tool.
+- `GET /matches/{id}/crew` — the coordinator's crew list, **including unapproved signups** (staff, or a TA/CC of the match's tournament: `can_approve_crew`, checked in `CrewService.get_match_crew`). `GET /matches/{id}` hides those from everyone, so this sits behind a higher gate than the match itself; the peer of the MCP `list_match_crew` tool.
 
 ### Reschedule requests · `reschedule_requests.py`
 Players asking staff to move or call off a match. Approving **performs** the change, so a `POST /approve` is a reschedule or a cancellation, not a status update.
@@ -105,6 +150,12 @@ Players asking staff to move or call off a match. Approving **performs** the cha
 - `POST /reschedule-requests/{id}/approve` — `{scheduled_at?, note?}`. Omitting `scheduled_at` takes the proposed time; supplying one counters with a different time. `400` when the request named no time and none is given.
 - `POST /reschedule-requests/{id}/decline` — `{note}`. The note is **required** (`422` without it).
 
+### Match comments · `match_comments.py`
+`MatchCommentService` decides who reads and writes each kind. PLAY scope.
+- `GET /matches/{id}/comments` — oldest first. Whoever may run the match reads all of them; a player reads their own and staff messages to the players; anyone else gets `[]`.
+- `POST /matches/{id}/comments` — `{body, kind}`: `player` (a player in the match, DMs the admin on duty and tournament admins, 10 a minute), `staff_private` or `staff_to_players` (whoever may run the match; the latter DMs the players). `400` for a kind you can't post.
+- `DELETE /match-comments/{comment_id}` — the author, or whoever may run the match.
+
 Raising, agreeing and withdrawing take any write token (the service checks the actor plays in the match); deciding is re-gated in the service on `can_crud_match`, which is wider than global STAFF. Every gate lives in the service rather than the router, so the web, Discord and MCP surfaces inherit it. All timestamps are UTC, like the rest of the API — only Discord renders per-viewer.
 
 ### Crew (`/api/crew`) · `crew.py`
@@ -112,14 +163,16 @@ Raising, agreeing and withdrawing take any write token (the service checks the a
 - `POST /crew/{crew_type}/{crew_id}/acknowledge` — crew member acknowledges their own approved assignment.
 
 ### Tournaments (`/api/tournaments`) · `tournaments.py`, `tournament_actions.py`
-- `GET /tournaments?active_only=` (`active_only` returns only active tournaments, default `false`) · `GET /tournaments/{id}`.
+- `GET /tournaments?active_only=` (`active_only` returns only active tournaments, default `false`) · `GET /tournaments/{id}`. Inactive tournaments are hidden from anyone without `can_view_admin` (listed out, **404** by id), as in the app.
 - `POST` · `PATCH /{id}` · `DELETE /{id}?confirmation=permanently%20delete`. The delete is permanent and cascades (matches, entrants, brackets, triforce texts), so it carries the same two gates as the UI: the tournament must already be `is_active: false` (`400` otherwise) and `confirmation` must be `permanently delete` (`422` when the param is missing, `400` when it is wrong). `POST`/`PATCH` accept an optional per-tournament **tournament-days** override — `event_start_date`, `event_end_date` (`YYYY-MM-DD`), and `tournament_hours` (`{"YYYY-MM-DD": ["HH:MM open", "HH:MM close"]}`); each is nullable and falls back to the community setting when omitted (on `PATCH`, sending `null` clears an override back to inherit). An end before start, or a close not after open, returns `400`.
 - `POST /{id}/admins` · `DELETE /{id}/admins/{user_id}` and `POST /{id}/crew-coordinators` · `DELETE /{id}/crew-coordinators/{user_id}` (Staff).
 - `POST`/`PATCH` also take the configuration the edit dialog sets: `is_test`, `allow_player_match_requests`, `stage_reminder_minutes`, `preset_id`, `hard_preset_id`, and the racetime knobs (`racetime_bot_id`, `race_room_profile_id`, `racetime_auto_create_rooms`, `room_open_minutes_before`, `require_racetime_link`, `racetime_default_goal`). On `PATCH`, `null` clears the nullable ones (a preset, the bot, the profile, the goal). Every tournament response carries them, plus `challonge_tournament_url` and `discord_events_enabled`.
-- `GET /{id}/players` (Staff or that tournament's admin) · `POST /{id}/players` `{user_id}` · `DELETE /{id}/players/{user_id}` (Staff) — the roster, as Manage players edits it; enrolling ignores the signup window and refuses a non-member.
-- `PUT /{id}/challonge` `{challonge}` (URL or ID) · `DELETE /{id}/challonge` · `POST /{id}/challonge/sync` (Staff or that tournament's admin; `404` unless the community has `CHALLONGE`) — link, unlink and sync a Challonge bracket, the same as the Challonge tab.
+- `GET /{id}/players` (Staff or that tournament's admin) · `POST /{id}/players` `{user_id}` · `DELETE /{id}/players/{user_id}` (Staff or that tournament's admin) — the roster, as Manage players edits it; enrolling ignores the signup window and refuses a non-member.
+- `PUT /{id}/challonge` `{challonge}` (URL or ID) · `DELETE /{id}/challonge` · `POST /{id}/challonge/sync` (Staff; `404` unless the community has `CHALLONGE`) — link, unlink and sync a Challonge bracket, the same as the Tournaments row ⋮.
+- `GET /{id}/round-schedule` · `PUT /{id}/round-schedule/{stage_key}/best-of` `{best_of}` (1, 3 or 5) (Staff or tournament admin; `400` for a tournament with no Challonge or start.gg bracket, or an unknown stage) — the stages Round schedule shows, with window, best-of and booked counts; set one stage's best-of without touching its window.
 - `POST /tournaments/{id}/signup` · `DELETE /tournaments/{id}/signup` — the caller signs **themselves** up or withdraws, the same act the Tournaments tab performs. `400` outside the tournament's signup window, for a non-member, on a duplicate signup, and for an inactive tournament; for a Challonge-linked tournament also when the caller hasn't linked Challonge, the bracket has started, or the connection lacks `participants:write` (a successful call adds them to the Challonge bracket); `404` for an id that does not exist in this tenant (saying "not accepting signups" there would confirm a tournament that isn't yours). Withdrawing is refused only once the window has **closed** — before it opens you may still back out, since staff may have entered you early and there is no roster to protect yet. Staff enrolling *someone else* use `PUT /users/{user_id}/tournaments`, which ignores the window.
 - The signup window itself rides on the tournament: `signups_open_at` / `signups_close_at` (UTC datetimes) on `POST`/`PATCH` and in every tournament response. Both are nullable and read permissively — no open date means signups are open now, no close date means they stay open. A close at or before the open returns `400`.
+- `GET /tournaments/{id}/bracket?phase=&pool=&state=&entrant=&include_sets=` — the whole bracket (native, start.gg or Challonge) in one shape, the same payload as MCP `get_tournament_bracket`: phases, pools, sets with feeders and where the winner and loser go, scores, booked matches and standings. Read from Wizzrobe's synced mirror, never a live call to the site. Entrants' `user_id` only for Staff and the tournament's admins. `400` for a bad `state`; `404` for an inactive tournament (non-admins), a native one with nothing published (non-Staff), or when the bracket site's feature is off.
 - `GET /tournaments/{id}/match-suggestion?player_ids=[&bracket_match_id=]` — suggested UTC start time for the given players (400 if no slot fits). `bracket_match_id` confines the suggestion to that matchup's round window.
 
 ### Payouts (`/api/tournaments/{id}/payouts`) · `payouts.py`
@@ -137,22 +190,66 @@ Behind `FeatureFlag.PAYOUTS` (the whole router 404s when the community lacks it)
 - `POST /users/{id}/roles` · `DELETE /users/{id}/roles/{role}` (Staff) — grant/revoke a role. Roles are per-tenant except `SUPER_ADMIN`; see [authentication.md § Roles](authentication.md#roles).
 - `POST /users/{id}/membership` · `DELETE /users/{id}/membership` (Staff) — add someone to this community or take them out, as the Users tab does. Removing is `400` while they hold a role here or admin or coordinate a tournament.
 
+- `GET /me/communities` (`me.py`) — the caller's active communities with their roles and openable events, for the app's community picker. Spans communities, so it takes no community header; a third-party app's grant is refused (`403`).
+- `GET /me/platform` (`me.py`) — `{user_id, super_admin}`, so the app knows whether to offer Platform. Same rules as `/me/communities`.
+
+### My schedule (`/api/me/…`) · `my_schedule.py`
+Screen-shaped reads for the app's Home and Schedule tabs, built by `PlayerHomeService` (which merges `MyTimelineService`, the bracket sources, reschedule requests and acknowledgements). Event-bound (`?event=`), scope `play`.
+- `GET /me/home` — `next_up` (your next unfinished match), `needs_you` (`book`, `agree`, `acknowledge`) and the rest of `today`. `zone` is the clock to print times on: the community's pinned zone, else your saved one, else `null` for the device's.
+- `GET /me/schedule?past=` — your matches, crew slots and shifts in the event window, soonest first (or ended ones, latest first).
+- `GET /me/bookable` — matchups waiting on you to pick a time, from native brackets, Challonge and start.gg in one list (`source` + `key`). `GET /me/bookable/{source}/{key}/check?at=` returns the booking-window `refusal` and the "Check this time" `clashes` without booking; `POST /me/bookable/{source}/{key}/book` (`scheduled_at`, an instant) books the next game. Both refuse (`400`) a matchup that isn't in your own list.
+
+### Event (`/api/event/…`) · `event_hub.py`
+The app's Event tab, built by `EventHubService`. Event-bound, scope `schedule:read`. Each response carries `zone`, the clock to print times on (as on `GET /me/home`).
+- `GET /event/hub` — each active stage's card (the match seated or playing there now, the next two within a day, the Twitch channel), the next five unstarted matches anywhere, and a card per active tournament (test tournaments left out) with its bracket status, whether `GET /tournaments/{id}/bracket` has something to show (`has_bracket`), and outside bracket and rules links.
+- `GET /event/schedule?start=&end=` — the run sheet: every match scheduled in the window, soonest first, at most 48 hours (`400` past that). Each row has its sides (undecided ones flagged), stage and stations, and its crew slots: needed, approved names, your own signup and whether you can sign up now (`POST /matches/{id}/crew`). `playing` and `watching` are about you.
+- `GET /event/watch` — the stage cards, streamed matches coming up over the next week that the cards don't show, and the tournament cards.
+- `GET /tournaments/{id}/bracket` also returns `your_entrant_ids`, so the app can mark your own sets without seeing anyone's account.
+
+### Admin shell (`/api/admin/…`) · `admin_nav.py`
+What the app's admin menu draws, built by `AdminNavService`. Scope `staff:read`.
+- `GET /admin/nav` — every admin area the caller may open here (`slug`, `label`, `icon`, `group`, `half`, older `aliases`), in menu order, plus the Settings and Event settings panes and the setup checklist. A member with no admin access gets empty lists, not `403`. The gates mirror the website's admin drawer; `tests/test_admin_nav_drift.py` fails when they disagree.
+
+### Work (`/api/work`) · `work.py`
+Screen-shaped reads for the app's Work tab, built by `WorkService`. Event-bound (`?event=`).
+- `GET /work` — the areas your roles open (`desk` with the one open event's counts, `schedule` with who's on now and your next shift, `availability`, `proctor`); `null`/`false` for the rest. Scope `play`.
+- `GET /work/schedule?day=` — one event day of the volunteer schedule as role columns on an hour scale (`start_hour`/`end_hour` from `midnight`, overlap `lane`/`lanes`), in your saved column order. `PUT /work/schedule/columns` (`[{position_id, visible}]`) saves the order, shared with the website's Full Schedule; `DELETE` resets it. Scope `volunteer`.
+
+### Admin Match Schedule (`/api/admin/match-schedule`) · `admin_match_schedule.py`
+The app's admin run sheet, built by `AdminScheduleService` from `MatchDisplayService` rows and the shared run-sheet logic in `application/run_sheet.py` (the same functions the website's board draws from). Event-bound (`?event=`, a match path binds its own event), scope `staff:read`. Who may open it mirrors the website: staff and Broadcast Tech see every match; a tournament admin or crew coordinator sees only their tournaments (`scoped_tournaments`); anyone else is `403`.
+- `GET /admin/match-schedule?day=&tournament_id=&stage_id=&q=&tz=` — the day's matches (or every day with no `day`) in board groups (Needs a decision, Live now, Up next, Waiting for players, Confirmed; `folded_by_default` on Confirmed). Each row carries its status word and tone, crew per role, late tags, comment counts, winner buttons, the next lifecycle step, and `can` (`edit`, `run`, `confirm`, `stage`, `crew`) from `MatchBoardAccess`, so the app never re-derives a permission. `days` are the event window's days for the day switch; `zone` cuts the days (the community's pinned clock, else yours, else `tz`).
+- The board also carries `needs_you`, the inbox `theme/match_inbox.py` draws: `request` items (pending reschedule requests in the viewer's tournaments, with the reason and `clashes` for the proposed time; only for viewers who may edit), then `site`, `held`, `result` and `late` items naming a board row.
+- `GET /admin/match-schedule/matches/{id}` — the same row plus the pane: the "Ready to start" `checklist`, `rewind_to` steps, `state_since`, `seed_dm_blocked`, and staff ADA notes (withheld from proctors). Every action is an existing `/matches/{id}/…` or `/crew/…` route.
+- Making and changing matches, built by `AdminMatchFormService` (staff and tournament admins; anyone else `403`). `GET /admin/match-schedule/form?match_id=` returns the New/Edit match form: the schedulable tournaments with who's enrolled, stages, people, whether the event uses broadcasters, and (with `match_id`) the match's values. `POST /admin/match-schedule/matches` (201, `staff:write`) creates one, players optional so staff can hold a slot; `PUT /admin/match-schedule/matches/{id}` saves an edit. Times go in as UTC instants.
+- `POST /admin/match-schedule/check-time` returns the round `window` the time falls outside of (with `can_override`) and the `clashes` the website's "Check this time" sheet lists; `POST /admin/match-schedule/suggest-time` returns a `scheduled_at`. Both read only (`staff:read`), and take `source` + `key` for a bracket matchup.
+- `GET /admin/match-schedule/unbooked` lists the event's open bracket matchups nobody has booked (`bracket_sources.list_unbooked`, players-TBD ones included), each with `state` (`ready`, `needs_account`, `tbd`), `link_candidates` and `bracket_url`. `POST /admin/match-schedule/unbooked/{source}/{key}/book` (201) books one game at `scheduled_at` (`allow_outside_round` to book anyway); `POST …/link?ahead=` (204) records an existing match as the matchup's.
+
+### My profile (`/api/me/…`) · `my_profile.py`, `my_notifications.py`, `my_developer.py`
+What the app's Me screen reads and edits, built by `MyProfileService` beside the existing self-service routes (`PATCH /users/me`, availability, equipment, feedback, notification settings). Event-bound; reads take scope `profile`, writes `profile:write`.
+- `GET /me/profile` — the section list (key, title, summary), flag-gated per community, plus the clock fields. `PATCH /me/clock` sets `timezone` and the 12/24-hour clock; only the fields sent change. `PATCH /users/me` also takes `matcherino_username` when Payouts is on.
+- `GET /me/accounts` (Challonge and start.gg when their flags are on, Twitch, racetime) · `DELETE /me/accounts/{provider}`. Linking runs through the website's OAuth pages (`link_path`).
+- `GET /me/followable-tournaments` · `GET /me/staff-alerts` (`404` when you hold no alert duty and run no tournament) · `PUT /me/staff-alerts/{tournament_id}` (`on`).
+- `GET` · `PUT /me/accommodation` · `GET` · `PUT` · `DELETE /me/emergency-contact`.
+- **Channels (`/me/channels`):** `GET` (push devices, email and Telegram as states, the VAPID key) · `POST` / `DELETE /devices/{id}` · `POST` / `DELETE /native-devices/{id}` (store-app push tokens; `GET` lists them as `native_devices` with `native_push_platforms`) · `POST /email` (send a code) · `POST /email/confirm` · `DELETE /email` · `PUT /email/enabled` · `POST` / `DELETE /telegram` (link code) · `PUT /telegram/enabled` · `POST /test` (rate-limited like the website's test button).
+- **Developer tools:** `/me/apps` (Third-party apps flag; list, create, `PATCH`, `GET /connections`, `POST /{id}/secret`, `DELETE`) and `/me/webhooks` (areas, events and your webhooks with masked URLs; create, `PUT`, `PUT /active`, `POST /secret`, `POST /test`, `DELETE`). Minting an app or webhook secret is personal-token only (`PAT_ONLY`).
+
 ### Player availability (`/api/users/me/availability`) · `player_availability.py`
 - `GET` (own windows) · `PUT` (replace all windows) · `DELETE` (clear). Self-service for any authenticated user; windows feed match-time suggestions. **Opt-out:** a player with no windows is available for the whole event, so a window is a time they cannot play (`unavailable`) or would rather (`preferred`) — an `available` window is accepted but states the default. Volunteer availability, on the same wire shape, is the opposite (opt-in).
 - **Which by-id routes are community-scoped.** `User` is global, so a bare id lookup reaches every account on the platform — the same leak `GET /users` was narrowed for, behind a loop instead of a parameter. The routes that *read or edit the person* (`GET /users/{id}`, `PATCH /users/{id}`, `PATCH /users/{id}/admin`, `PUT /users/{id}/tournaments`, `GET /users/{id}/availability`) resolve only members of the token's community, via `load_community_user_or_404`. `PATCH /users/{id}/admin` matters most: `is_active` is a *global* account disable, so cross-community reach there locks someone out of communities the actor has nothing to do with. A non-member is `404`, never `403` — "no such id" and "not in your community" must read the same, or the status code is a membership oracle. You always resolve yourself, and a super-admin resolves anyone.
 - **Global account fields need more than membership.** Display name, pronouns and `is_active` belong to the account, not the community, and staff can make anyone a member by granting a role. So `PATCH /users/{id}` and `PATCH /users/{id}/admin` refuse (`403`) when the person also belongs to another community or is a super-admin; only a super-admin changes those. Staff remove such a person from their own community instead.
 - **Ids in a request body are community-scoped too.** Match rosters (`player_ids`, `commentator_ids`, `tracker_ids` on create, update and player match requests), volunteer shift assignments and bracket entrant links refuse anyone who isn't a member of the token's community, with the same `404` an unknown id gets. On an update only the people being added are checked. A super-admin may name anyone. Equipment loans are the one deliberate exception: lending to someone who just walked in is what that flow is for.
 - **Which stay global, deliberately.** The routes that *confer* something — `POST/DELETE /users/{id}/roles`, and the tournament-admin, crew-coordinator and qualifier-admin membership routes — keep the unscoped `load_user_or_404`, because granting is how a person joins a community in the first place (`grant_role` calls `ensure_member` as it goes). Nothing there discloses the person: the caller already had to know the id, and the response says only what was granted.
+- `GET /users/{id}/details` (**Staff**, members of the token's community only, else `404`) — the data behind Admin → Members' member sheet: roles, tournament admin/crew coordinator/entered tournaments, upcoming matches and shifts, equipment out, check-in state, linked accounts, how DMs reach them (`channels`: Discord on/off, push device count, email and Telegram as states, never the address), their preset, every `notifications` row with `community`, `theirs`, `effective` and a `reason` when they differ, and their last 10 `recent_messages` (the Sent messages entry shape). Emergency contacts are not included. `MemberDetailsService.get`; MCP twin `get_member_details`.
 - `GET /users/{id}/availability?start=&end=` — another player's windows (self, or Staff for anyone else), optionally bounded to a UTC window. The scheduler's read, matching `GET /users/{id}` and the MCP `get_player_availability` tool. It rides a second router so the literal `/users/me/…` paths keep matching before the `{user_id}` param.
 
 ### Volunteers (`/api/volunteers`) · `volunteers.py`
-Positions, shifts, and assignments for volunteer scheduling; the `/me/*` routes are self-service. All routes require an authenticated actor; writes use a non-read-only token.
+Positions, shifts, and assignments for volunteer scheduling; the `/me/*` routes are self-service. All routes require an authenticated actor; writes use a non-read-only token. The roster reads (`GET` positions, shifts, a shift, coverage) need `AuthService.can_view_volunteer_schedule` — the Volunteer hub's roles (Staff, Proctor, Volunteer) plus volunteer coordinators — and **403** anyone else.
 - **Positions:** `GET /volunteers/positions?active_only=` (list; `active_only` limits to active positions, default `false`) · `POST /volunteers/positions` (create) · `PATCH /volunteers/positions/{id}` · `DELETE /volunteers/positions/{id}`.
 - **Shifts:** `GET /volunteers/shifts?start=&end=` (list shifts in a UTC ISO-8601 window; `start`/`end` required) · `GET /volunteers/shifts/{id}` · `POST /volunteers/shifts` (create) · `PATCH /volunteers/shifts/{id}` (partial; moving the time re-asks acknowledgment and DMs the volunteers) · `DELETE /volunteers/shifts/{id}`.
-- **Assignments:** `POST /volunteers/shifts/{shift_id}/assignments` (assign a volunteer; returns the assignment plus any warnings) · `DELETE /volunteers/assignments/{id}` (remove) · `POST /volunteers/assignments/{id}/acknowledge` (acknowledge your own assignment) · `POST /volunteers/assignments/{id}/check-in` (record that the volunteer arrived; coordinators and staff, `403` otherwise; a second call keeps the first time).
+- **Assignments:** `POST /volunteers/shifts/{shift_id}/assignments` (assign a volunteer; returns the assignment plus any warnings) · `DELETE /volunteers/assignments/{id}` (remove) · `POST /volunteers/assignments/{id}/acknowledge` (acknowledge your own assignment) · `POST /volunteers/assignments/{id}/check-in` (record that the volunteer arrived; coordinators and staff, `403` otherwise; a second call keeps the first time) · `POST` / `DELETE /volunteers/assignments/{id}/call-off` (call one volunteer off, optional `note`, or undo it; the shift still counts as worked) · `POST /volunteers/shifts/{shift_id}/call-off` (everyone on the shift; drafts left alone).
 - **Coverage:** `GET /volunteers/coverage?start=&end=` — per-shift coverage across a UTC ISO-8601 window (`start`/`end` required).
 - **Hours:** `GET /volunteers/hours?start=&end=` — every pool member's (VOLUNTEER or STAFF role) served hours against the comp tiers, coordinator-only (staff or volunteer coordinator; 403 otherwise) · `GET /volunteers/hours/me` — your own. `start`/`end` are optional **local dates** that narrow the count; both default to the tenant's event window. Published assignments only, overlapping shifts counted once.
-- **Self-service (`/me`):** `GET /volunteers/me/availability` · `PUT /volunteers/me/availability` (replace windows) · `GET /volunteers/me/assignments?upcoming_only=` (your shift assignments; `upcoming_only` defaults to `true`, and unpublished drafts are never listed) · `DELETE /volunteers/me/assignments/{id}` (give a shift back, optional `{"reason": …}` body → 204; the coordinators are DMed).
+- **Self-service (`/me`):** `GET /volunteers/me/availability` · `PUT /volunteers/me/availability` (replace windows) · `GET /volunteers/me/assignments?upcoming_only=` (your shift assignments; `upcoming_only` defaults to `true`, and unpublished drafts are never listed) · `DELETE /volunteers/me/assignments/{id}` (give a shift back, optional `{"reason": …}` body → 204; the coordinators are DMed) · `POST` / `DELETE /volunteers/me/assignments/{id}/arrival` (check yourself in from 30 minutes before the shift, or undo it) · `POST /volunteers/me/assignments/{id}/running-late` (`minutes`; tells the coordinators).
 
 ### Triforce texts (`/api/triforce-texts`) · `triforce.py`
 - `GET /mine?tournament_id=` (own; `tournament_id` required) · `GET ?tournament_id=&status=` (moderation, Staff/TA).
@@ -160,10 +257,16 @@ Positions, shifts, and assignments for volunteer scheduling; the `/me/*` routes 
 
 ### Equipment (`/api/equipment`) · `equipment.py`
 Lending inventory and the checkout workflow. **Reads take any token** — the gate of record is the home **Equipment** tab, which carries no role check, so every member of a community with the feature on sees the inventory and who holds each item. `private_notes` is the one field that isn't world-readable: it is returned only to a caller who passes `can_manage_equipment` (Staff or Equipment Manager) and is `null` for everyone else. Writes are re-gated in `EquipmentService`.
-- **Reads:** `GET /equipment?status=` (`available` / `checked_out` / `retired`) · `GET /equipment/{id}` (adds `current_loan`) · `GET /equipment/{id}/loans?limit=` (history, newest first) · `GET /equipment/me/checkouts` (what you are holding).
+- **Reads:** `GET /equipment?status=` (`available` / `checked_out` / `retired`; the whole register, Staff or Equipment manager only, **403** otherwise) · `GET /equipment/{id}` (adds `current_loan`) · `GET /equipment/{id}/loans?limit=` (history, newest first) · `GET /equipment/me/checkouts` (what you are holding).
 - **Assets:** `POST /equipment` · `POST /equipment/bulk` (`{name, count}`, 1–200 identical assets with consecutive numbers) · `PUT /equipment/{id}` · `DELETE /equipment/{id}` (Staff/Equipment Manager; `400` on an asset that is checked out).
   `PUT`, not `PATCH`, because the service takes the whole record: `description`, `private_notes` and `owner_user_id` are cleared when omitted. `status` is the exception (omit to leave it), and it cannot move into or out of `checked_out` — that is what the two lending routes are for.
 - **Lending:** `POST /equipment/{id}/checkout` (optional `{borrower_id}` — only an Equipment Manager may name someone else, and a non-manager who sends one gets **403** rather than a loan against themselves; with no body, any authenticated member borrows to themselves) · `POST /equipment/{id}/checkin` (Staff/Equipment Manager only — the check-in gate is deliberately narrower than checkout, which is role-less).
+
+### Surveys (`/api/surveys`) · `surveys.py`
+Post-event surveys, Staff only, behind `FeatureFlag.SURVEYS` (see [surveys.md](../features/surveys.md)). Writes build a draft. Sending, reminding and closing (`POST /surveys/{id}/send|remind|close`) DM people, so only Wizzrobe's own app may call them (`require_app_staff_write`): a personal token or a third-party app gets a 403, and MCP has no tool for them. Question `kind` includes `agree_scale` (its `options` are the statements; results carry `statements`, per statement the count at each level). The app's builder routes add the time box and checks (`/builder`), who sees what (`/preview-paths`, `/preview`), comment tags, dropping a question into another section (`/place`) and AI "Suggest questions" (`/sections/{id}/suggestions`, then keep or dismiss). `/me/surveys` lets a person open, save and send a survey sent to them. Questions also take `other_option`, `none_option`, `min_picks`, `max_picks` and `long_answer` (on `PATCH`, `0` or `""` clears a limit or the none label), and sections a `description`; choice answers with a write-in read back as `{"value": …, "other": "…"}`. Section audiences include `commentators`, `trackers` and `broadcasters`. Drag-and-drop ordering uses `move` or `place`.
+- **Reads:** `GET /surveys` (the event's surveys with sent/answered counts) · `GET /surveys/conditions` (each key and label; `positions` also lists the current event's volunteer positions in `options`) · `GET /surveys/{id}` (sections and questions, with their `conditions`) · `GET /surveys/{id}/results?group=` (groups under 5 folded into Other; `group` narrows every number to one group of 5 or more) · `GET /surveys/{id}/responses?limit=&offset=` (anonymous ones carry no user) · `GET /surveys/{id}/comments` (the comments inbox: every comment and write-in with staff's shared read mark and tags).
+- **Writes:** `POST /surveys` · `POST /surveys/{id}/duplicate` · `PATCH /surveys/{id}` (`closes_at` is the only field an open survey takes) · `DELETE /surveys/{id}` (drafts only, `400` otherwise) · `POST /surveys/{id}/sections` · `PATCH`/`DELETE /surveys/sections/{section_id}` · `POST /surveys/sections/{id}/move` · `POST /surveys/sections/{id}/questions` · `PATCH`/`DELETE /surveys/questions/{question_id}` · `POST /surveys/questions/{id}/move` · `PATCH /surveys/{id}/comments/{answer_id}` (`read`, `tags`; returns the inbox).
+- `conditions` is a list of `{key, question_id?, values?}`, all of which must hold: up to 3 on a question, 1 on a section. `[]` clears them on a `PATCH`.
 
 ### Feedback (`/api/feedback`) · `feedback.py`
 In-app feedback: submit, read your own, and the staff queue.
@@ -175,26 +278,59 @@ In-app feedback: submit, read your own, and the staff queue.
 The programmatic peer of the Admin → Reports tab, at that tab's own gate (`can_view_admin`: staff, tournament admin, or crew coordinator). All reads, so a read-only token works throughout. A window is `start`/`end` (UTC ISO 8601, both required); `end` before `start` is `400`, and `bucket` accepts `week` or `month`.
 - `GET /reports/capacity-forecast` · `/stage-utilization` · `/match-operations` · `/crew-coverage` · `/tournament-health` · `/crew-participation-trends` · `/activity-trends`.
 - `GET /reports/matches-active-at?instant=&limit=` — what is in progress at one moment.
-- `GET /reports/volunteer-hour-trends` — carries the `VOLUNTEERS` flag **at the route** rather than the router, because `AnalyticsService` has no flag of its own; without it a community with volunteers off could still read its volunteer hours. Its siblings on the same router stay reachable.
+- `GET /reports/volunteer-hour-trends` — carries the `VOLUNTEERS` flag **at the route** rather than the router, because `AnalyticsService` has no flag of its own; without it a community with volunteers off could still read its volunteer hours. Its siblings on the same router stay reachable. It is also the one report a volunteer coordinator may read (`require_volunteer_admin`), so the router puts its gate on each route rather than on the router.
 
 Two are **reshaped rather than passed through**, exactly as the matching MCP tools are: `ReportsService` builds its payloads for a chart, and `stage_utilization`'s even contains ORM `Match` rows. `capacity-forecast` returns peaks and headroom instead of the per-interval series; `stage-utilization` returns per-room totals plus `unplaced_candidate_count` instead of every booking.
 
 ### Telemetry (`/api/telemetry`) · `telemetry.py`
 Engagement telemetry (Staff; `TelemetryService` re-checks that itself).
 - `GET /telemetry/summary?start=&end=` — events, unique users, sessions, page views.
-- `GET /telemetry/top?dimension=&start=&end=&limit=` — `dimension` is `paths`, `event_types`, `users` or `controls` (tabs, buttons, menu items, dialogs and fields per page, with distinct users and phone uses).
+- `GET /telemetry/top?dimension=&start=&end=&limit=&user_id=` — `dimension` is `paths`, `event_types`, `users`, `controls` (tabs, buttons, menu items, dialogs and fields per page, with distinct users and phone uses), `api` or `api_users`. `user_id` narrows the counts to one person.
+- Both take `event` (a slug) to count one event's rows only.
 
 ### Notifications (`/api/notifications`) · `notifications.py`
-- `GET /preferences` · `PUT /preferences`.
+Your own settings; any member. Schemas in [`api/schemas/notifications.py`](../../api/schemas/notifications.py).
+- `GET /preferences` · `PUT /preferences` — tournaments you follow.
+- `GET /messages` — `MyNotificationsResponse {preset, changed, messages}`: every message that can reach you, each with `notice`, `recipient`, `section`, `title`, `when`, `community`, `preset`, `override`, `mode` (the quieter of the community's setting and yours) and `changed`. Staff alerts only for people who can see the admin side.
+- `PUT /messages/preset` — body `{preset}`: `everything`, `needs_me` or `quiet`; overrides stay.
+- `PUT /messages/{notice}/{recipient}` — body `{mode}`, `null` back to the preset. Unknown notice or recipient is `400`.
+- `POST /messages/reset` — clears your overrides, keeps the preset. See [notification-settings.md](../features/notification-settings.md#personal-choices).
+
+### Notification settings (`/api/notification-settings`) · `notification_settings.py`
+Which messages this community sends, to whom, and whether they ping — the Admin → Notifications grid. **Staff** for reads and writes (`require_staff` / `require_staff_write`), re-checked in `NotificationSettingsService`. Schemas in [`api/schemas/notification_settings.py`](../../api/schemas/notification_settings.py). See [notification-settings.md](../features/notification-settings.md).
+- `GET /notification-settings` — every catalogue cell as a `NotificationSettingResponse`: `notice`, `group`, `title`, `when`, `section` (the subheading inside the group, e.g. `Match day`, or empty), `recipient`, `recipient_label`, `who`, `mode` (`off` / `silent` / `ping`), `default`, `changed`, and `staff_choice` (on `on_duty` / `admins` / `staff` rows, what those rows add up to on the page's Staff dropdown: `ping_all`, `ping_on_duty`, `silent`, `off`, or null for a mix no choice matches).
+- `PUT /notification-settings/{notice}/{recipient}` — body `NotificationSettingUpdate {mode}`; returns the updated row. Choosing the default clears the override; an unknown notice or a recipient the message doesn't have is `400`. Audited as `notification_setting.changed`.
+- `PUT /notification-settings/{notice}/staff-alerts` — body `StaffNotificationUpdate {choice}`; sets the message's staff rows together and returns them. `ping_all` = all three ping (all staff only fires when nobody is on shift), `ping_on_duty` = admins `off`, the others `ping`, `silent` / `off` = all three. A message with no staff rows, or `ping_on_duty` on one with no `on_duty` row, is `400`. One `notification_setting.changed` audit row with `recipient: staff_alerts` and the choices as `old` / `new`.
+- `POST /notification-settings/reset` — clears every override; returns `NotificationSettingsReset {reset}` (how many went back). Audited as `notification_settings.reset`.
+
+### Sent messages (`/api/sent-messages`) · `sent_messages.py`
+- `GET /sent-messages` — every DM sent in the community, newest first, **Staff only**. Filters: `start`/`end` (UTC), `user_id` (recipient), `search` (text or recipient name), `problems_only` (blocked or failed), `event` (a slug; `counts` follow it too); paginate with `limit` (1–500, default 50) and `offset`. Response carries `total`, window `counts` (`sent`, `silent`, `off_or_blocked`, `failed`) and each message's per-channel result. `discord_id` is a number, like the rest of REST.
+
+### Exports (`/api/exports`) · `exports.py`
+Your own data exports ([data-exports.md](../features/data-exports.md)). Only the requester sees an export; anyone else gets `404`.
+- `GET /exports` — yours from the last 3 days, newest first, as `ExportInfo` (`id`, `kind`, `title`, `status`, `progress_done`/`progress_total`, `error`, `filename`, `size_bytes`, `has_json`, `created_at`, `finished_at`, `expires_at`).
+- `POST /exports/tournaments` — body `{tournament_ids: [..] | null}` (null = every tournament you may export). Staff or tournament admin; `202` with the queued export. `403` for a tournament you can't export, `400` when a limit is hit.
+- `POST /exports/volunteers` — body `{start, end}` (UTC). Needs the `VOLUNTEERS` flag and volunteer management. `202`.
+- `GET /exports/{id}` — one export's state.
+- `GET /exports/{id}/download?format=file|json` — the ZIP (or `tournaments.json`) with `Content-Disposition`; `400` until it's ready.
 
 ### Audit (`/api/audit-logs`) · `audit.py`
-- `GET /audit-logs` — paginated, **Staff only** (the log carries webhook receiver URLs, role grants and accommodation requests). Filters: `start`/`end` (UTC time bounds), `user_id`, `action_contains` (substring match on the action string); paginate with `limit` (1–500, default 100) and `offset` (default 0). Response includes the matching-entry `total`.
+- `GET /audit-logs` — paginated, **Staff only** (the log carries webhook receiver URLs, role grants and accommodation requests). Filters: `start`/`end` (UTC time bounds), `user_id`, `action_contains` (substring match on the action string), `event` (a slug); paginate with `limit` (1–500, default 100) and `offset` (default 0). Response includes the matching-entry `total`.
 
 ### System config (`/api/config`) · `system_config.py`
 - `GET /config` · `GET /config/{key}` · `PUT /config/{key}` (Staff). A write is validated by key with the same rules as the admin page (dates, positive integers, booleans, comp tiers, station format, tournament hours as a JSON object, Discord invite links only); an unknown key or a bad value is `400`.
 
 ### Webhooks (`/api/webhooks`) · `webhooks.py`
-- `GET /webhooks` (Staff) · `POST /webhooks` (Staff-write; response includes the signing `secret` once) · `GET/PUT/DELETE /webhooks/{id}` · `POST /webhooks/{id}/regenerate-secret` (returns a new secret once) · `GET /webhooks/{id}/deliveries`. Staff-managed outbound webhooks; see [webhooks.md](../features/webhooks.md).
+- `GET /webhooks` (Staff) · `POST /webhooks` (Staff-write; response includes the signing `secret` once) · `GET/PUT/DELETE /webhooks/{id}` · `POST /webhooks/{id}/regenerate-secret` (returns a new secret once) · `GET /webhooks/{id}/deliveries`. Staff-managed outbound webhooks; see [webhooks.md](../features/webhooks.md). `event_ids` on create/update limits a webhook to those events (`null` = every event, `[]` is `400`, an archived or unknown event is refused); community-wide messages ignore it.
+
+### Events (`/api/events`) · `events.py`
+The community's events, by slug. Reads list what the caller may see (`EventService.visible_events`: drafts only for staff and that event's role holders); every write is Staff and audited by `EventService`.
+- `GET /events` · `GET /events/{slug}` — `EventResponse {id, slug, name, status, is_default, starts_on, ends_on}`.
+- `POST /events` — body `{name, slug?, starts_on?, ends_on?, copy_from?, copy?}`; `copy_from` is a slug and `copy` the setup groups (`tournaments`, `positions`, `stages`, `check_in`, `discord_roles`). `201` with the draft and what was copied or skipped.
+- `PATCH /events/{slug}` — name, slug (drafts only), dates.
+- `POST /events/{slug}/go-live` · `/make-default` · `/archive` (body `{new_default}` when archiving the default with another live event) · `/unarchive`.
+- `DELETE /events/{slug}` — a draft with no matches; `204`.
+- `GET /events/{slug}/settings` · `PUT /events/{slug}/settings/{key}` — the per-event keys (`SystemConfigService.EVENT_CONFIG_KEYS`), validated like `PUT /config/{key}`; a community-wide key is `400`.
 
 ### API tokens (`/api/tokens`) · `tokens.py`
 - `GET /tokens` · `POST /tokens` · `DELETE /tokens/{id}` — manage your own tokens.
@@ -210,7 +346,19 @@ The `/checkin` desk's actions, behind `EVENT_CHECK_IN`. The rules are the desk p
 - `POST /check-in/events/{id}/sync` — pull Matcherino sales and comps now; returns the `SyncResult` counts.
 - `POST /check-in/entrants/{id}/check-in` (`{despite_withdrawn?}`) → `{entrant, already}`. A repeat changes nothing and says `already: true`. A withdrawn row is `400` for the desk; staff may send `despite_withdrawn: true` (audited). `DELETE` on the same path undoes it.
 - `PUT /check-in/entrants/{id}/user` (`{user_id}`) · `DELETE /check-in/entrants/{id}/user` — link or unlink the row's account.
-- `POST /check-in/events/{id}/walk-ups` (`{user_id}` or `{name}`, `check_in?`) — staff only; `201`.
+- `POST /check-in/events/{id}/walk-ups` (`{user_id}` or `{name}`, `check_in?`) — staff only; `201`. `DELETE /check-in/entrants/{id}` removes a walk-up (staff; Matcherino and comp rows are `400`).
+- `GET /check-in/events/{id}/desk` — the app's desk screen in one read: the event, `can_manage`, and every row with its `badge_codes`, Discord `username`, `has_discord` and `suggestions` (likely accounts for an unlinked row). `GET /check-in/entrants/{id}/suggestions` lists those accounts; `GET /check-in/events/{id}/members?q=&for_link=` searches members not on the roster. `POST /check-in/entrants/{id}/test-dm` re-sends the check-in DM.
+
+### Discord settings (`/api/settings/discord`) · `discord_settings.py`
+- The app's Settings → Discord pane, through `DiscordSettingsService`. Discord ids are **strings** here (a browser client can't hold a snowflake as a JSON number), unlike the older Discord routes.
+- `GET /settings/discord` (link status + which cards the caller may change; Staff or Sync admin) · `POST /disconnect` (Staff) · `GET /mappings` (labelled rows; removal uses `DELETE /discord-role-mappings/{id}`) · `GET /mapping-options` (server roles, grants with `kind`, tournaments, events) · `POST /mappings` (every role × every grant, returns `created`/`skipped`) · `POST /sync` (Sync everyone summary) · `GET /events` (setup problem + each tournament's switch and mirrored count; switching uses `PATCH /discord-events/tournaments/{id}`).
+
+### Integration settings (`/api/settings/integrations`) · `integration_settings.py`
+- The app's Settings → Integrations pane. `GET` (which cards the caller sees; Staff or Preset manager) · `GET /challonge` + `PUT /challonge/auto-sync` + `DELETE /challonge/communities/{slug}` + `POST /challonge/disconnect` (Challonge flag) · `GET /startgg` + `POST /startgg/disconnect` (start.gg flag) · `GET /webhooks` (rows with 24h delivered/failed; changes go through `/api/webhooks`) · `GET /webhook-options` · `GET /randomizer-keys` + `PUT`/`DELETE /randomizer-keys/{randomizer}/{key}` (Staff or Preset manager; values never returned) · `GET`/`PUT`/`DELETE /ai` (Surveys flag; key never returned). Signing in to Challonge or start.gg stays on the website.
+
+### Discord roles from Wizzrobe (`/api/event-settings/discord-roles`) · `discord_role_sync.py`
+- The app's Event settings → Discord Roles from Wizzrobe pane, through `DiscordRoleSyncService` (Staff; `DISCORD_ROLE_SYNC` flag, else 404; event from `?event=`). Discord ids are strings.
+- `GET` (last sync, unreachable people, the server's roles with any `problem`, and every checklist `line` with its rule) · `PUT /rules` (`kind` + `tournament_id`/`lanyard`, `discord_role_id` or null to turn the line off; 400 with the reason when the bot can't give the role) · `POST /sync` · `POST /clear` (turn every line off and take back every role Wizzrobe gave).
 
 ### Discord role mappings (`/api/discord-role-mappings`) · `discord_role_mappings.py`
 - `GET /discord-role-mappings?guild_id=` (list, optionally per guild) · `POST` (create) · `DELETE /{id}` — manage Discord-guild-role → grant mappings (Staff). A `POST` body sets **either** `app_role` (community-wide) **or** `tournament_grant` + `tournament_id` (Tournament Admin / Crew Coordinator on one event); both or neither is a 400.
@@ -241,7 +389,7 @@ Two of these groups are **global / platform** resources gated by `require_super_
 
 ### Presets (`/api/presets`) · `presets.py`
 Tenant-authored seed presets (service gate `can_manage_presets`).
-- `GET /presets` (opt `?randomizer=`) · `GET /presets/selectable` · `GET /presets/{id}`.
+- `GET /presets` (opt `?randomizer=`) · `GET /presets/selectable` · `GET /presets/{id}`. The two picker reads (`?randomizer=`, `/selectable`) are open to any member but return `settings: {}` unless the caller can manage presets.
 - `POST /presets` · `PATCH /presets/{id}` · `DELETE /presets/{id}` · `POST /presets/import-builtins` (import the built-in preset files).
 
 ### Race room profiles (`/api/race-room-profiles`) · `race_room_profiles.py`
@@ -261,17 +409,26 @@ The `/platform` page's other tabs. Reads use `require_super_admin`, writes
 `require_super_admin_write`; communities are named by id and include switched-off
 ones. Composite reads come from `PlatformAdminService`; writes go through the
 owning service (`TenantService`, `FeatureFlagService`, `PasswordAuthService.set_active`,
-`LogLevelService`). Passwords and account creation stay on the page.
+`LogLevelService`, `OAuthAppService`, `BrowserMonitoringService`, `PasswordAuthService`). Password writes take `require_app_super_admin_write`: Wizzrobe's own app only, so a personal token or chat client (which could leave the password in a transcript) is refused with `403`.
+Super-admin routes (these and racetime bots, service-health board) resolve the token with `resolve_identity`,
+so they bind no community: the app calls them with no `X-Wizzrobe-Community` header, a PAT bound to any
+community works, a third-party app's grant is refused, and audit rows land with `tenant=NULL`.
+Community responses carry `discord_guild_id_str` beside `discord_guild_id`, and the guild id is accepted as a
+digit string, because a Discord id is larger than a JavaScript number holds exactly.
 - `GET /platform/communities` · `/{id}` (setup checklist + Staff); `POST` · `PATCH /{id}` (`null` clears `domain`/`discord_guild_id`; `is_active` switches it off).
 - `POST /platform/communities/{id}/staff` (`{user_id}`) — first-admin grant (`TenantService.bootstrap_staff`).
 - `GET /platform/communities/{id}/features` · `PUT /{id}/feature-group` (`{group_id|null}`) · `PUT /{id}/features/{flag}` (`{available: true|false|null}`).
 - `GET /platform/users` (`q`, `has_password`, `is_active`, `limit`) · `/{id}` · `PUT /{id}/active` (`{is_active}`).
+- App only: `POST /platform/users` (`{display_name, login_name, password}`, a password-only account) · `PUT /{id}/password` (`{login_name, password}`) · `DELETE /{id}/password`.
 - `GET /platform/feature-groups`; `POST` · `PATCH /{id}` · `DELETE /{id}`.
+- `GET /platform/features` — every feature a group can make available (key, label, description, category).
 - `GET /platform/log-levels` · `PUT` (`{logger, level}`) · `DELETE ?logger=`.
+- `GET /platform/apps` (every registered app with people/community reach) · `POST /{id}/disable` (`{reason}`) · `POST /{id}/enable`.
+- `GET /platform/browser-monitoring` · `PUT` (`{enabled, replay_on_error, sample_rate}`); `GET /browser-monitoring/rules` · `POST` (`{pattern, match}`) · `DELETE /rules/{id}`. Built-in rules come back with `id: null`.
 
 ### Race rooms (`/api/race-rooms`) · `race_rooms.py`
-- `GET /race-rooms/open` (Staff; filtered to your tenant) · `GET /race-rooms/by-match/{match_id}`.
-- `POST /race-rooms` (`{match_id}`, manual create) · `POST /{id}/cancel` (`{reason?}`) · `PATCH /{id}/status` (`{status}`). Cancel/status add an explicit `can_manage_sync` gate (the service transitions are system-path/ungated). System internals (`get_by_slug`, `record_finish`, websocket event dispatch, auto-create) are **not** exposed.
+- `GET /race-rooms/open` (Staff or Sync admin, checked in the service; filtered to your tenant) · `GET /race-rooms/by-match/{match_id}`.
+- `POST /race-rooms` (`{match_id}`, manual create) · `POST /{id}/cancel` (`{reason?}`) · `PATCH /{id}/status` (`{status}`). Cancel/status go through `cancel_room_as` / `set_status_as`, which check `can_manage_sync`; the plain transitions stay ungated for system paths (match cancellation, the racetime handler). System internals (`get_by_slug`, `record_finish`, websocket event dispatch, auto-create) are **not** exposed.
 
 ### SpeedGaming (`/api/speedgaming`) · `speedgaming.py`
 SpeedGaming schedule ETL event links (service gate `can_manage_sync`).
@@ -291,7 +448,7 @@ External-dependency health board (the HTTP dep is the only authz; the service do
 
 ### Seeds (`/api/seeds`) · `seeds.py`
 - `GET /seeds/randomizers` — the randomizers this community can actually roll + their `supports_triforce_texts` flag. A key-gated backend (`ootr`, `smmap`, `dk64r`) appears only once the community has configured its credential.
-- `POST /seeds` (`{randomizer, preset_id?}`) — roll a seed (loads the tenant-scoped preset when given; unsupported randomizer → 400; honors `MOCK_SEEDGEN`). Generation is ungated, so the write token is the authz. A key-gated randomizer the community has not configured → **400** naming the missing credential.
+- `POST /seeds` (`{randomizer, preset_id?}`) — roll a seed (loads the tenant-scoped preset when given; unsupported randomizer → 400; honors `MOCK_SEEDGEN`). Staff and Preset managers only (`AuthService.ensure_can_roll_free_seed`, the people Seed Presets' Test roll is offered to); anyone else → **403**. A key-gated randomizer the community has not configured → **400** naming the missing credential.
 - **Asynchronous randomizers** (`dk64r`) answer **202** with `{task_id, randomizer, status}` instead of a permalink: their upstream is a task queue and a roll takes minutes, so there is no url yet. Poll `GET /seeds/tasks/{id}` until `status` is terminal (`succeeded` / `failed` / `abandoned`); `url` is filled in only for a task that rolled for a match. Synchronous randomizers are unchanged (**200** + `url`).
 - `GET /seeds/tasks/{id}` — where a queued roll has got to. A task another community owns → **404**.
 - `POST /matches/{id}/seed` keeps its shape for both: an asynchronous roll returns `seed_url: null` with a message saying it is under way, and the players are DMed when it lands.
@@ -331,7 +488,7 @@ Synchronous racetime races for a qualifier pool (service gate `can_admin_qualifi
 ### Brackets (`/api/brackets`) · `brackets.py`
 Native tournament brackets. Reads take any token and are tenant-scoped in-service; writes reject read-only tokens at the HTTP layer and re-gate in `BracketService` — **Staff** everywhere except `POST /matches/{id}/games`, which also accepts the tournament's admins and the matchup's own two entrants (in a bracket-run tournament the bracket is the only way a player schedules at all). Thin wrappers over the service; schemas in [`api/schemas/brackets.py`](../../api/schemas/brackets.py). Behaviour — formats, advancement, roster rules, series semantics, who may schedule — is documented in [brackets.md](../features/brackets.md).
 - **Unpublished stages are staff-only.** For a non-staff token a DRAFT or CANCELLED stage reads as absent: left out of `GET /brackets?tournament_id=`, and `404` on `/brackets/{id}` and its `/matches`, `/open-matches`, `/entries` and `/standings`. A tournament with no published stage `404`s on `/brackets/entrants` too. The same `BracketService` viewer-aware reads the public pages use.
-- **Reads:** `GET /brackets?tournament_id=` (stages) · `/brackets/entrants?tournament_id=` (roster) · `/brackets/{id}` · `/brackets/{id}/matches` · `/brackets/{id}/open-matches` · `/brackets/{id}/entries` · `/brackets/matches/{match_id}` (one matchup with its `games`) · `/brackets/my-open-matches?tournament_id=` (the **caller's** OPEN matchups with a free game slot and both entrants user-linked — the peer of the Challonge unscheduled-match list) · `/brackets/{id}/standings` · `/brackets/advancing-preview?tournament_id=&from_stage_order=` (dry run of the advance, writing nothing).
+- **Reads:** `GET /brackets?tournament_id=` (stages) · `/brackets/entrants?tournament_id=` (roster) · `/brackets/{id}` · `/brackets/{id}/matches` · `/brackets/{id}/open-matches` · `/brackets/{id}/entries` · `/brackets/matches/{match_id}` (one matchup with its `games`; **404** to non-staff when its stage is draft or cancelled) · `/brackets/my-open-matches?tournament_id=` (the **caller's** OPEN matchups with a free game slot and both entrants user-linked — the peer of the Challonge unscheduled-match list) · `/brackets/{id}/standings` · `/brackets/advancing-preview?tournament_id=&from_stage_order=` (dry run of the advance, writing nothing; Staff only, like the advance itself).
 - **Authoring / roster:** `POST /brackets` · `PATCH /brackets/{id}` (`{name?, stage_order?, config?, format?}`, DRAFT-only, omitted fields left alone; the **format** is editable because a DRAFT stage has no match graph) · `DELETE /brackets/{id}` (204, DRAFT-only) · `PUT /brackets/{id}/rounds` (`{rounds}` — the per-round `{best_of, scheduled_at, scheduled_end}` metadata, or null to clear — `scheduled_end` must be after `scheduled_at`, and the pair bounds match-time suggestions for the round; the one definition edit allowed **after** a stage starts, since round chrome never touches the graph) · `PATCH /brackets/{id}/seeds` (`{seeds: {entry_id: seed|null}}`, DRAFT-only; the whole resulting seeding is validated before any write, so a duplicate or `<1` seed changes nothing, and the new entry order is returned) · `POST /brackets/entrants` · `POST /brackets/entrants/import` (`{tournament_id}` — one linked entrant per enrolled player not already rostered, returning only the new ones; idempotent) · `PATCH /brackets/entrants/{entrant_id}/user` (`{user_id}`, null to unlink — allowed in any state, since the link is what makes the entrant schedulable and notifiable) · `POST /brackets/entrants/{entrant_id}/drop` · `POST /brackets/{id}/entries` · `DELETE /brackets/entries/{entry_id}` (204, DRAFT-only un-enrollment) · `POST /brackets/entries/{entry_id}/retire` (mark the entry DROPPED — allowed in any state; the played results stand while Swiss stops pairing them and advancement skips them).
 - **Lifecycle:** `POST /brackets/{id}/start` · `POST /brackets/matches/{match_id}/result` (`{winner_entry_id, entry1_score?, entry2_score?, forfeit?}`) · `PATCH /brackets/matches/{match_id}/result` (same body — staff correction of an already-COMPLETE match) · `POST /brackets/{id}/complete` (optional `{tie_breaks: {entry_id: rank}}` — resolves entries the standings pass left sharing a rank, applied on both Swiss and round robin) · `POST /brackets/{id}/cancel` (abandon a started stage: terminal, no `final_rank`, no champion; rejected on a COMPLETE stage) · `POST /brackets/advance-stage?tournament_id=` (`{from_stage_order}`).
 - **Series:** `PATCH /brackets/matches/{match_id}/best-of` (`{best_of}` — odd, or null to fall back to the round's value; rejected once games exist) · `POST /brackets/matches/{match_id}/games` (`{scheduled_date, scheduled_time, stage_id?, comment?}` — books the **next** game into a real `Match`; the game number is server-assigned, so call it once per game, and all N slots may be booked up front). `stage_id` is staff-only and 400s for an entrant rather than being silently dropped.

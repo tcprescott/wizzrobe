@@ -3,6 +3,7 @@
 from nicegui import ui
 
 from application.services import StationService, SystemConfigService
+from application.services.station_service import STATION_FORMAT_LABELS
 from application.services.system_config_service import KEY_STATION_FORMAT
 from models import StationFormat, StationSide
 from pages.admin_tabs.room_tokens_section import render_room_tokens_section
@@ -11,13 +12,9 @@ from theme.dialog.confirmation_dialog import ConfirmationDialog
 from theme.notify import notify_error
 from theme.save_footer import SaveFooter
 from theme.section import section_panel
+from theme.steady import steady_refreshable
 
-_STATION_FORMATS = {
-    StationFormat.FREE.value: 'Anything (no check)',
-    StationFormat.NUMERIC.value: 'Numbers only (1, 2, 3…)',
-    StationFormat.STRUCTURED.value: 'Letter and number (A1, B12)',
-    StationFormat.ALPHANUMERIC.value: 'Letters, numbers and hyphens',
-}
+_STATION_FORMATS = {f.value: label for f, label in STATION_FORMAT_LABELS.items()}
 
 
 async def _numbering_card(can_edit: bool) -> None:
@@ -54,7 +51,7 @@ async def _stations_card(can_edit: bool) -> None:
     """
     service = StationService()
 
-    @ui.refreshable
+    @steady_refreshable
     async def station_list() -> None:
         stations = await service.list_stations()
         if not stations:
@@ -75,10 +72,6 @@ async def _stations_card(can_edit: bool) -> None:
             with ui.row().classes('wiz-station-row items-center gap-3 q-mb-xs full-width'):
                 ui.label(station.name).classes('w-16 text-weight-medium')
                 ui.label(station.section or '—').classes('col text-caption text-grey')
-                # Editable in place rather than through a dialog: describing a
-                # room's layout means touching every row once, and a pool built
-                # before these fields existed would otherwise have to be
-                # deleted and retyped to gain a side.
                 async def set_side(e, s=station) -> None:
                     try:
                         await service.update_station(
@@ -109,8 +102,7 @@ async def _stations_card(can_edit: bool) -> None:
                     clearable=True,
                     on_change=set_side,
                 ).props('outlined dense').classes('w-32').set_enabled(can_edit)
-                # Debounced: without it every keystroke in the seat number is a
-                # write and an audit row.
+                # Debounced: otherwise every keystroke is a write and an audit row.
                 ui.number(
                     'Seat #',
                     value=station.position,
@@ -194,7 +186,7 @@ async def _stations_card(can_edit: bool) -> None:
                 position_input.value = None
                 station_list.refresh()
 
-            ui.button('Add station', icon='add', on_click=add).props('color=primary unelevated no-caps')
+            ui.button('Add station', icon='add', on_click=add).props('color=primary unelevated no-caps').classes('wiz-write')
 
 
 async def venue_settings_pane(can_edit: bool) -> None:

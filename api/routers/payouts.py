@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Depends
 
-from api.dependencies import ServiceErrorRoute, require_api_actor, require_write_actor
+from api.dependencies import ServiceErrorRoute, event_binding, require_api_actor, require_write_actor
 from api.schemas.payouts import (
     PayoutLineResponse,
     PayoutSplitRequest,
@@ -11,9 +11,9 @@ from api.schemas.payouts import (
 )
 from application.services import PayoutService
 from application.services.payout_service import PayoutSplit
-from models import User
+from models import Tournament, User
 
-router = APIRouter(prefix="/tournaments", tags=["Payouts"], route_class=ServiceErrorRoute)
+router = APIRouter(prefix="/tournaments", tags=["Payouts"], route_class=ServiceErrorRoute, dependencies=[Depends(event_binding(tournament_id=Tournament))])
 
 
 def _to_response(tournament_id: int, split: PayoutSplit) -> PayoutSplitResponse:
@@ -23,11 +23,13 @@ def _to_response(tournament_id: int, split: PayoutSplit) -> PayoutSplitResponse:
         prize_bonus=split.bonus,
         total=split.total,
         allocated_percentage=split.allocated_percentage,
+        allocated_amount=split.allocated_amount,
         lines=[
             PayoutLineResponse(
                 id=line.payout.id,
                 place=line.place,
                 percentage=line.percentage,
+                is_fixed=line.is_fixed,
                 amount=line.amount,
                 entrant_id=line.payout.entrant_id,  # type: ignore[attr-defined]
                 entrant_name=line.entrant_name,

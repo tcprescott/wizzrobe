@@ -24,15 +24,7 @@ CONFIG = LinkSectionConfig(
     username_attr='challonge_username',
     linked_at_attr='challonge_linked_at',
     service_factory=ChallongeService,
-    # Signed out of Challonge, its authorize URL redirects to a sign-in route on
-    # api.challonge.com that doesn't exist there and answers a bare 401 JSON
-    # "authentication required" instead of a login form.
     sign_in_first_url='https://challonge.com/user_session/new',
-    # The only provider whose unlink has a consequence beyond the row, and the
-    # consequence does not arrive until the next bracket sync — measured: the
-    # mirrored participant keeps pointing at the user until then, so the
-    # enrolment list is unchanged at the moment of the click and the
-    # participation detaches silently hours later.
     unlink_confirmation=(
         'Your bracket participation is matched to you by your Challonge account.\n\n'
         'Tournaments you were enrolled in automatically from a bracket will stop '

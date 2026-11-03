@@ -108,7 +108,6 @@ class TestAuditNeverCarriesTheSecret:
             'randomizer_credential.set', 'randomizer_credential.cleared',
         }
         for entry in entries:
-            # ``details`` is a serialized blob on the row.
             assert _SECRET not in entry.details
             details = json.loads(entry.details)
             assert details['randomizer'] == 'ootr'

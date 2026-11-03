@@ -5,11 +5,20 @@
     "path": "/admin/schedule",
     "viewport": {
       "width": 1680,
-      "height": 1000
+      "height": 1750
     },
     "setup": [
       {
         "wait": 1500
+      },
+      {
+        "click": ".match-filters-card .q-select:has-text('Day')"
+      },
+      {
+        "click": ".q-menu .q-item:has-text(\"All dates\")"
+      },
+      {
+        "wait": 1000
       }
     ],
     "selector": ".schedule-layout__board .match-table",
@@ -19,7 +28,7 @@
         "n": 1
       },
       {
-        "selector": ".schedule-layout__board .match-table >> text=/needs crew/",
+        "selector": ".schedule-layout__board .match-table >> text=/needs crew/ >> nth=1",
         "n": 2
       },
       {
@@ -37,6 +46,15 @@
     "setup": [
       {
         "wait": 1500
+      },
+      {
+        "click": ".match-filters-card .q-select:has-text('Day')"
+      },
+      {
+        "click": ".q-menu .q-item:has-text(\"All dates\")"
+      },
+      {
+        "wait": 1000
       },
       {
         "click": ".q-table__bottom .q-select"

@@ -71,7 +71,6 @@ async def test_occupied_stations_are_isolated(two_tenants):
         b_match = await _seated_match_at(b, '1')
 
     with tenant_scope(a.id):
-        # Tenant B's live match at its own station 1 is invisible to tenant A.
         assert await MatchRepository.occupied_stations() == {}
     with tenant_scope(b.id):
         assert await MatchRepository.occupied_stations() == {'1': b_match.id}

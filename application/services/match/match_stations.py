@@ -16,6 +16,7 @@ nothing.
 from typing import Optional
 
 from application.events import EventType, match_live
+from application.repositories._save import save_fields
 from application.services.audit_service import AuditActions
 from application.services.auth_service import AuthService
 from application.services.match import _station_copy
@@ -57,37 +58,36 @@ class StationAssignmentMixin:
 
         requested = [s for s in assignments.values() if s]
 
-        # 1. Two players of the same match cannot share a station.
-        duplicates = {s for s in requested if requested.count(s) > 1}
+        problems = []
+        duplicates = sorted({s for s in requested if requested.count(s) > 1}, key=_station_sort)
         if duplicates:
-            raise ValueError(
-                f"Station {sorted(duplicates)[0]} is assigned to more than one "
-                "player in this match."
+            problems.append(
+                f"{_stations(duplicates)} {'is' if len(duplicates) == 1 else 'are each'} "
+                "assigned to more than one player in this match."
             )
 
-        for station in requested:
-            # 2. Format (unchanged behaviour, and the only check when no pool
-            #    is defined).
+        clashes: dict[int, list[str]] = {}
+        for station in dict.fromkeys(requested):
             if not pattern.fullmatch(station):
-                raise ValueError(
-                    f"Station '{station}' does not match the required format ({fmt.value})"
+                problems.append(
+                    f"Station '{station}' does not match the required format ({fmt.value})."
                 )
-            # 3. Must be a real station, once this community has defined any.
-            if pool and station not in pool:
-                raise ValueError(
-                    f"'{station}' is not one of this community's stations."
+            elif pool and station not in pool:
+                problems.append(f"'{station}' is not one of this community's stations.")
+            elif station in occupied:
+                clashes.setdefault(occupied[station], []).append(station)
+        if clashes:
+            names = await _station_copy.name_matches(self.repository, clashes)
+            for match_id, stations in clashes.items():
+                in_use = sorted(stations, key=_station_sort)
+                problems.append(
+                    f"{_stations(in_use)} {'is' if len(in_use) == 1 else 'are'} in use by "
+                    f"{names.get(match_id, _station_copy.UNKNOWN_MATCH)}."
                 )
-            # 4. Not already in use by another match in play. Named rather than
-            #    numbered, and resolved only here so the happy path keeps its
-            #    query count.
-            if station in occupied:
-                name = await _station_copy.name_one(self.repository, occupied[station])
-                raise ValueError(f"Station {station} is in use by {name}.")
+        if problems:
+            raise ValueError(' '.join(problems))
 
-        # Keys are MatchPlayers ids, and the confusion is with User ids. Without
-        # this an assignment naming only unknown ids applies nothing and still
-        # reports success, audits and publishes — a silent no-op is the worst
-        # answer to give a caller that got the id space wrong.
+        # Keys are MatchPlayers ids, not User ids: unknown ids must fail, not silently apply nothing.
         unknown = set(assignments) - {p.id for p in match.players}
         if unknown:
             raise ValueError(
@@ -98,7 +98,7 @@ class StationAssignmentMixin:
         for player in match.players:
             if player.id in assignments:
                 player.assigned_station = assignments[player.id]
-                await player.save()
+                await save_fields(player, 'assigned_station')
 
         await self.audit_service.write_and_publish(
             actor,
@@ -112,6 +112,9 @@ class StationAssignmentMixin:
         )
 
         match_live.publish(match.id)
+        from application.services import opt_in_notifications
+        from application.services.discord import discord_queue
+        discord_queue.enqueue(opt_in_notifications.stations_assigned(match.id))
 
         return match
 
@@ -126,3 +129,14 @@ class StationAssignmentMixin:
             self.repository,
             await self.repository.occupied_stations(exclude_match_id=match_id),
         )
+
+
+def _station_sort(station: str) -> tuple:
+    return (0, int(station), '') if station.isdigit() else (1, 0, station)
+
+
+def _stations(names: list[str]) -> str:
+    """``Station 3`` / ``Stations 3 and 7`` / ``Stations 1, 3 and 7``."""
+    if len(names) == 1:
+        return f"Station {names[0]}"
+    return f"Stations {', '.join(names[:-1])} and {names[-1]}"

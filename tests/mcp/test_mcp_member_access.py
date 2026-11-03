@@ -26,7 +26,6 @@ async def test_member_without_role_sees_and_reads_their_community(db):
         error, text = await call_tool(client, raw, 'list_tournaments', tenant='elsewhere')
         assert error and 'No community' in text
 
-        # Members only get member tools: staff gates still apply.
         error, text = await call_tool(client, raw, 'list_users', tenant='default')
         assert error and 'forbidden:' in text
 

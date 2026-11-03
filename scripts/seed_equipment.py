@@ -31,7 +31,6 @@ from tortoise.functions import Max
 
 from models import Equipment, EquipmentLoan, EquipmentStatus, Role, Tenant, User, UserRole
 
-#: Closed loans on the long-history asset.
 _LONG_HISTORY = 15
 
 _ASSET_SPECS = (
@@ -41,10 +40,6 @@ _ASSET_SPECS = (
     ('HDMI Splitter', '4-way powered splitter', None),
     ('Mic Stand', 'Boom arm, held by a volunteer', None),
     ('Long HDMI Run', '50ft HDMI — lent constantly', None),
-    # Gear breaks, and a community retires it rather than deleting the asset and
-    # its loan history. RETIRED was the one EquipmentStatus the seed never
-    # produced, so nothing in dev showed how a retired asset reads in the list or
-    # that it cannot be checked out.
     ('Console 2', 'Super Nintendo (SNES) — dead PPU, kept for parts', 'staff'),
     ('RetroTINK 2X', 'Upscaler loaner — scan the QR code on the unit', None),
     ('RetroTINK 2X (spare)', 'Upscaler loaner — the one still on the shelf', None),
@@ -62,13 +57,7 @@ async def seed_equipment_for_tenant(
     Returns the assets by name; ``seed_dev.py``'s audit-log fixtures reference
     one of them.
     """
-    # staff_user is deliberately *not* granted EQUIPMENT_MANAGER: every gate here
-    # is ``is_staff(user) or is_equipment_manager(user)``, so the grant added
-    # nothing but a second role on the one fixture that has to stay plain STAFF
-    # (one holder per role — docs/reference/dev-seed.md).
-    #
-    # Manager without STAFF: the fixture that proves the manager surfaces stand
-    # on their own.
+    # Don't grant staff_user EQUIPMENT_MANAGER: it must stay the plain-STAFF fixture (one holder per role).
     equip_manager = users['equip_manager']
     await UserRole.get_or_create(
         user=equip_manager, role=Role.EQUIPMENT_MANAGER, tenant=tenant,
@@ -80,7 +69,6 @@ async def seed_equipment_for_tenant(
     for name, description, owner_key in _ASSET_SPECS:
         asset = await Equipment.get_or_none(name=name, tenant=tenant)
         if asset is None:
-            # asset_number is unique per tenant; take this tenant's max + 1.
             row = await Equipment.filter(tenant=tenant).annotate(m=Max('asset_number')).values('m')
             next_number = (row[0]['m'] or 0) + 1
             asset = await Equipment.create(
@@ -99,17 +87,10 @@ async def seed_equipment_for_tenant(
             checked_in_at=now_utc, checked_in_by=staff, tenant=tenant,
         )
 
-    # Held by a plain VOLUNTEER, not by staff: log in as player_three and scan
-    # this asset to see what a borrower sees.
     await _open_loan(
         equipment['Mic Stand'], users['player_three'], equip_manager, tenant,
     )
 
-    # Borrowed by the person who scanned it: checked_out_by *is* the borrower,
-    # and they hold no role in any community. That combination is only reachable
-    # since borrowing stopped being role-gated, so nothing else in the seed
-    # produces it — and the loan card reading "out by" the borrower themselves is
-    # exactly what the QR path leaves behind.
     walk_in = users['outsider']
     await _open_loan(equipment['RetroTINK 2X'], walk_in, walk_in, tenant)
 

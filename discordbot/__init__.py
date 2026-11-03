@@ -18,7 +18,11 @@ from application.services.discord.discord_service import (
     VIEW_CREW_SIGNUP,
     VIEW_HARD_PRESET,
     VIEW_MATCH_ACK,
+    VIEW_PARTNER_INVITE,
+    VIEW_PLAYER_LATE,
     VIEW_RESCHEDULE_AGREE,
+    VIEW_SEED_READY,
+    VIEW_SURVEY_DECLINE,
     VIEW_UNWATCH,
     VIEW_VOLUNTEER_ACK,
     VIEW_VOLUNTEER_ARRIVAL,
@@ -62,12 +66,44 @@ from discordbot.match_hard_preset import (
     handle_hard_preset_interaction,
     make_hard_preset_view,
 )
+from discordbot.partner_invite import (
+    CUSTOM_ID_PREFIX as PARTNER_INVITE_PREFIX,
+)
+from discordbot.partner_invite import (
+    handle_partner_invite_interaction,
+    make_partner_invite_view,
+)
+from discordbot.player_late import (
+    LATE_MINUTES_PREFIX as PLAYER_LATE_MINUTES_PREFIX,
+)
+from discordbot.player_late import (
+    LATE_PREFIX as PLAYER_LATE_PREFIX,
+)
+from discordbot.player_late import (
+    handle_player_late_interaction,
+    handle_player_late_minutes_interaction,
+    make_player_late_view,
+)
 from discordbot.reschedule_agreement import (
     CUSTOM_ID_PREFIX as RESCHEDULE_AGREE_PREFIX,
 )
 from discordbot.reschedule_agreement import (
     handle_reschedule_agree_interaction,
     make_reschedule_agree_view,
+)
+from discordbot.seed_ready import (
+    CUSTOM_ID_PREFIX as SEED_READY_PREFIX,
+)
+from discordbot.seed_ready import (
+    handle_seed_ready_interaction,
+    make_seed_ready_view,
+)
+from discordbot.survey_buttons import (
+    CUSTOM_ID_PREFIX as SURVEY_DECLINE_PREFIX,
+)
+from discordbot.survey_buttons import (
+    handle_survey_decline_interaction,
+    make_survey_decline_view,
 )
 from discordbot.volunteer_acknowledgment import (
     CUSTOM_ID_PREFIX as VOLUNTEER_ACK_PREFIX,
@@ -107,8 +143,6 @@ from discordbot.watch_buttons import (
     make_unwatch_view,
 )
 
-# Component-interaction handlers, keyed by the custom_id prefix baked into each
-# button (text before the first ':').
 register_interaction_handler(CREW_SIGNUP_PREFIX, handle_crew_signup_interaction)
 register_interaction_handler(MATCH_ACK_PREFIX, handle_match_acknowledgment_interaction)
 register_interaction_handler(CREW_ACK_PREFIX, handle_crew_acknowledgment_interaction)
@@ -118,16 +152,19 @@ register_interaction_handler(VOLUNTEER_LATE_PREFIX, handle_late_interaction)
 register_interaction_handler(VOLUNTEER_LATE_MINUTES_PREFIX, handle_late_minutes_interaction)
 register_interaction_handler(VOLUNTEER_CANT_PREFIX, handle_cant_interaction)
 register_interaction_handler(VOLUNTEER_CANT_REASON_PREFIX, handle_cant_reason_interaction)
+register_interaction_handler(PLAYER_LATE_PREFIX, handle_player_late_interaction)
+register_interaction_handler(PLAYER_LATE_MINUTES_PREFIX, handle_player_late_minutes_interaction)
 register_interaction_handler(WATCH_PREFIX, handle_unwatch_interaction)
+register_interaction_handler(SEED_READY_PREFIX, handle_seed_ready_interaction)
+register_interaction_handler(SURVEY_DECLINE_PREFIX, handle_survey_decline_interaction)
 register_interaction_handler(RESCHEDULE_AGREE_PREFIX, handle_reschedule_agree_interaction)
 register_interaction_handler(HARD_PRESET_PREFIX, handle_hard_preset_interaction)
 register_interaction_handler(LOGIN_PANEL_PREFIX, handle_login_panel_interaction)
+register_interaction_handler(PARTNER_INVITE_PREFIX, handle_partner_invite_interaction)
 
-# Slash commands, added to the bot's command tree and synced when it logs in.
 register_app_command(login_command)
 register_app_command(wizzrobe_group)
 
-# DM view factories, keyed by the VIEW_* kinds the DM senders look up.
 register_view_factory(VIEW_CREW_SIGNUP, make_crew_signup_view)
 register_view_factory(VIEW_MATCH_ACK, make_match_acknowledgment_view)
 register_view_factory(VIEW_CREW_ACK, make_crew_acknowledgment_view)
@@ -136,3 +173,7 @@ register_view_factory(VIEW_VOLUNTEER_ARRIVAL, make_volunteer_arrival_view)
 register_view_factory(VIEW_UNWATCH, make_unwatch_view)
 register_view_factory(VIEW_RESCHEDULE_AGREE, make_reschedule_agree_view)
 register_view_factory(VIEW_HARD_PRESET, make_hard_preset_view)
+register_view_factory(VIEW_PLAYER_LATE, make_player_late_view)
+register_view_factory(VIEW_SEED_READY, make_seed_ready_view)
+register_view_factory(VIEW_SURVEY_DECLINE, make_survey_decline_view)
+register_view_factory(VIEW_PARTNER_INVITE, make_partner_invite_view)

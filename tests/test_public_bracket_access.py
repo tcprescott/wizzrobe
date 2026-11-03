@@ -82,13 +82,10 @@ class TestCrawlerPolicy:
         import httpx
         from fastapi import FastAPI
 
-        # frontend imports pages.auth, which builds a real Discord client at
-        # import time unless mock mode is on.
+        # Mock mode first: pages.auth builds a real Discord client at import time otherwise.
         monkeypatch.setenv('MOCK_DISCORD', 'true')
         import frontend
 
-        # The root routes register on a bare app — cheaper and more direct than
-        # booting the whole NiceGUI stack.
         app = FastAPI()
         frontend._register_root_routes(app)
 

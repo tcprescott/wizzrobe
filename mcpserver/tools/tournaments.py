@@ -10,6 +10,7 @@ from typing import List, Optional
 from mcp.server.mcpserver import MCPServer
 
 from api.schemas.tournaments import TournamentResponse
+from application.api_scopes import ApiScope
 from application.errors import require_found
 from application.services import (
     MatchSuggestionService,
@@ -41,8 +42,11 @@ async def list_tournaments(
 
     Returns a compact summary per tournament; use `get_tournament` for full
     detail on one. Set `active_only` to skip finished and archived events.
+    Inactive tournaments are listed only for admins.
     """
-    tournaments = await TournamentService().get_all_tournaments(active_only=active_only)
+    tournaments = await TournamentService().list_for_viewer(
+        current_actor().user, active_only=active_only,
+    )
     return [TournamentSummary.model_validate(t, from_attributes=True) for t in tournaments]
 
 
@@ -50,9 +54,13 @@ async def get_tournament(
     tournament_id: int,
     tenant: TenantArg = None,
 ) -> TournamentResponse:
-    """Get full detail for one tournament, including its configuration."""
+    """Get full detail for one tournament, including its configuration.
+
+    An inactive tournament is not found unless you're an admin.
+    """
     tournament = require_found(
-        await TournamentService().get_tournament_by_id(tournament_id), 'Tournament'
+        await TournamentService().get_for_viewer(current_actor().user, tournament_id),
+        'Tournament',
     )
     return TournamentResponse.model_validate(tournament, from_attributes=True)
 
@@ -129,8 +137,8 @@ async def get_tournament_payouts(
 ) -> TournamentPayouts:
     """Get a tournament's prize split — each placement's share and what it pays.
 
-    Amounts are computed from the pool plus the bonus at read time, so they
-    always match the pool as it stands now. Several rows may share a place:
+    Percentage lines are computed from the pool plus the bonus at read time, so
+    they always match the pool as it stands now; fixed lines pay their amount. Several rows may share a place:
     joint placings are paid separately, not halved. Requires staff, or being an
     admin of this tournament.
     """
@@ -144,6 +152,7 @@ async def get_tournament_payouts(
             PayoutEntry(
                 place=line.place,
                 percentage=line.percentage,
+                is_fixed=line.is_fixed,
                 amount=line.amount,
                 entrant_name=line.entrant_name,
                 matcherino_username=line.matcherino_username,
@@ -197,22 +206,25 @@ async def suggest_match_time(
 
 
 def register_tools(mcp: MCPServer) -> None:
-    register(mcp, list_tournaments, gate=Gate.ACTOR, title='List tournaments')
-    register(mcp, get_tournament, gate=Gate.ACTOR, title='Get tournament')
-    register(mcp, list_tournament_signups, gate=Gate.ACTOR, title='List tournament signups')
-    register(mcp, list_tournament_players, gate=Gate.ACTOR, title='List tournament players')
+    register(mcp, list_tournaments, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ, title='List tournaments', event=True)
+    register(mcp, get_tournament, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ, title='Get tournament', event=True)
+    register(mcp, list_tournament_signups, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ, title='List tournament signups', event=True)
+    register(mcp, list_tournament_players, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ, title='List tournament players', event=True)
     register(
-        mcp, sign_up_for_tournament, gate=Gate.ACTOR, write=True,
+        mcp, sign_up_for_tournament, gate=Gate.ACTOR, scope=ApiScope.PLAY, write=True,
         title='Sign up for tournament',
+        event=True,
     )
     register(
-        mcp, withdraw_from_tournament, gate=Gate.ACTOR, write=True,
+        mcp, withdraw_from_tournament, gate=Gate.ACTOR, scope=ApiScope.PLAY, write=True,
         title='Withdraw from tournament', destructive=True,
+        event=True,
     )
     register(
-        mcp, get_tournament_payouts, gate=Gate.ACTOR,
+        mcp, get_tournament_payouts, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ,
         feature=FeatureFlag.PAYOUTS, title='Get tournament payouts',
+        event=True,
     )
-    register(mcp, list_stages, gate=Gate.ACTOR, title='List stages')
-    register(mcp, get_stage, gate=Gate.ACTOR, title='Get stage')
-    register(mcp, suggest_match_time, gate=Gate.ACTOR, title='Suggest a match time')
+    register(mcp, list_stages, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ, title='List stages', event=True)
+    register(mcp, get_stage, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ, title='Get stage', event=True)
+    register(mcp, suggest_match_time, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ, title='Suggest a match time', event=True)

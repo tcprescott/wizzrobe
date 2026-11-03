@@ -3,16 +3,13 @@
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
+from application.event_writes import guarded_update
 from application.repositories._base import TenantScopedRepository
 from application.repositories._tenant import current_tenant_id, scoped
 from models import ProviderTask, ProviderTaskStatus
 
-# Statuses a poller may still pick up. Kept here rather than derived per call so
-# the scan's shape is one thing to read.
 _ACTIVE = (ProviderTaskStatus.QUEUED, ProviderTaskStatus.RUNNING)
 
-# Terminal states that mean "this roll produced nothing". Kept apart from
-# SUCCEEDED because these are the ones a person needs told about.
 _FAILED = (ProviderTaskStatus.FAILED, ProviderTaskStatus.ABANDONED)
 
 
@@ -24,7 +21,7 @@ class ProviderTaskRepository(TenantScopedRepository[ProviderTask]):
         """One task with everything a completion needs, scoped to this tenant."""
         return await scoped(
             ProviderTask.filter(id=task_id)
-        ).prefetch_related('match', 'preset', 'requested_by').first()
+        ).prefetch_related('match__generated_seed', 'preset', 'requested_by').first()
 
     @classmethod
     async def active_for_match(cls, match_id: int) -> Optional[ProviderTask]:
@@ -79,9 +76,18 @@ class ProviderTaskRepository(TenantScopedRepository[ProviderTask]):
             **fields,
         )
 
-    # ------------------------------------------------------------------
     # Poller-facing queries — deliberately cross-tenant
-    # ------------------------------------------------------------------
+
+    @classmethod
+    async def pollable(cls, task_id: int) -> Optional[ProviderTask]:
+        """One task if it is still pollable, across tenants, loaded like :meth:`due_for_poll`.
+
+        Unscoped for the same reason: a Cloud Tasks call names the task and
+        re-enters its tenant before acting on it.
+        """
+        return await ProviderTask.filter(
+            id=task_id, status__in=_ACTIVE, provider_task_id__isnull=False,
+        ).prefetch_related('match', 'preset', 'requested_by').first()
 
     @classmethod
     async def due_for_poll(cls, limit: int = 50) -> List[ProviderTask]:
@@ -116,9 +122,9 @@ class ProviderTaskRepository(TenantScopedRepository[ProviderTask]):
         completed: Optional[datetime] = (
             datetime.now(timezone.utc) if status in ProviderTaskStatus.terminal() else None
         )
-        updated = await ProviderTask.filter(
+        updated = await guarded_update(ProviderTask.filter(
             id=task.id, status=task.status
-        ).update(status=status, completed_at=completed)
+        ), status=status, completed_at=completed)
         if updated:
             task.status = status
             task.completed_at = completed  # type: ignore[assignment]

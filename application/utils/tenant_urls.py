@@ -18,7 +18,6 @@ from application.utils.hostname import normalize_hostname, scheme_for_host
 # Routes that must never be used as a post-login return target (they would loop).
 AUTH_ROUTES: tuple[str, ...] = ('/login', '/logout', '/oauth/callback', '/login/discord', '/password-login')
 
-# A return path is a URL a person was looking at; anything longer is not one.
 _MAX_RETURN_PATH = 2048
 
 
@@ -118,6 +117,11 @@ def encoded_host_mismatch(canonical_url: Any, browsing_host: Any) -> Optional[st
 def tenant_url(tenant: Any, path: str) -> str:
     """:func:`tenant_base_url` joined to an absolute in-app ``path`` (leading ``/``)."""
     return f'{tenant_base_url(tenant)}{path}'
+
+
+def event_path(slug: Optional[str], path: str) -> str:
+    """``path`` inside event ``slug`` (``/e/<slug>/…``), or ``path`` as-is without one."""
+    return f'/e/{slug}{path}' if slug else path
 
 
 def tenant_home(root_path: str) -> str:

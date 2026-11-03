@@ -26,8 +26,10 @@ def transports(monkeypatch):
         sent['email'].append({'to': to, 'subject': subject, 'text': text, 'html': html_body, 'headers': headers})
         return True
 
-    async def fake_send(chat_id, text, button_url=None, button_label=None):
+    async def fake_send(chat_id, text, button_url=None, button_label=None, silent=False):
         sent['telegram'].append({'chat_id': chat_id, 'text': text, 'url': button_url})
+        if silent:
+            sent['telegram'][-1]['silent'] = True
         return True
 
     async def fake_bot_username():
@@ -56,9 +58,6 @@ def _code_from(sent) -> str:
 
 async def _actions() -> list[str]:
     return [a.action for a in await AuditLog.all().order_by('id')]
-
-
-# ------------------------------------------------------------------ email
 
 
 async def test_a_mailed_code_confirms_the_address_and_turns_email_on(player, transports):
@@ -155,9 +154,6 @@ async def test_the_unsubscribe_link_turns_email_off_only_for_its_address(player)
     assert (await User.get(id=player.id)).email_notifications is True
 
 
-# --------------------------------------------------------------- telegram
-
-
 async def test_the_start_link_binds_the_chat_once(player):
     service = NotificationChannelService()
     link = await service.create_telegram_link(player)
@@ -196,9 +192,6 @@ async def test_stop_turns_telegram_off(player):
     assert await telegram_bot_worker.handle_text(5555, None, 'hello') is None
 
 
-# ------------------------------------------------------- the DM copy
-
-
 async def _with_both(player) -> User:
     service = NotificationChannelService()
     await service.use_discord_email(player, '700', 'sam@example.com', True)
@@ -218,6 +211,21 @@ async def test_a_dm_is_copied_to_email_and_telegram(player, transports):
     assert 'Open the match: https://x.test/m/1' in email['text']
     assert email['headers']['List-Unsubscribe-Post'] == 'List-Unsubscribe=One-Click'
     assert transports['telegram'][-1] == {'chat_id': 5555, 'text': 'Your match is up\nStation 4', 'url': 'https://x.test/m/1'}
+
+
+async def test_the_copy_keeps_underscores_in_names(player, transports):
+    await _with_both(player)
+    await NotificationChannelService().mirror_dm(700, '**Match** vs dark__link')
+
+    assert transports['email'][-1]['subject'] == 'Match vs dark__link'
+    assert transports['telegram'][-1]['text'] == 'Match vs dark__link'
+
+
+async def test_a_silent_dm_reaches_telegram_quietly(player, transports):
+    await _with_both(player)
+    await NotificationChannelService().mirror_dm(700, 'Match started', silent=True)
+
+    assert transports['telegram'][-1]['silent'] is True
 
 
 async def test_the_copy_escapes_html(player, transports):
@@ -250,9 +258,6 @@ async def test_no_copy_to_a_channel_turned_off(player, transports):
     await service.mirror_dm(700, 'Your match is up')
     assert len(transports['email']) == before
     assert len(transports['telegram']) == 1
-
-
-# ------------------------------------------------------------------ tests
 
 
 async def test_tests_go_where_asked_and_are_rate_limited(player, transports):
@@ -289,3 +294,19 @@ async def test_discord_tests_work_with_the_flag_off_but_email_does_not(player, m
         assert results == {Channel.DISCORD: True}
         with pytest.raises(ValueError, match="aren't turned on"):
             await NotificationChannelService().send_test(player, [Channel.DISCORD, Channel.EMAIL])
+
+
+async def test_the_copy_carries_the_settings_footnote(player, transports):
+    from application.utils.discord_messages import DMLink
+    from application.utils.settings_footnote import SettingsFootnote
+
+    await _with_both(player)
+    footnote = SettingsFootnote('Seed ready', DMLink('Notification settings', 'https://x.test/home/profile'))
+    await NotificationChannelService().mirror_dm(700, 'Your seed is ready', footnote=footnote)
+
+    email = transports['email'][-1]
+    assert 'Change how you get “Seed ready” messages: https://x.test/home/profile' in email['text']
+    assert 'href="https://x.test/home/profile"' in email['html']
+    assert transports['telegram'][-1]['text'].endswith(
+        '\n\nChange how you get “Seed ready” messages: https://x.test/home/profile'
+    )

@@ -6,6 +6,7 @@ Handles all database operations for the MatchStreamVolunteer model.
 
 from typing import Dict, List, Optional, Tuple
 
+from application.event_writes import guarded_delete
 from application.repositories._tenant import current_tenant_id, scoped
 from models import Match, MatchStreamVolunteer, User
 
@@ -32,7 +33,6 @@ class MatchStreamVolunteerRepository:
         rows = await scoped(
             MatchStreamVolunteer.filter(user=user)
         ).values_list('match_id', flat=True)
-        # flat=True yields scalars; the stub types values_list as tuples.
         return list(rows)  # type: ignore[arg-type]
 
     @staticmethod
@@ -67,5 +67,5 @@ class MatchStreamVolunteerRepository:
 
     @staticmethod
     async def delete_by_match_and_user(match: Match, user: User) -> bool:
-        deleted = await scoped(MatchStreamVolunteer.filter(match=match, user=user)).delete()
+        deleted = await guarded_delete(scoped(MatchStreamVolunteer.filter(match=match, user=user)))
         return bool(deleted)

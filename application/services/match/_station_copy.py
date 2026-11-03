@@ -17,9 +17,6 @@ from typing import Iterable, Mapping
 
 from application.utils.match_labels import match_model_label
 
-# What an occupied station says when its match cannot be loaded — a row deleted
-# between the occupancy read and this one. Better than a blank or a raise: the
-# station is still taken, we just cannot say by whom.
 UNKNOWN_MATCH = 'another match'
 
 

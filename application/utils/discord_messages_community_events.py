@@ -24,7 +24,7 @@ def literal(text: str | None) -> str:
 def submitted_to_staff_dm(community_name: str, host_name: str, title: str) -> str:
     """DM to staff when a member submits an event, or resubmits a rejected one."""
     return (
-        f'**{literal(host_name)}** submitted **{literal(title)}** to the community events listing for '
+        f'**{literal(host_name)}** submitted **{literal(title)}** to the meetups listing for '
         f'**{community_name}**. Open it to approve or reject it.'
     )
 
@@ -42,11 +42,25 @@ def approved_dm(community_name: str, title: str, rsvp_enabled: bool = False) -> 
     )
 
 
+def handed_over_dm(community_name: str, staff_name: str, title: str, *, new_event: bool,
+                   listed: bool) -> str:
+    """DM to a member staff made the host of an event, new or existing."""
+    what = 'posted' if new_event else 'handed you'
+    status = (
+        "It's listed with the meetups." if listed
+        else "It isn't listed yet."
+    )
+    return (
+        f'**{literal(staff_name)}** {what} **{literal(title)}** in **{community_name}** with you as '
+        f'the host. {status} You can edit or cancel it from the event page.'
+    )
+
+
 def rejected_dm(community_name: str, title: str, reason: str, was_listed: bool) -> str:
     """DM to the host when staff reject their event or take a listed one down."""
     what = 'was taken off' if was_listed else "wasn't approved for"
     return (
-        f'**{literal(title)}** {what} **{community_name}**\'s community events listing.\n'
+        f'**{literal(title)}** {what} **{community_name}**\'s meetups listing.\n'
         f'Reason from staff: {reason}\n'
         'You can edit it and submit it again.'
     )

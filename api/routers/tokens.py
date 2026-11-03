@@ -57,8 +57,7 @@ async def create_token(
     actor: User = Depends(require_write_actor),
     resolved: Tuple[User, ApiToken] = Depends(resolve_token),
 ):
-    # A token minted by a token must not outlive it, or a leaked short-lived
-    # token could be swapped for a permanent one before it expires.
+    # A child token must not outlive its parent, or a leaked short-lived one could become permanent.
     _, parent = resolved
     token, raw = await ApiTokenService().create_token(
         actor,

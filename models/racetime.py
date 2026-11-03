@@ -1,7 +1,7 @@
 from tortoise import fields
 from tortoise.models import Model
 
-from .enums import BotStatus, RaceRoomStatus
+from .enums import BotStatus, RaceRoomHoldReason, RaceRoomStatus
 
 
 class RacetimeBot(Model):
@@ -23,8 +23,6 @@ class RacetimeBot(Model):
     description = fields.TextField(null=True)
     is_active = fields.BooleanField(default=True)
     handler_class = fields.CharField(max_length=255, null=True)
-    # Health fields — written by the PR 4 runtime, read by the platform health
-    # page. Default to UNKNOWN until a live connection reports otherwise.
     status = fields.CharEnumField(BotStatus, default=BotStatus.UNKNOWN, max_length=20)
     status_message = fields.TextField(null=True)
     last_connected_at = fields.DatetimeField(null=True)
@@ -32,7 +30,6 @@ class RacetimeBot(Model):
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
-    # related fields
     tenant_grants = fields.ReverseRelation["RacetimeBotTenant"]
     rooms = fields.ReverseRelation["RacetimeRoom"]
     tournaments = fields.ReverseRelation["Tournament"]
@@ -80,13 +77,12 @@ class RaceRoomProfile(Model):
     allow_midrace_chat = fields.BooleanField(default=True)
     allow_non_entrant_chat = fields.BooleanField(default=True)
     chat_message_delay = fields.IntField(default=0)  # seconds
-    start_delay = fields.IntField(default=15)  # seconds before an auto-started race begins
-    time_limit = fields.IntField(default=24)  # hours before the room auto-closes
+    start_delay = fields.IntField(default=15)  # seconds
+    time_limit = fields.IntField(default=24)  # hours
     streaming_required = fields.BooleanField(default=False)
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
-    # related fields
     tournaments = fields.ReverseRelation["Tournament"]
 
     class Meta:
@@ -106,7 +102,6 @@ class RacetimeRoom(Model):
 
     id = fields.IntField(pk=True)
     tenant = fields.ForeignKeyField('models.Tenant', related_name='racetime_rooms', on_delete=fields.CASCADE)
-    # SET_NULL: removing a bot must not erase the history of rooms it opened.
     bot = fields.ForeignKeyField(
         'models.RacetimeBot', related_name='rooms', null=True, on_delete=fields.SET_NULL
     )
@@ -114,11 +109,18 @@ class RacetimeRoom(Model):
     category = fields.CharField(max_length=64)
     room_name = fields.CharField(max_length=255, null=True)
     status = fields.CharEnumField(RaceRoomStatus, default=RaceRoomStatus.OPEN, max_length=20)
-    # SET_NULL: deleting a match detaches its room record rather than dropping it.
     match = fields.OneToOneField(
         'models.Match', related_name='racetime_room', null=True, on_delete=fields.SET_NULL
     )
     opened_at = fields.DatetimeField(null=True)
+    greeted_at = fields.DatetimeField(null=True)
+    seed_posted_at = fields.DatetimeField(null=True)
+    broadcaster_ready_at = fields.DatetimeField(null=True)
+    broadcaster_nudged_at = fields.DatetimeField(null=True)
+    fpa_calls = fields.JSONField(default=list)  # type: ignore[var-annotated]
+    held_reason = fields.CharEnumField(RaceRoomHoldReason, max_length=20, null=True)
+    held_detail = fields.TextField(null=True)
+    held_entrants = fields.JSONField(null=True)  # type: ignore[var-annotated]
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 

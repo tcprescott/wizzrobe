@@ -7,11 +7,10 @@ Handles all database operations for the TriforceText model.
 from datetime import datetime, timezone
 from typing import List, Optional
 
+from application.repositories._save import save_fields
 from application.repositories._tenant import current_tenant_id, scoped
 from models import Tournament, TriforceText, User
 
-# Public approval-status filter values used by callers (service + UI). The
-# repository maps these onto the underlying nullable boolean column.
 APPROVAL_STATUSES = ('pending', 'approved', 'rejected')
 
 
@@ -111,7 +110,7 @@ class TriforceTextRepository:
     @staticmethod
     async def update(triforce_text: TriforceText, **changes) -> TriforceText:
         await triforce_text.update_from_dict(changes)
-        await triforce_text.save()
+        await save_fields(triforce_text, *changes)
         return triforce_text
 
     @staticmethod

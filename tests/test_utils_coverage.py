@@ -17,9 +17,6 @@ from application.utils import discord_messages_volunteer as dm_vol
 from application.utils import easter_eggs, environment, qrcode_util
 from application.utils.http_headers import header_safe
 
-# ---------------------------------------------------------------------------
-# environment.py
-# ---------------------------------------------------------------------------
 
 class TestGetEnvironment:
     def test_default_is_development(self, monkeypatch):
@@ -187,10 +184,6 @@ class TestValidateSecurityConfig:
         assert environment.validate_security_config() is None
 
 
-# ---------------------------------------------------------------------------
-# discord_messages.py
-# ---------------------------------------------------------------------------
-
 class TestPlayersLabel:
     def test_empty(self):
         assert dm._players_label(None) == ''
@@ -293,6 +286,34 @@ class TestCancelledDmRelease:
         assert "You're all set. Nothing else to do here." in msg
 
 
+class TestCancelledEmbedDescription:
+    def test_the_reason_and_the_release_reach_the_embed(self):
+        text = dm.cancelled_description(reason='The series was decided 2-0', released=True)
+        assert text.startswith('The series was decided 2-0')
+        assert 'released' in text
+
+    def test_no_reason_keeps_the_all_set_line(self):
+        assert dm.cancelled_description() == "You're all set. Nothing else to do here."
+
+
+class TestReadableDiscordTimes:
+    def test_a_full_and_relative_pair_becomes_one_local_time(self):
+        from application.utils.timezone import readable_discord_times
+        text = readable_discord_times('Starts <t:1792593000:F> · <t:1792593000:R>', tz='America/New_York')
+        assert '<t:' not in text
+        assert text.count('EDT') == 1
+
+    def test_text_without_markup_is_untouched(self):
+        from application.utils.timezone import readable_discord_times
+        assert readable_discord_times('No times here') == 'No times here'
+
+
+class TestSeedFailedPunctuation:
+    def test_an_error_without_a_full_stop_gets_one(self):
+        from application.utils.discord_messages_opt_in import seed_failed_dm
+        assert 'returned 503. Roll' in seed_failed_dm('Cool Cup', 'alttpr.com returned 503')
+
+
 class TestSchedulingDms:
     def test_scheduled_dm_contains_tournament_and_body(self):
         msg = dm.scheduled_dm(
@@ -309,8 +330,6 @@ class TestSchedulingDms:
         assert 'has moved' in msg
         assert 'New time: 2025-03-02 12:00 EST' in msg
 
-    # Nobody who receives these is playing: players get the acknowledgment DM.
-    # Each audience's copy has to be true for that reader.
     @pytest.mark.parametrize('builder', ['scheduled_dm', 'rescheduled_dm'])
     @pytest.mark.parametrize('audience', [
         dm.AUDIENCE_SUBSCRIBER, dm.AUDIENCE_CREW, dm.AUDIENCE_WATCHER,
@@ -394,7 +413,6 @@ class TestCheckedInAndStateChangedDms:
     def test_checked_in_without_info_has_no_block(self):
         msg = dm.checked_in_dm('Cup')
         assert "You're checked in" in msg
-        # No players/time/stage block when nothing supplied.
         assert 'Players:' not in msg
 
     def test_state_changed_with_info_appends_block(self):
@@ -472,9 +490,7 @@ class TestCrewWithdrawnDm:
         assert notice(0.5).endswith('in under an hour.')
         assert notice(1.2).endswith('in about 1 hour.')
         assert notice(5.0).endswith('in about 5 hours.')
-        # Far out enough that the countdown says nothing useful.
         assert notice(96.0).endswith('withdrawn as tracker.')
-        # A match already past its scheduled time must not read as "in under an hour".
         assert notice(-2.0).endswith('already past its scheduled time.')
 
     def test_no_notice_when_the_match_is_unscheduled(self):
@@ -512,7 +528,6 @@ class TestVolunteerDms:
 class TestDiscordEmbeds:
     def test_time_field_is_a_discord_timestamp(self):
         from datetime import datetime, timezone
-        # Discord <t:unix:F> · <t:unix:R> — renders in the viewer's own tz.
         when = datetime(2026, 7, 19, 22, 41, tzinfo=timezone.utc)
         ts = int(when.timestamp())
         assert de.time_field(when) == f'<t:{ts}:F> · <t:{ts}:R>'
@@ -534,7 +549,7 @@ class TestDiscordEmbeds:
         assert emb.title == '🗓️ Match scheduled'
         assert emb.colour.value == de.COLOR_SCHEDULED
         assert emb.description == 'Good luck!'
-        assert emb.footer.text == 'Acme Community'  # community identity
+        assert emb.footer.text == 'Acme Community'
         names = {f.name: f.value for f in emb.fields}
         assert names['Tournament'] == 'Wizzrobe Dev'
         assert names['Players'] == 'A vs B'
@@ -544,8 +559,8 @@ class TestDiscordEmbeds:
     def test_match_embed_suppresses_empty_fields(self):
         emb = de.match_embed(title='t', color=0, tournament='Wizzrobe Dev')
         labels = {f.name for f in emb.fields}
-        assert labels == {'Tournament'}  # no Players/Time/Stage
-        # no community footer when unset (unset footer is falsy in discord.py)
+        assert labels == {'Tournament'}
+        # no community footer when unset (an unset footer is falsy in discord.py)
         assert not emb.footer or not emb.footer.text
 
     def test_state_changed_embed_colors(self):
@@ -553,6 +568,7 @@ class TestDiscordEmbeds:
         assert de.state_changed_embed('T', 'Finished').colour.value == de.COLOR_FINISHED
         assert de.state_changed_embed('T', 'Confirmed').colour.value == de.COLOR_CONFIRMED
         assert 'started' in de.state_changed_embed('T', 'Started').title.lower()
+        assert de.state_changed_embed('T', 'Confirmed').title == '☑️ Match result confirmed'
 
     def test_volunteer_embed(self):
         from datetime import datetime, timezone
@@ -588,12 +604,12 @@ class TestEphemeralReplies:
         msg = dm_crew.crew_signup_confirmation('Tracker', 'A vs B')
         assert msg == (
             "You're signed up as **Tracker** for the match (A vs B). "
-            "An admin will confirm it shortly."
+            "Staff will confirm it shortly."
         )
 
     def test_crew_signup_without_players(self):
         msg = dm_crew.crew_signup_confirmation('Tracker', '')
-        assert msg == "You're signed up as **Tracker**. An admin will confirm it shortly."
+        assert msg == "You're signed up as **Tracker**. Staff will confirm it shortly."
 
     def test_unwatch_was_watching(self):
         assert dm.unwatch_confirmation('A vs B', True) == \
@@ -607,35 +623,66 @@ class TestEphemeralReplies:
         assert dm.unwatch_confirmation('', True) == 'You are no longer watching the match.'
 
 
-# ---------------------------------------------------------------------------
-# easter_eggs.py
-# ---------------------------------------------------------------------------
-
 class TestEasterEggs:
     def _all_facts(self):
-        return easter_eggs.CAT_FACTS
+        return [fact for theme in easter_eggs.FACT_THEMES for fact in theme.facts]
 
-    def test_the_pool_is_all_cats(self):
-        """The other topic lists were retired; random_fact is a cat fact now."""
-        assert not [name for name in vars(easter_eggs) if name.endswith('_FACTS')
-                    and name not in {'CAT_FACTS'}]
+    def test_every_fact_list_belongs_to_a_theme(self):
+        """A *_FACTS list no theme carries is trivia nobody can ever see."""
+        pools = {name for name in vars(easter_eggs) if name.endswith('_FACTS')}
+        carried = {tuple(getattr(easter_eggs, name)) for name in pools}
+        assert carried == {theme.facts for theme in easter_eggs.FACT_THEMES}
 
     def test_sections_flatten_into_the_pool(self):
-        flattened = [f for facts in easter_eggs.CAT_FACT_SECTIONS.values() for f in facts]
-        assert easter_eggs.CAT_FACTS == flattened
-        assert all(facts for facts in easter_eggs.CAT_FACT_SECTIONS.values())
+        for theme in easter_eggs.FACT_THEMES:
+            flattened = tuple(f for facts in theme.sections.values() for f in facts)
+            assert theme.facts == flattened
+            assert all(facts for facts in theme.sections.values())
+
+    def test_the_cats_are_kept(self):
+        assert easter_eggs.CAT_THEME.facts == tuple(easter_eggs.CAT_FACTS)
+
+    def test_themes_have_enough_facts(self):
+        for theme in easter_eggs.FACT_THEMES:
+            assert len(theme.facts) >= 80, theme.key
+
+    def test_schedule_flips_at_six_on_the_local_clock(self):
+        from datetime import datetime
+        assert easter_eggs.current_theme(datetime(2026, 10, 24, 20, 0)) is easter_eggs.HADESTOWN_THEME
+        assert easter_eggs.current_theme(datetime(2026, 10, 25, 5, 59)) is easter_eggs.HADESTOWN_THEME
+        assert easter_eggs.current_theme(datetime(2026, 10, 25, 6, 0)) is easter_eggs.ROLLERCOASTER_THEME
+        assert easter_eggs.current_theme(datetime(2026, 10, 26, 5, 59)) is easter_eggs.ROLLERCOASTER_THEME
+        assert easter_eggs.current_theme(datetime(2026, 10, 26, 6, 0)) is easter_eggs.CAT_THEME
+        assert easter_eggs.current_theme(datetime(2027, 1, 1)) is easter_eggs.CAT_THEME
+
+    def test_schedule_reads_wall_clock_not_utc(self):
+        """05:30 in New York is 09:30 UTC; the flip waits for 06:00 local."""
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        before = datetime(2026, 10, 25, 5, 30, tzinfo=ZoneInfo('America/New_York'))
+        assert easter_eggs.current_theme(before) is easter_eggs.HADESTOWN_THEME
+
+    def test_random_fact_comes_from_the_current_theme(self, monkeypatch):
+        for theme in easter_eggs.FACT_THEMES:
+            monkeypatch.setattr(easter_eggs, 'current_theme', lambda now=None, t=theme: t)
+            assert easter_eggs.random_fact() in theme.facts
 
     def test_random_fact_returns_known_string(self):
         fact = easter_eggs.random_fact()
         assert isinstance(fact, str) and fact
         assert fact in self._all_facts()
 
+    def test_random_fact_honours_exclude(self):
+        """A re-roll that returns the same fact reads as a broken button."""
+        for fact in easter_eggs.current_theme().facts:
+            for _ in range(5):
+                assert easter_eggs.random_fact(exclude=fact) != fact
+
     def test_random_cat_fact_from_cat_pool(self):
         fact = easter_eggs.random_cat_fact()
         assert fact in easter_eggs.CAT_FACTS
 
     def test_random_cat_fact_honours_exclude(self):
-        """A re-roll that returns the same fact reads as a broken button."""
         for fact in easter_eggs.CAT_FACTS:
             for _ in range(20):
                 assert easter_eggs.random_cat_fact(exclude=fact) != fact
@@ -643,9 +690,10 @@ class TestEasterEggs:
     def test_random_cat_fact_exclude_unknown_still_returns_a_fact(self):
         assert easter_eggs.random_cat_fact(exclude='not a cat fact') in easter_eggs.CAT_FACTS
 
-    def test_cat_facts_are_unique(self):
-        """The /cat-facts page lists the pool verbatim, so a dupe is visible."""
-        assert len(set(easter_eggs.CAT_FACTS)) == len(easter_eggs.CAT_FACTS)
+    def test_facts_are_unique(self):
+        """The /facts page lists a theme verbatim, so a dupe is visible."""
+        for theme in easter_eggs.FACT_THEMES:
+            assert len(set(theme.facts)) == len(theme.facts), theme.key
 
     def test_random_fact_deterministic_with_seed(self):
         import random
@@ -671,13 +719,8 @@ class TestEasterEggs:
         assert header_safe('an — em-dash') == 'an - em-dash'
 
 
-# ---------------------------------------------------------------------------
-# qrcode_util.py
-# ---------------------------------------------------------------------------
-
 class TestQrCodeUtil:
     def test_png_bytes_have_png_signature(self):
-        # The util now takes the fully-built (tenant-qualified) URL directly.
         data = qrcode_util.asset_qr_png_bytes('https://sgl.example.org/t/acme/equipment/7')
         assert isinstance(data, bytes) and len(data) > 0
         assert data[:8] == b'\x89PNG\r\n\x1a\n'
@@ -722,3 +765,12 @@ class TestHardPresetOverrideCopy:
         text = hard_preset_override_dm('T', '', forced=True)
         assert '****' not in text
         assert 'Staff chose the settings' in text
+
+
+class TestReadableDmText:
+    def test_drops_markup_and_collapses_the_time_pair(self):
+        from application.utils.dm_text import readable_dm_text
+        text = readable_dm_text('**Starts** <t:1792593000:F> · <t:1792593000:R>, [open it](<https://x.test/a>)')
+        assert '<t:' not in text and '**' not in text and 'https://' not in text
+        assert ' · ' not in text
+        assert text.startswith('Starts ')

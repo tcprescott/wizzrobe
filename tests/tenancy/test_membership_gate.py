@@ -80,7 +80,6 @@ class TestTheGate:
 
         kinds = [kind for kind, _ in page_harness.rendered]
         assert kinds == ['join']
-        # Not a 403: forbidden-by-role is a dead end, not-a-member has a remedy.
         assert 'error' not in kinds
 
     async def test_a_non_member_cannot_reach_a_tenant_page(self, page_harness, db):

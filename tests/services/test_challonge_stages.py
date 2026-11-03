@@ -93,15 +93,45 @@ class TestAdvanceStage:
         await tournament.refresh_from_db()
         assert tournament.challonge_state == 'group_stages_finalized'
 
-    async def test_first_step_failure_changes_nothing(self, db):
+    async def test_first_step_failure_audits_nothing_but_resyncs(self, db):
         from application.utils.clients.challonge_client import ChallongeAPIError
+        from models import AuditLog
         service, api, actor, tournament = await self._setup()
+        api.get_tournament_full.return_value['tournament']['state'] = 'group_stages_underway'
         api.change_state.side_effect = ChallongeAPIError(
             'Challonge API error (422): {"errors":{"detail":"All group matches must be complete"}}', status=422,
         )
-        with pytest.raises(ValueError, match=r'refused to finalize groups and start bracket: All group matches must be complete\.'):
+        with pytest.raises(ValueError, match=(
+            r'refused to finalize groups and start bracket: All group matches must be complete\. '
+            r'The bracket has been re-synced'
+        )):
             await service.advance_stage(tournament.id, 'advance_to_bracket', actor)
-        api.get_tournament_full.assert_not_awaited()
+        assert not await AuditLog.filter(action='challonge.stage_advanced').exists()
+        await tournament.refresh_from_db()
+        assert tournament.challonge_state == 'group_stages_underway'
+
+    async def test_stage_already_moved_on_challonge_catches_up(self, db):
+        from application.utils.clients.challonge_client import ChallongeAPIError
+        service, api, actor, tournament = await self._setup()
+        api.change_state.side_effect = ChallongeAPIError(
+            'Challonge API error (422): {"errors":{"detail":"Invalid state transition"}}', status=422,
+        )
+        with pytest.raises(ValueError, match='re-synced'):
+            await service.advance_stage(tournament.id, 'advance_to_bracket', actor)
+        await tournament.refresh_from_db()
+        assert tournament.challonge_state == 'underway'
+        assert service.stage_actions_for(tournament) == []
+
+    async def test_refusal_still_reported_when_the_resync_fails(self, db):
+        from application.utils.clients.challonge_client import ChallongeAPIError
+        service, api, actor, tournament = await self._setup()
+        api.change_state.side_effect = ChallongeAPIError(
+            'Challonge API error (422): {"errors":{"detail":"Nope"}}', status=422,
+        )
+        api.get_tournament_full.side_effect = ChallongeAPIError('Challonge API error (503): down', status=503)
+        with pytest.raises(ValueError) as exc:
+            await service.advance_stage(tournament.id, 'advance_to_bracket', actor)
+        assert str(exc.value) == 'Challonge refused to finalize groups and start bracket: Nope.'
 
     async def test_needs_the_write_scope(self, db):
         service, api, actor, tournament = await self._setup(scopes='me tournaments:read')

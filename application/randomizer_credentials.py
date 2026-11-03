@@ -22,11 +22,8 @@ from typing import Dict, List, Optional, Tuple
 @dataclass(frozen=True)
 class CredentialSpec:
     randomizer: str
-    #: Stable per-randomizer key persisted on ``RandomizerCredential.key``.
     key: str
     label: str
-    #: What the value is and where a community obtains one — rendered in the
-    #: admin form, so it is the only guidance staff get.
     help_text: str
 
 

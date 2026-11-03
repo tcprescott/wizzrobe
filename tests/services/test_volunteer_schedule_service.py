@@ -35,15 +35,10 @@ def make_shift(**overrides):
 def make_assignment(**overrides):
     defaults = dict(
         id=1, shift_id=1, user_id=42, acknowledged_at=None,
-        auto_generated=False, checked_in_at=None,
+        auto_generated=False, checked_in_at=None, called_off_at=None,
     )
     defaults.update(overrides)
     return SimpleNamespace(**defaults)
-
-
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
 
 
 pytestmark = pytest.mark.usefixtures("bypass_auth")
@@ -85,11 +80,6 @@ def service():
     return svc
 
 
-# ---------------------------------------------------------------------------
-# create_shift validation
-# ---------------------------------------------------------------------------
-
-
 class TestCreateShift:
     async def test_raises_when_end_before_start(self, service):
         with pytest.raises(ValueError, match='end after'):
@@ -114,11 +104,6 @@ class TestCreateShift:
         )
         assert result is shift
         service.audit_service.write_log.assert_awaited_once()
-
-
-# ---------------------------------------------------------------------------
-# update_shift validation
-# ---------------------------------------------------------------------------
 
 
 class TestUpdateShift:
@@ -148,11 +133,6 @@ class TestUpdateShift:
         service.audit_service.write_log.assert_awaited_once()
 
 
-# ---------------------------------------------------------------------------
-# delete_shift
-# ---------------------------------------------------------------------------
-
-
 class TestDeleteShift:
     async def test_deletes_and_audits(self, service):
         shift = make_shift(id=7)
@@ -162,16 +142,9 @@ class TestDeleteShift:
         service.audit_service.write_log.assert_awaited_once()
 
 
-# ---------------------------------------------------------------------------
-# assign
-# ---------------------------------------------------------------------------
-
-
 class TestAssign:
     @pytest.fixture(autouse=True)
     def _members_only_passes(self):
-        # Membership is a DB check of its own (covered against the real tables
-        # in test_roster_membership.py); these tests are about what follows it.
         with patch(
             'application.services.volunteer.volunteer_schedule_service.'
             'TenantMembershipService.require_community_users',
@@ -229,11 +202,6 @@ class TestAssign:
         service.audit_service.write_log.assert_awaited_once()
 
 
-# ---------------------------------------------------------------------------
-# acknowledge
-# ---------------------------------------------------------------------------
-
-
 class TestAcknowledge:
     async def test_raises_when_assignment_not_found(self, service):
         service.assignment_repository.get_by_id = AsyncMock(return_value=None)
@@ -271,11 +239,6 @@ class TestAcknowledge:
         service.assignment_repository.save.assert_not_awaited()
 
 
-# ---------------------------------------------------------------------------
-# release
-# ---------------------------------------------------------------------------
-
-
 def _future_shift(hours_out=48):
     start = datetime.now(UTC) + timedelta(hours=hours_out)
     return make_shift(starts_at=start, ends_at=start + timedelta(hours=4))
@@ -302,6 +265,12 @@ class TestRelease:
         with pytest.raises(ValueError, match='already checked in'):
             await service.release(1, SimpleNamespace(id=42))
 
+    async def test_refuses_a_draft(self, service):
+        _releasable(service, auto_generated=True)
+        with pytest.raises(ValueError, match='still a draft'):
+            await service.release(1, SimpleNamespace(id=42))
+        service.assignment_repository.delete.assert_not_awaited()
+
     async def test_refuses_a_finished_shift(self, service):
         _releasable(service, shift=_future_shift(hours_out=-72))
         with pytest.raises(ValueError, match='already finished'):
@@ -327,11 +296,6 @@ class TestRelease:
             await service.release(1, SimpleNamespace(id=42, preferred_name='Alice'), '   ')
         _, args, _kwargs = service.audit_service.write_and_publish.mock_calls[0]
         assert args[2]['reason'] is None
-
-
-# ---------------------------------------------------------------------------
-# confirm_assignment
-# ---------------------------------------------------------------------------
 
 
 class TestConfirmAssignment:
@@ -365,11 +329,6 @@ class TestConfirmAssignment:
         ack.assert_not_awaited()
 
 
-# ---------------------------------------------------------------------------
-# Notifications: the reverse transitions that used to be silent
-# ---------------------------------------------------------------------------
-
-
 def _coordinator(uid, *, discord_id='900', dm_notifications=True):
     return SimpleNamespace(
         id=uid, preferred_name=f'Coord{uid}',
@@ -378,11 +337,15 @@ def _coordinator(uid, *, discord_id='900', dm_notifications=True):
 
 
 class TestReleaseFanOut:
-    async def _run(self, service, recipients_by_role):
-        async def list_users_with_role(role):
+    async def _run(self, service, recipients_by_role, on_duty=(), can_manage=True):
+        async def list_users_with_role(role, active_only=False):
             return recipients_by_role.get(role, [])
 
-        with patch('application.services.volunteer.volunteer_coordinator_dm.UserRoleRepository') as repo, \
+        with patch('application.services.staff_alert_service.UserRoleRepository') as repo, \
+                patch('application.services.staff_alert_service.StaffAlertService.on_duty_now',
+                      AsyncMock(return_value=list(on_duty))), \
+                patch('application.services.staff_alert_service.AuthService.can_manage_volunteers',
+                      AsyncMock(return_value=can_manage)), \
                 patch('application.services.tenant_service.TenantService') as tenants, \
                 patch('application.services.discord.discord_queue.enqueue') as enqueue:
             repo.list_users_with_role = AsyncMock(side_effect=list_users_with_role)
@@ -394,7 +357,7 @@ class TestReleaseFanOut:
             )
         return enqueue
 
-    async def test_one_dm_per_coordinator_deduped(self, service):
+    async def test_nobody_on_duty_falls_back_to_all_staff_deduped(self, service):
         from models import Role
         both_roles = _coordinator(1)
         staff_only = _coordinator(2)
@@ -402,6 +365,25 @@ class TestReleaseFanOut:
             Role.VOLUNTEER_COORDINATOR: [both_roles],
             Role.STAFF: [both_roles, staff_only],
         })
+        assert enqueue.call_count == 2
+
+    async def test_on_duty_admin_replaces_all_staff(self, service):
+        from models import Role
+        on_duty = _coordinator(3)
+        on_duty.is_active = True
+        enqueue = await self._run(service, {
+            Role.VOLUNTEER_COORDINATOR: [_coordinator(1)],
+            Role.STAFF: [_coordinator(2), _coordinator(4)],
+        }, on_duty=[on_duty])
+        assert enqueue.call_count == 2
+
+    async def test_on_duty_who_cannot_manage_volunteers_falls_back_to_staff(self, service):
+        from models import Role
+        on_duty = _coordinator(3)
+        on_duty.is_active = True
+        enqueue = await self._run(service, {
+            Role.STAFF: [_coordinator(2), _coordinator(4)],
+        }, on_duty=[on_duty], can_manage=False)
         assert enqueue.call_count == 2
 
     async def test_skips_coordinators_who_cannot_be_dmed(self, service):
@@ -422,6 +404,7 @@ class TestUnassignNotifies:
             auto_generated=auto_generated, shift=make_shift(),
             user=SimpleNamespace(id=42, preferred_name='Alice'),
         )
+        service.assignment_repository.get_by_id = AsyncMock(return_value=assignment)
         service.assignment_repository.delete = AsyncMock()
         with patch.object(service, '_notify_removed', AsyncMock()) as notify:
             await service.unassign(MagicMock(), assignment)
@@ -471,11 +454,6 @@ class TestUpdateShiftReasks:
         notify.assert_not_awaited()
 
 
-# ---------------------------------------------------------------------------
-# coverage
-# ---------------------------------------------------------------------------
-
-
 class TestCoverage:
     async def test_reports_understaffed_shift(self, service):
         shift = make_shift(slots_needed=2, assignments=[make_assignment()])
@@ -501,7 +479,7 @@ class TestCoverage:
         ])
         service.shift_repository.list_for_window = AsyncMock(return_value=[shift])
         rows = await service.coverage(_dt(0), _dt(23))
-        assert rows[0]['filled'] == 3          # drafts count for the coordinator
+        assert rows[0]['filled'] == 3
         assert rows[0]['drafts'] == 1
         assert rows[0]['acknowledged'] == 1
 

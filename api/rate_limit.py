@@ -1,8 +1,8 @@
-"""In-process rate limiting for the REST API.
+"""Rate limiting for the REST API.
 
-The app runs single-worker (``uvicorn --workers 1``), so a per-process
-fixed-window counter is sufficient and avoids an external dependency or shared
-store. Requests are keyed by bearer token when present (so one client's tokens
+A single process counts in memory (a sliding minute). With ``MULTI_INSTANCE``
+set, counts go to Postgres through ``RateLimitService`` so every instance
+shares one budget per key. Requests are keyed by bearer token when present (so one client's tokens
 are limited independently) and otherwise by client IP.
 
 Attached as a dependency on the aggregating API router so it covers every REST
@@ -17,6 +17,7 @@ from typing import Deque, Dict
 
 from fastapi import HTTPException, Request, status
 
+from application.services import RateLimitService, shared_counters_enabled
 from application.services.api_token_service import BEARER_PREFIXES
 
 
@@ -27,12 +28,15 @@ def limit_per_minute() -> int:
         return 120
 
 
+def app_limit_per_minute() -> int:
+    try:
+        return max(1, int(os.environ.get('API_APP_RATE_LIMIT_PER_MIN', '600')))
+    except ValueError:
+        return 600
+
+
 _WINDOW_SECONDS = 60.0
-# Hard ceiling on the number of distinct keys tracked at once. A flood of
-# distinct bearer values (the token prefix is public) or spoofed keys must not
-# be able to grow this dict without bound and OOM the single worker.
 _MAX_TRACKED_KEYS = 10_000
-# key -> timestamps of requests within the current window
 _hits: Dict[str, Deque[float]] = defaultdict(deque)
 _last_sweep = 0.0
 
@@ -50,33 +54,33 @@ def _sweep(now: float) -> None:
     cutoff = now - _WINDOW_SECONDS
     for key in [k for k, b in _hits.items() if not b or b[-1] < cutoff]:
         del _hits[key]
-    # Still oversized after reclaiming expired keys: evict the keys whose most
-    # recent hit is oldest until back under the cap. Bounds worst-case memory
-    # even during an active flood.
     if len(_hits) > _MAX_TRACKED_KEYS:
         overflow = len(_hits) - _MAX_TRACKED_KEYS
         for key in sorted(_hits, key=lambda k: _hits[k][-1] if _hits[k] else 0.0)[:overflow]:
             del _hits[key]
 
 
-def _trust_forwarded_for() -> bool:
-    """Whether to derive the client IP from ``X-Forwarded-For``.
+def _forwarded_for_mode() -> str:
+    """Which ``X-Forwarded-For`` entry is the client: ``''`` (none), ``first`` or ``last``.
 
     Off by default: the header is client-controlled and trivially spoofable, so
     trusting it would let an attacker evade IP-based limiting by rotating it.
-    Enable only when the app sits behind a reverse proxy that overwrites the
-    header with the real client IP.
+    ``on`` takes the first entry, for a reverse proxy that overwrites the header.
+    ``last`` takes the last, for one that appends to whatever the client sent
+    (Cloud Run), so a forged prefix is ignored.
     """
-    return os.environ.get('TRUST_PROXY_FORWARDED_FOR', '').strip().lower() in (
-        '1', 'true', 'yes', 'on',
-    )
+    raw = os.environ.get('TRUST_PROXY_FORWARDED_FOR', '').strip().lower()
+    if raw == 'last':
+        return 'last'
+    return 'first' if raw in ('1', 'true', 'yes', 'on') else ''
 
 
 def _client_ip_key(request: Request) -> str:
-    if _trust_forwarded_for():
-        forwarded = request.headers.get('x-forwarded-for')
+    mode = _forwarded_for_mode()
+    if mode:
+        forwarded = [part.strip() for part in request.headers.get('x-forwarded-for', '').split(',') if part.strip()]
         if forwarded:
-            return f'ip:{forwarded.split(",")[0].strip()}'
+            return f'ip:{forwarded[-1] if mode == "last" else forwarded[0]}'
     return f'ip:{request.client.host if request.client else "unknown"}'
 
 
@@ -84,11 +88,7 @@ def _client_key(request: Request) -> str:
     auth = request.headers.get('authorization')
     if auth:
         token = auth[7:].strip() if auth[:7].lower() == 'bearer ' else auth.strip()
-        # Only bucket by a *well-formed* token so each real token is limited
-        # independently. Garbage/rotating tokens fall through to the IP key so a
-        # flood of random bearer values can't get a fresh bucket each request
-        # (bypass) or grow _hits without bound. Store only a hash, never the raw
-        # secret, as the key.
+        # Bucket only well-formed tokens, keyed by hash: random bearer values fall to the IP key so they can't mint buckets.
         for prefix in BEARER_PREFIXES:
             if token.startswith(prefix) and len(token) >= len(prefix) + 20:
                 return f'token:{hashlib.sha256(token.encode()).hexdigest()}'
@@ -108,19 +108,27 @@ async def rate_limit(request: Request) -> None:
     is throttled independently below the shared IP ceiling.
     """
     limit = limit_per_minute()
-    now = time.monotonic()
-    _sweep(now)
-    window_start = now - _WINDOW_SECONDS
-
     ip_key = _client_ip_key(request)
     keys = [ip_key]
     client_key = _client_key(request)
     if client_key != ip_key:
         keys.append(client_key)
 
-    # Evaluate every applicable bucket before recording so a rejection by one
-    # bucket does not half-count the request in another. The IP key is checked
-    # first, so a flood is rejected before a per-request token key is created.
+    if shared_counters_enabled():
+        retry_after = await RateLimitService().over_limit(keys, {key: limit for key in keys})
+        if retry_after is not None:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail='Rate limit exceeded',
+                headers={'Retry-After': str(retry_after)},
+            )
+        return
+
+    now = time.monotonic()
+    _sweep(now)
+    window_start = now - _WINDOW_SECONDS
+
+    # Check every bucket before recording any, IP first, so a rejection never half-counts a request.
     for key in keys:
         bucket = _hits[key]
         while bucket and bucket[0] < window_start:
@@ -135,3 +143,36 @@ async def rate_limit(request: Request) -> None:
 
     for key in keys:
         _hits[key].append(now)
+
+
+async def enforce_app_limit(app_id: int) -> None:
+    """Cap one third-party app's calls across all of its users.
+
+    Each grant already has its own token bucket; this is the ceiling over all
+    of them, so one popular or runaway app can't take the single worker from
+    everyone else. Runs after the token is resolved, since only then is the app
+    known, and so counts only calls that got that far.
+    """
+    key = f'app:{app_id}'
+    if shared_counters_enabled():
+        retry = await RateLimitService().over_limit([key], {key: app_limit_per_minute()})
+        if retry is not None:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail='This app is making too many requests. Try again shortly.',
+                headers={'Retry-After': str(retry)},
+            )
+        return
+    now = time.monotonic()
+    _sweep(now)
+    bucket = _hits[key]
+    while bucket and bucket[0] < now - _WINDOW_SECONDS:
+        bucket.popleft()
+    if len(bucket) >= app_limit_per_minute():
+        retry_after = max(1, int(bucket[0] + _WINDOW_SECONDS - now) + 1)
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail='This app is making too many requests. Try again shortly.',
+            headers={'Retry-After': str(retry_after)},
+        )
+    bucket.append(now)

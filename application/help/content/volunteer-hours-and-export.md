@@ -4,21 +4,20 @@ slug: volunteer-hours-and-export
 icon: groups
 order: 220
 feature: VOLUNTEERS
-audience: staff
 roles: STAFF, VOLUNTEER_COORDINATOR
 summary: Who is in the volunteer pool, qualifications, hours against reward tiers, the settings behind them, and the CSV export.
 ---
 
-**Admin → Volunteers** is the list of people you can schedule. Staff and
-Volunteer Coordinators can open it. Building shifts and assigning people is in
+Admin → Volunteers lists everyone you can schedule. Staff and Volunteer
+Coordinators can open it. Building shifts and assigning people is covered in
 [Building the volunteer schedule](/help/coordinating-volunteers).
 
 ## The roster
 
 :::snippet vol-roster
-The roster is everyone in this community holding the **Volunteer** or **Staff**
-role. That role is what puts someone in the pool, so if a volunteer is missing,
-check their roles on the Members tab or the Discord role that grants it.
+The roster is everyone in this community with the Volunteer or Staff role. That
+role is what puts someone in the pool, so if a volunteer's missing, check their
+roles on the Members tab or the Discord role that grants it.
 
 | Column | Shows |
 |---|---|
@@ -26,50 +25,51 @@ check their roles on the Members tab or the Discord role that grants it.
 | Qualifications | The positions they're qualified for. A dash means none recorded. |
 | Availability | Every window they entered, marked Preferred, Available or Unavailable. |
 
-The manage button at the end of a row opens their availability in full and a
-checkbox per active position. Tick the positions they're qualified for and
+The manage button at the end of a row opens their full availability and a
+checkbox for each active position. Tick the positions they're qualified for and
 press **Save qualifications**.
 :::
 
 ![Volunteers: each volunteer's hours with the reward tier reached, qualifications and availability windows, with the manage button on Player One's row marked 1](/static/help/volunteer-hours-and-export/roster-desktop.webp "The manage button (1) on a row opens that volunteer's availability and qualifications.")
 
-Qualifications change who the auto-scheduler will place. Someone with at least
-one qualification is only placed in those positions, and goes ahead of
-unqualified people there. Someone with none can be placed anywhere, behind the
-qualified people. The Assign picker also hides unqualified people by default for
-any position that has qualified ones.
+Qualifications change where the auto-scheduler puts people. Someone with at
+least one qualification only goes into those positions, ahead of unqualified
+people. Someone with none can go anywhere, behind the qualified people. The
+Assign picker also hides unqualified people by default for any position that
+has qualified ones.
 
-A volunteer adds and edits their own availability on the Volunteer tab. You
-can read it here but not change it.
+Volunteers add and edit their own availability on the Volunteer tab. You can
+read it here but you can't change it.
 
 ## Hours and reward tiers
 
 :::snippet vol-hours
-**Hours** is the time a volunteer is scheduled for during the event, counted from
-published assignments. Drafts don't count. Overlapping shifts count once, so two
-shifts covering 08:00–12:00 and 10:00–14:00 make six hours, not eight. Only time
-between the event's start and end dates counts, so last year's shifts don't earn
-this year's reward.
+Hours are the time a volunteer is scheduled for during the event, counted from
+published assignments. Drafts don't count. Overlapping shifts count once, so
+08:00–12:00 and 10:00–14:00 make six hours, not eight. Only time between the
+event's start and end dates counts, so last year's shifts don't earn this year's
+reward.
 
-These are scheduled hours, not hours someone checked in for. A volunteer who
-gives a shift back loses those hours straight away.
+These are scheduled hours, not checked-in hours. If a volunteer gives a shift
+back, they lose those hours straight away.
 
 The chip beside the number is the highest reward tier they've reached. Each
-volunteer sees the same total on their own My Shifts, with how far they are from
-the next tier.
+volunteer sees the same total on their own My Schedule, along with how far they
+are from the next tier.
 :::
 
-Staff set the tiers under **Admin → Settings → Volunteers** as hour totals
-separated by commas. Blank uses 8, 12 and 16. Enter 0 if your community doesn't
-reward hours.
+Staff set the tiers in Admin → Settings → Volunteers as hour totals separated by
+commas. Blank means 8, 12 and 16. Enter 0 if your community doesn't reward
+hours.
 
 If the event uses check-in with volunteer comps turned on, the lowest tier is
-also the line for a comped badge: anyone whose scheduled hours reach it is on
+also the bar for a comped badge. Anyone whose scheduled hours reach it shows on
 the check-in roster as a volunteer comp.
 
-## Settings that only staff can change
+## Settings only staff can change
 
-Two things a coordinator will want changed live where only staff can reach them:
+Coordinators will want these changed now and then, but only staff can reach
+them:
 
 | Setting | Where |
 |---|---|
@@ -78,8 +78,11 @@ Two things a coordinator will want changed live where only staff can reach them:
 
 ## Exporting the data
 
-**Export data** is on Volunteers, and in the **Actions** menu on Volunteer Shifts. Pick a date range (it
-starts as the event dates) and you get a ZIP with a README and six CSV files:
+**Export data** is on Volunteers, and in the **Actions** menu on Volunteer
+Shifts. Pick a date range (it starts as the event dates) and press **Export**.
+The ZIP builds in the background and downloads when it's ready; it's also kept
+for 3 days under Admin → Reports → Exports, in case you close the dialog
+first. It holds a README and six CSV files:
 
 | File | One row per |
 |---|---|
@@ -90,18 +93,18 @@ starts as the event dates) and you get a ZIP with a README and six CSV files:
 | assignments.csv | Person on a shift, whether it's a draft, whether it fits what they said they were free for, and when they acknowledged and checked in. |
 | schedule.csv | Slot, open ones included. This is the sheet to draft a schedule on. |
 
-Times are in your own timezone, and every file also has the UTC timestamps for
-sorting. The README says which zone was used.
+Times are in your own time zone, and every file also has UTC timestamps for
+sorting. The README says which zone it used.
 
-The export is a copy. Editing the files changes nothing in the app; a schedule
-you build in a spreadsheet has to be entered back on Volunteer Shifts by hand. The
-export includes everyone's availability and notes, so treat it as private, and
-know that each export is recorded in the audit log.
+The export is only a copy. Editing the files doesn't change anything in the app,
+so a schedule you build in a spreadsheet has to be entered on Volunteer Shifts
+by hand. It includes everyone's availability and notes, so keep it private. Each
+export is recorded in the audit log.
 
 ## Coverage report
 
-For a view across several days, **Admin → Reports → Volunteer Coverage** lists
-every understaffed shift in a date range and how many people each still needs.
-A volunteer coordinator who isn't staff gets the Reports tab with just this
-report in it; the match, crew and stage reports stay with staff, tournament
-admins and crew coordinators.
+To look across several days, Admin → Reports → Volunteer Coverage lists every
+understaffed shift in a date range and how many more people each one needs. A
+volunteer coordinator who isn't staff gets a Reports tab with just this report.
+The match, crew and stage reports stay with staff, tournament admins and crew
+coordinators.

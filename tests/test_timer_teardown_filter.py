@@ -44,8 +44,7 @@ def _raised_in(module_name: str, exc: Exception) -> Exception:
     try:
         exec(source, namespace)
     except Exception as raised:
-        # Broad on purpose: the caller chooses the exception, and returning it
-        # with a real traceback attached is the whole point of this helper.
+        # Broad on purpose: the caller chooses the exception.
         return raised
     raise AssertionError('exc was not raised')
 
@@ -56,16 +55,13 @@ class TestItFiltersTheRace:
         assert is_timer_teardown_race(exc)
 
     def test_the_elements_timer_submodule_counts_too(self):
-        # nicegui.elements.timer subclasses nicegui.timer; the frame that raises
-        # can belong to either.
+        # nicegui.elements.timer subclasses nicegui.timer; the raising frame can belong to either.
         exc = _raised_in('nicegui.timer.something', RuntimeError(MESSAGE))
         assert is_timer_teardown_race(exc)
 
 
 class TestItFiltersNothingElse:
     def test_the_same_error_from_application_code_is_reported(self):
-        # A deleted slot reached from our own code is a real bug: something is
-        # writing into a page that is gone, and we want the traceback.
         exc = _raised_in('pages.home_tabs.event', RuntimeError(MESSAGE))
         assert not is_timer_teardown_race(exc)
 
@@ -109,8 +105,7 @@ def nicegui_log():
 
 
 def _log_like_nicegui(logger: logging.Logger, exc: Exception) -> None:
-    # Mirrors nicegui.background_tasks._handle_exceptions -> app.handle_exception
-    # -> log.exception(e): the exception is both the message and the exc_info.
+    # Same shape as NiceGUI's background-task handler: the exception is both message and exc_info.
     try:
         raise exc
     except Exception as e:
@@ -183,8 +178,7 @@ class TestPageTimerDoesNotStartOnADeletedPage:
         assert await timer._can_start()
 
     def test_the_nicegui_hooks_it_relies_on_still_exist(self):
-        # PageTimer overrides a private hook; a NiceGUI upgrade that renames it
-        # would silently bring the race back.
+        # PageTimer overrides a private hook; a NiceGUI upgrade that renames it silently brings the race back.
         import inspect
 
         from nicegui.timer import Timer

@@ -33,8 +33,6 @@ AUTHORIZE_URL = f'{RACETIME_BASE}/o/authorize'
 OAUTH_EXCHANGE_URL = f'{RACETIME_BASE}/o/token'
 USERINFO_URL = f'{RACETIME_BASE}/o/userinfo'
 
-# The read scope is enough for identity (id / name via o/userinfo); it keeps the
-# consent screen minimal and matches "identity only, token discarded".
 IDENTITY_SCOPE = 'read'
 
 
@@ -70,10 +68,6 @@ class RacetimeClient(OAuthIdentityClient):
     )
 
 
-# ----------------------------------------------------------------------
-# Mock client (MOCK_RACETIME) — a deterministic canned identity so local dev
-# can click through link/unlink without a real OAuth app.
-# ----------------------------------------------------------------------
 _MOCK_IDENTITIES = [
     {'user_id': 'mockrt0001', 'username': 'MockRacerOne'},
     {'user_id': 'mockrt0002', 'username': 'MockRacerTwo'},
@@ -92,7 +86,5 @@ class MockRacetimeClient(RacetimeClient):
         return {'access_token': 'mock-access', 'token_type': 'bearer', 'expires_in': 36000}
 
     async def get_me(self, access_token: str) -> Dict[str, Any]:
-        # Which canned identity the next link binds to, chosen via env hint so
-        # distinct dev users can link to distinct racetime identities.
         idx = int(os.environ.get('MOCK_RACETIME_IDENTITY', '1'))
         return dict(_MOCK_IDENTITIES[(idx - 1) % len(_MOCK_IDENTITIES)])

@@ -23,7 +23,7 @@ def captured_dms(monkeypatch):
     sent: list[tuple[int, str, object]] = []
 
     class _Fake:
-        async def send_dm(self, discord_id, message, view_factory=None, embed=None, link=None):
+        async def send_dm(self, discord_id, message, view_factory=None, embed=None, link=None, notice=None):
             sent.append((discord_id, message, link))
             return True, 'ok'
 
@@ -36,10 +36,7 @@ def captured_dms(monkeypatch):
 async def _staff(discord_id: int, name: str, role: Role = Role.STAFF) -> User:
     u = await User.create(discord_id=str(discord_id), username=name)
     await UserRole.create(user=u, role=role, tenant_id=1)
-    # Holding a role in a tenant implies membership in it (see
-    # ``UserRepository.get_community_people``), which is the basis the
-    # QUALIFIER_ADMIN fallback reads — so a fixture that skips it is not a
-    # production state.
+    # A role always implies membership in production; don't drop this membership row.
     await TenantMembership.create(user=u, tenant_id=1)
     return u
 
@@ -57,12 +54,9 @@ async def _submitted_run(service, staff, player, *, waited: timedelta):
     await AsyncQualifierRun.filter(id=run.id).update(started_at=now - timedelta(seconds=3700))
     run = await AsyncQualifierRun.get(id=run.id)
     run = await service.submit_run(player, run.id, elapsed_seconds=3600)
-    # Backdate the submission itself — the wait is what decides.
     await AsyncQualifierRun.filter(id=run.id).update(finished_at=now - waited)
     return await AsyncQualifier.get(id=q.id), run
 
-
-# ------------------------------------------------------------------ the gates
 
 def test_a_fresh_queue_is_not_worth_interrupting_anyone_about():
     now = datetime.now(timezone.utc)
@@ -91,8 +85,6 @@ def test_a_naive_timestamp_is_read_as_utc():
     naive_old = (now - rules.REVIEW_BACKLOG_AGE - timedelta(hours=1)).replace(tzinfo=None)
     assert rules.backlog_is_worth_reporting(naive_old, None, now) is True
 
-
-# ------------------------------------------------------------- the nudge itself
 
 async def test_a_backlog_dms_the_qualifiers_own_reviewers(db, captured_dms):
     service = AsyncQualifierService()
@@ -162,8 +154,6 @@ async def test_with_no_named_reviewers_it_falls_back_to_the_qualifier_admin_role
 async def test_with_nobody_to_tell_it_stays_unstamped(db, captured_dms):
     """So the first reviewer added hears about the backlog that was already there."""
     service = AsyncQualifierService()
-    # A staff member creates the qualifier but holds no QUALIFIER_ADMIN role, and
-    # the qualifier has no roster of its own.
     staff = await _staff(900413, 'backlog_staff_e')
     player = await User.create(discord_id='900414', username='backlog_runner_e')
     qualifier, _ = await _submitted_run(
@@ -184,6 +174,7 @@ async def test_a_reviewer_without_discord_is_skipped_rather_than_crashing(db, ca
     service = AsyncQualifierService()
     staff = await _staff(900416, 'backlog_staff_f')
     silent = await User.create(username='backlog_no_discord')
+    await TenantMembership.create(user=silent, tenant_id=1)
     player = await User.create(discord_id='900417', username='backlog_runner_f')
     qualifier, _ = await _submitted_run(
         service, staff, player, waited=rules.REVIEW_BACKLOG_AGE + timedelta(hours=1))

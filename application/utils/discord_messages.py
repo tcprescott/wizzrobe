@@ -14,13 +14,16 @@ own, all of them moved out as this module kept crossing the 800-line budget:
 :mod:`~application.utils.discord_messages_crew` (crew assignment),
 :mod:`~application.utils.discord_messages_volunteer` (volunteer shifts),
 :mod:`~application.utils.discord_messages_qualifier` (async qualifiers),
-:mod:`~application.utils.discord_messages_reschedule` (reschedule requests) and
+:mod:`~application.utils.discord_messages_reschedule` (reschedule requests),
+:mod:`~application.utils.discord_messages_forfeit` (forfeits and drops) and
 :mod:`~application.utils.discord_messages_tenant` (community join requests).
 """
 
 from typing import NamedTuple, Optional, Sequence
 
-from application.utils.match_labels import players_label
+import discord
+
+from application.utils.match_labels import and_join, players_label
 
 
 class DMLink(NamedTuple):
@@ -39,10 +42,6 @@ class DMLink(NamedTuple):
     label: str
     url: str
 
-
-# ---------------------------------------------------------------------------
-# Shared error constants (used in multiple handlers)
-# ---------------------------------------------------------------------------
 
 MSG_NO_ACCOUNT = (
     "You don't have a Wizzrobe account yet. Log in at the website first and "
@@ -63,12 +62,6 @@ def msg_unexpected_error(action: str = 'finish this') -> str:
 MSG_UNEXPECTED_ERROR = msg_unexpected_error()
 
 
-# ---------------------------------------------------------------------------
-# Shared formatting helpers
-# ---------------------------------------------------------------------------
-
-# Shared with the web copy, which identifies a match the same way — see
-# application/utils/match_labels.py.
 _players_label = players_label
 
 
@@ -101,15 +94,6 @@ def _match_info_lines(
     return lines
 
 
-# ---------------------------------------------------------------------------
-# Match scheduling DMs  (sent by MatchScheduleService / MatchService)
-# ---------------------------------------------------------------------------
-
-# Who a match DM is for. The same lifecycle change reaches four kinds of reader,
-# and copy written for one is false for the others: a tournament subscriber told
-# "you've got a match... good luck!" reads that as being drafted into someone
-# else's game. Players get their own acknowledgment DM for scheduling, so the
-# scheduled/rescheduled builders below never address one.
 AUDIENCE_PLAYER = 'player'
 AUDIENCE_CREW = 'crew'
 AUDIENCE_WATCHER = 'watcher'
@@ -117,14 +101,15 @@ AUDIENCE_SUBSCRIBER = 'subscriber'
 
 CREW_COMMENTATOR = 'commentator'
 CREW_TRACKER = 'tracker'
+CREW_BROADCASTER = 'broadcaster'
 
 
-_CREW_VERB = {CREW_COMMENTATOR: 'commentating', CREW_TRACKER: 'tracking'}
+_CREW_VERB = {CREW_COMMENTATOR: 'commentating', CREW_TRACKER: 'tracking', CREW_BROADCASTER: 'broadcasting'}
 
 
 def crew_slot_label(crew_roles: Sequence[str]) -> str:
     """The slot(s) a crew member holds, as prose: "tracker", "commentator and tracker"."""
-    return ' and '.join(crew_roles)
+    return and_join(crew_roles)
 
 
 def crew_slot_title(title: str, crew_roles: Sequence[str]) -> str:
@@ -147,7 +132,6 @@ def crew_slot_line(message: str, crew_roles: Sequence[str]) -> str:
         return message
     return _join_blocks(message, f"You're on this match as {crew_slot_label(crew_roles)}.")
 
-# The subject of a sentence about the match, per audience.
 _MATCH_SUBJECT = {
     AUDIENCE_PLAYER: 'Your match',
     AUDIENCE_CREW: "A match you're on crew for",
@@ -158,7 +142,7 @@ _MATCH_SUBJECT = {
 
 def _subject(audience: str, crew_roles: Sequence[str] = ()) -> str:
     if audience == AUDIENCE_CREW and crew_roles:
-        verbs = ' and '.join(_CREW_VERB.get(r, r) for r in crew_roles)
+        verbs = and_join([_CREW_VERB.get(r, r) for r in crew_roles])
         return f"A match you're {verbs}"
     return _MATCH_SUBJECT.get(audience, _MATCH_SUBJECT[AUDIENCE_SUBSCRIBER])
 
@@ -279,13 +263,6 @@ def acknowledgment_request_dm(
     )
 
 
-# ---------------------------------------------------------------------------
-# Stage DMs  (sent by MatchService.assign_stage and the stage reminder worker)
-# ---------------------------------------------------------------------------
-# The information a runner needs is the substitution: this match happens on a
-# stage instead of in the tournament room. Say that, not "a stage has been
-# assigned", which describes a database row rather than where to walk.
-
 def _stage_info_lines(
     player_names: Optional[list[str]], scheduled_at_display: str,
 ) -> str:
@@ -403,18 +380,28 @@ def checked_in_dm(
     scheduled_at_display: str = '',
     stage_name: str = '',
     bracket_line: str = '',
+    seats: str = '',
+    your_seat: str = '',
+    closing: str = '',
 ) -> str:
+    """``seats`` lists every assigned seat; ``your_seat`` is the recipient's
+    own, for a player who has one, and leads so it reads at a glance.
+    ``closing`` replaces the good-luck line (the Ready for seed ask)."""
     info = _match_info_lines(
         player_names=player_names,
         scheduled_at_display=scheduled_at_display,
         stage_name=stage_name,
         bracket_line=bracket_line,
     )
+    if seats:
+        info.append(f"Seats: {seats}")
     block = ("\n".join(info) + "\n\n") if info else ''
+    lead = f"Your seat: **{your_seat}**\n\n" if your_seat else ''
     return (
         f"You're checked in for your match in **{tournament_name}**.\n\n"
+        f"{lead}"
         f"{block}"
-        f"The match is about to begin — good luck!"
+        + (closing or "The match is about to begin — good luck!")
     )
 
 
@@ -436,20 +423,25 @@ def cancelled_dm(
         bracket_line=bracket_line,
     )
     block = ("\n".join(info) + "\n\n") if info else ''
+    return (
+        f"Your match in **{tournament_name}** has been cancelled.\n\n"
+        f"{block}"
+        f"{cancelled_description(reason=reason, released=released)}"
+    )
+
+
+def cancelled_description(*, reason: str = '', released: bool = False) -> str:
+    """The why and what-next of a cancelled-match DM, shared by its text and its card.
+
+    The card needs it as its own description: Discord shows only the embed when
+    there is one, so a reason left in the text alone never reached anyone there.
+    """
     why = f"{reason}\n\n" if reason else ''
-    # A bracket game that was cancelled hands its series slot back (D3), so the
-    # matchup is open again and the entrants are the ones who have to rebook it —
-    # the opposite of the default "nothing further is needed".
     closing = (
         "This game has been released — the matchup is open to reschedule."
         if released else "You're all set. Nothing else to do here."
     )
-    return (
-        f"Your match in **{tournament_name}** has been cancelled.\n\n"
-        f"{block}"
-        f"{why}"
-        f"{closing}"
-    )
+    return f"{why}{closing}"
 
 
 def removed_from_match_dm(
@@ -618,20 +610,12 @@ def seed_dm(
     )
 
 
-# ---------------------------------------------------------------------------
-# Match acknowledgment ephemeral replies  (discordbot/match_acknowledgment.py)
-# ---------------------------------------------------------------------------
-
 def match_ack_confirmation(player_names: str) -> str:
     """Ephemeral success reply after a user clicks the match Acknowledge button."""
     if player_names:
         return f"You've acknowledged your match ({player_names}). Thanks!"
     return "You've acknowledged your match. Thanks!"
 
-
-# ---------------------------------------------------------------------------
-# Unwatch ephemeral replies  (discordbot/watch_buttons.py)
-# ---------------------------------------------------------------------------
 
 def unwatch_confirmation(player_names: str, was_watching: bool) -> str:
     """Ephemeral reply after a user clicks the Unwatch button on a match DM."""
@@ -640,10 +624,6 @@ def unwatch_confirmation(player_names: str, was_watching: bool) -> str:
         return f'You are no longer watching the match{match_ref}.'
     return f'You were not watching the match{match_ref}.'
 
-
-# ---------------------------------------------------------------------------
-# Hard-preset opt-in  (MatchHardPresetService / discordbot/match_hard_preset.py)
-# ---------------------------------------------------------------------------
 
 def hard_preset_invite_dm(tournament_name: str, preset_name: str) -> str:
     """The offer, sent with the match's scheduling DM.
@@ -700,8 +680,6 @@ def hard_preset_override_dm(
 ) -> str:
     """Staff chose the match's settings, or handed the choice back."""
     if forced:
-        # A tournament with no standard preset resolves to no preset at all, and
-        # "set your match to ****" is worse than not naming it.
         opening = (
             f"Staff set your **{tournament_name}** match to **{preset_name}**."
             if preset_name else
@@ -738,6 +716,39 @@ def hard_preset_withdraw_confirmation(preset_name: str) -> str:
         f"You're out of **{preset_name}**. This match will use the standard "
         "settings unless you opt back in before the seed is rolled."
     )
+
+
+def player_comment_staff_dm(player_name: str, tournament_name: str, body: str) -> str:
+    """A player commented on their match; the copy staff get.
+
+    The comment and the name are player-written, so markdown and mentions are
+    escaped: a masked link must not hide where it goes.
+    """
+    def safe(text: str) -> str:
+        return discord.utils.escape_mentions(discord.utils.escape_markdown(text))
+
+    return (
+        f"**{safe(player_name)}** commented on their **{tournament_name}** match:\n\n"
+        f"{safe(body)}"
+    )
+
+
+def player_late_staff_dm(
+    player_name: str, tournament_name: str, minutes: int, note: Optional[str],
+) -> str:
+    """A player said they're running late; the copy staff get. Name and note are escaped."""
+    from application.utils.discord_messages_volunteer import late_label
+
+    def safe(text: str) -> str:
+        return discord.utils.escape_mentions(discord.utils.escape_markdown(text))
+
+    lines = [
+        f"**{safe(player_name)}** is running late for their **{tournament_name}** match: "
+        f"{late_label(minutes).lower()}."
+    ]
+    if note:
+        lines.append(f"> {safe(note)}")
+    return '\n\n'.join(lines)
 
 
 def match_comment_dm(author_name: str, tournament_name: str, body: str) -> str:

@@ -1,16 +1,13 @@
 """Volunteer shifts and coverage.
 
-The roster tools are gated at **admin**, one step above their REST counterparts
-(``api/routers/volunteers.py`` reads at ``require_api_actor``). That is a
-deliberate divergence, not an oversight: the REST reads back a self-service UI
-where a volunteer looks at their own schedule, whereas a single call here hands
-back a whole window's roster with names attached. Bulk disclosure of who is
-where and when is a different thing from a person checking their own shift, so
-it sits behind the coordinator's gate.
+The roster reads admit exactly who the Volunteer hub admits, plus volunteer
+coordinators (``AuthService.can_view_volunteer_schedule``), the same check as
+their REST counterparts in ``api/routers/volunteers.py``. The service enforces
+it, so they register at **actor**: a player, or an admin role with no part in
+the volunteer schedule, is refused.
 
-``my_volunteer_shifts`` is the self-service exception, at **actor**: it reads
-back only the caller's own published shifts, the same as
-``GET /volunteers/me/assignments``.
+``my_volunteer_shifts`` reads back only the caller's own published shifts, the
+same as ``GET /volunteers/me/assignments``.
 """
 
 from datetime import datetime, timezone
@@ -18,7 +15,8 @@ from typing import Any, Dict, List
 
 from mcp.server.mcpserver import MCPServer
 
-from application.services import AnalyticsService
+from application.api_scopes import ApiScope
+from application.services import AnalyticsService, AuthService
 from application.services.volunteer.volunteer_position_service import (
     VolunteerPositionService,
 )
@@ -28,6 +26,7 @@ from application.services.volunteer.volunteer_schedule_service import (
 from mcpserver.auth import Gate, current_actor
 from mcpserver.registry import register
 from mcpserver.schemas import MyShift, ShiftSummary, TenantArg, VolunteerPositionInfo
+from mcpserver.tools._args import Bucket
 from mcpserver.tools._args import window as _window
 from models import FeatureFlag
 
@@ -39,13 +38,19 @@ async def list_volunteer_shifts(
 ) -> List[ShiftSummary]:
     """List volunteer shifts in a window, with who is assigned to each.
 
-    Requires admin access. `start` and `end` are ISO 8601 timestamps (UTC).
+    For staff, volunteer coordinators, proctors and volunteers. `start` and
+    `end` are ISO 8601 timestamps (UTC). Unpublished auto-fill drafts are left
+    out unless you can manage volunteers.
     """
     start_dt, end_dt = _window(start, end)
-    shifts = await VolunteerScheduleService().list_shifts_for_window(start_dt, end_dt)
+    actor = current_actor().user
+    shifts = await VolunteerScheduleService().shifts_for_viewer(actor, start_dt, end_dt)
+    include_drafts = await AuthService.can_manage_volunteers(actor)
     out: List[ShiftSummary] = []
     for shift in shifts:
-        assignments = list(shift.assignments)
+        assignments = [
+            a for a in shift.assignments if include_drafts or not a.auto_generated
+        ]
         out.append(ShiftSummary(
             id=shift.id,
             position=shift.position.name if shift.position else None,
@@ -67,21 +72,23 @@ async def volunteer_coverage(
 ) -> List[Dict[str, Any]]:
     """Per-shift filled-versus-needed counts across a window — where the gaps are.
 
-    Requires admin access.
+    For staff, volunteer coordinators, proctors and volunteers.
     """
     start_dt, end_dt = _window(start, end)
-    return await VolunteerScheduleService().coverage(start_dt, end_dt)
+    return await VolunteerScheduleService().coverage_for_viewer(
+        current_actor().user, start_dt, end_dt,
+    )
 
 
 async def volunteer_hour_trends(
     start: str,
     end: str,
     tenant: TenantArg = None,
-    bucket: str = 'week',
+    bucket: Bucket = 'week',
 ) -> Dict[str, Any]:
     """Scheduled versus checked-in volunteer hours over time, and the fill rate.
 
-    Requires admin access. `bucket` is `week` or `month`. A shift contributes
+    Requires admin access or the volunteer coordinator role. `bucket` is `week` or `month`. A shift contributes
     `duration × assignees` scheduled hours to the bucket it starts in; fill rate
     measures those against the hours the roster actually needed.
 
@@ -91,7 +98,7 @@ async def volunteer_hour_trends(
     """
     start_dt, end_dt = _window(start, end)
     return await AnalyticsService().volunteer_hour_trends(
-        start=start_dt, end=end_dt, bucket=bucket,
+        start=start_dt, end=end_dt, bucket=bucket, actor=current_actor().user,
     )
 
 
@@ -101,10 +108,12 @@ async def list_volunteer_positions(
 ) -> List[VolunteerPositionInfo]:
     """List the volunteer jobs a community schedules — the names shifts hang off.
 
-    Requires admin access. Set `active_only` to skip retired positions.
+    For staff, volunteer coordinators, proctors and volunteers. Set
+    `active_only` to skip retired positions.
     """
-    service = VolunteerPositionService()
-    positions = await (service.list_active() if active_only else service.list_all())
+    positions = await VolunteerPositionService().list_for_viewer(
+        current_actor().user, active_only=active_only,
+    )
     return [
         VolunteerPositionInfo.model_validate(p, from_attributes=True) for p in positions
     ]
@@ -133,6 +142,7 @@ async def my_volunteer_shifts(
             ends_at=a.shift.ends_at,
             acknowledged_at=a.acknowledged_at,
             checked_in_at=a.checked_in_at,
+            called_off_at=a.called_off_at,
         )
         for a in assignments
     ]
@@ -140,22 +150,26 @@ async def my_volunteer_shifts(
 
 def register_tools(mcp: MCPServer) -> None:
     register(
-        mcp, my_volunteer_shifts, gate=Gate.ACTOR,
+        mcp, my_volunteer_shifts, gate=Gate.ACTOR, scope=ApiScope.PROFILE,
         feature=FeatureFlag.VOLUNTEERS, title='My volunteer shifts',
     )
     register(
-        mcp, list_volunteer_positions, gate=Gate.ADMIN,
+        mcp, list_volunteer_positions, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ,
         feature=FeatureFlag.VOLUNTEERS, title='List volunteer positions',
+        event=True,
     )
     register(
-        mcp, list_volunteer_shifts, gate=Gate.ADMIN,
+        mcp, list_volunteer_shifts, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ,
         feature=FeatureFlag.VOLUNTEERS, title='List volunteer shifts',
+        event=True,
     )
     register(
-        mcp, volunteer_coverage, gate=Gate.ADMIN,
+        mcp, volunteer_coverage, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ,
         feature=FeatureFlag.VOLUNTEERS, title='Volunteer coverage',
+        event=True,
     )
     register(
-        mcp, volunteer_hour_trends, gate=Gate.ADMIN,
+        mcp, volunteer_hour_trends, gate=Gate.VOLUNTEER_ADMIN, scope=ApiScope.STAFF_READ,
         feature=FeatureFlag.VOLUNTEERS, title='Volunteer hour trends',
+        event=True,
     )

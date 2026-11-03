@@ -46,9 +46,6 @@ _GAME_BADGE = {
     BracketMatchGameState.CANCELLED: 'grey',
 }
 
-# The derived status vocabulary's tones → Quasar badge colours. Mapped from the
-# semantic name defined once in ``match_status.STATUS_TONES``, so this dialog,
-# the card's pill, and the Discord embed all colour the same state the same way.
 _TONE_COLOR = {
     'neutral': 'grey',
     'info': 'positive',
@@ -100,11 +97,12 @@ def _render_games(
                 on_saved=on_saved,
             )
 
-    for game in sorted(games, key=lambda g: g.game_number):
+    numbers = BracketService.numbers_by_time(games)
+    for game in sorted(games, key=lambda g: numbers.get(g.id, g.game_number)):
         with ui.row().classes('items-center justify-between w-full q-py-xs'):
             with ui.row().classes('items-center gap-2 no-wrap'):
                 if best_of > 1:
-                    ui.label(f'Game {game.game_number}').classes('text-caption')
+                    ui.label(f'Game {numbers.get(game.id, game.game_number)}').classes('text-caption')
                 scheduled = _scheduled_label(game)
                 if scheduled:
                     ui.label(scheduled).classes('text-caption text-grey')
@@ -116,9 +114,6 @@ def _render_games(
                 elif game.cancelled_reason:
                     ui.label(game.cancelled_reason).classes('text-caption text-grey')
             with ui.row().classes('items-center gap-1 no-wrap'):
-                # The derived status when the caller resolved it (U2) — so this
-                # row says "Live" while the match is being raced instead of
-                # "Scheduled" — falling back to the stored game state otherwise.
                 status = (game_status or {}).get(game.id)
                 if status is not None:
                     ui.badge(status_label(status), color=_TONE_COLOR.get(
@@ -159,8 +154,7 @@ async def _open_match_editor(
     match_id: int, client, tenant_id: int, on_saved: Callable[[], Awaitable[None]],
 ) -> None:
     """Open the ordinary admin match editor for one game's scheduled ``Match``."""
-    # Local import: the bracket dialog and the match dialog are peers, and only
-    # this handler needs the dependency.
+    # Local import: the bracket and match dialogs are peers.
     from theme.dialog.match_dialog import AdminMatchDialog
 
     with client:
@@ -187,7 +181,7 @@ def _schedule_button(
     tenant_id: int,
     on_saved: Callable[[], Awaitable[None]],
 ) -> None:
-    """'Schedule game N' — staff's route into ``schedule_bracket_match``.
+    """'Schedule a game' — staff's route into ``schedule_bracket_match``.
 
     Players book the same matchups from their own dashboard, which is why the
     dialog is shared rather than bracket-local.
@@ -195,7 +189,7 @@ def _schedule_button(
     number = _next_game_number(games, best_of)
     if number is None:
         return
-    label = f'Schedule game {number}' if best_of > 1 else 'Schedule match'
+    label = 'Schedule a game' if best_of > 1 else 'Schedule match'
     ui.button(
         label, icon='event',
         on_click=lambda _=None: background_tasks.create(_schedule_dialog(

@@ -98,12 +98,9 @@ def test_every_link_section_config_field_is_rendered():
     accessible label. This is the guard that made the wave exist; a new field
     must be listed as behavioural with a reason, not quietly skipped.
     """
-    # Machinery rather than copy: what the row *reads*, not what it shows. Each
-    # is exercised by the assertions further down or by the unlink tests.
     behavioural = {
         'icon', 'link_route', 'user_id_attr', 'username_attr', 'linked_at_attr',
         'service_factory', 'unlinked_message', 'unlink_confirmation',
-        # Read by the Link button's handler; covered by the sign-in-first tests.
         'sign_in_first_url',
     }
     config = make_config()
@@ -150,8 +147,7 @@ def test_a_linked_row_shows_the_link_date():
 
 
 def test_the_link_date_is_rendered_in_eastern_not_utc():
-    # 01:00 UTC on the 4th is still the 3rd in US/Eastern — the point of going
-    # through format_local_date rather than printing the stored value.
+    # 01:00 UTC on the 4th is still the 3rd in US/Eastern.
     text = render(link_holder('x1', 'XName', utc(2024, 3, 4, 1)), make_config())
     assert 'on 2024-03-03' in text
 
@@ -166,8 +162,6 @@ def test_a_linked_row_falls_back_to_the_id_when_there_is_no_username():
     assert 'Linked as x1' in render(link_holder('x1', None), make_config())
 
 
-# --- the custom-domain branch -------------------------------------------------
-
 @pytest.fixture
 def custom_domain(monkeypatch):
     """A tenant's own domain, with the cross-host link handoff turned off."""
@@ -178,10 +172,6 @@ def custom_domain(monkeypatch):
 
 
 def test_custom_domain_without_handoff_links_to_the_platform_host(custom_domain):
-    # "Main site only" named a place and did not go there. The link callback
-    # lands on the platform host, which cannot see this domain's cookie, so the
-    # button genuinely cannot work here — but the user can still be taken to
-    # where it does.
     text = render(link_holder(), make_config(), 'https://main.example/t/acme/home/profile')
     assert 'https://main.example/t/acme/home/profile' in text
     assert 'Main site only' in text
@@ -189,8 +179,6 @@ def test_custom_domain_without_handoff_links_to_the_platform_host(custom_domain)
 
 
 def test_custom_domain_with_handoff_renders_the_link_button(monkeypatch):
-    # With HOST_OAUTH_MODE=handoff the link route runs the cross-host handoff and
-    # works in place, so the dead end disappears entirely.
     monkeypatch.setattr('pages.home_tabs._link_section.is_host_mode', lambda: True)
     monkeypatch.setattr(
         'pages.home_tabs._link_section.host_oauth_handoff_enabled', lambda: True,
@@ -201,16 +189,10 @@ def test_custom_domain_with_handoff_renders_the_link_button(monkeypatch):
 
 
 def test_a_linked_row_on_a_custom_domain_can_still_unlink(custom_domain):
-    # Unlinking is a local write with no OAuth round trip, so the dead-end branch
-    # must not swallow it.
     assert 'Unlink Provider X account' in render(link_holder('x1', 'XName'), make_config())
 
 
-# --- sign in to the provider first -------------------------------------------
-
 def test_the_sign_in_first_dialog_links_to_the_providers_sign_in_page():
-    # Challonge answers a signed-out reader with a bare 401 JSON page rather than
-    # a login form, so the dialog has to send them to sign in before the OAuth.
     open_sign_in_first_dialog(make_config(), 'https://x.example/login')
     text = collect_text(context.client.layout)
     assert 'Sign in to Provider X first' in text

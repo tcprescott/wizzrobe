@@ -6,77 +6,80 @@ order: 10
 summary: Dates, room hours, the on-site tournaments, prize pools and your own match times.
 ---
 
-**SpeedGaming Live 2026** runs **Thursday 22 to Sunday 25 October 2026** at the
-DoubleTree by Hilton Washington Dulles Airport in Herndon, Virginia. Every time
-here is the venue's, **Eastern Daylight Time** (EDT, UTC−4).
+SpeedGaming Live 2026 runs Thursday 22 to Sunday 25 October at the DoubleTree by
+Hilton Washington Dulles Airport in Herndon, Virginia. All times here are
+Eastern Daylight Time (EDT, UTC−4), the venue's local time.
 
 ## Hours
 
-The event opens **Thursday 22 October at 8:00 AM**. Wednesday the 21st is for
-arriving and collecting your badge.
+Doors open Thursday 22 October at 8 AM. Wednesday is for getting in and picking
+up your badge.
 
 | Room | Where | Open |
 |---|---|---|
-| Tournament room | **Sully**, 1st floor, near check-in | 8:00 AM to midnight Thursday to Saturday, 8:00 AM to 6:00 PM Sunday |
-| Broadcast room (the stages) | **Piedmont I + II**, 2nd floor, above the fitness center | 9:00 AM to midnight daily |
-| Casual room | **Corcoran / Veritas / Chrysalis**, lower level | 7:00 AM to midnight daily |
-| Board games | **Tarara**, basement | 11:00 AM to about midnight daily |
-| Check-in desk | 1st floor, outside the fitness center | 4:00 to 10:00 PM Wednesday, 10:00 AM to 8:00 PM Thursday and Friday, 10:00 AM to 4:00 PM Saturday |
-| Breakfast | **Old Ox** on Wednesday, **Colvin** Thursday to Monday | 6:30 to about 10:00 AM daily |
+| Tournament room | Sully, 1st floor, near check-in | 8 AM to midnight Thursday to Saturday, 8 AM to 6 PM Sunday |
+| Broadcast room (the stages) | Piedmont I + II, 2nd floor, above the fitness center | 9 AM to midnight daily |
+| Casual room | Corcoran / Veritas / Chrysalis, lower level | 7 AM to midnight daily |
+| Board games | Tarara, basement | 11 AM to around midnight daily |
+| Check-in desk | 1st floor, outside the fitness center | 4 to 10 PM Wednesday, 10 AM to 8 PM Thursday and Friday, 10 AM to 4 PM Saturday |
+| Breakfast | Old Ox on Wednesday, Colvin Thursday to Monday | 6:30 to around 10 AM daily |
 
-**Schedule your match to *finish* inside those hours**, and remember Sunday
-closes at 6:00 PM. **Suggest a time** in the app already keeps to them. Playing
-after close needs approval from SGL staff in advance; a tournament admin can't
-give it.
+Pick a match time that lets you finish before the room closes, and remember
+Sunday wraps up at 6 PM. Suggest a time in the app already sticks to these
+hours. If you need to play after close, that has to be cleared with SGL staff
+ahead of time. Tournament admins can't approve it.
 
 The casual room is for pick-up races, side events and practice, and one of its
-rooms hosts the Best of NES High Score Challenge. The tournament room is only
-for matches on the board.
+rooms hosts the Best of NES High Score Challenge. The tournament room is only for
+scheduled matches.
 
 ## On-site tournaments
 
-Each tournament's rules have its settings, and **Sign up** shows while it's
-still taking entries.
+Each tournament's rules have its settings. You'll see a Sign up button while a
+tournament is still taking entries.
 
 :::tournaments
 
-- **A Link to the Past Randomizer Glitched (HMG):** async qualifier from Friday
-  16 October until noon on Thursday 22 October.
-- **A Link to the Past any%:** qualifier races on site; the times are in its
-  rules.
-- **Best of NES High Score Challenge:** check in at the Best of NES room to play.
+A few have something extra first:
 
-Most tournaments run **groups on Thursday and Friday** and a **bracket on
-Saturday and Sunday**. Group matches you and your opponent schedule yourselves
-once groups are announced. Bracket matches come to you: staff set the time and
-you get a DM when the matchup is ready.
+- A Link to the Past Randomizer Glitched (HMG) has an async qualifier, open from
+  Friday 16 October until noon on Thursday 22 October.
+- A Link to the Past any% runs qualifier races on site. The times are in its
+  rules.
+- For the Best of NES High Score Challenge, check in at the Best of NES room.
+
+Most tournaments play groups on Thursday and Friday, then brackets on Saturday
+and Sunday. You and your opponent schedule group matches yourselves once groups
+are out. Bracket matches are scheduled for you, and you'll get a DM when yours is
+ready.
 
 ## Prize pools
 
-Prizes are community-funded, with a bonus from SpeedGaming, which takes no cut.
-[Contribute on Matcherino](https://matcherino.com/t/sglive26?contribute=true)
-and put the game's name in the comment, saying on-site or online.
+Prize pools come from community contributions plus a bonus from SpeedGaming,
+which doesn't take a cut. To chip in,
+[contribute on Matcherino](https://matcherino.com/t/sglive26?contribute=true)
+and put the game's name in the comment, plus whether it's for on-site or online.
 
 ## Your own times
 
-**My Schedule** has your matches and **Schedule** has everyone's, both in your
-own local time. A match you're in also reaches you as a Discord DM when it's
+My Schedule shows your matches and Schedule shows everyone's, both in your own
+time zone. You'll also get a Discord DM whenever one of your matches is
 scheduled, moved or cancelled.
 
-If a time doesn't work, use **Ask to change** on My Schedule, and ask early: a
-match with a stage and crew attached is much harder to move. Nothing changes
-until staff answer, so turn up to the original time unless you've heard
-otherwise. On the day, find an admin in the tournament room instead.
+If a time doesn't work for you, use Ask to change on My Schedule, and ask early.
+Once a match has a stage and crew, it's a lot harder to move. Until staff reply,
+plan on the original time. If it's the day of the match, skip the request and
+find an admin in the tournament room.
 
 ## Watching
 
-The four stages are in the broadcast room, with audience seating, and go out on
-[twitch.tv/SpeedGaming](https://twitch.tv/SpeedGaming) and
-[twitch.tv/SpeedGaming2](https://twitch.tv/SpeedGaming2). **Watch** in the side
-menu shows what's on each stage. The tournament room isn't open to spectators
-and isn't streamed.
+The four stages are in the broadcast room, with seats for the audience. They
+stream on [twitch.tv/SpeedGaming](https://twitch.tv/SpeedGaming) and
+[twitch.tv/SpeedGaming2](https://twitch.tv/SpeedGaming2), and Watch in the side
+menu shows what's on each one. The tournament room isn't streamed and isn't open
+to spectators.
 
 ## Online tournaments
 
-The online side of SGLive is free to enter and runs on its own dates. The list
-is on [sglive.speedgaming.org](https://sglive.speedgaming.org).
+The online side of SGLive is free to enter and runs on its own dates. You'll find
+the list on [sglive.speedgaming.org](https://sglive.speedgaming.org).

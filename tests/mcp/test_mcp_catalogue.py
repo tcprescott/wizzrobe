@@ -11,12 +11,8 @@ from mcpserver.registry import TOOL_SPECS
 from models import Role
 from tests.mcp.conftest import create_oauth_token, list_tools, mcp_session
 
-# Tools that legitimately take no community, because they are how a caller
-# discovers which communities exist.
-GLOBAL_TOOLS = {'whoami', 'list_tenants'}
+GLOBAL_TOOLS = {'whoami', 'list_tenants', 'server_version'}
 
-# Super-admin tools: they take no `tenant` either (they reach every community),
-# and are listed only to a super admin.
 PLATFORM_READ_TOOLS = {
     'platform_get_community',
     'platform_get_user',
@@ -27,6 +23,7 @@ PLATFORM_READ_TOOLS = {
     'platform_list_users',
     'platform_service_health',
     'runtime_stats',
+    'memory_census',
 }
 PLATFORM_WRITE_TOOLS = {
     'platform_create_community',
@@ -49,9 +46,12 @@ PLATFORM_WRITE_TOOLS = {
 }
 PLATFORM_TOOLS = PLATFORM_READ_TOOLS | PLATFORM_WRITE_TOOLS
 
-# A snapshot, so adding or renaming a tool is a deliberate diff rather than an
-# invisible change to a published contract.
 READ_TOOLS = {
+    'list_events',
+    'get_event',
+    'get_event_settings',
+    'get_export',
+    'list_my_exports',
     'activity_trends',
     'capacity_forecast',
     'crew_coverage_report',
@@ -63,6 +63,7 @@ READ_TOOLS = {
     'get_check_in_roster',
     'get_equipment',
     'get_match',
+    'get_member_details',
     'get_player_availability',
     'get_preset',
     'get_race_room',
@@ -70,6 +71,8 @@ READ_TOOLS = {
     'get_stage',
     'get_system_config',
     'get_tournament',
+    'get_tournament_bracket',
+    'get_round_schedule',
     'get_tournament_payouts',
     'get_user',
     'list_async_qualifier_live_races',
@@ -84,10 +87,12 @@ READ_TOOLS = {
     'list_join_requests',
     'list_match_crew',
     'list_matches',
+    'list_notification_settings',
     'list_presets',
     'list_race_room_profiles',
     'list_race_rooms',
     'list_randomizers',
+    'list_sent_messages',
     'list_service_health',
     'list_speedgaming_episodes',
     'list_speedgaming_links',
@@ -97,6 +102,7 @@ READ_TOOLS = {
     'list_tournament_signups',
     'list_tournaments',
     'list_triforce_texts',
+    'list_unbooked_matches',
     'list_users',
     'list_volunteer_positions',
     'list_volunteer_shifts',
@@ -105,8 +111,10 @@ READ_TOOLS = {
     'match_operations_report',
     'matches_active_at',
     'my_equipment_checkouts',
+    'my_notification_settings',
     'my_reschedule_requests',
     'my_volunteer_shifts',
+    'server_version',
     'stage_utilization',
     'suggest_match_time',
     'telemetry_summary',
@@ -115,13 +123,25 @@ READ_TOOLS = {
     'volunteer_coverage',
     'volunteer_hour_trends',
     'whoami',
+    'get_survey',
+    'get_survey_results',
+    'list_survey_comments',
+    'list_survey_conditions',
+    'list_survey_responses',
+    'list_surveys',
 }
 
-# The tools that change data. Served only to a connection whose consent screen
-# was approved with the write box ticked, so they are snapshotted separately —
-# a write tool that drifted into the read set would be one every read-only
-# client is suddenly offered.
 WRITE_TOOLS = {
+    'create_event',
+    'update_event',
+    'update_event_settings',
+    'go_live_event',
+    'make_default_event',
+    'archive_event',
+    'unarchive_event',
+    'delete_draft_event',
+    'export_tournaments',
+    'export_volunteer_data',
     'acknowledge_match',
     'add_community_member',
     'add_crew_coordinator',
@@ -134,6 +154,9 @@ WRITE_TOOLS = {
     'check_in_attendee',
     'check_in_equipment',
     'check_in_volunteer',
+    'call_off_volunteer',
+    'call_off_volunteer_shift',
+    'undo_volunteer_call_off',
     'check_out_equipment',
     'confirm_match',
     'create_equipment',
@@ -148,7 +171,9 @@ WRITE_TOOLS = {
     'delete_tournament',
     'delete_volunteer_position',
     'delete_volunteer_shift',
+    'extend_match_to_set',
     'deny_join_request',
+    'drop_tournament_player',
     'enroll_tournament_player',
     'finish_match',
     'generate_match_seed',
@@ -161,10 +186,16 @@ WRITE_TOOLS = {
     'remove_crew_coordinator',
     'remove_tournament_admin',
     'remove_tournament_player',
+    'reset_notification_settings',
     'revoke_community_role',
     'seat_match',
+    'set_crew_approval',
     'set_match_review',
     'set_match_stream_candidate',
+    'set_my_notification',
+    'set_my_notification_preset',
+    'set_notification_setting',
+    'set_staff_notification_setting',
     'set_tournament_payout_split',
     'set_tournament_prize_pool',
     'sign_up_for_tournament',
@@ -182,6 +213,7 @@ WRITE_TOOLS = {
     'update_match',
     'update_stage',
     'update_tournament',
+    'set_stage_best_of',
     'update_tournament_discord_events',
     'update_volunteer_position',
     'update_volunteer_shift',
@@ -189,20 +221,33 @@ WRITE_TOOLS = {
     'withdraw_crew_signup',
     'withdraw_from_tournament',
     'withdraw_stream_offer',
+    'add_survey_question',
+    'add_survey_section',
+    'create_survey',
+    'delete_survey',
+    'delete_survey_question',
+    'delete_survey_section',
+    'duplicate_survey',
+    'move_survey_question',
+    'mark_survey_comment',
+    'move_survey_section',
+    'update_survey',
+    'update_survey_question',
+    'update_survey_section',
 }
 
 EXPECTED_TOOLS = READ_TOOLS | WRITE_TOOLS
 EVERY_TOOL = EXPECTED_TOOLS | PLATFORM_TOOLS
 
-# Writes that remove something rather than adding or amending it. Clients use
-# the distinction to decide how hard to ask before proceeding.
 DESTRUCTIVE_TOOLS = {
+    'delete_draft_event',
     'delete_equipment',
     'delete_match',
     'delete_stage',
     'delete_tournament',
     'delete_volunteer_position',
     'delete_volunteer_shift',
+    'drop_tournament_player',
     'platform_delete_feature_group',
     'platform_revoke_racetime_bot',
     'platform_set_community_active',
@@ -211,6 +256,7 @@ DESTRUCTIVE_TOOLS = {
     'remove_crew_coordinator',
     'remove_tournament_admin',
     'remove_tournament_player',
+    'reset_notification_settings',
     'revoke_community_role',
     'unassign_volunteer',
     'undo_attendee_check_in',
@@ -219,6 +265,9 @@ DESTRUCTIVE_TOOLS = {
     'withdraw_crew_signup',
     'withdraw_from_tournament',
     'withdraw_stream_offer',
+    'delete_survey',
+    'delete_survey_question',
+    'delete_survey_section',
 }
 
 

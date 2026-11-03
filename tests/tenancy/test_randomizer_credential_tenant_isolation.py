@@ -25,14 +25,14 @@ async def test_credential_reads_are_isolated(two_tenants):
             randomizer='ootr', key='api_key', value='tenant-a-value',
         )
     with tenant_scope(b.id):
-        cb = await RandomizerCredential.create(   # same natural key, different tenant
+        cb = await RandomizerCredential.create(
             randomizer='ootr', key='api_key', value='tenant-b-value',
         )
 
     with tenant_scope(a.id):
         assert [c.id for c in await repo.list_all()] == [ca.id]
         assert (await repo.get_by_natural_key('ootr', 'api_key')).value == 'tenant-a-value'
-        assert await repo.get_by_id(cb.id) is None  # B's credential invisible to A
+        assert await repo.get_by_id(cb.id) is None
     with tenant_scope(b.id):
         assert [c.id for c in await repo.list_all()] == [cb.id]
         assert (await repo.get_by_natural_key('ootr', 'api_key')).value == 'tenant-b-value'

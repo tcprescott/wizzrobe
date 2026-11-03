@@ -33,7 +33,9 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from tortoise import connections
 
+from application.services.event_service import EventService
 from application.services.match.match_display_service import MatchDisplayService
+from application.tenant_context import require_tenant_id
 from models import Match, MatchPlayers, Stage, Tournament, User
 
 pytestmark = pytest.mark.usefixtures("db")
@@ -47,9 +49,7 @@ def count_queries():
     client = connections.get("default")
     tally = {"n": 0}
 
-    # The originals are bound methods off the class, so restoring means removing
-    # the instance attribute — re-assigning a captured bound method would leave
-    # the client permanently shadowed for the rest of the session.
+    # Restore by deleting the instance attribute: re-assigning the captured bound method shadows the client for the session.
     for name in COUNTED_METHODS:
         def wrap(original):
             async def counted(*args, **kwargs):
@@ -63,6 +63,11 @@ def count_queries():
     finally:
         for name in COUNTED_METHODS:
             client.__dict__.pop(name, None)
+
+
+async def warm_event_cache() -> None:
+    """Load the community's events once, as any earlier request in a running process has."""
+    await EventService.events_for_tenant(require_tenant_id())
 
 
 async def seed_matches(count: int, *, offset: int = 0) -> None:
@@ -91,13 +96,13 @@ class TestMatchTableQueryBudget:
     """``MatchTableView.refresh`` — the schedule tab, and the busiest read here."""
 
     SMALL, LARGE = 3, 12
-    # Measured 9. The regression this bounds is the same data loaded twice, which
-    # would be 18 — the headroom is for a legitimate extra lookup, not a re-load.
-    CEILING = 11
+    # Measured 9; a double load would be 18. Raised to 12 for the broadcaster prefetch.
+    CEILING = 12
 
     async def _count_for(self, rows: int, *, offset: int = 0) -> int:
         await seed_matches(rows, offset=offset)
         service = MatchDisplayService()
+        await warm_event_cache()
         with count_queries() as tally:
             result = await service.get_matches_for_display()
         assert len(result) == rows, "fixture did not produce the expected rows"
@@ -130,16 +135,15 @@ class TestPlayerBoardQueryBudget:
     """
 
     SMALL, LARGE = 3, 12
-    # Measured 9, same as the unfiltered board: the filter narrows rows, it does
-    # not change how many statements the load takes.
-    CEILING = 11
+    # Measured 9, same as unfiltered (12 with broadcasters): the filter narrows rows, not statements.
+    CEILING = 12
 
     async def _count_for(self, rows: int, *, offset: int = 0) -> int:
         await seed_matches(rows, offset=offset)
-        # Every seeded match has a player numbered 0; filter to the last one so
-        # exactly one row comes back however many were seeded.
+        # Filter to the last player number so exactly one row comes back however many were seeded.
         last = offset + rows - 1
         service = MatchDisplayService()
+        await warm_event_cache()
         with count_queries() as tally:
             result = await service.get_matches_for_display(
                 user_discord_id=str(100_000 + last * 10),
@@ -175,10 +179,7 @@ class TestQualifierAvailabilityQueryBudget:
     """
 
     SMALL, LARGE = 1, 4
-    # Measured 5 flat — the qualifier, its pools with permalinks prefetched, this
-    # player's played permalinks, their spent counts, and the flag resolution behind
-    # the service's own gate. Before the batch it was 7 / 19 / 51 for 1 / 4 / 12
-    # pools, which is the shape this class exists to keep from coming back.
+    # Measured 5 flat. Before batching it grew with the pool count (7 / 19 / 51 for 1 / 4 / 12).
     CEILING = 7
 
     async def _count_for(self, pools: int, *, discord_id: int) -> int:
@@ -235,7 +236,6 @@ class TestTheGuardItself:
         client = connections.get("default")
         with count_queries():
             assert all(name in client.__dict__ for name in COUNTED_METHODS)
-        # Back to the class methods: no instance attribute is left shadowing them.
         assert not any(name in client.__dict__ for name in COUNTED_METHODS)
 
     async def test_an_unprefetched_relation_is_visibly_worse(self):

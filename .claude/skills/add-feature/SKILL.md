@@ -19,10 +19,13 @@ UI-only change starts at step 5).
 
 ## -1. Plan first
 
-For any non-trivial feature, run **/plan-feature** and get the user's sign-off
-on the design brief before writing code. The brief pre-answers every decision
-the steps below need (flag, tenant impact, leak tests, seed rows, docs), so
-the build never stalls mid-layer.
+For a new feature or a changed workflow, run **/plan-feature** and get the
+user's sign-off on the spec ([docs/specs/](../../../docs/specs/README.md))
+before writing code. The spec pre-answers every decision the steps below need
+(flag, tenant impact, leak tests, seed rows, docs), so the build never stalls
+mid-layer. Commit it to `docs/specs/<topic>.md` as the PR's first commit, keep
+it true as the plan changes, and tick its acceptance items in the PR
+description before leaving draft.
 
 ## 0. Feature flag? (always ask)
 

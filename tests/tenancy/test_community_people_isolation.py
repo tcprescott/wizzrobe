@@ -147,8 +147,6 @@ async def test_a_deactivated_account_is_excluded(two_tenants):
 
 async def test_include_user_ids_keeps_a_holder_who_fell_out_of_the_set(two_tenants):
     a, b = two_tenants
-    # Someone who belongs to the *other* community but is holding one of this
-    # community's assets: they must stay displayable and check-in-able.
     holder = await _role_holder(b, 9061, 'walked-in-from-elsewhere')
 
     with tenant_scope(a.id):

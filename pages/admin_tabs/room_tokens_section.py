@@ -20,6 +20,7 @@ from theme.dialog._helpers import dialog_actions, form_dialog
 from theme.dialog.confirmation_dialog import ConfirmationDialog
 from theme.notify import notify_error
 from theme.section import section_panel
+from theme.steady import steady_refreshable
 
 
 async def render_room_tokens_section(can_edit: bool) -> None:
@@ -29,12 +30,11 @@ async def render_room_tokens_section(can_edit: bool) -> None:
         return await get_user_from_session(app.storage.user)
 
     async def _url_for(raw_token: str) -> str:
-        # Absolute and tenant-qualified: the URL is pasted into a browser on a
-        # different machine, where a bare path resolves against nothing.
+        # Absolute and tenant-qualified: it's pasted into a browser on another machine.
         tenant = await TenantService.get_by_id(require_tenant_id())
         return tenant_url(tenant, room_seeds_path(raw_token))
 
-    @ui.refreshable
+    @steady_refreshable
     async def token_list() -> None:
         try:
             tokens = await service.list_tokens(await _actor())
@@ -112,7 +112,7 @@ async def render_room_tokens_section(can_edit: bool) -> None:
     card = await section_panel(
         'Room screens', icon='desktop_windows',
         subtitle=(
-            'A read-only board of matches whose seed is rolled but not started, '
+            'A read-only board of matches whose seed is rolled and not finished, '
             'for a machine in the room that nobody signs in on. Each token is an '
             'unlisted URL that opens that one page and nothing else, so bookmark '
             'it on the machine it belongs to.'

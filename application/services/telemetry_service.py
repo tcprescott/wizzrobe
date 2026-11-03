@@ -5,7 +5,7 @@ Engagement telemetry: capturing *how* people use the tool (page views, feature
 interactions) plus a mirror of every domain event on the bus, so post-event
 analysis can go beyond in-app feedback.
 
-Three capture entry points, all best-effort and non-blocking (a telemetry
+Capture entry points, all best-effort and non-blocking (a telemetry
 failure must never break a page render or a mutating call):
 
 * :meth:`record_event` — subscribed to the event bus; mirrors every published
@@ -17,6 +17,8 @@ failure must never break a page render or a mutating call):
 * :meth:`track_tab_view` — every tab switch on a tabbed hub page.
 * :meth:`track_ui_batch` — clicks, dialog opens/closes and field use, batched
   by ``static/js/usage.js`` in the browser.
+* :meth:`track_api_call` — every MCP tool call and authenticated REST request,
+  so staff can see who uses the integrations and for what.
 
 Reads (the admin engagement report) are Staff-gated at the service boundary,
 mirroring :class:`~application.services.webhook_service.WebhookService`, because
@@ -45,6 +47,7 @@ class TelemetryCategory:
     PAGE = 'page'
     INTERACTION = 'interaction'
     DOMAIN = 'domain'
+    API = 'api'
 
 
 class TelemetryEventType:
@@ -57,15 +60,22 @@ class TelemetryEventType:
     REPORT_VIEWED = 'report.viewed'
     REPORT_EXPORTED = 'report.exported'
     TAB_VIEW = 'tab.view'
-    # Reported in batches by static/js/usage.js (see track_ui_batch).
     UI_CLICK = 'ui.click'
     UI_DIALOG_OPENED = 'ui.dialog_opened'
     UI_DIALOG_CLOSED = 'ui.dialog_closed'
     UI_FIELD_USED = 'ui.field_used'
+    MCP_TOOL_CALL = 'mcp.tool_call'
+    REST_REQUEST = 'rest.request'
+    GRAPHQL_QUERY = 'graphql.query'
 
 
-#: The client-reported kinds track_ui_batch accepts. The browser is not trusted:
-#: anything else in a batch is dropped rather than stored under a made-up name.
+API_SURFACES = {
+    TelemetryEventType.MCP_TOOL_CALL: 'mcp',
+    TelemetryEventType.REST_REQUEST: 'rest',
+    TelemetryEventType.GRAPHQL_QUERY: 'graphql',
+}
+
+
 UI_EVENT_TYPES = frozenset({
     TelemetryEventType.UI_CLICK,
     TelemetryEventType.UI_DIALOG_OPENED,
@@ -96,8 +106,6 @@ class TelemetryService:
 
     def __init__(self) -> None:
         self.repository = TelemetryRepository()
-
-    # -------------------------------------------------------------- capture
 
     async def record_event(self, event: Event) -> None:
         """Event-bus subscriber: mirror a published domain event into telemetry.
@@ -248,13 +256,45 @@ class TelemetryService:
             logger.exception("telemetry ui batch failed")
             return 0
 
+    async def track_api_call(
+        self,
+        *,
+        event_type: str,
+        target: str,
+        path: str,
+        user_id: int,
+        username: Optional[str],
+        outcome: str,
+    ) -> None:
+        """Record one MCP tool call or authenticated REST request. Never raises.
+
+        ``target`` is the tool name or ``METHOD /route/{template}`` (never the
+        filled-in path, so ids don't split a route into one row per record);
+        ``outcome`` is ``ok`` or the error code / HTTP status. Arguments and
+        bodies are never stored. The caller binds the community.
+        """
+        if not telemetry_enabled() or event_type not in API_SURFACES:
+            return
+        try:
+            details: dict[str, Any] = {'outcome': outcome}
+            if username is not None:
+                details['actor_username'] = username
+            await self.repository.create(
+                category=TelemetryCategory.API,
+                event_type=event_type,
+                user_id=user_id,
+                path=_clip(path, 512),
+                target=_clip(target, 200),
+                details=_encode_details(details),
+            )
+        except Exception:
+            logger.exception("telemetry api call failed for %s", target)
+
     @staticmethod
     async def _resolve_user(
         discord_id: Optional[str], username: Optional[str], user_id: Optional[int] = None,
     ) -> tuple[Optional[int], Optional[str]]:
-        # Resolve to a User for the FK when possible, but attribute even
-        # deactivated accounts (unlike get_user_from_discord_id, which hides
-        # them) — telemetry is about who did what, not who may act now.
+        # Not get_user_from_discord_id: telemetry must attribute deactivated accounts too.
         if discord_id:
             user = await User.get_or_none(discord_id=discord_id)
         elif user_id:
@@ -295,14 +335,13 @@ class TelemetryService:
         except Exception:
             logger.exception("telemetry capture failed for %s", event_type)
 
-    # ---------------------------------------------------------------- reads
-
     async def list_events(
         self,
         actor: User,
         *,
         start: Optional[datetime] = None,
         end: Optional[datetime] = None,
+        event_id: Optional[int] = None,
         category: Optional[str] = None,
         event_type: Optional[str] = None,
         user_id: Optional[int] = None,
@@ -313,7 +352,7 @@ class TelemetryService:
     ) -> List[TelemetryEvent]:
         await self._ensure_staff(actor)
         return await self.repository.list(
-            start=start, end=end, category=category, event_type=event_type,
+            start=start, end=end, event_id=event_id, category=category, event_type=event_type,
             user_id=user_id, session_id=session_id, path_contains=path_contains,
             limit=limit, offset=offset,
         )
@@ -324,6 +363,7 @@ class TelemetryService:
         *,
         start: Optional[datetime] = None,
         end: Optional[datetime] = None,
+        event_id: Optional[int] = None,
         category: Optional[str] = None,
         event_type: Optional[str] = None,
         user_id: Optional[int] = None,
@@ -332,7 +372,7 @@ class TelemetryService:
     ) -> int:
         await self._ensure_staff(actor)
         return await self.repository.count(
-            start=start, end=end, category=category, event_type=event_type,
+            start=start, end=end, event_id=event_id, category=category, event_type=event_type,
             user_id=user_id, session_id=session_id, path_contains=path_contains,
         )
 
@@ -342,16 +382,23 @@ class TelemetryService:
         *,
         start: Optional[datetime] = None,
         end: Optional[datetime] = None,
+        event_id: Optional[int] = None,
     ) -> dict:
         """Top-line KPIs for the window: totals + distinct reach."""
         await self._ensure_staff(actor)
+        api_users = await self.repository.count_distinct_users_by_event_type(
+            start=start, end=end, event_id=event_id, category=TelemetryCategory.API,
+        )
         return {
-            'total_events': await self.repository.count(start=start, end=end),
-            'unique_users': await self.repository.count_distinct_users(start=start, end=end),
-            'unique_sessions': await self.repository.count_distinct_sessions(start=start, end=end),
+            'total_events': await self.repository.count(start=start, end=end, event_id=event_id),
+            'unique_users': await self.repository.count_distinct_users(start=start, end=end, event_id=event_id),
+            'unique_sessions': await self.repository.count_distinct_sessions(start=start, end=end, event_id=event_id),
             'page_views': await self.repository.count(
-                start=start, end=end, category=TelemetryCategory.PAGE,
+                start=start, end=end, event_id=event_id, category=TelemetryCategory.PAGE,
             ),
+            'mcp_users': api_users.get(TelemetryEventType.MCP_TOOL_CALL, 0),
+            'rest_users': api_users.get(TelemetryEventType.REST_REQUEST, 0),
+            'graphql_users': api_users.get(TelemetryEventType.GRAPHQL_QUERY, 0),
         }
 
     async def top_paths(
@@ -360,11 +407,13 @@ class TelemetryService:
         *,
         start: Optional[datetime] = None,
         end: Optional[datetime] = None,
+        event_id: Optional[int] = None,
+        user_id: Optional[int] = None,
         limit: int = 15,
     ) -> List[dict]:
         await self._ensure_staff(actor)
         return await self.repository.top_paths(
-            start=start, end=end, category=TelemetryCategory.PAGE, limit=limit,
+            start=start, end=end, event_id=event_id, category=TelemetryCategory.PAGE, user_id=user_id, limit=limit,
         )
 
     async def top_event_types(
@@ -373,10 +422,12 @@ class TelemetryService:
         *,
         start: Optional[datetime] = None,
         end: Optional[datetime] = None,
+        event_id: Optional[int] = None,
+        user_id: Optional[int] = None,
         limit: int = 20,
     ) -> List[dict]:
         await self._ensure_staff(actor)
-        return await self.repository.top_event_types(start=start, end=end, limit=limit)
+        return await self.repository.top_event_types(start=start, end=end, event_id=event_id, user_id=user_id, limit=limit)
 
     async def top_controls(
         self,
@@ -384,14 +435,70 @@ class TelemetryService:
         *,
         start: Optional[datetime] = None,
         end: Optional[datetime] = None,
+        event_id: Optional[int] = None,
+        user_id: Optional[int] = None,
         limit: int = 50,
     ) -> List[dict]:
         """Most-used tabs, buttons, menu items, dialogs and fields, with how
         many distinct people used each and how many uses came from a phone."""
         await self._ensure_staff(actor)
         return await self.repository.top_controls(
-            start=start, end=end, category=TelemetryCategory.INTERACTION, limit=limit,
+            start=start, end=end, event_id=event_id, category=TelemetryCategory.INTERACTION, user_id=user_id, limit=limit,
         )
+
+    async def top_api_calls(
+        self,
+        actor: User,
+        *,
+        start: Optional[datetime] = None,
+        end: Optional[datetime] = None,
+        event_id: Optional[int] = None,
+        user_id: Optional[int] = None,
+        limit: int = 50,
+    ) -> List[dict]:
+        """Most-called MCP tools and REST routes, with distinct callers and failures."""
+        await self._ensure_staff(actor)
+        rows = await self.repository.top_api_targets(
+            start=start, end=end, event_id=event_id, category=TelemetryCategory.API, user_id=user_id, limit=limit,
+        )
+        return [
+            {
+                'surface': API_SURFACES.get(r['event_type'], r['event_type']),
+                'target': r['target'],
+                'calls': r['calls'],
+                'users': r['users'],
+                'errors': r['errors'],
+            }
+            for r in rows
+        ]
+
+    async def top_api_users(
+        self,
+        actor: User,
+        *,
+        start: Optional[datetime] = None,
+        end: Optional[datetime] = None,
+        event_id: Optional[int] = None,
+        user_id: Optional[int] = None,
+        limit: int = 50,
+    ) -> List[dict]:
+        """Who calls the MCP server and REST API: one row per person per surface."""
+        await self._ensure_staff(actor)
+        rows = await self.repository.top_api_users(
+            start=start, end=end, event_id=event_id, category=TelemetryCategory.API, user_id=user_id, limit=limit,
+        )
+        names = await self._user_names([r['user_id'] for r in rows])
+        return [
+            {
+                'user_id': r['user_id'],
+                'user': names.get(r['user_id'], f"User {r['user_id']}"),
+                'surface': API_SURFACES.get(r['event_type'], r['event_type']),
+                'calls': r['calls'],
+                'targets': r['targets'],
+                'last_call': r['last_call'],
+            }
+            for r in rows
+        ]
 
     async def top_users(
         self,
@@ -399,16 +506,14 @@ class TelemetryService:
         *,
         start: Optional[datetime] = None,
         end: Optional[datetime] = None,
+        event_id: Optional[int] = None,
+        user_id: Optional[int] = None,
         limit: int = 15,
     ) -> List[dict]:
         """Busiest users with their display names resolved for the report."""
         await self._ensure_staff(actor)
-        rows = await self.repository.top_users(start=start, end=end, limit=limit)
-        user_ids = [r['user_id'] for r in rows]
-        names: dict[int, str] = {}
-        if user_ids:
-            for u in await User.filter(id__in=user_ids):
-                names[u.id] = getattr(u, 'preferred_name', None) or u.username or f'User {u.id}'
+        rows = await self.repository.top_users(start=start, end=end, event_id=event_id, user_id=user_id, limit=limit)
+        names = await self._user_names([r['user_id'] for r in rows])
         return [
             {
                 'user_id': r['user_id'],
@@ -418,6 +523,14 @@ class TelemetryService:
             }
             for r in rows
         ]
+
+    @staticmethod
+    async def _user_names(user_ids: List[int]) -> dict[int, str]:
+        names: dict[int, str] = {}
+        if user_ids:
+            for u in await User.filter(id__in=user_ids):
+                names[u.id] = getattr(u, 'preferred_name', None) or u.username or f'User {u.id}'
+        return names
 
     @staticmethod
     async def _ensure_staff(actor: User) -> None:

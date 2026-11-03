@@ -10,7 +10,6 @@ from nicegui import app, ui
 
 from application.services import AuthService, ReportsService, get_user_from_session
 from application.utils.timezone import format_local_display
-from pages.admin_tabs.links import SCHEDULE, admin_url
 from theme.section import section_panel
 from theme.tables.mobile_grid import enable_mobile_grid
 from theme.tables.preferences import TableKeys
@@ -29,6 +28,7 @@ from .shared import (
     report_jumps,
     report_page_shell,
     reports_url,
+    schedule_drill,
     tournament_filter,
 )
 
@@ -45,7 +45,7 @@ async def match_ops_page(
     start_d, end_d = await default_date_range(start, end)
     selected_state = state if state in STATE_OPTIONS else 'All'
     viewer = await get_user_from_session(app.storage.user)
-    can_open_board = await AuthService.can_view_schedule_board(viewer)
+    board_drill, can_open_board = schedule_drill(await AuthService.schedule_board_scope(viewer))
 
     def nav(**overrides) -> None:
         params: dict[str, Any] = {
@@ -78,7 +78,7 @@ async def match_ops_page(
 
         bounds_start, bounds_end = display_bounds(start_d, end_d)
         ops = await ReportsService().match_operations(
-            bounds_start, bounds_end, tournament_id=tournament_id,
+            bounds_start, bounds_end, tournament_id=tournament_id, actor=viewer,
         )
         rows = ops['rows']
         if selected_state != 'All':
@@ -104,9 +104,6 @@ async def match_ops_page(
                     rows=ops['aggregates'],
                     row_key='tournament_id',
                 ).classes('full-width')
-                # The board takes no tournament param, so this aggregate drills
-                # *within* reports — re-filtering this report to the tournament
-                # whose number the operator just read.
                 agg_actions = enable_drill_link(
                     agg_table, agg_columns, ops['aggregates'],
                     lambda r: reports_url(
@@ -152,11 +149,9 @@ async def match_ops_page(
                 pagination=25,
                 row_key='match_id',
             ).classes('full-width')
-            # A Finished match with no result is found here and confirmed on the
-            # board, whose review queue is already built for exactly that pile.
             detail_actions = enable_drill_link(
                 detail_table, detail_columns, detail_rows,
-                lambda r: admin_url(SCHEDULE, match_id=r['match_id']),
+                board_drill,
                 enabled=can_open_board,
                 hint='Open on the schedule board',
             )

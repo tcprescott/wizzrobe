@@ -11,6 +11,8 @@ from nicegui import app, ui
 from application.services import ChallongeService, UserService, get_user_from_session
 from theme.dialog._helpers import dialog_header, mobile_sheet
 from theme.notify import notify_error
+from theme.pickers import member_select
+from theme.steady import steady_refreshable
 
 _STATUS = {
     'unlinked': ('Not linked', 'warning'),
@@ -32,7 +34,7 @@ class ChallongeParticipantsDialog:
     async def open(self) -> None:
         service = ChallongeService()
         actor = await get_user_from_session(app.storage.user)
-        members = {u.id: _person(u) for u in await UserService().get_community_people()}
+        members = {u.id: _person(u) for u in await UserService().get_community_people_summaries()}
 
         with ui.dialog() as dialog, ui.card().classes('dialog-card'):
             mobile_sheet(dialog)
@@ -46,7 +48,7 @@ class ChallongeParticipantsDialog:
                     "entrant is removed on Challonge."
                 ).classes('text-caption text-muted')
 
-                @ui.refreshable
+                @steady_refreshable
                 async def roster() -> None:
                     try:
                         rows = await service.list_bracket_participants(self.tournament.id, actor)
@@ -71,11 +73,10 @@ class ChallongeParticipantsDialog:
                                 f"{_person(row['verified_user'])}; this assignment overrides it."
                             ).classes('text-caption text-warning')
                         with ui.row().classes('items-center w-full gap-2'):
-                            options = dict(members)
                             if row['user'] is not None:
-                                options.setdefault(row['user'].id, _person(row['user']))
-                            picker = ui.select(
-                                options=options, label='Wizzrobe user', with_input=True,
+                                members.setdefault(row['user'].id, _person(row['user']))
+                            picker = member_select(
+                                members, label='Wizzrobe user',
                                 value=row['user'].id if row['user'] is not None else None,
                             ).props('dense outlined').classes('grow min-w-56')
                             if row['status'] == 'manual':

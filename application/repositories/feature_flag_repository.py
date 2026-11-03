@@ -8,9 +8,9 @@ ambient tenant); a row left all-NULL carries no information and is deleted.
 
 from typing import Dict, List, Optional
 
+from application.repositories._save import save_fields
 from models import TenantFeatureFlag
 
-# Sentinel distinguishing "leave this column untouched" from "set it to None".
 _UNSET = object()
 
 
@@ -52,5 +52,5 @@ class TenantFeatureFlagRepository:
             if row.pk is not None:
                 await row.delete()
             return None
-        await row.save()
+        await save_fields(row, 'available', 'enabled')
         return row

@@ -14,12 +14,13 @@ room, DMs the players and crew, and emits ``match.cancelled`` alongside the
 """
 
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 from application.events import EventType, match_live
 from application.services.audit_service import AuditActions
 from application.services.auth_service import AuthService
 from application.services.discord import discord_queue
+from application.services.notification_catalog import MATCH_CANCELLED, Notice
 from models import Match, User
 
 logger = logging.getLogger(__name__)
@@ -27,6 +28,8 @@ logger = logging.getLogger(__name__)
 
 class CancellationMixin:
     """Remove a match: the plain delete, and the notifying cancellation."""
+
+    repository: Any
 
     async def delete_match(self, match_id: int, actor: Optional[User] = None) -> None:
         match = await self._require_match(match_id)
@@ -54,6 +57,11 @@ class CancellationMixin:
         """
         match_id = match.id
         tournament_id = match.tournament_id
+        # Hand the lead game's bracket link on first, so the rest of the set stays booked.
+        if self._leads_set(match):
+            from application.services.bracket_set_service import BracketSetService
+
+            await BracketSetService().hand_off(match)
         await self._release_bracket_slot(match, actor, reason)
         await self.repository.delete(match)
         await self.audit_service.write_and_publish(
@@ -61,6 +69,10 @@ class CancellationMixin:
             EventType.MATCH_DELETED, event_extra={'tournament_id': tournament_id},
         )
         match_live.publish(match_id, match_live.DELETED)
+
+    @staticmethod
+    def _leads_set(match: Match) -> bool:
+        return bool(getattr(match, 'set_best_of', None)) and getattr(match, 'set_first_id', None) is None
 
     @staticmethod
     async def _release_bracket_slot(
@@ -90,6 +102,7 @@ class CancellationMixin:
 
     async def cancel_match(
         self, match_id: int, actor: Optional[User] = None, *, reason: str = '',
+        notice: Notice = MATCH_CANCELLED,
     ) -> None:
         """Call a scheduled match off, telling everyone who was expecting it."""
         match = await self._require_match(match_id)
@@ -97,10 +110,11 @@ class CancellationMixin:
             await AuthService.can_crud_match(actor, match),
             f"User cannot cancel match {match_id}",
         )
-        await self._cancel_match(match, actor, reason=reason)
+        await self._cancel_match(match, actor, reason=reason, notice=notice)
 
     async def _cancel_match(
         self, match: Match, actor: Optional[User], *, reason: str = '',
+        notice: Notice = MATCH_CANCELLED,
     ) -> None:
         """Cancel a match — WITHOUT the CRUD gate.
 
@@ -126,15 +140,12 @@ class CancellationMixin:
             collect_match_audience,
         )
         from application.utils.discord_embeds import COLOR_CANCELLED, match_embed
-        from application.utils.discord_messages import cancelled_dm
+        from application.utils.discord_messages import cancelled_description, cancelled_dm
 
         await match.fetch_related('tournament', 'players__user', 'stage')
         recipients = await collect_match_audience(match)
         community = await _community_name()
-        # Both bracket facts are resolved here, before the delete, for the same
-        # reason the recipients are: the game row is reachable from this match
-        # only while it exists. ``frees_slot`` is what turns "nothing further is
-        # needed from you" into "the matchup is open to reschedule" (D3).
+        # Resolve before the delete: the game row is reachable from this match only while it exists.
         bracket_line, frees_slot = await bracket_dm_context(match.id)
         message = cancelled_dm(
             match.tournament.name, reason=reason, released=frees_slot,
@@ -143,6 +154,7 @@ class CancellationMixin:
         embed = match_embed(
             title='Match cancelled',
             color=COLOR_CANCELLED,
+            description=cancelled_description(reason=reason, released=frees_slot),
             **_match_embed_kwargs(match, community),
         )
 
@@ -159,7 +171,7 @@ class CancellationMixin:
 
         discord_queue.enqueue(
             self.match_schedule_service.notify_match_cancelled(
-                recipients, message, embed,
+                recipients, message, embed, notice=notice,
             )
         )
 

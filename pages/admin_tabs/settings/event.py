@@ -1,4 +1,4 @@
-"""Settings → Event: when the event runs, its daily hours, and how much runs at once."""
+"""Event settings → Dates & hours, and → Capacity: when this event runs and how much of it runs at once."""
 
 from datetime import date, timedelta
 
@@ -17,15 +17,14 @@ from theme.dialog._helpers import native_date_input, native_time_input
 from theme.notify import notify_error
 from theme.save_footer import SaveFooter
 from theme.section import section_panel
+from theme.steady import steady_refreshable
 
 
-async def event_settings_pane(can_edit: bool) -> None:
-    # Operating hours are the community's rule, so they are written and enforced
-    # on the community's clock, never the admin's, and labelled with that zone so
-    # an admin abroad is not silently reading the numbers as their own time.
+async def dates_and_hours_pane(can_edit: bool) -> None:
+    # Hours are on the event's clock, never the admin's.
     tenant_tz_label = timezone_label(await TimezoneService.tenant_timezone_name())
 
-    @ui.refreshable
+    @steady_refreshable
     async def hours_rows() -> None:
         tournament_hours = await SystemConfigService.get_tournament_hours()
         event_start, event_end = await SystemConfigService.get_event_window()
@@ -81,7 +80,6 @@ async def event_settings_pane(can_edit: bool) -> None:
             notify_error(e)
             return False
         ui.notify('Event dates saved', color='positive')
-        # The hours card lists one row per event day, so new dates mean new rows.
         hours_rows.refresh()
         return True
 
@@ -95,7 +93,7 @@ async def event_settings_pane(can_edit: bool) -> None:
         'Daily hours', icon='schedule',
         subtitle=(
             f'Matches can only be scheduled to start inside these hours, in '
-            f'{tenant_tz_label}, the community’s own timezone. Leave a day blank '
+            f'{tenant_tz_label}, the event’s own timezone. Leave a day blank '
             f'to allow any time.'
         ),
     )
@@ -115,13 +113,15 @@ async def event_settings_pane(can_edit: bool) -> None:
         ui.notify('Daily hours saved', color='positive')
         return True
 
-    # Created before the rows so they can register with it; it still renders
-    # under them because the panel's body element already exists.
+    # Created before the rows so they can register with it.
     with hours.panel:
         hours_footer = SaveFooter(save_hours, enabled=can_edit)
     with hours.body:
         await hours_rows()
 
+
+
+async def capacity_pane(can_edit: bool) -> None:
     max_players = await SystemConfigService.get_int(KEY_MAX_CONCURRENT_PLAYERS)
     max_stages = await SystemConfigService.get_int(KEY_MAX_CONCURRENT_STAGES)
 

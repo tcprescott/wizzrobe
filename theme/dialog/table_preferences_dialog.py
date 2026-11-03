@@ -21,7 +21,6 @@ from theme.menu import menu_action
 from theme.tables.admin_crud import current_actor
 from theme.tables.preferences import apply_saved_config, customization_of
 
-PAGE_SIZE_LABELS = {0: 'All', 10: '10', 25: '25', 50: '50', 100: '100'}
 DENSITY_LABELS = {'comfortable': 'Comfortable', 'compact': 'Compact'}
 
 
@@ -34,12 +33,8 @@ class _Staged:
     the difference between a page size and a density.
     """
 
-    page_size: int
     density: str
     wrap: bool
-
-    def set_page_size(self, value) -> None:
-        self.page_size = int(value)
 
     def set_density(self, value) -> None:
         self.density = str(value)
@@ -48,8 +43,6 @@ class _Staged:
         self.wrap = bool(value)
 
 
-# A row-action column ships with an empty label — correct on the table, where
-# the buttons speak for themselves, and useless in a list of column names.
 FALLBACK_LABELS = {'actions': 'Row actions', 'edit': 'Edit'}
 
 
@@ -101,29 +94,15 @@ async def open_table_preferences(table: ui.table) -> None:
 
     service = TablePreferenceService()
     staged = _staged_columns(custom)
-    state = _Staged(page_size=custom.plan.page_size,
-                    density=custom.plan.density,
-                    wrap=custom.plan.wrap)
-    # A table shipped with a page size the radio does not offer (some reports use
-    # 15) must still show its current value rather than silently reading as 'All'.
-    size_options = dict(PAGE_SIZE_LABELS)
-    if state.page_size not in size_options:
-        size_options[state.page_size] = str(state.page_size)
+    state = _Staged(density=custom.plan.density, wrap=custom.plan.wrap)
 
     with form_dialog('Table preferences') as dialog:
         with ui.column().classes('q-pa-md gap-3 full-width'):
-            with ui.row().classes('full-width gap-6 items-start'):
-                with ui.column().classes('gap-1'):
-                    ui.label('Rows per page').classes('text-caption text-grey-7')
-                    ui.radio(dict(sorted(size_options.items())),
-                             value=state.page_size,
-                             on_change=lambda e: state.set_page_size(e.value)) \
-                        .props('inline dense')
-                with ui.column().classes('gap-1'):
-                    ui.label('Density').classes('text-caption text-grey-7')
-                    ui.radio(DENSITY_LABELS, value=state.density,
-                             on_change=lambda e: state.set_density(e.value)) \
-                        .props('inline dense')
+            with ui.column().classes('gap-1'):
+                ui.label('Density').classes('text-caption text-grey-7')
+                ui.radio(DENSITY_LABELS, value=state.density,
+                         on_change=lambda e: state.set_density(e.value)) \
+                    .props('inline dense')
             ui.switch('Wrap long values', value=state.wrap,
                       on_change=lambda e: state.set_wrap(e.value))
 
@@ -153,9 +132,6 @@ async def open_table_preferences(table: ui.table) -> None:
                     required = entry['name'] in custom.required
                     row = ui.row().classes(
                         'full-width items-center gap-2 q-py-xs wiz-prefs-column-row')
-                    # Drag is an addition to the ▲/▼ buttons below, never a
-                    # replacement: a dialog whose whole purpose is making a table
-                    # usable must not itself be mouse-only.
                     row.props('draggable="true"')
                     row.on('dragstart', lambda _, i=index: dragging.update(index=i))
                     row.on('dragover.prevent', lambda: None)
@@ -168,7 +144,6 @@ async def open_table_preferences(table: ui.table) -> None:
                             on_change=lambda e, c=entry: c.update(visible=e.value),
                         ).props('dense')
                         if required:
-                            # Disabled, not missing: the absence has to explain itself.
                             checkbox.props('disable')
                         ui.label(entry['label']).classes('col-grow')
                         if required:
@@ -190,7 +165,8 @@ async def open_table_preferences(table: ui.table) -> None:
         render_columns()
 
         async def confirm() -> None:
-            config = _config_from(staged, state.page_size, state.density, state.wrap)
+            # Re-read at Confirm: the footer may have saved a new size meanwhile.
+            config = _config_from(staged, custom.plan.page_size, state.density, state.wrap)
             try:
                 saved = await service.save(actor, custom.key, config)
             except ValueError as e:

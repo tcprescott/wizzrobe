@@ -1,0 +1,205 @@
+{
+ "loginAs": "staff_user",
+ "tenant": "default",
+ "repeat": 2,
+ "targets": [
+  {
+   "name": "home-schedule",
+   "path": "/home/schedule"
+  },
+  {
+   "name": "home-player",
+   "path": "/home/player"
+  },
+  {
+   "name": "home-profile",
+   "path": "/home/profile"
+  },
+  {
+   "name": "home-tournaments",
+   "path": "/home/tournaments"
+  },
+  {
+   "name": "home-availability",
+   "path": "/home/my-availability"
+  },
+  {
+   "name": "volunteer-shifts",
+   "path": "/home/my-schedule?shifts=1"
+  },
+  {
+   "name": "volunteer-full-schedule",
+   "path": "/volunteer/full-schedule"
+  },
+  {
+   "name": "volunteer-proctor",
+   "path": "/volunteer/proctor-station"
+  },
+  {
+   "name": "admin-setup",
+   "path": "/admin/setup"
+  },
+  {
+   "name": "admin-schedule",
+   "path": "/admin/schedule"
+  },
+  {
+   "name": "admin-users",
+   "path": "/admin/users"
+  },
+  {
+   "name": "admin-tournaments",
+   "path": "/admin/tournaments"
+  },
+  {
+   "name": "admin-stages",
+   "path": "/admin/stages"
+  },
+  {
+   "name": "admin-check-in",
+   "path": "/admin/check-in"
+  },
+  {
+   "name": "admin-qualifiers",
+   "path": "/admin/qualifiers"
+  },
+  {
+   "name": "admin-brackets",
+   "path": "/admin/brackets"
+  },
+  {
+   "name": "admin-vol-roster",
+   "path": "/admin/vol-roster"
+  },
+  {
+   "name": "admin-vol-schedule",
+   "path": "/admin/vol-schedule"
+  },
+  {
+   "name": "admin-shift-board",
+   "path": "/admin/shift-board"
+  },
+  {
+   "name": "admin-equipment",
+   "path": "/admin/equipment"
+  },
+  {
+   "name": "admin-reports",
+   "path": "/admin/reports"
+  },
+  {
+   "name": "admin-reports-capacity",
+   "path": "/admin/reports?report=capacity"
+  },
+  {
+   "name": "admin-reports-audit",
+   "path": "/admin/reports?report=audit"
+  },
+  {
+   "name": "settings-event",
+   "path": "/admin/event-settings/dates"
+  },
+  {
+   "name": "settings-members",
+   "path": "/admin/settings/members"
+  },
+  {
+   "name": "settings-volunteers",
+   "path": "/admin/settings/volunteers"
+  },
+  {
+   "name": "checkin",
+   "path": "/volunteer/check-in-desk"
+  },
+  {
+   "name": "brackets",
+   "path": "/brackets"
+  },
+  {
+   "name": "qualifiers",
+   "path": "/qualifiers"
+  },
+  {
+   "name": "equipment",
+   "path": "/equipment"
+  },
+  {
+   "name": "watch-live",
+   "path": "/live"
+  },
+  {
+   "name": "settings-watch",
+   "path": "/admin/settings/watch"
+  },
+  {
+   "name": "event-info",
+   "path": "/event-info"
+  },
+  {
+   "name": "event-info-article",
+   "path": "/event-info/attending"
+  },
+  {
+   "name": "community-events",
+   "path": "/home/community"
+  },
+  {
+   "name": "admin-community-events",
+   "path": "/admin/community-events"
+  },
+  {
+   "name": "admin-reports-crew",
+   "path": "/admin/reports?report=crew"
+  },
+  {
+   "name": "admin-reports-insights",
+   "path": "/admin/reports?report=insights"
+  },
+  {
+   "name": "admin-reports-match_ops",
+   "path": "/admin/reports?report=match_ops"
+  },
+  {
+   "name": "admin-reports-stages",
+   "path": "/admin/reports?report=stages"
+  },
+  {
+   "name": "admin-reports-telemetry",
+   "path": "/admin/reports?report=telemetry"
+  },
+  {
+   "name": "tenant-home",
+   "path": "/"
+  },
+  {
+   "name": "player-home-schedule",
+   "path": "/home/schedule",
+   "as": "scale_01163"
+  },
+  {
+   "name": "player-my-schedule",
+   "path": "/home/my-schedule",
+   "as": "scale_01163"
+  },
+  {
+   "name": "player-player-tab",
+   "path": "/home/player",
+   "as": "scale_01163"
+  },
+  {
+   "name": "proctor-station-proctor",
+   "path": "/volunteer/proctor-station",
+   "as": "scale_00025"
+  },
+  {
+   "name": "volunteer-my-shifts",
+   "path": "/home/my-schedule?shifts=1",
+   "as": "scale_00100"
+  },
+  {
+   "name": "watch-live-anon",
+   "path": "/live",
+   "as": "scale_01500"
+  }
+ ]
+}

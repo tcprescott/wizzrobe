@@ -37,9 +37,6 @@ from nicegui import ui
 __all__ = ['MOBILE_GRID_BREAKPOINT', 'apply_column_visibility', 'enable_mobile_grid',
            'visible_column_names']
 
-# Quasar Screen breakpoint below which the table switches to card/grid mode.
-# ``lt.md`` (<1024px) is the app default; the match table lets callers widen it
-# to ``lt.lg`` on its densest pages.
 MOBILE_GRID_BREAKPOINT = 'lt.md'
 
 
@@ -93,6 +90,7 @@ def enable_mobile_grid(
     required: Optional[AbstractSet[str]] = None,
     wrap: bool = False,
     selectable: bool = False,
+    pager: bool = True,
 ) -> ui.table:
     """Make ``table`` render as stacked cards below ``breakpoint``.
 
@@ -133,6 +131,9 @@ def enable_mobile_grid(
         selectable: put a selection checkbox on each card, for a table built
             with ``selection='multiple'``. QTable's own checkbox column does not
             exist in grid mode, so without it a phone cannot select anything.
+        pager: with ``table_key``, whether the footer offers rows per page.
+            ``False`` only for a table that pages on the server with its own
+            controls.
     """
     field_slots = field_slots or {}
     table.props(f':grid="Quasar.Screen.{breakpoint}"')
@@ -167,8 +168,7 @@ def enable_mobile_grid(
             if first.isidentifier() else 'aria-label="Select row"'
         )
         rows.insert(0, f'<div class="row justify-end"><q-checkbox dense v-model="props.selected" {row_name} /></div>')
-        # QTable's own checkboxes carry no name; a screen reader heard
-        # "checkbox, not checked" on every row.
+        # QTable's own checkboxes carry no accessible name.
         table.add_slot('header-selection',
                        '<q-checkbox v-model="props.selected" dense aria-label="Select all rows" />')
         table.add_slot('body-selection', f'<q-checkbox v-model="props.selected" dense {row_name} />')
@@ -189,12 +189,10 @@ def enable_mobile_grid(
         '</q-card></div>',
     )
 
-    # Last statement, deliberately: see the note about ordering above. Imported
-    # here rather than at module scope because preferences.py imports the
-    # service layer, and this module is imported by every table in the app.
+    # Last statement, deliberately (ordering above). Imported here: preferences.py pulls in the service layer.
     if table_key:
         from theme.tables.preferences import DEFAULT_REQUIRED, customize_table
         customize_table(table, columns, key=table_key,
                         required=required if required is not None else DEFAULT_REQUIRED,
-                        wrap=wrap)
+                        wrap=wrap, pager=pager)
     return table

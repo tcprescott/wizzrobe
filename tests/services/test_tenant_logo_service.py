@@ -20,8 +20,10 @@ from application.services import tenant_logo_service
 from application.services.tenant_logo_service import (
     MAX_UPLOAD_BYTES,
     OUTPUT_SIDE,
+    TOUCH_ICON_BACKGROUND,
     TenantLogoService,
     normalise_logo,
+    render_icon,
 )
 from application.services.tenant_theme_service import TenantThemeService
 from application.tenant_context import tenant_scope
@@ -53,7 +55,6 @@ class TestNormalise:
     def test_wide_image_is_fitted_not_cropped(self):
         out = normalise_logo(_png((400, 100), color=(0, 0, 255, 255)))
         with Image.open(BytesIO(out)) as img:
-            # Letterboxed: transparent above and below, the image across the middle.
             assert img.getpixel((128, 5))[3] == 0
             assert img.getpixel((5, 128))[3] == 255
 
@@ -64,7 +65,6 @@ class TestNormalise:
         assert normalise_logo(out.getvalue())
 
     def test_bitmap_path_never_takes_svg(self):
-        # SVGs go through svg_sanitize via prepare_logo, never the bitmap decoder.
         svg = b'<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'
         with pytest.raises(ValueError, match="isn't an SVG, PNG"):
             normalise_logo(svg)
@@ -114,6 +114,7 @@ async def tenants_with_staff(two_tenants):
     await UserRole.create(user=staff, role=Role.STAFF, tenant=a)
     await UserRole.create(user=staff, role=Role.STAFF, tenant=b)
     tenant_logo_service._cache.clear()
+    tenant_logo_service._icon_cache.clear()
     return a, b, staff
 
 
@@ -214,7 +215,6 @@ async def test_svg_logo_is_stored_sanitised_and_served_as_svg(tenants_with_staff
         assert resp.status_code == 200
         assert resp.headers['content-type'].startswith('image/svg+xml')
         assert 'sandbox' in resp.headers['content-security-policy']
-        # The same hash under the other extension is not served.
         assert (await client.get(url.replace('.svg', '.webp'))).status_code == 404
 
 
@@ -237,3 +237,42 @@ async def test_qr_logo_is_the_current_communitys(tenants_with_staff):
         assert (await TenantLogoService.qr_logo_data_uri()).startswith('data:image/webp;base64,')
     with tenant_scope(b.id):
         assert await TenantLogoService.qr_logo_data_uri() is None
+
+
+class TestRenderIcon:
+    @pytest.mark.parametrize('stored', [
+        _SVG[_SVG.index(b'<svg'):],
+        normalise_logo(_png((300, 150), color=(255, 206, 41, 255))),
+    ], ids=['svg', 'webp'])
+    def test_tab_icon_is_a_transparent_square_png(self, stored):
+        with Image.open(BytesIO(render_icon(stored, 32))) as img:
+            assert (img.format, img.size) == ('PNG', (32, 32))
+            assert img.getpixel((16, 1))[3] == 0
+            # The stored WebP is lossy, so the colour comes back near, not exact.
+            assert all(abs(got - want) <= 3 for got, want in zip(img.getpixel((16, 16)), (255, 206, 41, 255), strict=True))
+
+    def test_touch_icon_sits_on_the_dark_tile(self):
+        with Image.open(BytesIO(render_icon(_SVG[_SVG.index(b'<svg'):], 180))) as img:
+            assert img.size == (180, 180)
+            assert img.getpixel((2, 2)) == TOUCH_ICON_BACKGROUND
+            assert img.getpixel((90, 90))[:3] == (255, 206, 41)
+
+
+async def test_icon_route_serves_png_for_svg_logo(tenants_with_staff, logo_client):
+    a, b, staff = tenants_with_staff
+    with tenant_scope(a.id):
+        await TenantLogoService.set_logo(staff, _SVG)
+    theme = await TenantThemeService.get_theme(a.id)
+    async with logo_client as client:
+        for key, side in (('logo_icon', 32), ('logo_touch', 180)):
+            resp = await client.get(theme[key])
+            assert resp.status_code == 200
+            assert resp.headers['content-type'] == 'image/png'
+            assert 'immutable' in resp.headers['cache-control']
+            with Image.open(BytesIO(resp.content)) as img:
+                assert img.size == (side, side)
+        etag = (await client.get(theme['logo_icon'])).headers['etag']
+        assert (await client.get(theme['logo_icon'], headers={'If-None-Match': etag})).status_code == 304
+        assert (await client.get(theme['logo_icon'].replace('-32.png', '-64.png'))).status_code == 404
+        assert (await client.get(theme['logo_icon'].replace(f'/{a.id}/', f'/{b.id}/'))).status_code == 404
+    assert 'logo_icon' not in await TenantThemeService.get_theme(b.id)

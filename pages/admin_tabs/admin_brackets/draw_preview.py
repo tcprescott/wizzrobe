@@ -37,13 +37,9 @@ def render_draw_preview(preview, bracket, entry_name: Dict[int, str]) -> None:
         ).classes('text-caption text-grey')
 
         if bracket.format in _ELIM:
-            # The same context the results embed builds, minus the click
-            # handler: a preview card has no match to open.
             ctx = build_context(
                 bracket.config, [], preview.matches, entry_name, on_card_click=None,
             )
-            # `entry_seed` comes off the entries, which a preview has none of —
-            # the projected seeds are the point, so they are supplied directly.
             ctx.entry_seed.update({
                 entry_id: seed for entry_id, seed in preview.seed_of.items()
             })

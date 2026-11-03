@@ -45,7 +45,6 @@ async def test_grant_reads_are_tenant_isolated(grants_in_both):
 async def test_get_match_does_not_cross_tenants(grants_in_both):
     a, b, user, tournaments = grants_in_both
     with tenant_scope(b.id):
-        # A's row exists and its tournament id is knowable, but not from here.
         assert await DiscordTournamentGrantRepository.get_match(
             user, tournaments[a.id].id, TournamentGrant.TOURNAMENT_ADMIN,
         ) is None

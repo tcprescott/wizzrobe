@@ -1,0 +1,230 @@
+{
+  "_comment": [
+    "Pages the layout-stability gate (scripts/ui_layout_shift.js) redraws at desktop and phone width. See docs/style-guide.md#hold-still.",
+    "Targets with \"live\" steps also change matches from a second session (the seeded dev token) and fail if a row the viewer sees moves; they run last, one at a time."
+  ],
+  "loginAs": "staff_user",
+  "tenant": "default",
+  "liveToken": "wizzrobe_pat_devseed_default_local_only_do_not_use",
+  "outDir": "/tmp/ui-smoke-ci",
+  "viewports": [
+    {
+      "name": "desktop",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      }
+    },
+    "Pixel 7"
+  ],
+  "ignore": [],
+  "targets": [
+    {
+      "name": "home-schedule",
+      "path": "/home/schedule"
+    },
+    {
+      "name": "home-player",
+      "path": "/home/player"
+    },
+    {
+      "name": "home-profile",
+      "path": "/home/profile"
+    },
+    {
+      "name": "home-tournaments",
+      "path": "/home/tournaments"
+    },
+    {
+      "name": "home-availability",
+      "path": "/home/my-availability"
+    },
+    {
+      "name": "volunteer-shifts",
+      "path": "/volunteer/my-shifts"
+    },
+    {
+      "name": "volunteer-full-schedule",
+      "path": "/volunteer/full-schedule"
+    },
+    {
+      "name": "volunteer-proctor",
+      "path": "/volunteer/proctor-station"
+    },
+    {
+      "name": "admin-setup",
+      "path": "/admin/setup"
+    },
+    {
+      "name": "admin-schedule",
+      "path": "/admin/schedule"
+    },
+    {
+      "name": "admin-users",
+      "path": "/admin/users"
+    },
+    {
+      "name": "admin-tournaments",
+      "path": "/admin/tournaments"
+    },
+    {
+      "name": "admin-stages",
+      "path": "/admin/stages"
+    },
+    {
+      "name": "admin-check-in",
+      "path": "/admin/check-in"
+    },
+    {
+      "name": "admin-presets",
+      "path": "/admin/presets"
+    },
+    {
+      "name": "admin-qualifiers",
+      "path": "/admin/qualifiers"
+    },
+    {
+      "name": "admin-brackets",
+      "path": "/admin/brackets"
+    },
+    {
+      "name": "admin-vol-roster",
+      "path": "/admin/vol-roster"
+    },
+    {
+      "name": "admin-vol-schedule",
+      "path": "/admin/vol-schedule"
+    },
+    {
+      "name": "admin-shift-board",
+      "path": "/admin/shift-board"
+    },
+    {
+      "name": "admin-equipment",
+      "path": "/admin/equipment"
+    },
+    {
+      "name": "admin-reports",
+      "path": "/admin/reports"
+    },
+    {
+      "name": "admin-reports-capacity",
+      "path": "/admin/reports?report=capacity"
+    },
+    {
+      "name": "admin-reports-audit",
+      "path": "/admin/reports?report=audit"
+    },
+    {
+      "name": "settings-home",
+      "path": "/admin/settings"
+    },
+    {
+      "name": "settings-general",
+      "path": "/admin/settings/general"
+    },
+    {
+      "name": "settings-event",
+      "path": "/admin/event-settings/dates"
+    },
+    {
+      "name": "settings-venue",
+      "path": "/admin/event-settings/venue"
+    },
+    {
+      "name": "settings-members",
+      "path": "/admin/settings/members"
+    },
+    {
+      "name": "settings-volunteers",
+      "path": "/admin/settings/volunteers"
+    },
+    {
+      "name": "settings-discord",
+      "path": "/admin/settings/discord"
+    },
+    {
+      "name": "settings-integrations",
+      "path": "/admin/settings/integrations"
+    },
+    {
+      "name": "settings-features",
+      "path": "/admin/settings/features"
+    },
+    {
+      "name": "checkin",
+      "path": "/checkin"
+    },
+    {
+      "name": "brackets",
+      "path": "/brackets"
+    },
+    {
+      "name": "startgg-bracket",
+      "path": "/tournament/9/startgg"
+    },
+    {
+      "name": "startgg-pools",
+      "path": "/tournament/9/startgg?phase=7101"
+    },
+    {
+      "name": "qualifiers",
+      "path": "/qualifiers"
+    },
+    {
+      "name": "equipment",
+      "path": "/equipment"
+    },
+    {
+      "name": "help",
+      "path": "/help"
+    },
+    {
+      "name": "watch-live",
+      "path": "/live"
+    },
+    {
+      "name": "settings-watch",
+      "path": "/admin/settings/watch"
+    },
+    {
+      "name": "changelog",
+      "path": "/changelog"
+    },
+    {
+      "name": "event-info",
+      "path": "/event-info"
+    },
+    {
+      "name": "community-events",
+      "path": "/home/community"
+    },
+    {
+      "name": "admin-community-events",
+      "path": "/admin/community-events"
+    },
+    {
+      "name": "platform",
+      "path": "/platform",
+      "platform": true
+    },
+    {
+      "name": "proctor-live",
+      "path": "/volunteer/proctor-station",
+      "live": [
+        {
+          "label": "someone checks a match in",
+          "method": "POST",
+          "path": "/api/matches/{id}/seat",
+          "pick": "checkable"
+        },
+        {
+          "label": "someone deletes a match",
+          "method": "DELETE",
+          "path": "/api/matches/{id}",
+          "pick": "unplayed"
+        }
+      ]
+    }
+  ]
+}

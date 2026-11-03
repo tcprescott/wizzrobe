@@ -89,3 +89,17 @@ def require_found(obj: Optional[T], label: str) -> T:
     if obj is None:
         raise NotFoundError(f"{label} not found")
     return obj
+
+
+class EventArchivedError(ValueError):
+    """Raised when something tries to change a row of an archived event.
+
+    An archived event is read-only on every surface (``application/event_writes.py``
+    enforces it at the ORM). A plain :class:`ValueError` to the web UI, which
+    shows it as a notification; REST maps it to ``409`` and MCP to
+    ``read_only``, ahead of the generic ``ValueError``.
+    """
+
+    def __init__(self, event_name: str) -> None:
+        self.event_name = event_name
+        super().__init__(f"{event_name} is archived, so nothing in it can change.")

@@ -89,8 +89,7 @@ def create() -> None:
             login_throttle.record_success(name, browser_id)
             app.storage.user.clear()
             start_session(user, {'username': user.username, 'avatar': None}, password=True)
-            # Tenant-local: this page is served under root_path and the client
-            # prepends it, so a qualified path would double it.
+            # Tenant-local: the client prepends root_path, so a qualified path would double it.
             ui.navigate.to(strip_root_path(root_path, return_to))
 
         with ui.column().classes('password-login w-full items-center q-pa-md'):

@@ -93,9 +93,9 @@ class TestRoundNames:
         every winners round would be named one step too early."""
         nodes = [
             RoundNode(id=1, round=1, winner_to_id=2, loser_to_id=3),
-            RoundNode(id=2, round=2, winner_to_id=4, loser_to_id=4),  # grand final
+            RoundNode(id=2, round=2, winner_to_id=4, loser_to_id=4),
             RoundNode(id=3, round=-1, winner_to_id=2),
-            RoundNode(id=4, round=3),                                 # reset
+            RoundNode(id=4, round=3),
         ]
         names = round_names(nodes, double_elim=True)
         assert names[1] == 'Winners Finals'
@@ -118,7 +118,6 @@ class TestRoundNames:
         assert round_names(nodes, elimination=False) == {
             1: 'Round 1', 2: 'Round 2', 3: 'Round 3',
         }
-        # The same graph read as an elimination stage is what produced the bug.
         assert round_names(nodes) == {
             1: 'Quarterfinals', 2: 'Semifinals', 3: 'Final',
         }

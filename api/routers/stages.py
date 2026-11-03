@@ -4,16 +4,17 @@ from typing import List
 
 from fastapi import APIRouter, Depends, Query
 
-from api.dependencies import ServiceErrorRoute, require_api_actor
+from api.dependencies import ServiceErrorRoute, event_binding, require_api_actor
 from api.schemas.stages import StageResponse
 from application.errors import require_found
 from application.services import StageService
+from models import Stage
 
 router = APIRouter(
     prefix="/stages",
     tags=["Stages"],
     route_class=ServiceErrorRoute,
-    dependencies=[Depends(require_api_actor)],
+    dependencies=[Depends(event_binding(stage_id=Stage)), Depends(require_api_actor)],
 )
 
 

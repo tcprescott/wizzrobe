@@ -57,7 +57,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 BASELINE_PATH = ROOT / "scripts" / "mypy_baseline.json"
 
-# Same surface the CI lint job has always checked.
 TARGETS = ["application", "api", "middleware", "main.py", "frontend.py"]
 
 ERROR_RE = re.compile(r"^(?P<path>[^:]+):\d+:(?:\d+:)? error: ")

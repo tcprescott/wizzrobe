@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Wizzrobe</string>
+    <string name="title_activity_main">Wizzrobe</string>
+    <string name="package_name">org.speedgaming.wizzrobe</string>
+    <string name="custom_url_scheme">org.speedgaming.wizzrobe</string>
+    <string name="link_domain" translatable="false">onsite.speedgaming.org</string>
+</resources>

@@ -8,7 +8,6 @@ from datetime import datetime, timezone
 from application.services.password_auth_service import hash_password
 from models import User
 
-#: Dev-only credentials for /password-login; never used outside a dev database.
 DEV_PASSWORD = 'wizzrobe-test-password'
 
 

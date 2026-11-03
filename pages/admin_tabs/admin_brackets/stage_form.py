@@ -21,12 +21,10 @@ from theme.brackets import FORMAT_OPTIONS, stage_label
 from theme.dialog._helpers import dialog_actions, form_dialog, submit_on_enter
 from theme.dialog.confirmation_dialog import ConfirmationDialog
 from theme.notify import notify_error
+from theme.pickers import CHIP_PROPS
 from theme.tables.admin_crud import current_actor
 
-# Config keys this form owns. Anything else in the blob — notably the per-round
-# best-of / scheduled-time metadata the manage dialog writes — is carried through
-# an edit untouched rather than being replaced by whatever the form happens to
-# hold.
+# Only these keys are replaced; any other config (the manage dialog's per-round metadata) must pass through.
 _FORM_CONFIG_KEYS = (
     'swiss_rounds', 'group_count', 'advancement', 'grand_final_reset',
     'default_best_of', 'tiebreakers', 'win_points', 'draw_points', 'loss_points',
@@ -90,13 +88,8 @@ async def open_stage_form(
             ).props('inputmode=numeric').classes('w-full')
             stage_hint = ui.label('').classes('text-caption text-grey')
 
-            # Widgets the panel rebuilds; read back by `submit`, which runs
-            # against whichever set the current format put on screen.
             fields: Dict[str, object] = {}
-            # The panel is rebuilt on every format change, so its open/closed
-            # state has to be carried across the rebuild — otherwise changing the
-            # format collapses the fields the operator was in the middle of
-            # filling in.
+            # Carried across rebuilds, or a format change collapses the panels being filled in.
             panels: Dict[str, bool] = {
                 'options': True, 'scoring': False, 'advancement': bool(advancement),
             }
@@ -180,7 +173,7 @@ async def open_stage_form(
                                 _TIEBREAKER_LABELS,
                                 value=list(config.get('tiebreakers') or KNOWN_TIEBREAKERS),
                                 label='Tiebreakers, in order', multiple=True,
-                            ).props('use-chips').classes('w-full')
+                            ).props(CHIP_PROPS).classes('w-full')
                             with ui.row().classes('items-end gap-2 w-full'):
                                 for key, label, fallback in _POINTS_FIELDS:
                                     fields[key] = ui.number(
@@ -284,9 +277,7 @@ async def open_stage_form(
                                 actor, bracket.id,
                                 name=name_in.value or '',
                                 stage_order=order,
-                                # A dict, never None: None means "leave the blob
-                                # alone", which would make clearing a rule
-                                # impossible from this form.
+                                # A dict, never None: None means "leave the blob alone", so a rule could never be cleared.
                                 config=new_config,
                                 format=fmt,
                             )

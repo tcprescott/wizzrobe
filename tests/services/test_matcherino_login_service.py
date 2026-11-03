@@ -143,11 +143,6 @@ async def test_with_no_saved_login_the_sync_says_where_to_add_one(staff):
     assert 'no Matcherino login is saved' in event.last_sync_error
 
 
-# ---------------------------------------------------------------------------
-# Refused-login alerts
-# ---------------------------------------------------------------------------
-
-
 @pytest.fixture
 def captured_dms(monkeypatch):
     """Collect each DM's recipient, text and button, without a Discord connection."""
@@ -155,8 +150,9 @@ def captured_dms(monkeypatch):
     from application.services import discord as discord_pkg
     from application.services.discord import DiscordService
 
-    async def fake_send(self, user_id, message, view_factory=None, embed=None, link=None):
-        sent.append({'to': user_id, 'text': message, 'link': link})
+    async def fake_send(self, user_id, message, view_factory=None, embed=None, link=None,
+                        notice=None):
+        sent.append({'to': user_id, 'text': message, 'link': link, 'notice': notice})
         return True, ''
 
     monkeypatch.setattr(DiscordService, 'send_dm', fake_send)

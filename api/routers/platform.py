@@ -8,7 +8,9 @@ Every route depends on ``require_super_admin`` (reads) or
 ``require_super_admin_write`` (writes), and every service it calls checks the
 role again. A super admin's token is bound to one community like any other, but
 nothing here reads that binding: these routes name their community by id.
-Passwords and creating accounts are deliberately absent; they stay on the page.
+Passwords and password accounts are here for Wizzrobe's own app only
+(``require_app_super_admin_write``): a personal token or chat client is refused,
+so a password never travels through a transcript.
 """
 
 from enum import Enum
@@ -16,20 +18,34 @@ from typing import List, Optional, Union
 
 from fastapi import APIRouter, Depends, Query, status
 
-from api.dependencies import ServiceErrorRoute, require_super_admin, require_super_admin_write
+from api.dependencies import (
+    ServiceErrorRoute,
+    require_app_super_admin_write,
+    require_super_admin,
+    require_super_admin_write,
+)
 from api.schemas.platform import (
+    AppDisableRequest,
+    BrowserMonitoringSettingsRequest,
+    BrowserMonitoringSettingsResponse,
     CommunityCreateRequest,
     CommunityDetailResponse,
     CommunityFeatureResponse,
     CommunityResponse,
     CommunityUpdateRequest,
+    FeatureCatalogResponse,
     FeatureGroupAssignRequest,
     FeatureGroupCreateRequest,
     FeatureGroupResponse,
     FeatureGroupUpdateRequest,
     FeatureOverrideRequest,
+    IgnoreRuleCreateRequest,
+    IgnoreRuleResponse,
     LogLevelResponse,
     LogLevelSetRequest,
+    PasswordAccountCreateRequest,
+    PasswordSetRequest,
+    PlatformAppResponse,
     PlatformUserResponse,
     SetupStepResponse,
     StaffGrantRequest,
@@ -37,13 +53,19 @@ from api.schemas.platform import (
     UserActivationRequest,
 )
 from application.errors import require_found
+from application.feature_flags import all_specs
 from application.services import (
+    BrowserMonitoringService,
     FeatureFlagService,
     LogLevelService,
+    OAuthAppService,
+    PasswordAuthService,
     PlatformAdminService,
     TenantService,
+    UserService,
 )
-from models import FeatureFlag, User
+from application.utils.browser_monitoring import SAMPLE_RATES
+from models import FeatureFlag, OAuthClientType, User
 
 router = APIRouter(prefix="/platform", route_class=ServiceErrorRoute)
 
@@ -52,6 +74,8 @@ _COMMUNITIES: List[Union[str, Enum]] = ["Communities"]
 _USERS: List[Union[str, Enum]] = ["Platform users"]
 _GROUPS: List[Union[str, Enum]] = ["Feature groups"]
 _LOGGING: List[Union[str, Enum]] = ["Log levels"]
+_APPS: List[Union[str, Enum]] = ["Platform apps"]
+_MONITORING: List[Union[str, Enum]] = ["Browser monitoring"]
 
 
 async def _detail(actor: User, tenant_id: int) -> CommunityDetailResponse:
@@ -71,9 +95,6 @@ def _flag(value: str) -> FeatureFlag:
         raise ValueError(
             f"Unknown feature '{value}'. Valid: {', '.join(f.value for f in FeatureFlag)}"
         ) from exc
-
-
-# --- Communities --------------------------------------------------------------
 
 
 @router.get(
@@ -215,9 +236,6 @@ async def override_feature(
     return await service.list_for_tenant(actor, tenant_id)
 
 
-# --- Accounts -----------------------------------------------------------------
-
-
 @router.get(
     "/users",
     tags=_USERS,
@@ -270,13 +288,86 @@ async def set_platform_user_active(
     )
 
 
-# --- Feature groups -----------------------------------------------------------
+_APP_ONLY = "\n\n**Who can call this:** Super admins only (platform), signed in to Wizzrobe's own app."
+
+
+async def _account(actor: User, user_id: int) -> PlatformUserResponse:
+    return PlatformUserResponse.from_overview(await PlatformAdminService().get_account(actor, user_id))
+
+
+async def _target(user_id: int) -> User:
+    return require_found(await UserService().get_user_by_id(user_id), 'Account')
+
+
+@router.post(
+    "/users",
+    tags=_USERS,
+    response_model=PlatformUserResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a password account",
+    description=(
+        "A new account with no Discord link that signs in only by password, at the unpublished "
+        "password sign-in page. Fails with 400 for a taken or malformed sign-in name or a short "
+        "password. Personal tokens are refused." + _APP_ONLY
+    ),
+)
+async def create_password_account(
+    payload: PasswordAccountCreateRequest, actor: User = Depends(require_app_super_admin_write),
+):
+    user = await PasswordAuthService().create_account(actor, payload.display_name, payload.login_name, payload.password)
+    return await _account(actor, user.id)
+
+
+@router.put(
+    "/users/{user_id}/password",
+    tags=_USERS,
+    response_model=PlatformUserResponse,
+    summary="Set or change an account's password",
+    description=(
+        "Gives an account a sign-in name and password, or changes either. Super admins sign in with "
+        "Discord only, so theirs is refused with 400. Personal tokens are refused." + _APP_ONLY
+    ),
+)
+async def set_account_password(
+    user_id: int, payload: PasswordSetRequest, actor: User = Depends(require_app_super_admin_write),
+):
+    await PasswordAuthService().set_password(actor, await _target(user_id), payload.login_name, payload.password)
+    return await _account(actor, user_id)
+
+
+@router.delete(
+    "/users/{user_id}/password",
+    tags=_USERS,
+    response_model=PlatformUserResponse,
+    summary="Remove an account's password",
+    description=(
+        "Takes password sign-in away and ends every password session. Fails with 400 when the "
+        "account has no Discord, since the password is its only way in. Personal tokens are refused." + _APP_ONLY
+    ),
+)
+async def remove_account_password(user_id: int, actor: User = Depends(require_app_super_admin_write)):
+    await PasswordAuthService().remove_password(actor, await _target(user_id))
+    return await _account(actor, user_id)
 
 
 async def _group(actor: User, group_id: int) -> FeatureGroupResponse:
     rows = await FeatureFlagService().list_groups_with_counts(actor)
     row = require_found(next((r for r in rows if r['id'] == group_id), None), 'Feature group')
     return FeatureGroupResponse(**row, community_count=row['tenant_count'])
+
+
+@router.get(
+    "/features",
+    tags=_GROUPS,
+    response_model=List[FeatureCatalogResponse],
+    summary="List every feature a group can make available",
+    description="Every per-community feature, in the order the platform page lists them." + _WHO,
+)
+async def list_feature_catalog(actor: User = Depends(require_super_admin)):
+    return [
+        FeatureCatalogResponse(flag=s.flag.value, label=s.label, description=s.description, category=s.category)
+        for s in all_specs()
+    ]
 
 
 @router.get(
@@ -338,9 +429,6 @@ async def delete_feature_group(group_id: int, actor: User = Depends(require_supe
     await FeatureFlagService().delete_group(actor, group_id)
 
 
-# --- Log levels ---------------------------------------------------------------
-
-
 @router.get(
     "/log-levels",
     tags=_LOGGING,
@@ -386,3 +474,153 @@ async def reset_log_level(
     service = LogLevelService()
     await service.clear(actor, logger)
     return [LogLevelResponse.from_row(r) for r in await service.list_rows(actor)]
+
+
+async def _apps(actor: User) -> List[PlatformAppResponse]:
+    service = OAuthAppService()
+    apps = await service.list_all_apps(actor)
+    reach = await service.platform_reach(actor)
+    return [
+        PlatformAppResponse(
+            id=a.id,
+            name=a.name,
+            owner=a.owner.preferred_name,
+            kind='website' if a.client_type == OAuthClientType.CONFIDENTIAL else 'device',
+            first_party=bool(a.first_party),
+            people=reach.get(a.id, (0, 0))[0],
+            communities=reach.get(a.id, (0, 0))[1],
+            disabled=a.disabled_at is not None,
+            disabled_reason=a.disabled_reason if a.disabled_at else None,
+            disabled_at=a.disabled_at,
+        )
+        for a in apps
+    ]
+
+
+@router.get(
+    "/apps",
+    tags=_APPS,
+    response_model=List[PlatformAppResponse],
+    summary="List every registered app",
+    description="Every app people registered to sign in with Wizzrobe, with how many people and communities use it." + _WHO,
+)
+async def list_apps(actor: User = Depends(require_super_admin)):
+    return await _apps(actor)
+
+
+@router.post(
+    "/apps/{app_id}/disable",
+    tags=_APPS,
+    response_model=List[PlatformAppResponse],
+    summary="Disable an app everywhere",
+    description=(
+        "Stops the app in every community at once. Its connections are kept, so enabling it again "
+        "brings them back. The owner sees the reason. Returns every app afterwards." + _WHO
+    ),
+)
+async def disable_app(app_id: int, payload: AppDisableRequest, actor: User = Depends(require_super_admin_write)):
+    await OAuthAppService().disable_app(actor, app_id, payload.reason)
+    return await _apps(actor)
+
+
+@router.post(
+    "/apps/{app_id}/enable",
+    tags=_APPS,
+    response_model=List[PlatformAppResponse],
+    summary="Enable a disabled app",
+    description="Switches a disabled app back on; its people's connections work again. Returns every app afterwards." + _WHO,
+)
+async def enable_app(app_id: int, actor: User = Depends(require_super_admin_write)):
+    await OAuthAppService().enable_app(actor, app_id)
+    return await _apps(actor)
+
+
+async def _monitoring(actor: User) -> BrowserMonitoringSettingsResponse:
+    view = await BrowserMonitoringService().get_settings(actor)
+    return BrowserMonitoringSettingsResponse(
+        enabled=view.enabled,
+        replay_on_error=view.replay_on_error,
+        sample_rate=view.sample_rate,
+        sample_rates=list(SAMPLE_RATES),
+        updated_by=view.updated_by,
+        updated_at=view.updated_at,
+    )
+
+
+async def _rules(actor: User) -> List[IgnoreRuleResponse]:
+    return [
+        IgnoreRuleResponse(
+            id=r.id, pattern=r.pattern, match=r.match, builtin=r.builtin,
+            created_by=r.created_by, created_at=r.created_at,
+        )
+        for r in await BrowserMonitoringService().list_rules(actor)
+    ]
+
+
+@router.get(
+    "/browser-monitoring",
+    tags=_MONITORING,
+    response_model=BrowserMonitoringSettingsResponse,
+    summary="Browser error reporting settings",
+    description="Whether browsers report errors to Sentry, with replays, and what share is sent." + _WHO,
+)
+async def get_browser_monitoring(actor: User = Depends(require_super_admin)):
+    return await _monitoring(actor)
+
+
+@router.put(
+    "/browser-monitoring",
+    tags=_MONITORING,
+    response_model=BrowserMonitoringSettingsResponse,
+    summary="Change browser error reporting",
+    description=(
+        "Applies to pages opened from now on. Fails with 400 when the share isn't one of "
+        "`sample_rates`." + _WHO
+    ),
+)
+async def update_browser_monitoring(
+    payload: BrowserMonitoringSettingsRequest, actor: User = Depends(require_super_admin_write),
+):
+    await BrowserMonitoringService().update_settings(
+        actor, enabled=payload.enabled, replay_on_error=payload.replay_on_error, sample_rate=payload.sample_rate,
+    )
+    return await _monitoring(actor)
+
+
+@router.get(
+    "/browser-monitoring/rules",
+    tags=_MONITORING,
+    response_model=List[IgnoreRuleResponse],
+    summary="List browser error ignore rules",
+    description="Rules super admins added, oldest first, then the built-in ones." + _WHO,
+)
+async def list_ignore_rules(actor: User = Depends(require_super_admin)):
+    return await _rules(actor)
+
+
+@router.post(
+    "/browser-monitoring/rules",
+    tags=_MONITORING,
+    response_model=List[IgnoreRuleResponse],
+    status_code=status.HTTP_201_CREATED,
+    summary="Ignore a browser error",
+    description=(
+        "Drops browser errors whose message (or a script URL in their stack) contains the text. "
+        "Fails with 400 for too short or long a pattern, or one that already exists. Returns every rule." + _WHO
+    ),
+)
+async def add_ignore_rule(payload: IgnoreRuleCreateRequest, actor: User = Depends(require_super_admin_write)):
+    await BrowserMonitoringService().add_rule(actor, payload.pattern, payload.match)
+    return await _rules(actor)
+
+
+@router.delete(
+    "/browser-monitoring/rules/{rule_id}",
+    tags=_MONITORING,
+    response_model=List[IgnoreRuleResponse],
+    summary="Stop ignoring a browser error",
+    description="Removes an added rule; built-in rules can't be removed. Returns every rule afterwards." + _WHO,
+)
+async def remove_ignore_rule(rule_id: int, actor: User = Depends(require_super_admin_write)):
+    await BrowserMonitoringService().remove_rule(actor, rule_id)
+    return await _rules(actor)

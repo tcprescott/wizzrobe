@@ -13,6 +13,7 @@ from application.services import (
     TournamentService,
     get_user_from_session,
 )
+from theme.busy import busy
 from theme.dialog._helpers import dialog_actions, form_dialog
 from theme.dialog.confirmation_dialog import ConfirmationDialog
 from theme.menu import SlotItem, slot_more_menu, slot_name_link, slot_row_button
@@ -112,13 +113,21 @@ async def admin_speedgaming_page() -> None:
                     on_confirm=do_delete, confirm_text='Delete', title='Delete event link?',
                 ).open()
 
+        syncing: set[int] = set()
+
         async def sync_now(row, client):
+            if row['id'] in syncing:
+                return
+            syncing.add(row['id'])
             with client:
                 try:
-                    result = await service.sync_now(await _current(), row['id'])
+                    async with busy(None, f"Syncing {row['event_slug']}…"):
+                        result = await service.sync_now(await _current(), row['id'])
                 except (ValueError, PermissionError) as e:
                     notify_error(e)
                     return
+                finally:
+                    syncing.discard(row['id'])
                 if result.errors:
                     ui.notify(
                         f"Sync finished with {result.errors} error(s); "
@@ -132,12 +141,8 @@ async def admin_speedgaming_page() -> None:
                 await refresh_table()
 
         async def open_link_dialog(client, existing=None) -> None:
-            # Both entry points spawn this as a background task, where the slot
-            # stack is empty and with it the client stash the tenant fallback
-            # reads — so `_tournament_options` raised "No tenant in context",
-            # NiceGUI swallowed it, and Add/Edit did nothing at all on screen.
-            # Restoring the captured client is what the row handlers below
-            # already do for delete and sync.
+            # Restore the captured client: as a background task there's no slot stack, so the tenant
+            # lookup raises and NiceGUI swallows it.
             with client:
                 is_edit = existing is not None
                 options = await _tournament_options()
@@ -151,7 +156,7 @@ async def admin_speedgaming_page() -> None:
                         value=existing['tournament_id'] if is_edit else None,
                     ).classes('w-full')
                     if is_edit:
-                        tournament_select.disable()  # a link's tournament is fixed
+                        tournament_select.disable()
                     slug_input = ui.input(
                         'Event Slug', value=existing['event_slug'] if is_edit else '',
                     ).classes('w-full')

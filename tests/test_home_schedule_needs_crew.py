@@ -27,8 +27,6 @@ def test_a_fully_approved_crew_is_covered():
 
 
 def test_pending_signups_do_not_count_as_cover():
-    # Someone waiting on approval has not filled the slot; another volunteer
-    # may still be the one staff pick.
     assert needs_crew(_row(
         commentators=[{'approved': True}, {'approved': False}],
         trackers=[{'approved': True}],
@@ -51,3 +49,20 @@ def test_a_row_without_requirements_falls_back_to_one_of_each():
     row = _row(commentators=[{'approved': True}], trackers=[])
     del row['crew_required']
     assert needs_crew(row)
+
+
+def test_a_broadcaster_short_needs_crew_where_the_event_has_them():
+    assert needs_crew(_row(
+        crew_wanted={'commentators': True, 'trackers': True, 'broadcasters': True},
+        crew_required={'commentators': 2, 'trackers': 1, 'broadcasters': 1},
+        commentators=[{'approved': True}, {'approved': True}],
+        trackers=[{'approved': True}],
+        broadcasters=[],
+    ))
+
+
+def test_broadcasters_are_ignored_where_the_row_does_not_ask_for_them():
+    assert not needs_crew(_row(
+        commentators=[{'approved': True}, {'approved': True}],
+        trackers=[{'approved': True}],
+    ))

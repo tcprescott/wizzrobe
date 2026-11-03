@@ -83,7 +83,6 @@ class TestNoFrameworkPayload:
         html = render_bracket_document(_elim_view())
         assert '_nicegui' not in html
         assert 'socket.io' not in html
-        # Only the app's own two stylesheets are pulled in.
         assert html.count('<link rel="stylesheet"') == 2
         assert 'quasar' not in html.lower().split('</head>')[1]
 
@@ -135,7 +134,6 @@ class TestAvatars:
         ))
         assert 'class="bracket-avatar-img"' in html
         assert 'src="https://cdn.discordapp.com/avatars/9/h.png?size=64"' in html
-        # The letter stays in the DOM so a stale hash degrades to it.
         assert 'onerror="this.remove()"' in html
 
     def test_entrants_without_one_render_only_the_letter(self):
@@ -231,7 +229,6 @@ class TestGroupAndSwissMarkup:
         ))
         assert 'bracket-standings' in html
         assert 'bracket-pairings' in html
-        # Tabs need client state; the static twin stacks the rounds instead.
         assert 'Round 1' in html and 'Round 2' in html
         assert '2–0' in html
 
@@ -251,7 +248,6 @@ class TestLinks:
     def test_links_carry_the_tenant_root_path(self):
         html = render_bracket_document(_elim_view(root_path='/t/demo'))
         assert 'href="/t/demo/live/tournament/3/brackets"' in html
-        # …and the escape hatch back to the interactive page.
         assert 'href="/t/demo/brackets/7"' in html
 
     def test_the_index_links_each_stage_to_its_static_view(self):

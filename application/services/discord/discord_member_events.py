@@ -57,9 +57,6 @@ async def sync_member_roles(
         from application.services.tenant_service import TenantService
         from models import User
 
-        # A guild may back several tenants (a shared server), so sync every one.
-        # Unknown guild (linked to no tenant) -> empty list -> nothing to do. Each
-        # per-tenant sync wraps its own tenant_scope and never raises.
         tenants = await TenantService.list_tenants_for_guild(guild_id)
         if not tenants:
             return

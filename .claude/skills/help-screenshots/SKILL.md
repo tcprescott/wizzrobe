@@ -13,7 +13,10 @@ description: >-
 
 A help screenshot is never taken by hand. Each one is an entry in a manifest
 that `scripts/help_screenshots.js` replays against the seeded dev app, so after
-any UI change one command makes every picture current again. Full reference:
+any UI change one command makes every picture current again. The only exception
+is a photo of the phone's own UI (a `"device"` manifest entry, see the
+reference), which has to come from a real phone with anything personal cropped
+out. Full reference:
 [docs/features/help.md#screenshots](../../../docs/features/help.md#screenshots).
 
 ## Where things go
@@ -88,7 +91,8 @@ This is `scripts/help_screenshots/volunteering.json`:
 Only `name` and `path` are required; the file name is the slug. Defaults:
 `tenant: "default"`, `viewport: "phone"`, `padding: 8`. Other keys: `user`
 (`null` = signed out), `viewport: "desktop"` or `{width, height}`, `fullPage`,
-`hide` (extra selectors to hide), `timezone`, and `setup` steps (`click`,
+`hide` (extra selectors to hide, keeping their space), `remove` (selectors
+taken out of the layout, for a banner that only shows at some hours), `timezone`, and `setup` steps (`click`,
 `fill` + `value`, `press`, `waitFor`, `wait`).
 
 ### Numbered call-outs

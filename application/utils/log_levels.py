@@ -20,7 +20,6 @@ from typing import Optional
 
 TRACE = 5
 
-#: Most verbose first, the order the picker offers them in.
 LEVELS: tuple[str, ...] = ('TRACE', 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
 
 ROOT_LOGGER = ''
@@ -34,8 +33,6 @@ class KnownLogger:
     description: str
 
 
-#: The loggers a super-admin is likely to reach for mid-event. Any other dotted
-#: name can still be typed in; these are the ones worth a row of their own.
 KNOWN_LOGGERS: tuple[KnownLogger, ...] = (
     KnownLogger(ROOT_LOGGER, 'Everything not set more specifically below'),
     KnownLogger('application', 'Services, workers and repositories'),

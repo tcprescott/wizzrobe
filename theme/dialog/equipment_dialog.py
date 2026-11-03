@@ -6,9 +6,10 @@ from nicegui import ui
 
 from application.services import EquipmentService, TenantService, UserService
 from models import Equipment, EquipmentStatus, User
+from theme.busy import busy_click
 from theme.dialog._helpers import dialog_actions, dialog_header, mobile_sheet
 
-_WIZ_OWNER = ''  # empty owner value ⇒ owned by the community (its tenant)
+_WIZ_OWNER = ''
 
 _STATUS_OPTIONS = {
     EquipmentStatus.AVAILABLE.value: 'Available to lend',
@@ -35,12 +36,9 @@ class EquipmentDialog:
     async def open(self) -> None:
         is_edit = self.equipment is not None
 
-        # This community's people, not every User on the platform — an asset
-        # recorded as owned by a stranger (or by the automation account) is not a
-        # useful record. The stored owner is force-included so editing an asset
-        # whose owner has since fallen out of the set cannot silently drop them.
+        # The stored owner is force-included so editing can't silently drop an owner who fell out of the set.
         stored_owner = self.equipment.owner_user_id if is_edit else None
-        users = await UserService().get_community_people(
+        users = await UserService().get_community_people_summaries(
             include_user_ids=[i for i in (self.actor.id, stored_owner) if i is not None],
         )
         community = await TenantService.current_community_name()
@@ -48,8 +46,7 @@ class EquipmentDialog:
         owner_options.update({str(u.id): u.preferred_name for u in users})
         current_owner = str(stored_owner) if stored_owner else _WIZ_OWNER
         if current_owner not in owner_options:
-            # Deactivated or system-owned (the two exclusions the read enforces):
-            # keep the value selectable so saving does not clear it by accident.
+            # Keep it selectable so saving doesn't clear it.
             owner_options[current_owner] = f'#{current_owner} (no longer available)'
 
         with ui.dialog() as dialog, ui.card().classes('dialog-card'):
@@ -76,8 +73,6 @@ class EquipmentDialog:
                     value=current_owner,
                 ).props('use-input').classes('full-width')
 
-                # Checked out is owned by check out / check in, so the select only
-                # appears when the asset is on the shelf.
                 status_select = None
                 current = self.equipment
                 if current is not None and current.status != EquipmentStatus.CHECKED_OUT:
@@ -118,9 +113,7 @@ class EquipmentDialog:
                                 description=description_input.value,
                                 private_notes=notes_input.value,
                                 owner_user_id=owner_id,
-                                # Only a changed status is sent, so an asset
-                                # checked out while this dialog sat open saves
-                                # its other edits instead of being refused.
+                                # Only a changed status is sent, so a checkout made while this sat open isn't refused.
                                 status=(
                                     EquipmentStatus(status_select.value)
                                     if status_select is not None
@@ -156,6 +149,7 @@ class EquipmentDialog:
 
             with dialog_actions().classes('justify-end'):
                 ui.button('Cancel', on_click=dialog.close).props('flat')
-                ui.button('Save' if is_edit else 'Create', on_click=submit).props('color=primary')
+                ui.button('Save' if is_edit else 'Create',
+                          on_click=busy_click('Saving…' if is_edit else 'Creating…', submit)).props('color=primary')
 
             dialog.open()

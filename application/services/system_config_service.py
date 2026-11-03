@@ -9,8 +9,12 @@ import re
 from datetime import date, time
 from typing import Dict, List, Optional, Tuple
 
+from application.event_context import event_scoped, get_current_event_id, require_event_id
+from application.repositories._save import save_fields
+from application.repositories.event_repository import EventRepository
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
+from application.services.event_service import BROADCASTERS_KEY
 from application.tenant_context import require_tenant_id
 from application.utils.timezone import to_local, today_local
 from models import Match, Stage, StationFormat, SystemConfiguration, Tournament, User
@@ -22,35 +26,32 @@ KEY_MAX_CONCURRENT_STAGES = 'max_concurrent_stages'
 KEY_VOLUNTEER_REMINDER_LEAD_MINUTES = 'volunteer_reminder_lead_minutes'
 KEY_VOLUNTEER_COMP_TIERS = 'volunteer_comp_tiers'
 KEY_COMMUNITY_EVENT_REMINDER_LEAD_MINUTES = 'community_event_reminder_lead_minutes'
-# Whether a member's community event waits for staff before it's listed.
 KEY_COMMUNITY_EVENT_REQUIRE_APPROVAL = 'community_event_require_approval'
 KEY_TOURNAMENT_HOURS = 'tournament_hours_by_date'
 KEY_STATION_FORMAT = 'station_format'
-# Whether anyone in the community's linked Discord server gets in at the join
-# door without asking. Default off: a server is often wider than the community
-# (a shared server, a public one), so opening the door to all of it is a staff
-# decision, like the preview above.
+KEY_BROADCASTERS = BROADCASTERS_KEY
 KEY_DISCORD_AUTO_JOIN = 'discord_auto_join'
-# Whether non-members may file a join request at the door. Default on (read with
-# ``default=True``): turning it off closes that way in without touching Discord
-# auto-join, so a community can admit its server and nobody else.
 KEY_JOIN_REQUESTS = 'join_requests_enabled'
-# Whether anyone who signs in becomes a member without asking — no server, no
-# staff decision. Default off; set through ``TenantMembershipService.set_join_mode``
-# so it and the two keys above always describe one coherent rule.
+# Write only through ``TenantMembershipService.set_join_mode``, which keeps the join keys coherent.
 KEY_OPEN_MEMBERSHIP = 'open_membership'
-# An invite to the linked server, offered on the join door. Typed in by staff:
-# the bot never mints one.
 KEY_DISCORD_INVITE_URL = 'discord_invite_url'
-# The Watch page (/live): 'live' (a NiceGUI page that updates itself) or
-# 'static' (one cached render shared by every reader). Default live.
 KEY_WATCH_MODE = 'watch_page_mode'
 WATCH_MODES = ('live', 'static')
-# Whether a rush of arrivals switches the page to static on its own (default
-# on), and how many arrivals in a minute count as a rush.
 KEY_WATCH_AUTO_STATIC = 'watch_page_auto_static'
 KEY_WATCH_AUTO_THRESHOLD = 'watch_page_auto_threshold'
 DEFAULT_WATCH_AUTO_THRESHOLD = 300
+KEY_WATCH_STATIC_SIGNED_OUT = 'watch_page_static_signed_out'
+
+EVENT_CONFIG_KEYS = frozenset({
+    KEY_MAX_CONCURRENT_PLAYERS, KEY_MAX_CONCURRENT_STAGES, KEY_TOURNAMENT_HOURS,
+    KEY_STATION_FORMAT, KEY_VOLUNTEER_COMP_TIERS, KEY_BROADCASTERS,
+})
+EVENT_DATE_FIELDS = {KEY_EVENT_START_DATE: 'starts_on', KEY_EVENT_END_DATE: 'ends_on'}
+
+
+def is_event_key(key: str) -> bool:
+    return key in EVENT_CONFIG_KEYS or key in EVENT_DATE_FIELDS
+
 
 _DISCORD_INVITE_RE = re.compile(
     r'^(?:https?://)?(?:www\.)?(?:discord\.gg|(?:discord|discordapp)\.com/invite)/([A-Za-z0-9-]{2,64})/?$'
@@ -62,9 +63,77 @@ class SystemConfigService:
 
     @staticmethod
     async def get_raw(key: str) -> Optional[str]:
-        # SystemConfiguration is per-tenant (unique on (tenant, name)).
+        if is_event_key(key):
+            return await SystemConfigService._get_event_raw(key)
         config = await SystemConfiguration.get_or_none(name=key, tenant_id=require_tenant_id())
         return config.value if config else None
+
+    @staticmethod
+    async def _get_event_raw(key: str) -> Optional[str]:
+        """An event setting of the event in scope, as the text a community row held."""
+        event_id = get_current_event_id()
+        event = await EventRepository.get_in_tenant(event_id) if event_id is not None else None
+        if event is None:
+            return None
+        if key in EVENT_DATE_FIELDS:
+            value = getattr(event, EVENT_DATE_FIELDS[key])
+            return value.isoformat() if value else None
+        stored = (event.config or {}).get(key)
+        return None if stored is None else str(stored)
+
+    @staticmethod
+    async def _set_event_raw(key: str, value: str) -> Optional[str]:
+        """Write an event setting onto the event in scope. Returns the old value."""
+        event = await EventRepository.get_in_tenant(require_event_id())
+        if event is None:
+            raise ValueError('That event no longer exists.')
+        if key in EVENT_DATE_FIELDS:
+            field = EVENT_DATE_FIELDS[key]
+            old = getattr(event, field)
+            new = date.fromisoformat(value) if value else None
+            starts_on = new if field == 'starts_on' else event.starts_on
+            ends_on = new if field == 'ends_on' else event.ends_on
+            if starts_on and ends_on and ends_on < starts_on:
+                raise ValueError('The event has to end on or after the day it starts.')
+            await EventRepository.update(event, **{field: new})
+            return old.isoformat() if old else None
+        config = dict(event.config or {})
+        old_value = config.get(key)
+        if value == '':
+            config.pop(key, None)
+        else:
+            config[key] = value
+        await EventRepository.update(event, config=config)
+        return None if old_value is None else str(old_value)
+
+    @staticmethod
+    async def list_entries(actor: Optional[User]) -> List[Tuple[str, str]]:
+        """Every configuration entry in this community as ``(name, value)``, for staff."""
+        await AuthService.ensure(
+            await AuthService.is_staff(actor),
+            "Only Staff can read system configuration",
+        )
+        entries = await SystemConfiguration.filter(tenant_id=require_tenant_id()).order_by('name')
+        rows = {e.name: e.value for e in entries}
+        for key in sorted(EVENT_CONFIG_KEYS | set(EVENT_DATE_FIELDS)):
+            value = await SystemConfigService._get_event_raw(key)
+            if value is not None:
+                rows[key] = value
+        return sorted(rows.items())
+
+    @staticmethod
+    async def list_event_entries(actor: Optional[User]) -> List[Tuple[str, str]]:
+        """The settings stored on the event in scope as ``(name, value)``, for staff."""
+        await AuthService.ensure(
+            await AuthService.is_staff(actor),
+            "Only Staff can read system configuration",
+        )
+        rows = []
+        for key in sorted(EVENT_CONFIG_KEYS | set(EVENT_DATE_FIELDS)):
+            value = await SystemConfigService._get_event_raw(key)
+            if value is not None:
+                rows.append((key, value))
+        return rows
 
     @staticmethod
     async def set_raw(key: str, value: str, actor: User) -> SystemConfiguration:
@@ -73,11 +142,20 @@ class SystemConfigService:
             "Only Staff can modify system configuration",
         )
         tenant_id = require_tenant_id()
+        if is_event_key(key):
+            event_id = require_event_id()
+            old_event_value = await SystemConfigService._set_event_raw(key, value)
+            await AuditService().write_log(
+                actor,
+                AuditActions.SYSTEM_CONFIG_UPDATED,
+                {'key': key, 'old_value': old_event_value, 'new_value': value, 'event_id': event_id},
+            )
+            return SystemConfiguration(name=key, value=value, tenant_id=tenant_id)
         config = await SystemConfiguration.get_or_none(name=key, tenant_id=tenant_id)
         old_value = config.value if config else None
         if config:
             config.value = value
-            await config.save()
+            await save_fields(config, 'value')
             result = config
         else:
             result = await SystemConfiguration.create(name=key, value=value, tenant_id=tenant_id)
@@ -151,8 +229,9 @@ class SystemConfigService:
             end = await SystemConfigService.get_date(KEY_EVENT_END_DATE)
 
         if start is None or end is None:
-            first = await Match.filter(tenant_id=require_tenant_id()).order_by('scheduled_at').first()
-            last = await Match.filter(tenant_id=require_tenant_id()).order_by('-scheduled_at').first()
+            matches = event_scoped(Match.all(), tournament.event_id if tournament else None)
+            first = await matches.order_by('scheduled_at').first()
+            last = await matches.order_by('-scheduled_at').first()
             derived_start = (
                 to_local(first.scheduled_at).date()
                 if first and first.scheduled_at else None
@@ -182,7 +261,7 @@ class SystemConfigService:
             return value
         if default is not None:
             return default
-        return await Stage.filter(is_active=True, tenant_id=require_tenant_id()).count()
+        return await event_scoped(Stage.filter(is_active=True)).count()
 
     @staticmethod
     async def get_volunteer_reminder_lead_minutes(default: int = 60) -> int:
@@ -474,6 +553,7 @@ _NORMALIZERS = {
     KEY_COMMUNITY_EVENT_REQUIRE_APPROVAL: _bool_value,
     KEY_TOURNAMENT_HOURS: _tournament_hours_value,
     KEY_STATION_FORMAT: _station_format_value,
+    KEY_BROADCASTERS: _bool_value,
     KEY_DISCORD_AUTO_JOIN: _bool_value,
     KEY_JOIN_REQUESTS: _bool_value,
     KEY_OPEN_MEMBERSHIP: _bool_value,
@@ -481,4 +561,5 @@ _NORMALIZERS = {
     KEY_WATCH_MODE: _watch_mode_value,
     KEY_WATCH_AUTO_STATIC: _bool_value,
     KEY_WATCH_AUTO_THRESHOLD: _positive_int_value,
+    KEY_WATCH_STATIC_SIGNED_OUT: _bool_value,
 }

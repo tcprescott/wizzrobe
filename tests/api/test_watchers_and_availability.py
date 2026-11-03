@@ -9,12 +9,9 @@
 from datetime import timedelta
 
 from application.utils.timezone import now_local
-from models import Match, Role, SystemConfiguration, TenantMembership, Tournament, User
+from models import Match, Role, TenantMembership, Tournament, User
 from tests.api_helpers import client_for, create_community_member, create_user_token
-
-# ---------------------------------------------------------------------------
-# Match watchers
-# ---------------------------------------------------------------------------
+from tests.factories import set_setting
 
 
 class TestMatchWatchers:
@@ -38,7 +35,6 @@ class TestMatchWatchers:
     async def test_watch_missing_match_is_404(self, db, app):
         _, raw = await create_user_token(username='fan')
         async with client_for(app, raw) as c:
-            # Missing match -> NotFoundError -> 404 (audit §2B.6).
             assert (await c.post('/api/matches/999/watch')).status_code == 404
 
     async def test_read_only_token_cannot_watch(self, db, app):
@@ -47,11 +43,6 @@ class TestMatchWatchers:
         match = await Match.create(tournament=t)
         async with client_for(app, raw) as c:
             assert (await c.post(f'/api/matches/{match.id}/watch')).status_code == 403
-
-
-# ---------------------------------------------------------------------------
-# Player availability
-# ---------------------------------------------------------------------------
 
 
 class TestPlayerAvailability:
@@ -138,9 +129,6 @@ class TestReadingAnotherPlayersAvailability:
 
     async def _player_with_a_window(self, app):
         player, raw = await create_user_token(username='player')
-        # A member, because the route resolves the target within the token's
-        # community — a global User with no membership is not someone this
-        # community can look up by id.
         await TenantMembership.get_or_create(user=player, tenant_id=1)
         async with client_for(app, raw) as c:
             await c.put('/api/users/me/availability', json=ONE_WINDOW)
@@ -197,19 +185,14 @@ class TestReadingAnotherPlayersAvailability:
             assert (await c.get('/api/users/me/availability')).status_code == 200
 
 
-# ---------------------------------------------------------------------------
-# Match-time suggestion
-# ---------------------------------------------------------------------------
-
-
 class TestMatchSuggestion:
     async def test_suggests_a_time(self, db, app):
         _, raw = await create_user_token(username='ta', roles=[Role.STAFF])
+        # A bare SystemConfiguration row is no longer read for event dates; the
+        # window then fell back to today alone, with no slot left late at night.
         today = now_local().date()
-        await SystemConfiguration.create(name='event_start_date', value=today.isoformat())
-        await SystemConfiguration.create(
-            name='event_end_date', value=(today + timedelta(days=2)).isoformat(),
-        )
+        await set_setting(name='event_start_date', value=today.isoformat())
+        await set_setting(name='event_end_date', value=(today + timedelta(days=2)).isoformat())
         t = await Tournament.create(name='Cup', is_active=True, average_match_duration=60)
         p1 = await create_community_member(discord_id=201, username='p1')
         p2 = await create_community_member(discord_id=202, username='p2')
@@ -222,8 +205,6 @@ class TestMatchSuggestion:
             assert 'suggested_at' in resp.json()
 
     async def test_a_member_can_only_ask_about_their_own_match(self, db, app):
-        # The answer, or its "no slot" refusal, read out other players' private
-        # availability one probe at a time.
         me, raw = await create_user_token(username='me', member=True)
         t = await Tournament.create(name='Cup', is_active=True)
         other = await create_community_member(discord_id=203, username='other')
@@ -240,11 +221,6 @@ class TestMatchSuggestion:
                 params=[('player_ids', me.id), ('player_ids', outsider.id)],
             )
             assert resp.status_code == 404
-
-
-# ---------------------------------------------------------------------------
-# Discord role mappings
-# ---------------------------------------------------------------------------
 
 
 class TestDiscordRoleMappings:

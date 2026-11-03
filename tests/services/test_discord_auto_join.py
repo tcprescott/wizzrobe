@@ -276,8 +276,6 @@ async def test_an_auto_join_dms_nobody_and_marks_the_membership(fake_discord, mo
 
     assert await TenantMembershipService().join_via_discord(user, 1) is True
 
-    # Nothing needs doing, so staff aren't DM'd; the Users tab shows it instead.
-    # The one queued job edits staff's earlier join-request DMs to say so.
     assert [coro.__name__ for coro in queued] == ['_edit_all']
     for coro in queued:
         coro.close()

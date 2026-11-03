@@ -19,9 +19,11 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
 
+from application.api_scopes import CONSENT_WORDING, ApiScope
 from application.errors import NotFoundError
 from application.services.auth_service import AuthService
 from application.services.feature_flag_service import FeatureFlagService
+from application.services.mcp_auth_service import grant_scopes
 from application.services.tenant_service import TenantService
 from application.tenant_context import require_tenant_id
 from models import ApiToken, FeatureFlag, Tenant, User
@@ -81,12 +83,17 @@ class Gate(Enum):
 
     ``PLATFORM`` also names no community, and requires the global super-admin
     role: the ``/platform`` page's surface, mirroring ``require_super_admin``.
+
+    ``VOLUNTEER_ADMIN`` is ``ADMIN`` plus a volunteer coordinator, for the
+    volunteer reads that coordinator manages in Admin (mirroring
+    ``require_volunteer_admin``).
     """
 
     GLOBAL = 'global'
     PLATFORM = 'platform'
     ACTOR = 'actor'
     ADMIN = 'admin'
+    VOLUNTEER_ADMIN = 'volunteer_admin'
     STAFF = 'staff'
 
     @property
@@ -105,7 +112,7 @@ async def belongs_to_tenant(user: User) -> bool:
     """
     if await TenantService.is_member(user.id, require_tenant_id()):
         return True
-    return bool(await AuthService.get_roles(user))
+    return await AuthService.holds_any_role(user)
 
 
 async def resolve_tenant(slug: Optional[str]) -> Optional[Tenant]:
@@ -132,6 +139,7 @@ async def authorize(
     slug: str = '',
     *,
     write: bool = False,
+    scope: Optional[ApiScope] = None,
 ) -> None:
     """Run the membership floor, the feature gate, the connection gate, then the role gate.
 
@@ -141,47 +149,34 @@ async def authorize(
     exists here, and a staff member would get a different answer than a player
     for a feature that is simply off.
     """
-    # Membership floor, checked before any specific gate.
-    #
-    # A REST PAT is bound to one community, so `require_api_actor` — "any valid
-    # token" — can never reach another one. An OAuth token is platform-wide and
-    # names its community per call, so without this an ACTOR-gated tool would
-    # let any authenticated user read any community's tournaments, matches and
-    # schedule. That is a cross-community disclosure the REST surface does not
-    # permit, so the floor restores parity: a token reaches a community only
-    # where its user actually belongs.
-    #
-    # NotFoundError, not PermissionError, and worded identically to an unknown
-    # slug: "hidden, not forbidden" is the posture used throughout the app, and
-    # a distinguishable refusal would turn error text into a directory of every
-    # community on the platform.
-    # GLOBAL and PLATFORM tools are exempt: they name no community. GLOBAL ones are how a caller
-    # discovers that they have access to none. Refusing them would leave a
-    # role-less user unable to learn anything at all, including *that* fact.
+    # NotFoundError worded like an unknown slug, never PermissionError: a distinct refusal would enumerate communities.
     if not gate.names_no_community and not await AuthService.is_super_admin(actor.user):
         if not await belongs_to_tenant(actor.user):
             raise NotFoundError(f"No community '{slug}' is available.")
 
-    # After the floor, not before it: "not enabled here" confirms the community
-    # exists, which is exactly what the floor's wording is there to hide from
-    # someone with no role in it.
+    # Must run after the floor: "not enabled here" would confirm the community exists.
     if feature is not None and not await FeatureFlagService().is_enabled(feature):
         raise NotFoundError('This feature is not enabled for this community.')
 
-    # What the *connection* may do, checked after the community is established
-    # so a read-only token learns no more about a community than a writing one
-    # would. Before the role gate because the two failures need different
-    # answers from the user: reconnect with the box ticked, versus ask someone
-    # for a role. A read-only grant is the default, so this is the common path.
+    # After the floor, before the role gate: the two refusals need different fixes from the user.
     if write and actor.token.read_only:
         raise PermissionError(
             'This connection was approved for reading only. Reconnect from your '
-            'MCP client and tick "Let it make changes" to use this tool.'
+            'MCP client and tick the change this tool makes.'
+        )
+    if scope is not None and scope not in grant_scopes(actor.token.scope):
+        raise PermissionError(
+            f'This connection was not allowed to "{CONSENT_WORDING[scope].lower()}". '
+            'Reconnect from your MCP client and tick it to use this tool.'
         )
 
     if gate is Gate.ADMIN:
         await AuthService.ensure(
             await AuthService.can_view_admin(actor.user), 'Admin access required'
+        )
+    elif gate is Gate.VOLUNTEER_ADMIN:
+        await AuthService.ensure(
+            await AuthService.can_view_volunteer_admin(actor.user), 'Admin access required'
         )
     elif gate is Gate.STAFF:
         await AuthService.ensure(
@@ -191,12 +186,4 @@ async def authorize(
         await AuthService.ensure(
             await AuthService.is_super_admin(actor.user), 'Super admin access required'
         )
-    # Gate.ACTOR and Gate.GLOBAL need no further check — holding a live token is
-    # the bar, exactly as `require_api_actor` is for the REST API.
 
-
-# Read-only tokens are rejected per *tool*, never per connection. A read-only
-# grant is the consent screen's default and by far the common case, so a blanket
-# rejection here would refuse most legitimate callers; what a read-only token
-# must not reach is the tools registered with ``write=True``, which is exactly
-# what the check above covers.

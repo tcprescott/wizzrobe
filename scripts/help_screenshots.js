@@ -30,6 +30,7 @@
  *     "padding": 8,                  // px of page around the cropped element
  *     "fullPage": false,             // whole scrollable page instead of the viewport (no selector)
  *     "hide": [".some-banner"],      // hidden before capture, on top of the defaults
+ *     "remove": [".some-banner"],    // taken out of the layout (display: none) so nothing gapes
  *     "annotate": [                  // numbered red call-outs drawn over controls
  *       { "selector": "text=Sign up", "n": 1 },   // optional "tab": "top" | "bottom"
  *     ],
@@ -42,6 +43,10 @@
  *     ]
  *   }
  * DEFAULTS below supplies any field an entry leaves out.
+ *
+ * An entry with "device" instead of "path" is a photo of a phone's own UI (the
+ * iOS Add to Home Screen sheet, say) that no browser here can render. The
+ * script skips it; "device" says what it shows and how to retake it by hand.
  *
  * Shots are taken in the light theme with reduced motion. WebP is encoded by
  * Chromium itself (canvas.toDataURL), so this needs nothing beyond the global
@@ -63,7 +68,6 @@ const VIEWPORTS = {
   desktop: { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1, isMobile: false, hasTouch: false },
 };
 
-// Transient chrome that would date a screenshot or cover what it is about.
 const DEFAULT_HIDE = ['.q-notifications', '.q-loading-bar', '.wiz-skip-link'];
 
 const WEBP_QUALITY = 0.85;
@@ -112,7 +116,7 @@ function tenantPath(tenant, p) {
 
 async function settle(page) {
   await page.waitForLoadState('networkidle').catch(() => {});
-  // NiceGUI builds the page over its websocket after load; give it a beat.
+  // NiceGUI builds the page over its websocket after load.
   await page.waitForTimeout(1200);
 }
 
@@ -139,11 +143,8 @@ async function runSetup(page, steps) {
   }
 }
 
-// Numbered call-outs: a red outline padded clear of the control, with its number
-// in a tab on the outline's top-left edge (or bottom-left when the top would fall
-// outside the capture). Drawn as page overlays so they scale with the device.
-// They hang off <html>, not <body>: with a dialog open Quasar pins the body with
-// position:fixed and a negative top, which would shift anything placed inside it.
+// Marks hang off <html>, not <body>: with a dialog open Quasar pins the body with
+// position:fixed and a negative top, which would shift them.
 const MARK = { color: '#D92D20', border: 3, radius: 6, gap: 4, tab: 21 };
 
 async function drawAnnotations(page, marks, captureTop) {
@@ -211,8 +212,7 @@ async function capturePng(page, shot) {
     const target = page.locator(shot.selector).first();
     await target.waitFor({ state: 'visible' });
     await target.scrollIntoViewIfNeeded();
-    // Page coordinates rather than viewport ones, so an element taller than the
-    // viewport is captured whole.
+    // Page coordinates, not viewport ones, so a tall element is captured whole.
     const box = await target.evaluate((el) => {
       const r = el.getBoundingClientRect();
       return { x: r.left + window.scrollX, y: r.top + window.scrollY, width: r.width, height: r.height };
@@ -228,8 +228,6 @@ async function capturePng(page, shot) {
       width: Math.min(size.width - x, box.width + pad * 2),
       height: Math.min(size.height - y, box.height + pad * 2),
     };
-    // A mark on a control at the crop's edge widens the crop just enough to
-    // show the whole outline, rather than cutting it off.
     for (const e of await drawAnnotations(page, shot.annotate, y)) {
       const x1 = Math.max(0, Math.min(clip.x, e.x1 - 1));
       const x2 = Math.min(size.width, Math.max(clip.x + clip.width, e.x2 + 1));
@@ -259,10 +257,12 @@ async function toWebp(encoder, png) {
 
 (async () => {
   const args = parseArgs(process.argv.slice(2));
-  const shots = loadManifest()
+  const matched = loadManifest()
     .filter((s) => !args.only || args.only === s.slug || args.only === `${s.slug}/${s.name}`);
+  for (const s of matched.filter((s) => s.device)) console.log(`skip ${s.slug}/${s.name}  (device shot: ${s.device})`);
+  const shots = matched.filter((s) => !s.device);
   if (!shots.length) {
-    console.error(`no manifest entries match "${args.only}"`);
+    console.error(`no capturable manifest entries match "${args.only}"`);
     process.exit(1);
   }
 
@@ -299,6 +299,10 @@ async function toWebp(encoder, png) {
       await runSetup(page, shot.setup);
       const hide = DEFAULT_HIDE.concat(shot.hide || []);
       await page.addStyleTag({ content: `${hide.join(', ')} { visibility: hidden !important; }` });
+      if (shot.remove && shot.remove.length) {
+        await page.addStyleTag({ content: `${shot.remove.join(', ')} { display: none !important; }` });
+        await page.waitForTimeout(300);
+      }
       const png = await capturePng(page, shot);
       const webp = await toWebp(encoder, png);
       const out = path.join(OUT_ROOT, shot.slug, `${shot.name}.webp`);

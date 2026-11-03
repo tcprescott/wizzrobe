@@ -11,19 +11,20 @@ task means is domain work with its own audit trail and notifications.
 """
 
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
+from application import task_queue
 from application.repositories import ProviderTaskRepository
+from application.repositories._save import save_fields
 from models import ProviderTask, ProviderTaskStatus, User
 
 logger = logging.getLogger(__name__)
 
-# How long an unfinished task may live before the sweeper gives up on it. Above
-# the DK64 generation budget (10 minutes) with room for a restart in the middle:
-# the point is to release a row nobody will ever collect, not to race the
-# provider.
+# Must exceed the DK64 generation budget (10 minutes) with room for a restart.
 TASK_MAX_AGE = timedelta(minutes=20)
+HANDLELESS_MAX_AGE = timedelta(minutes=5)
+POLL_SECONDS = 5
 
 
 class ProviderTaskService:
@@ -65,7 +66,8 @@ class ProviderTaskService:
         task.provider_params = provider_params
         task.settings_snapshot = settings
         task.status = ProviderTaskStatus.RUNNING
-        await task.save()
+        await save_fields(task, 'provider_task_id', 'provider_params', 'settings_snapshot', 'status')
+        await task_queue.enqueue('seed_roll', {'task_id': task.id}, delay_seconds=POLL_SECONDS)
         return task
 
     async def claim(self, task: ProviderTask, status: ProviderTaskStatus) -> bool:
@@ -97,6 +99,10 @@ class ProviderTaskService:
         """The whole unfinished queue, across tenants. Worker-facing."""
         return await self.repository.due_for_poll(limit=limit)
 
+    async def pollable(self, task_id: int) -> Optional[ProviderTask]:
+        """One unfinished, submitted task across tenants, or ``None``. Worker-facing."""
+        return await self.repository.pollable(task_id)
+
     async def sweep_stale(self) -> int:
         """Abandon tasks that outlived their budget; return how many.
 
@@ -105,13 +111,17 @@ class ProviderTaskService:
         two would tell an admin the roll broke when it did not.
         """
         abandoned = 0
-        for task in await self.repository.stale(TASK_MAX_AGE):
+        cutoff = datetime.now(timezone.utc) - TASK_MAX_AGE
+        for task in await self.repository.stale(HANDLELESS_MAX_AGE):
+            if task.provider_task_id is not None and task.created_at >= cutoff:
+                continue
             task.error = task.error or 'Timed out waiting for the provider.'
             if await self.claim(task, ProviderTaskStatus.ABANDONED):
                 await task.save(update_fields=['error'])
                 abandoned += 1
                 logger.error(
                     'Abandoned provider task %s (%s/%s) after %s',
-                    task.id, task.provider, task.operation, TASK_MAX_AGE,
+                    task.id, task.provider, task.operation,
+                    datetime.now(timezone.utc) - task.created_at,
                 )
         return abandoned

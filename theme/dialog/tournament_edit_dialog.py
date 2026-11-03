@@ -5,16 +5,19 @@ from nicegui import app, ui
 from application.services import (
     AuthService,
     ChallongeService,
+    EventService,
     FeatureFlagService,
     PresetService,
     RaceRoomProfileService,
     RacetimeBotService,
+    StartggService,
     TournamentService,
     get_user_from_session,
 )
 from application.services.tournament_service import DELETE_CONFIRMATION_PHRASE
 from application.tenant_context import require_tenant_id
 from models import FeatureFlag
+from theme.busy import busy_click
 from theme.dialog._helpers import (
     datetime_to_local_input,
     dialog_actions,
@@ -27,6 +30,7 @@ from theme.dialog._helpers import (
     submit_on_enter,
 )
 from theme.dialog.confirmation_dialog import ConfirmationDialog
+from theme.dialog.startgg_section import render_startgg_section
 from theme.markdown_editor import MarkdownEditor
 from theme.notify import notify_error
 
@@ -35,8 +39,6 @@ class TournamentDialog:
     def __init__(self, tournament=None, on_submit=None, on_delete=None):
         self.tournament = tournament
         self.on_submit = on_submit
-        # Called with no arguments after a permanent delete, so the surface that
-        # opened this dialog can drop the row it is still showing.
         self.on_delete = on_delete
         self.dialog = None
         self.tournament_service = TournamentService()
@@ -50,18 +52,23 @@ class TournamentDialog:
         title = 'Add Tournament' if is_create else 'Edit Tournament'
         actor = await get_user_from_session(app.storage.user)
         can_sync = await AuthService.can_manage_sync(actor)
-        can_delete = not is_create and await AuthService.is_staff(actor)
-        # This dialog opens from the (ungated) Tournaments tab, so its Challonge
-        # section has to check the flag itself — link_tournament refuses without it.
+        is_staff = await AuthService.is_staff(actor)
+        can_delete = not is_create and is_staff
+        broadcasters_on = await (
+            EventService.current_event_broadcasters() if is_create
+            else EventService.broadcasters_on(self.tournament.event_id)
+        )
+        # Opens from the ungated Tournaments tab, so it checks the flag itself.
         challonge_live = (
-            self.challonge_service.is_configured()
+            is_staff
+            and self.challonge_service.is_configured()
             and await FeatureFlagService().is_enabled(FeatureFlag.CHALLONGE)
         )
-        # Racetime room automation is only offered to sync managers of a community
-        # that has the feature on, and only the bot categories this tenant is
-        # authorized for are selectable. Same reason as Challonge above: this
-        # dialog opens from the ungated Tournaments tab, so it checks the flag
-        # itself — every racetime surface behind it already refuses without it.
+        # Same as Challonge: the ungated tab means this checks the flag itself.
+        startgg_live = (
+            StartggService.is_configured()
+            and await FeatureFlagService().is_enabled(FeatureFlag.STARTGG)
+        )
         racetime_live = can_sync and await FeatureFlagService().is_enabled(
             FeatureFlag.RACETIME_ROOMS
         )
@@ -83,6 +90,14 @@ class TournamentDialog:
                 name_input.props(
                     'hint="Everything below has a sensible default — you can come back to it."'
                 )
+                short_name_input = ui.input(
+                    'Short name',
+                    value=(self.tournament.short_name or '') if self.tournament else '',
+                ).props('maxlength=40 counter').classes('input-full-width')
+                short_name_input.props(
+                    'hint="Shown on the run sheets and timeline, where the full name won\'t fit. '
+                    'Leave blank to use the full name."'
+                )
                 description_input = MarkdownEditor(
                     'Description',
                     value=self.tournament.description if self.tournament and self.tournament.description else '',
@@ -101,12 +116,16 @@ class TournamentDialog:
                         "Left out of the event info tournament list. Use it for a "
                         "rehearsal, like a Challonge integration check."
                     ).classes('text-caption text-grey q-ml-xl')
+                with ui.column().classes('gap-0'):
+                    uses_room_checkbox = ui.checkbox(
+                        'Plays in the tournament room',
+                        value=self.tournament.uses_tournament_room if self.tournament else True,
+                    )
+                    ui.label(
+                        "Untick for a tournament played elsewhere. Its matches that "
+                        "aren't on a stage then don't count toward the room's capacity."
+                    ).classes('text-caption text-grey q-ml-xl')
 
-                # Everything below is optional and defaulted. Collapsed on create
-                # so the cheapest correct action — type a name, save — stops
-                # looking like the riskiest one; expanded on edit, because an
-                # admin who came back to configure racetime should not have to
-                # hunt for it.
                 sections_open = not is_create
 
                 with ui.expansion(
@@ -130,7 +149,6 @@ class TournamentDialog:
                             min=1, max=100,
                         ).props('inputmode=numeric')
 
-                    # --- Player signups ---
                     ui.separator()
                     ui.label('Player signups').classes('text-bold')
                     ui.label(
@@ -154,11 +172,10 @@ class TournamentDialog:
                             dense=True,
                         )
 
-                    # --- Tournament Days (per-tournament override of the tenant setting) ---
                     ui.separator()
                     ui.label('Tournament Days').classes('text-bold')
                     ui.label(
-                        'Override the community event window and per-day match hours for '
+                        'Override the event window and per-day match hours for '
                         'this tournament. Leave blank to use the community default.'
                     ).classes('text-caption text-grey')
 
@@ -175,8 +192,7 @@ class TournamentDialog:
                             clearable=True,
                         )
 
-                    # Stored blob seeds the grid; snapshotted on every refresh so
-                    # typed-but-unsaved values survive a date-window change.
+                    # Snapshotted on every refresh so unsaved values survive a date-window change.
                     hours_state: dict = dict(t.tournament_hours) if t and t.tournament_hours else {}
                     hours_inputs: dict[str, dict] = {}
 
@@ -271,11 +287,15 @@ class TournamentDialog:
                             value=self.tournament.required_trackers if self.tournament else 1,
                             min=0, max=20,
                         ).props('inputmode=numeric')
+                    required_broadcasters_input = None
+                    if broadcasters_on:
+                        with ui.row().classes('form-pair gap-2'):
+                            required_broadcasters_input = ui.number(
+                                'Broadcasters needed',
+                                value=self.tournament.required_broadcasters if self.tournament else 1,
+                                min=0, max=20,
+                            ).props('inputmode=numeric')
 
-                    # Sits with the stream crew rather than under Racetime, where
-                    # the other "minutes before" number lives: that whole block is
-                    # hidden from communities with no racetime bot, and a stage
-                    # call has nothing to do with race rooms.
                     ui.separator()
                     ui.label('Stage reminder').classes('text-bold')
                     ui.label(
@@ -299,26 +319,22 @@ class TournamentDialog:
                     'Seeds & randomizer', icon='casino', value=sections_open,
                 ).classes('w-full').props('dense'):
                     presets = await self.preset_service.list_selectable()
-                    # None (0) clears the FK; ui.select cannot key an option on None,
-                    # so a 0 sentinel stands in and maps back to None on submit.
+                    # ui.select can't key on None, so 0 stands in and maps back on submit.
                     preset_options = {0: '— None (no seeds) —'}
                     preset_options.update({p.id: f'{p.randomizer} / {p.name}' for p in presets})
                     default_preset = self.tournament.preset_id if self.tournament and self.tournament.preset_id else 0
                     preset_input = ui.select(
                         preset_options, label='Seed Preset', value=default_preset,
                     ).classes('input-full-width').props(
-                        'hint="Picks the randomizer and the settings seeds roll with. Manage presets under Presets."'
+                        'hint="Picks the randomizer and the settings seeds roll with. Manage them under Admin → Seed Presets."'
                     )
                     if not presets:
                         ui.label(
-                            'No presets yet — add one under Online Play → Presets, '
+                            'No presets yet — add one under Admin → Seed Presets, '
                             'or import a randomizer\'s published presets there.'
                         ).classes('text-caption text-grey')
 
-                    # The opt-in harder preset. Same option list, same 0
-                    # sentinel; the service refuses a pairing whose randomizers
-                    # disagree, because the winning preset is what names the
-                    # randomizer at roll time.
+                    # Same 0 sentinel.
                     hard_preset_options = {0: '— None (no harder option) —'}
                     hard_preset_options.update(
                         {p.id: f'{p.randomizer} / {p.name}' for p in presets}
@@ -335,9 +351,6 @@ class TournamentDialog:
                         'rolls it when every player opted in, and nobody is told who did '
                         'unless all of them did."'
                     )
-                    # A tournament configured before the preset became the only
-                    # control still rolls on its stored generator. Say so, because
-                    # saving without a preset is what turns that off.
                     legacy_generator = (
                         self.tournament.seed_generator
                         if self.tournament and self.tournament.seed_generator
@@ -350,6 +363,16 @@ class TournamentDialog:
                             'preset. Pick one to replace it — saving with None turns '
                             'seed rolling off.'
                         ).classes('text-caption text-warning')
+                    with ui.column().classes('gap-0'):
+                        players_release_seed_checkbox = ui.checkbox(
+                            'Players release their own seed',
+                            value=self.tournament.players_release_seed if self.tournament else False,
+                        )
+                        ui.label(
+                            "After check-in, each player taps Ready for seed. The seed "
+                            "rolls and is sent when everyone is. Proctors and staff can "
+                            "still roll it any time. Not used by racetime.gg tournaments."
+                        ).classes('text-caption text-grey q-ml-xl')
                     triforce_access_message_input = MarkdownEditor(
                         'Triforce Text Access Message',
                         value=self.tournament.triforce_access_message if self.tournament and self.tournament.triforce_access_message else '',
@@ -365,7 +388,7 @@ class TournamentDialog:
                         value=self.tournament.bracket_url if self.tournament and self.tournament.bracket_url else '',
                     ).classes('input-full-width')
 
-                    if self.tournament and challonge_live:
+                    if self.tournament and challonge_live and not self.tournament.startgg_event_slug:
                         ui.separator()
                         ui.label('Challonge').classes('text-bold')
                         challonge_status = ui.label().classes('text-caption text-muted')
@@ -401,7 +424,10 @@ class TournamentDialog:
                                 with self.dialog:
                                     notify_error(e)
 
-                        ui.button('Link & Sync', icon='sync', on_click=link_and_sync).props('flat color=primary')
+                        ui.button('Link & Sync', icon='sync', on_click=busy_click('Syncing…', link_and_sync)).props('flat color=primary')
+
+                    if self.tournament and startgg_live and not self.tournament.challonge_tournament_id:
+                        await render_startgg_section(self.tournament, dialog)
 
                     if racetime_live:
                         ui.separator()
@@ -441,6 +467,26 @@ class TournamentDialog:
                                 'Require racetime link',
                                 value=(t.require_racetime_link if t else False),
                             )
+                            rt['bot_runs_input'] = ui.checkbox(
+                                'Bot runs the room',
+                                value=(t.racetime_bot_runs_room if t else False),
+                            ).tooltip(
+                                'The bot sits in each room: invites the players, posts the seed, '
+                                'answers !seed, !forceroll and !fpa, and records clean results. '
+                                'Close finishes, forfeits and FPA calls wait for staff.'
+                            )
+                        with ui.row().classes('form-pair gap-2') as bot_settings:
+                            rt['seed_post_input'] = ui.number(
+                                'Post the seed (min before start)',
+                                value=(t.racetime_seed_post_minutes if t else 10),
+                                min=0,
+                            ).props('inputmode=numeric')
+                            rt['close_finish_input'] = ui.number(
+                                'Close finish (seconds)',
+                                value=((t.racetime_close_finish_ms if t else 1000) / 1000),
+                                min=0, step=0.1, format='%.1f',
+                            ).props('inputmode=decimal hint="Finishes this close wait for staff"')
+                        bot_settings.bind_visibility_from(rt['bot_runs_input'], 'value')
 
                 if can_delete:
                     with ui.expansion(
@@ -476,8 +522,6 @@ class TournamentDialog:
                     with self.dialog:
                         ui.notify('Please fill required field(s): Tournament Name.', color='warning')
                     return
-                # Per-tournament days override: blank dates inherit the tenant
-                # setting; only fully-filled day rows become hour windows.
                 event_start_value = (event_start_input.value or '').strip() or None
                 event_end_value = (event_end_input.value or '').strip() or None
                 hours_mapping: dict[date, tuple[str, str]] = {}
@@ -510,6 +554,9 @@ class TournamentDialog:
                         racetime_auto_create_rooms=rt['auto_create_input'].value,
                         room_open_minutes_before=int(rt['open_before_input'].value or 0),
                         require_racetime_link=rt['require_link_input'].value,
+                        racetime_bot_runs_room=rt['bot_runs_input'].value,
+                        racetime_seed_post_minutes=int(rt['seed_post_input'].value or 0),
+                        racetime_close_finish_ms=round(float(rt['close_finish_input'].value or 0) * 1000),
                         racetime_default_goal=rt['goal_input'].value,
                     )
                 try:
@@ -519,6 +566,7 @@ class TournamentDialog:
                             await self.tournament_service.update_tournament(
                                 self.tournament,
                                 name=name_input.value,
+                                short_name=short_name_input.value,
                                 description=description_input.value,
                                 bracket_url=bracket_url_input.value,
                                 rules_url=rules_url_input.value,
@@ -529,11 +577,15 @@ class TournamentDialog:
                                 max_match_duration=max_match_duration_input.value,
                                 is_active=is_active_checkbox.value,
                                 is_test=is_test_checkbox.value,
+                                uses_tournament_room=uses_room_checkbox.value,
                                 players_per_match=players_per_match_input.value,
                                 required_commentators=required_commentators_input.value,
                                 required_trackers=required_trackers_input.value,
+                                required_broadcasters=(required_broadcasters_input.value
+                                                       if required_broadcasters_input else None),
                                 stage_reminder_minutes=int(stage_reminder_input.value or 0),
                                 allow_player_match_requests=allow_requests_checkbox.value,
+                                players_release_seed=players_release_seed_checkbox.value,
                                 preset_id=(preset_input.value or None),
                                 hard_preset_id=(hard_preset_input.value or None),
                                 actor=actor,
@@ -548,6 +600,7 @@ class TournamentDialog:
                     else:
                         new_tournament = await self.tournament_service.create_tournament(
                             name=name_input.value,
+                            short_name=short_name_input.value,
                             description=description_input.value,
                             bracket_url=bracket_url_input.value,
                             rules_url=rules_url_input.value,
@@ -558,11 +611,15 @@ class TournamentDialog:
                             max_match_duration=max_match_duration_input.value,
                             is_active=is_active_checkbox.value,
                             is_test=is_test_checkbox.value,
+                            uses_tournament_room=uses_room_checkbox.value,
                             players_per_match=players_per_match_input.value,
                             required_commentators=required_commentators_input.value,
                             required_trackers=required_trackers_input.value,
+                            required_broadcasters=(required_broadcasters_input.value
+                                                   if required_broadcasters_input else 1),
                             stage_reminder_minutes=int(stage_reminder_input.value or 0),
                             allow_player_match_requests=allow_requests_checkbox.value,
+                            players_release_seed=players_release_seed_checkbox.value,
                             preset_id=(preset_input.value or None),
                             hard_preset_id=(hard_preset_input.value or None),
                             actor=actor,

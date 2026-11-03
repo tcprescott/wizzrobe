@@ -10,6 +10,7 @@ from theme.tables.match_player_run_sheet import (
     player_crew,
     player_status,
 )
+from theme.tables.run_sheet_meta import crew_columns
 
 ME = '111'
 PLAYERS = [{'name': 'Player One', 'discord_id': '900'}, {'name': 'Player Two', 'discord_id': '901'}]
@@ -90,11 +91,25 @@ class TestCrew:
         assert _role(row, 'commentators')['unavailable'] == ''
 
     def test_withdraw_stays_once_the_match_is_under_way(self):
-        # The crew help promises it: a stale signup can be cleared at any time.
         row = _row(state='Started', crew_signup_open=False,
                    commentators=[{'discord_id': ME, 'approved': True}])
         role = _role(row, 'commentators')
         assert role['can_withdraw'] and not role['can_sign_up']
+
+    def test_a_live_or_finished_match_drops_the_signup_controls(self):
+        for state in ('Started', 'Finished', 'Confirmed'):
+            row = _row(state=state, commentators=[{'name': 'SM User', 'discord_id': '5', 'approved': True}])
+            roles = player_crew(row, ME)
+            assert [r['key'] for r in roles] == ['commentators']
+            role = roles[0]
+            assert not role['tray'] and not role['can_sign_up'] and not role['empty']
+            assert role['unavailable'] == '' and not role['short']
+            assert [p['name'] for p in role['people']] == ['SM User']
+
+    def test_a_live_match_keeps_only_the_viewers_own_withdraw(self):
+        row = _row(state='Started', commentators=[{'discord_id': ME, 'approved': True, 'acknowledged': False}])
+        role = _role(row, 'commentators')
+        assert role['tray'] and role['can_withdraw'] and role['ack_idx'] is None
 
     def test_names_show_with_the_viewer_as_you_and_approved_first(self):
         row = _row(commentators=[{'name': 'Me', 'discord_id': ME, 'approved': False},
@@ -129,28 +144,28 @@ class TestTemplates:
             assert slot.count('@click.stop="$parent.$emit(') >= emits - opens
 
     def test_the_phone_card_does_not_nest_buttons(self):
-        # A <button> holding the bell or Sign up would be invalid markup and
-        # swallow their clicks; they sit beside the open button instead.
         opener = _ITEM_SLOT.split('<button type="button" class="player-sheet__open"')[1].split('</button>')[0]
         assert '<q-btn' not in opener
 
     def test_every_role_draws_its_button_between_count_and_names(self):
-        # Thomas, 2026-10-13: the button in a fixed place on every line, a
-        # disabled one when there's nothing to press, under the count.
         for slot in (_BODY_SLOT, _ITEM_SLOT):
             assert slot.index('run-sheet__crew') < slot.index('wiz-crew-action') < slot.index('run-sheet__people')
-            assert '<div class="wiz-crew-action">' in slot
+            assert '<div v-if="c.tray" class="wiz-crew-action">' in slot
             assert ' disable ' in slot
         assert 'player-sheet__crew-cell' in _BODY_SLOT
 
     def test_withdraw_sits_left_of_confirm(self):
-        # Style guide: in a pair the negative action is on the left.
         assert _BODY_SLOT.index('Withdraw') < _BODY_SLOT.index('label="Confirm"')
 
     def test_the_columns_fit_without_sorting(self):
         assert [c['name'] for c in PLAYER_RUN_SHEET_COLUMNS] == [
-            'scheduled_at', 'match', 'stage', 'commentators', 'trackers', 'status', 'watch']
+            'scheduled_at', 'match', 'stage', 'commentators', 'trackers', 'broadcasters', 'status', 'watch']
         assert not any(c.get('sortable') for c in PLAYER_RUN_SHEET_COLUMNS)
+
+    def test_broadcasters_only_show_on_an_event_that_has_them(self):
+        names = lambda on: [c['name'] for c in crew_columns(PLAYER_RUN_SHEET_COLUMNS, on)]
+        assert 'broadcasters' in names(True)
+        assert 'broadcasters' not in names(False)
 
     def test_the_schedule_page_uses_it(self):
         src = pathlib.Path('pages/home_tabs/schedule.py').read_text()
@@ -167,6 +182,7 @@ class TestMyScheduleMenu:
         class Table:
             def __init__(self):
                 self.slots = {}
+                self._props = {}
 
             def add_slot(self, name, template):
                 self.slots[name] = template
@@ -200,13 +216,20 @@ class TestMyScheduleMenu:
         from theme.tables.match_player_run_sheet import PLAYER_MENU_COLUMN
         from theme.tables.match_slots import MY_ACTIONS_COLUMN
 
-        # The column name is what keeps the reschedule and settings state fetched.
         assert PLAYER_MENU_COLUMN['name'] == MY_ACTIONS_COLUMN
         src = pathlib.Path('pages/home_tabs/player.py').read_text()
         assert "layout='player_run_sheet'" in src
-        assert '[*PLAYER_RUN_SHEET_COLUMNS, PLAYER_MENU_COLUMN]' in src
+        assert 'columns = [*crew_columns(PLAYER_RUN_SHEET_COLUMNS' in src
+        assert 'PLAYER_MENU_COLUMN]' in src
 
     def test_the_crew_section_is_the_run_sheet_narrowed_to_your_slots(self):
         src = pathlib.Path('pages/home_tabs/my_crew.py').read_text()
         assert "layout='player_run_sheet'" in src
         assert 'crew_discord_id=discord_id' in src
+
+
+def test_no_column_points_at_a_list():
+    # NiceGUI patches in its own body-cell slot for any column whose field holds a list.
+    row = arrange_player_run_sheet([_row(commentators=[{'discord_id': '5', 'approved': True}])], ME)[0]
+    for col in PLAYER_RUN_SHEET_COLUMNS:
+        assert not isinstance(row.get(col['field']), (list, set, tuple)), col['name']

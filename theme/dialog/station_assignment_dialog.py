@@ -7,19 +7,21 @@ from nicegui import app, ui
 from application.services import MatchService, StationService, get_user_from_session
 from application.services.system_config_service import SystemConfigService
 from application.utils.match_labels import match_model_label
-from models import STATION_REGEXES, Match
+from models import STATION_REGEXES, Match, StationFormat
 from theme.dialog._helpers import dialog_actions, form_dialog
 from theme.help import resolve_help
 from theme.notify import notify_error
 
-# Copy for the dialog's two jobs. 'checkin' is the proctor's combined
-# step 1 + 2 (seat the players, then check the match in); 'stations' is
-# correcting the seating of a match that is already checked in.
 _PURPOSE_COPY = {
     'checkin': {
         'title': 'Check in — {match}',
         'lead': 'Seat each player at a station, then check the match in.',
         'submit': 'Check in & seat',
+    },
+    'start': {
+        'title': 'Start — {match}',
+        'lead': 'Not everyone has a station yet. Seat them now, or leave a blank and start anyway.',
+        'submit': 'Start match',
     },
     'stations': {
         'title': 'Assign stations — {match}',
@@ -45,9 +47,9 @@ class StationAssignmentDialog:
         Args:
             match: The match with players to assign stations to
             on_submit: Optional callback when stations are assigned
-            purpose: Which job the dialog is doing — ``'checkin'`` when the
-                caller seats the match afterwards (and therefore owns the
-                success toast), ``'stations'`` when this dialog is the whole
+            purpose: Which job the dialog is doing — ``'checkin'`` or
+                ``'start'`` when the caller seats or starts the match
+                afterwards (and therefore owns the success toast), ``'stations'`` when this dialog is the whole
                 job.
         """
         self.match = match
@@ -63,8 +65,6 @@ class StationAssignmentDialog:
         fmt = await SystemConfigService.get_station_format()
         copy = _PURPOSE_COPY[self.purpose]
 
-        # A community that has defined no stations keeps the historical
-        # free-text field; once it has a pool, the proctor picks from it.
         stations = await StationService().list_stations(active_only=True)
         occupied = await self.match_service.occupied_stations_for_dialog(self.match.id)
 
@@ -86,9 +86,6 @@ class StationAssignmentDialog:
                 else:
                     with ui.row().classes('items-center no-wrap full-width gap-1'):
                         ui.label(copy['lead']).classes('text-body2 col')
-                        # Only offered for a head-to-head: the draw's whole job
-                        # is putting two players on opposite sides, and it
-                        # refuses any other player count.
                         if len(self.match.players) == 2 and stations:
                             ui.button(
                                 'Randomize',
@@ -100,18 +97,9 @@ class StationAssignmentDialog:
                             )
 
                     for player in self.match.players:
-                        # The player's name is the field's label: a name line
-                        # over a "Station" field doubled each row's height.
                         name = player.user.preferred_name or player.user.username
 
-                        # Station input (leave blank to clear assignment).
-                        # ``occupied`` excludes this match, so a player's own
-                        # current station never shows as taken.
                         if stations:
-                            # An occupied station names the match sitting at
-                            # it, not its id: the proctor's next move is to
-                            # go and find those players, and "match #23"
-                            # tells them nothing about who to look for.
                             options = {
                                 s.name: (
                                     f'{s.name} — in use ({occupied[s.name]})'
@@ -120,10 +108,7 @@ class StationAssignmentDialog:
                                 )
                                 for s in stations
                             }
-                            # An assignment made before the pool existed (or
-                            # to a since-removed station) would otherwise
-                            # render as an empty select, hiding what the
-                            # schedule row still shows.
+                            # Keep an off-pool assignment as an option or the select renders empty.
                             if player.assigned_station and player.assigned_station not in options:
                                 options[player.assigned_station] = (
                                     f'{player.assigned_station} — not in the station pool'
@@ -137,9 +122,12 @@ class StationAssignmentDialog:
                         else:
                             station_input = ui.input(
                                 label=name,
-                                placeholder='Station, e.g. A1, B2, Station 3',
+                                placeholder=('Station number, e.g. 12' if fmt == StationFormat.NUMERIC
+                                             else 'Station, e.g. A1, B2, Station 3'),
                                 validation={'Invalid station format': lambda v: not v or STATION_REGEXES[fmt].fullmatch(v) is not None},
                             ).props('outlined dense hide-bottom-space maxlength=50').classes('full-width')
+                            if fmt == StationFormat.NUMERIC:
+                                station_input.props('inputmode=numeric')
 
                         if player.assigned_station:
                             station_input.value = player.assigned_station
@@ -171,8 +159,7 @@ class StationAssignmentDialog:
             station_input = self.station_inputs.get(player_id)
             if station_input is None:
                 continue
-            # A drawn station is guaranteed to be in the active pool, but the
-            # select only offers the options built when the dialog opened.
+            # The select only has the options built at open, so add a drawn station missing from them.
             if hasattr(station_input, 'options') and station not in station_input.options:
                 station_input.options[station] = station
                 station_input.update()
@@ -194,8 +181,7 @@ class StationAssignmentDialog:
             actor = await get_user_from_session(app.storage.user)
             await self.match_service.assign_stations(self.match.id, assignments, actor=actor)
 
-            # In 'checkin' mode the caller still has to seat the match, so it
-            # owns the success toast — saying "done" here would be premature.
+            # In 'checkin' mode the caller owns the success toast.
             if self.purpose == 'stations':
                 ui.notify(
                     f'Stations updated for '

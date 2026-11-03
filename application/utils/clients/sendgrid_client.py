@@ -56,8 +56,7 @@ async def send_email(
             {'type': 'text/plain', 'value': text},
             {'type': 'text/html', 'value': html},
         ],
-        # Transactional mail: SendGrid's click tracking would rewrite every
-        # call-to-action link through its own domain.
+        # Keep click tracking off: it would rewrite every call-to-action link through SendGrid's domain.
         'tracking_settings': {'click_tracking': {'enable': False, 'enable_text': False}},
     }
     if headers:
@@ -69,7 +68,7 @@ async def send_email(
             headers={'Authorization': f'Bearer {os.getenv("SENDGRID_API_KEY", "")}'},
         )
     except httpx.HTTPError as exc:
-        logger.warning('SendGrid send failed: %s', exc)
+        logger.warning('SendGrid send failed: %s', str(exc) or type(exc).__name__)
         return False
     if response.status_code >= 400:
         logger.warning('SendGrid refused a send with HTTP %s: %s', response.status_code, response.text[:300])

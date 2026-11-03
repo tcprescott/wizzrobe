@@ -3,17 +3,17 @@
     "name": "signup-phone",
     "user": "player_three",
     "path": "/home/schedule",
-    "selector": ".player-sheet__card:has-text(\"Player Four vs Player One\")",
+    "selector": ".player-sheet__card:has-text(\"Racer Five vs Racer Six\")",
     "hide": [
       ".q-footer"
     ],
     "annotate": [
       {
-        "selector": ".player-sheet__card:has-text(\"Player Four vs Player One\") >> button:has-text(\"Sign up as commentator\")",
+        "selector": ".player-sheet__card:has-text(\"Racer Five vs Racer Six\") >> button:has-text(\"Sign up as commentator\")",
         "n": 1
       },
       {
-        "selector": ".player-sheet__card:has-text(\"Player Four vs Player One\") >> button:has-text(\"Sign up as tracker\")",
+        "selector": ".player-sheet__card:has-text(\"Racer Five vs Racer Six\") >> button:has-text(\"Sign up as tracker\")",
         "n": 2
       }
     ]

@@ -14,7 +14,6 @@ from pydantic import BaseModel, ConfigDict, Field
 from api.schemas.common import AvailabilityWindowInput, SetAvailabilityRequest
 from models import VolunteerAvailabilityStatus
 
-# Player and volunteer availability share the window/set-request shapes.
 PlayerAvailabilityWindowInput = AvailabilityWindowInput
 SetPlayerAvailabilityRequest = SetAvailabilityRequest
 

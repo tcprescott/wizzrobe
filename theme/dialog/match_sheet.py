@@ -19,16 +19,24 @@ from nicegui import app, ui
 
 from application.content import parse_user_blocks
 from application.errors import NotFoundError
-from application.services import MatchCommentService, get_user_from_session
+from application.run_sheet import (
+    SHEET_CREW_ROLES,
+    decorate_run_sheet_row,
+    readiness,
+)
+from application.services import ItemTrackerService, MatchCommentService, StreamLayoutService, get_user_from_session
+from theme.busy import busy
 from theme.clipboard import copy_to_clipboard
 from theme.dialog._helpers import dialog_actions, dialog_header
 from theme.dialog.confirmation_dialog import ConfirmationDialog
 from theme.help.render import render_user_blocks
 from theme.markdown_editor import MarkdownEditor
+from theme.matchup import matchup_label
 from theme.menu import menu_action, more_menu
+from theme.notify import notify_error
 from theme.tables.match_access import MatchBoardAccess
-from theme.tables.match_run_sheet import decorate_run_sheet_row
 from theme.tables.match_slots import CANDIDATE_STAGE
+from theme.url_state import url_param, url_state
 
 _NO_STAGE = ''
 
@@ -38,12 +46,6 @@ _STATE_SINCE = {
     'Finished': 'Finished at',
     'Confirmed': 'Confirmed at',
 }
-
-_ROLES = (
-    # (row key, singular used by the view's handlers, heading)
-    ('commentators', 'commentator', 'Commentary'),
-    ('trackers', 'tracker', 'Tracking'),
-)
 
 
 def seed_rollable(row: dict) -> bool:
@@ -55,139 +57,82 @@ def seed_rollable(row: dict) -> bool:
     )
 
 
-def _names(names: list) -> str:
-    return names[0] if len(names) == 1 else ', '.join(names[:-1]) + ' and ' + names[-1]
-
-
-def readiness(row: dict, *, crew: bool = True) -> list[dict]:
-    """The match sheet's checklist, one item per thing a match needs.
-
-    ``ready`` is True or False for what a match can't start well without, and
-    None for what's only information (no stage just means off stream). Seed and
-    crew appear only where the tournament uses them, and crew only when the
-    viewer looks after crew (``crew``).
-    """
-    players = row.get('players') or []
-    acks = row.get('acknowledgments') or []
-    items = []
-
-    if not players:
-        items.append({'key': 'players', 'label': 'Players', 'ready': False, 'detail': 'Not decided yet'})
-    else:
-        unconfirmed = [a.get('name') or '' for a in acks if not a.get('acknowledged')]
-        if not unconfirmed:
-            detail = 'Everyone has confirmed'
-        elif len(unconfirmed) == len(players) and len(players) == 2:
-            detail = f'Neither {unconfirmed[0]} nor {unconfirmed[1]} has confirmed'
-        else:
-            detail = f"{_names(unconfirmed)} {'hasn' if len(unconfirmed) == 1 else 'haven'}'t confirmed"
-        items.append({'key': 'players', 'label': 'Players confirmed', 'ready': not unconfirmed, 'detail': detail})
-
-        stations = [(p.get('name') or '', p.get('station')) for p in players]
-        missing = [name for name, station in stations if not station]
-        if len(missing) == len(stations):
-            detail = 'Not assigned'
-        else:
-            detail = ' · '.join(f'{name} {station}' for name, station in stations if station)
-            if missing:
-                detail += f" · {_names(missing)} {'has' if len(missing) == 1 else 'have'} none"
-        items.append({'key': 'stations', 'label': 'Stations', 'ready': not missing, 'detail': detail})
-
-    stage = row.get('_stage') or ''
-    items.append({
-        'key': 'stage', 'label': 'Stage', 'ready': True if row.get('stage') else None,
-        'detail': stage or 'No stage',
-    })
-
-    seed = row.get('generated_seed')
-    if seed or row.get('tournament_seed_generator'):
-        if seed:
-            ready, detail = True, ''
-        elif row.get('seed_rolling_since'):
-            ready, detail = False, row.get('seed_rolling_label') or 'Rolling…'
-        elif row.get('seed_roll_error'):
-            ready, detail = False, row['seed_roll_error']
-        elif row.get('is_racetime'):
-            ready, detail = None, 'The race room rolls it'
-        else:
-            ready, detail = False, 'Not rolled'
-        items.append({'key': 'seed', 'label': 'Seed', 'ready': ready, 'detail': detail})
-
-    wanted = row.get('crew_wanted') or {}
-    required = row.get('crew_required') or {}
-    need = approved = waiting = 0
-    for key, _role, _label in _ROLES:
-        if not wanted.get(key):
-            continue
-        people = row.get(key) or []
-        got = sum(1 for p in people if p.get('approved'))
-        need += max((required.get(key) or 0) - got, 0)
-        approved += got
-        waiting += sum(1 for p in people if not p.get('approved'))
-    if crew and any(required.get(k) for k, _r, _l in _ROLES if wanted.get(k)):
-        if need:
-            detail = f'{need} more needed'
-            if waiting:
-                detail += f', {waiting} waiting for approval below'
-        else:
-            detail = 'Covered'
-        items.append({'key': 'crew', 'label': 'Crew', 'ready': not need, 'detail': detail})
-    return items
-
-
 class MatchSheet:
     """The match sheet. Two-phase like the lifecycle handlers: set ``view`` after
     the board exists, since the board needs ``open`` as its callback."""
 
     def __init__(self, handlers, *, access: MatchBoardAccess, show_crew: bool = True,
-                 decorate=decorate_run_sheet_row):
+                 decorate=decorate_run_sheet_row, url_key: str = 'sheet'):
         self.handlers = handlers
         self.access = access
-        # Off on the proctor's board: crew is not theirs to fix, so a crew gap
-        # must not hold their checklist below "ready".
         self.show_crew = show_crew
-        # The board's own row decorator, so the sheet's status chip says what
-        # the line it opened from says.
         self.decorate = decorate
         self.view: Any = None
         self.row: Optional[dict] = None
-        # Comments are read per viewer, so they are fetched when the sheet
-        # opens rather than carried on the board's rows, which every viewer of
-        # a shared board would otherwise receive.
-        # A copy, because comments can load where the session is out of reach.
+        # Fetched on open, not carried on rows that every viewer of a shared board receives.
+        # A copy: comments can load where the session is out of reach.
         self._session = dict(app.storage.user)
         self._viewer: Any = None
         self._comments: list = []
-        # Which comment box is open: 'private' or 'players' for staff, while
-        # a player's box is always open. The draft survives the repaints a
-        # live update causes while someone is typing.
         self._compose: Optional[str] = None
         self._draft = ''
-        # A deep link asks for a match before the board has loaded it.
         self._pending_open: Optional[int] = None
-        # mobile_sheet's own breakpoint, but a side sheet rather than a centred
-        # card above it: the board stays readable beside the open match.
+        self._tracker_link: Optional[str] = None
         with ui.dialog().props(''':position="Quasar.Screen.lt.sm ? 'bottom' : 'right'"''') as self.dialog, \
                 ui.card().classes('dialog-card match-sheet'):
             dialog_header('Match details', self.dialog)
             self._content = ui.refreshable(self._render)
             self._content()
         self.dialog.on('hide', self._closed)
+        self._pushed = False
+        asked = url_state().requested(url_key)
+        asked = asked if asked and asked.isdecimal() else ''
+        self._param = url_param(
+            url_key, self.dialog, default='', value=asked,
+            label=lambda v: 'Match details' if v else None, on_restore=self._restore,
+        )
+        if asked:
+            self.open_when_loaded(int(asked))
 
     def _closed(self) -> None:
         self.row = None
         self._compose = None
         self._draft = ''
+        if self._param.value:
+            if self._pushed:
+                self._param.value = ''
+                with self.dialog:
+                    ui.run_javascript('history.back()')
+            else:
+                self._param.set('', history='replace')
+        self._pushed = False
 
-    async def open(self, match_id) -> None:
+    async def _restore(self, value: str) -> None:
+        if value.isdecimal():
+            if self._find(int(value)) is None:
+                self.open_when_loaded(int(value))
+            else:
+                await self.open(int(value), record=False)
+        elif self.dialog.value:
+            self.dialog.close()
+
+    async def open(self, match_id, *, record: bool = True) -> None:
+        if isinstance(match_id, str) and match_id.startswith('future:'):
+            return
         row = self._find(match_id)
         if row is None:
             return
         self.row = row
         await self._load_comments()
+        self._tracker_link = await ItemTrackerService().sheet_link(
+            row['id'], self._viewer,
+        )
         with self.dialog:
             self._content.refresh()
             self.dialog.open()
+        if record and str(row.get('id')) != self._param.value:
+            self._pushed = not self._param.state.restoring
+            self._param.set(row.get('id'))
 
     def open_when_loaded(self, match_id: int) -> None:
         """Open ``match_id`` once the board's first load brings its row."""
@@ -198,7 +143,13 @@ class MatchSheet:
         if self._pending_open is not None:
             pending, self._pending_open = self._pending_open, None
             if any(r.get('id') == pending for r in rows):
-                self.view._bg(self.open(pending))
+                self.view._bg(self.open(pending, record=False))
+                self._param.set(pending, history='replace')
+            else:
+                with self.dialog:
+                    ui.notify("That match isn't on this board any more.", color='warning')
+                if self._param.value == str(pending):
+                    self._param.set('', history='replace')
         if self.row is None:
             return
         fresh = next((r for r in rows if r.get('id') == self.row.get('id')), None)
@@ -220,11 +171,16 @@ class MatchSheet:
         """
         self.view._bg(handler(*args))
 
+    def _run_busy(self, e, text: str, handler, *args) -> None:
+        """``_run`` for a slow callback, with the pressed button busy meanwhile."""
+        async def go() -> None:
+            async with busy(e.sender, text):
+                await handler(*args)
+        self.view._bg(go())
+
     def _find(self, match_id) -> Optional[dict]:
         rows = self.view.table.rows if self.view else []
         return next((r for r in rows if r.get('id') == match_id), None)
-
-    # -- rendering -------------------------------------------------------
 
     def _render(self) -> None:
         row = self.row
@@ -241,12 +197,19 @@ class MatchSheet:
         self._footer(row)
 
     def _headline(self, row: dict) -> None:
-        when = ' '.join(part for part in (row.get('_day'), row.get('_time')) if part)
+        when = ' '.join(part for part in (row.get('_booked_day', row.get('_day')),
+                                         row.get('_booked_time', row.get('_time'))) if part)
         context = ' · '.join(part for part in (when, row.get('tournament')) if part)
         ui.label(context).classes('match-sheet__note')
-        title = row.get('_who') or (row.get('bracket') or {}).get('name') or row.get('title') or 'Match'
-        heading = ui.label(title).classes('match-sheet__title')
-        heading.tag = 'h3'
+        if row.get('_who_parts'):
+            matchup_label(row['_who_parts'], 'match-sheet__title', tag='h3')
+        else:
+            title = row.get('_who') or (row.get('bracket') or {}).get('name') or row.get('title') or 'Match'
+            heading = ui.label(title).classes('match-sheet__title')
+            heading.tag = 'h3'
+        if row.get('description'):
+            with ui.column().classes('match-sheet__description gap-0 full-width'):
+                render_user_blocks(parse_user_blocks(row['description']))
         bracket = row.get('bracket')
         if bracket and bracket.get('id'):
             label = bracket.get('name') or 'Bracket'
@@ -255,11 +218,17 @@ class MatchSheet:
             ui.button(label, icon='account_tree',
                       on_click=lambda: self.view._handle_open_bracket(SimpleNamespace(args=row))) \
                 .props('flat dense no-caps color=primary').classes('self-start')
+        if self._tracker_link:
+            link = self._tracker_link
+            ui.button('Item tracker', icon='grid_view', on_click=lambda: ui.navigate.to(link)) \
+                .props('flat dense no-caps color=primary').classes('self-start')
 
     def _status(self, row: dict) -> None:
         with ui.row().classes('items-center gap-2 full-width match-sheet__status'):
             with ui.element('span').classes(f"wiz-chip wiz-chip--{row['_tone']}"):
                 ui.label(row['_status'])
+            if row.get('forfeit'):
+                ui.label(row['forfeit']).classes('match-sheet__note')
             since = _STATE_SINCE.get(row.get('state') or '')
             if since and row.get('state_time'):
                 ui.label(f"{since} {row['state_time']}").classes('match-sheet__note')
@@ -271,17 +240,21 @@ class MatchSheet:
         match_id = row['id']
         state = row.get('state')
         h = self.handlers
-        if self.access.run and row.get('players') and not row.get('is_racetime'):
+        if self.access.can_run_row(row) and row.get('players') and not row.get('is_racetime'):
             if state == 'Scheduled':
                 ui.button('Check in', icon='event_seat',
                           on_click=lambda: self._run(h.on_seat, match_id)).props('color=primary')
             elif state == 'Checked In':
                 ui.button('Start match', icon='play_arrow',
                           on_click=lambda: self._run(h.on_start, match_id)).props('color=primary')
+            elif state == 'Started' and row.get('_pending_result'):
+                ui.label(row['_pending_result']).classes('match-sheet__note')
+            elif state == 'Started' and row.get('_winners') and getattr(h, 'on_report_winner', None):
+                self._winner_buttons(row)
             elif state == 'Started':
                 ui.button('Finish', icon='sports_score',
                           on_click=lambda: self._run(h.on_finish, match_id)).props('color=primary')
-        if self.access.confirm and state == 'Finished':
+        if self.access.can_confirm_row(row) and state == 'Finished':
             if not row.get('has_result'):
                 ui.button('Record winner', icon='emoji_events',
                           on_click=lambda: self._run(h.on_edit_result, match_id)).props('color=primary')
@@ -291,11 +264,22 @@ class MatchSheet:
                 ui.button('Review result' if row.get('needs_review') else 'Confirm result',
                           icon='verified', on_click=lambda: self._run(h.on_confirm, match_id)) \
                     .props('color=primary')
-        if self.access.confirm and state == 'Confirmed':
+        if self.access.can_confirm_row(row) and state == 'Confirmed':
             ui.button('Change result', on_click=lambda: self._run(h.on_edit_result, match_id)) \
                 .props('flat color=primary')
         if row.get('is_racetime') and state not in ('Finished', 'Confirmed'):
             ui.label('Runs on racetime.gg').classes('match-sheet__note')
+
+    def _winner_buttons(self, row: dict) -> None:
+        """Who won, one tap each, with Undo in the toast: the row's buttons."""
+        with ui.row().classes('items-center gap-2 match-sheet__winners') \
+                .props('role=group aria-label="Who won?"'):
+            ui.label('Who won?').classes('match-sheet__note')
+            for player in row['_winners']:
+                ui.button(player['name'],
+                          on_click=lambda _, pid=player['id']: self._run(
+                              self.handlers.on_report_winner, row['id'], pid)) \
+                    .props('outline no-caps color=primary')
 
     def _setup(self, row: dict) -> None:
         """The setup as a checklist: what's ready, what's missing, and the fix
@@ -336,7 +320,7 @@ class MatchSheet:
     def _check_stations(self, row: dict, item: dict) -> None:
         with ui.row().classes('items-center no-wrap full-width gap-2'):
             ui.label(item['detail']).classes('match-sheet__note col')
-            if self.access.run and row.get('state') in ('Scheduled', 'Checked In', 'Started'):
+            if self.access.can_run_row(row) and row.get('state') in ('Scheduled', 'Checked In', 'Started'):
                 ui.button('Assign' if item['ready'] is False else 'Change',
                           on_click=lambda: self._run(self.handlers.on_assign_stations, row['id'])) \
                     .props('outline dense no-caps color=primary').classes('match-sheet__check-act')
@@ -344,7 +328,7 @@ class MatchSheet:
     def _check_stage(self, row: dict, item: dict) -> None:
         match_id = row['id']
         with ui.row().classes('items-center no-wrap full-width gap-2'):
-            if self.access.assign_stream and self.view is not None:
+            if self.access.can_assign_stream_row(row) and self.view is not None:
                 options = {_NO_STAGE: 'No stage'}
                 for opt in self.view._stage_options() or []:
                     if opt['value'] is not None:
@@ -373,10 +357,16 @@ class MatchSheet:
                 ui.label(item['detail']).classes(
                     'col ' + ('st-cancelled' if row.get('seed_roll_error') else 'match-sheet__note'))
             if seed:
-                ui.button('Copy', on_click=lambda: copy_to_clipboard(seed, 'Seed')) \
-                    .props('outline dense no-caps color=primary').classes('match-sheet__check-act')
-            elif not row.get('seed_rolling_since') and self.access.run and seed_rollable(row):
-                ui.button('Generate', on_click=lambda: self._run(self.handlers.on_generate_seed, row['id'])) \
+                with ui.column().classes('gap-2 items-stretch no-wrap'):
+                    ui.button('Copy', on_click=lambda: copy_to_clipboard(seed, 'Seed')) \
+                        .props('outline dense no-caps color=primary').classes('match-sheet__check-act')
+                    if self.access.can_edit_row(row) and hasattr(self.handlers, 'on_clear_seed'):
+                        ui.button('Clear…', on_click=lambda: self._run(self.handlers.on_clear_seed, row['id'])) \
+                            .props('outline dense no-caps color=negative aria-label="Clear seed"') \
+                            .classes('match-sheet__check-act')
+            elif not row.get('seed_rolling_since') and self.access.can_run_row(row) and seed_rollable(row):
+                ui.button('Generate', on_click=lambda e: self._run_busy(
+                    e, 'Rolling…', self.handlers.on_generate_seed, row['id'])) \
                     .props('outline dense no-caps color=primary').classes('match-sheet__check-act')
         if seed and row.get('seed_code'):
             ui.label(row['seed_code']).classes('seed-code')
@@ -390,7 +380,7 @@ class MatchSheet:
 
     def _crew(self, row: dict) -> None:
         wanted = row.get('crew_wanted') or {}
-        roles = [r for r in _ROLES if wanted.get(r[0]) or row.get(r[0])]
+        roles = [r for r in SHEET_CREW_ROLES if wanted.get(r[0]) or row.get(r[0])]
         if not roles:
             return
         heading = ui.label('Crew').classes('match-sheet__section')
@@ -433,30 +423,26 @@ class MatchSheet:
                 ui.label('confirmed').classes('match-sheet__pill-state st-ok')
             else:
                 ui.label("hasn't confirmed").classes('match-sheet__pill-state')
-            if self.access.approve_crew:
+            if self.access.can_approve_crew_row(row):
                 with ui.button(icon='more_vert').props(f'flat round dense size=sm color=primary aria-label="More for {name}"'):
                     with ui.menu():
                         ui.menu_item('Open profile', on_click=self._profile(row, role, idx))
                         ui.menu_item('Un-approve', on_click=self._toggle(row, role, idx))
 
     def _waiting(self, row: dict, role: str, waiting: list) -> None:
-        # The people waiting on staff get the weight; approved crew shrinks to
-        # pills above. Three runs of link-coloured text per person read as one blur.
         with ui.column().classes('match-sheet__waiting full-width gap-0'):
-            heading = 'Waiting for you' if self.access.approve_crew else 'Signed up'
+            heading = 'Waiting for you' if self.access.can_approve_crew_row(row) else 'Signed up'
             ui.label(f'{heading} · {len(waiting)}').classes('match-sheet__waiting-head')
             for idx, person in waiting:
                 with ui.row().classes('match-sheet__waiting-row items-center no-wrap full-width'):
                     name = person.get('name') or ''
-                    if self.access.approve_crew:
+                    if self.access.can_approve_crew_row(row):
                         ui.button(name, on_click=self._profile(row, role, idx), color=None) \
                             .props('flat dense no-caps align=left').classes('match-sheet__waiting-name col') \
                             .tooltip(f"Open {name}'s profile")
                         ui.button('Approve', on_click=self._toggle(row, role, idx)).props('no-caps color=primary')
                     else:
                         ui.label(name).classes('match-sheet__waiting-name col')
-
-    # -- comments ------------------------------------------------------
 
     async def _load_comments(self) -> None:
         if self.row is None:
@@ -488,7 +474,7 @@ class MatchSheet:
         between a private note and a message the players read. A player reads
         their own comments and staff's messages, and writes to staff.
         """
-        staff = self.access.run
+        staff = self.access.can_run_row(row)
         player = self._plays(row)
         if not (staff or player):
             return
@@ -631,9 +617,30 @@ class MatchSheet:
             return
         await self._reload_comments()
 
+    async def _pin_overlay(self, match_id: int) -> None:
+        viewer = await get_user_from_session(self._session)
+        try:
+            if viewer is None:
+                raise PermissionError('Your session has ended. Sign in again.')
+            await StreamLayoutService().pin_match(viewer, match_id)
+        except (ValueError, PermissionError) as e:
+            with self.dialog:
+                notify_error(e)
+            return
+        with self.dialog:
+            ui.notify("Pinned. The stage's overlay shows this match until it's set back to "
+                      'automatic under Admin → Stream Layouts.', color='positive')
+
     def _footer(self, row: dict) -> None:
-        if not self.access.edit:
+        can_edit = self.access.can_edit_row(row)
+        can_pin = self.access.pin_overlay and bool(row.get('stage_id'))
+        if not (can_edit or can_pin):
             return
         with dialog_actions().classes('justify-end'):
-            ui.button('Edit match', icon='edit', on_click=lambda: self._run(self.handlers.on_edit, row['id'])) \
-                .props('flat color=primary')
+            if can_pin:
+                ui.button('Pin to overlay', icon='push_pin',
+                          on_click=lambda: self._run(self._pin_overlay, row['id'])) \
+                    .props('flat color=primary')
+            if can_edit:
+                ui.button('Edit match', icon='edit', on_click=lambda: self._run(self.handlers.on_edit, row['id'])) \
+                    .props('flat color=primary')

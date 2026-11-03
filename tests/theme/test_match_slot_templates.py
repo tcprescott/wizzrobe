@@ -142,7 +142,6 @@ def test_both_layouts_offer_to_change_a_recorded_winner():
     state_cell, card = _state_and_grid_slots()
     assert EDIT_RESULT_EMIT in state_cell
     assert EDIT_RESULT_EMIT in card
-    # The mobile mirror must be readable without a hover, so it is labelled.
     assert 'Change Winner' in card
 
 
@@ -272,8 +271,7 @@ def test_assigning_stations_is_labelled_on_both_layouts():
         discord_id='1', has_edit=True,
     )
     players_cell = cells.slots['body-cell-players']
-    # The button's own markup, so the comment above it explaining the icon it
-    # replaced doesn't satisfy the assertion.
+    # The button's own markup, so a nearby comment mentioning the icon doesn't satisfy the assertion.
     btn_start = players_cell.rindex('<q-btn', 0, players_cell.index("$emit('assign_stations'"))
     stations_btn = players_cell[btn_start:]
     stations_btn = stations_btn[:stations_btn.index('</q-btn>')]
@@ -299,12 +297,6 @@ def test_overdue_emphasis_is_mirrored_on_the_mobile_headline():
     assert 'props.row.is_overdue' in cells.slots['body-cell-scheduled_at']
 
 
-# --- The capability split ---------------------------------------------------
-#
-# Each control below has one gate in ``AuthService`` and used to have a different
-# one on the board. These pin the pairing per role, on both layouts, because a
-# desktop-only fix is invisible to every phone on the floor.
-
 def _players_and_crew(access):
     cells = FakeTable()
     register_body_slots(
@@ -319,11 +311,11 @@ def _players_and_crew(access):
 
 
 @pytest.mark.parametrize('access,allowed', [
-    (STAFF, True), (PROCTOR, True), (COORDINATOR, False), (STREAM_MANAGER, False),
+    (STAFF, True), (PROCTOR, True), (COORDINATOR, False),
 ])
 def test_running_a_match_needs_the_run_capability(access, allowed):
     """Check In / Start / Finish / Stations are ``can_run_match``, which admits a
-    proctor and refuses a coordinator and a stream manager alike."""
+    proctor and refuses a coordinator."""
     assert access.run is allowed
     state_cell, card = _state_and_grid_slots(access)
     cells, _grid = _players_and_crew(access)
@@ -335,6 +327,19 @@ def test_running_a_match_needs_the_run_capability(access, allowed):
         assert ('false' in guard) != allowed, (
             f'{emit} is guarded by {guard!r} for {access}'
         )
+
+
+def test_a_broadcast_tech_runs_only_rows_on_a_stage():
+    """``can_run_match`` admits a broadcast tech for a match with a stage, so
+    every run guard reads the row's stage rather than a constant."""
+    state_cell, card = _state_and_grid_slots(STREAM_MANAGER)
+    cells, _grid = _players_and_crew(STREAM_MANAGER)
+
+    for template, emit in ((state_cell, "$parent.$emit('seat'"),
+                           (card, "$parent.$emit('seat'"),
+                           (cells['body-cell-players'], "$emit('assign_stations'")):
+        guard = _own_guard(template, emit)
+        assert '(!!props.row.stage_id)' in guard, f'{emit} is guarded by {guard!r}'
 
 
 @pytest.mark.parametrize('access,allowed', [
@@ -388,8 +393,6 @@ def test_a_viewer_who_can_run_nothing_still_reads_the_state():
         state_cell, "$parent.$emit('seat'")
 
 
-# --- One read-only state cell, not three -----------------------------------
-
 def test_the_read_only_cells_have_callers():
     """``state_readonly_slot`` and ``SEED_SLOT_READONLY`` were written *"so pages
     can drop their inline templates"* and then had zero callers, while the home
@@ -397,13 +400,10 @@ def test_the_read_only_cells_have_callers():
     divergent copies of one cell, in a layer with no render coverage."""
     from theme.tables.match_slots import SEED_SLOT_READONLY, state_readonly_slot
 
-    # The home schedule and the player dashboard were the other two, until each
-    # became a run sheet whose seed and state live in the match details sheet.
     for path in ('pages/room_seeds.py',):
         src = pathlib.Path(path).read_text()
         assert 'state_readonly_slot(' in src, path
         assert 'SEED_SLOT_READONLY' in src, path
-        # And no hand-rolled replacement crept back in beside it.
         assert "'body-cell-state': '''" not in src, path
         assert "'body-cell-generated_seed': '''" not in src, path
 
@@ -431,13 +431,9 @@ class TestTheStageCell:
         from theme.tables.match_slots import STAGE_ADMIN_SLOT
         assert 'borderless' in STAGE_ADMIN_SLOT
         assert 'outlined' not in STAGE_ADMIN_SLOT
-        # aria-label names it for screen readers without drawing anything.
         assert not re.search(r'(?<![-\w])label="Stage"', STAGE_ADMIN_SLOT)
 
     def test_no_stage_is_an_option_rather_than_a_clear_button(self):
-        # "None" is one of the answers, not the absence of one — and a clear
-        # affordance that appears only once something is chosen cannot be found
-        # by someone looking for it.
         from theme.tables.match_grid import _STREAM_DETAIL
         from theme.tables.match_slots import STAGE_ADMIN_SLOT
         assert 'clearable' not in STAGE_ADMIN_SLOT
@@ -564,7 +560,6 @@ def test_the_offer_disappears_once_the_match_is_under_way():
     assert 'props.row._stream_volunteer' in STREAM_VOLUNTEER_ACTIONABLE
     assert "['Scheduled', 'Checked In'].includes(props.row.state)" in STREAM_VOLUNTEER_ACTIONABLE
 
-    # And the mobile card reads the same expression rather than a second copy.
     grid = FakeTable()
     render_grid_slot(
         grid, [*ADMIN_COLUMNS,
@@ -588,10 +583,7 @@ def test_the_reschedule_ask_is_only_offered_to_a_player_in_the_match():
         "$parent.$emit('request_reschedule'",
     )
     assert "props.row.players.some(p => p.discord_id == '7')" in guard
-    # Scheduled only: once seated the answer is the proctor, not a queue entry.
     assert "props.row.state === 'Scheduled'" in guard
-    # And the server-side gate, which carries the tournament toggle, the
-    # SpeedGaming refusal and "you already asked".
     assert 'props.row._can_reschedule' in guard
 
 

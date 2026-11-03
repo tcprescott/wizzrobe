@@ -13,14 +13,13 @@ instants make up "that day" is a rule about the display clock, and grouping by
 stage is the shape the board wants rather than the shape the table has.
 """
 
-from datetime import date, timedelta
-from typing import Dict, List, Optional, Tuple
+from datetime import date, datetime, timedelta
+from typing import Dict, FrozenSet, List, Optional, Tuple
 
 from application.repositories import MatchRepository
 from application.utils.timezone import local_day_bounds
 from models import Match, MatchPlayers, Stage, User
 
-# The four answers to "what is this match to you?", strongest tie first.
 RELATION_PLAYER = 'player'
 RELATION_CREW = 'crew'
 RELATION_WATCHER = 'watcher'
@@ -45,6 +44,38 @@ class MatchReadsMixin:
         """
         return await self.repository.get_by_id(match_id, prefetch_relations=prefetch_relations)
 
+    async def schedule_page(
+        self,
+        *,
+        first: int,
+        after: Optional[Tuple[datetime, int]] = None,
+        tournament_ids: Optional[List[int]] = None,
+        stage_ids: Optional[List[int]] = None,
+        start: Optional[datetime] = None,
+        end: Optional[datetime] = None,
+    ) -> Tuple[List[Match], bool]:
+        """One page of the current event's scheduled matches, soonest first,
+        and whether another page follows. Any member may read the schedule."""
+        if first < 0:
+            raise ValueError('first must be 0 or more')
+        rows = await self.repository.schedule_page(
+            first=first, after=after, tournament_ids=tournament_ids, stage_ids=stage_ids, start=start, end=end,
+        )
+        return rows[:first], len(rows) > first
+
+    @staticmethod
+    def approved_crew(match: Match) -> List[Tuple[str, User]]:
+        """``(role, user)`` for the match's approved crew. A pending signup is
+        between the volunteer and the coordinators, so a schedule never shows it."""
+        crew: List[Tuple[str, User]] = []
+        for role, rows in (
+            ('commentator', match.commentators),  # type: ignore[attr-defined]
+            ('tracker', match.trackers),  # type: ignore[attr-defined]
+            ('broadcaster', match.broadcasters),  # type: ignore[attr-defined]
+        ):
+            crew.extend((role, row.user) for row in rows if row.approved)
+        return crew
+
     async def viewer_relation(self, match_id: int, user: Optional[User]) -> str:
         """What ``match_id`` is to ``user``: player, crew, watcher, or none.
 
@@ -62,7 +93,7 @@ class MatchReadsMixin:
             return RELATION_NONE
         if any(p.user_id == user.id for p in match.players):
             return RELATION_PLAYER
-        crew = [*match.commentators, *match.trackers]
+        crew = [*match.commentators, *match.trackers, *match.broadcasters]
         if any(c.user_id == user.id for c in crew):
             return RELATION_CREW
         from application.repositories import MatchWatcherRepository
@@ -70,6 +101,42 @@ class MatchReadsMixin:
         if await MatchWatcherRepository.is_watching(match_id, user.id):
             return RELATION_WATCHER
         return RELATION_NONE
+
+    async def bracket_link_candidates(self, tournament_ids: List[int]) -> List[Match]:
+        """Matches staff could link to a bracket matchup: unconfirmed and unlinked."""
+        return await self.repository.bracket_link_candidates(tournament_ids)
+
+    async def unambiguous_link_candidates(self, tournament_id: int) -> Dict[FrozenSet[int], Match]:
+        """Link candidates keyed by their two players, keeping only a pair with exactly one.
+
+        A sync re-attaches a booking to its matchup by this after a bracket reset
+        renumbers every match; a pair with two candidates is left for staff.
+        """
+        by_pair: Dict[FrozenSet[int], List[Match]] = {}
+        for match in await self.repository.bracket_link_candidates([tournament_id]):
+            players = frozenset(p.user_id for p in match.players)
+            if len(players) == 2 and len(match.players) == 2:
+                by_pair.setdefault(players, []).append(match)
+        return {pair: found[0] for pair, found in by_pair.items() if len(found) == 1}
+
+    async def require_bracket_linkable(
+        self, match_id: int, tournament_id: int, player_ids: List[Optional[int]],
+    ) -> Match:
+        """Load ``match_id`` if it may back a bracket matchup with these players, else raise.
+
+        The players must be exactly the matchup's two: a site's result is read
+        off whose rank is whose, so a mismatched link would report nothing.
+        """
+        candidates = await self.repository.bracket_link_candidates([tournament_id])
+        match = next((m for m in candidates if m.id == match_id), None)
+        if match is None:
+            raise ValueError(
+                "That match can't be linked: it's in another tournament, already "
+                "linked to a bracket, or already confirmed."
+            )
+        if {p.user_id for p in match.players} != set(player_ids):
+            raise ValueError("That match's players aren't this matchup's two players.")
+        return match
 
     async def get_match_players(self, match: Match) -> List[MatchPlayers]:
         return await self.repository.get_players(match)
@@ -120,6 +187,10 @@ class MatchReadsMixin:
         the days after them. Days resolve on the display clock, as above.
         """
         start, end = local_day_bounds(first_day, first_day + timedelta(days=days - 1))
+        return await self.repository.scheduled_between(start, end, True, True)
+
+    async def streamed_between(self, start: datetime, end: datetime) -> List[Match]:
+        """Unfinished matches on a stage scheduled in ``[start, end)``, for the app's stage cards."""
         return await self.repository.scheduled_between(start, end, True, True)
 
     async def group_matches_by_stage(

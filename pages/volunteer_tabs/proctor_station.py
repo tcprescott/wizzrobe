@@ -13,6 +13,7 @@ from typing import Optional
 
 from nicegui import ui
 
+from application.services import AuthService
 from application.tenant_context import require_tenant_id
 from models import Match, User
 from theme.dialog.match_sheet import MatchSheet
@@ -25,14 +26,18 @@ from theme.tables.match_run_sheet import PROCTOR_RUN_SHEET_COLUMNS, proctor_grou
 from theme.tables.preferences import TableKeys
 
 
+def _on_stage(row: dict) -> bool:
+    return row.get('stage_id') is not None
+
+
 async def proctor_station_tab(user: Optional[User] = None) -> None:
+    on_stage_only = await AuthService.proctor_station_on_stage_only(user)
     with ui.column().classes('page-container-wide') as page_container:
         with page_header(
             'Proctor Station',
-            'Every match in this room, grouped by what it needs from you next.',
+            'Every match on a stage, grouped by what it needs from you next.' if on_stage_only
+            else 'Every match in this room, grouped by what it needs from you next.',
         ):
-            # The last two read from the event handbook and are role-gated, so
-            # the viewer is passed in rather than looked up per topic.
             await help_icon(
                 ('proctor-station', 'The station board'),
                 'proctor-run-match',
@@ -43,17 +48,21 @@ async def proctor_station_tab(user: Optional[User] = None) -> None:
             ui.space()
 
         def get_query():
-            return Match.filter(tenant_id=require_tenant_id())
+            # The handlers' per-row lookup: a row decides its own event (event-scope: exempt).
+            query = Match.filter(tenant_id=require_tenant_id())
+            return query.filter(stage_id__isnull=False) if on_stage_only else query
 
-        # The proctor runs matches and nothing else: no edit dialog, no confirm,
-        # no stage, no crew approval — exactly what ``can_run_match`` admits them
-        # to and every other gate refuses.
-        access = MatchBoardAccess(run=True)
+        access = (
+            MatchBoardAccess(run=True, run_scope=frozenset(), run_on_stage=True)
+            if on_stage_only else MatchBoardAccess(run=True)
+        )
         handlers = MatchLifecycleHandlers(page_container, access=access)
         sheet = MatchSheet(handlers, access=access, show_crew=False)
         table_view = MatchTableView(
             columns=PROCTOR_RUN_SHEET_COLUMNS,
             get_query=get_query,
+            # Rows come from the display service, not get_query, so the stage-only scope must ride on the row filter.
+            row_filter=_on_stage if on_stage_only else None,
             admin_controls=True,
             access=access,
             storage_key='proctor',
@@ -72,8 +81,7 @@ async def proctor_station_tab(user: Optional[User] = None) -> None:
         handlers.table_view = table_view
         sheet.view = table_view
 
-        # Through the view's _bg so the tab-switch refresh keeps the tenant the
-        # request was resolved against (the handler runs in a detached task).
+        # Through the view's _bg, so the refresh rebinds the tenant the detached tab handler lost.
         def on_tab_selected():
             table_view._bg(table_view.refresh())
         ui.on('selected_tab', lambda e: on_tab_selected() if e.args == 'Proctor Station' else None)

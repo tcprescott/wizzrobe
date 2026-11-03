@@ -16,6 +16,7 @@ from models import CheckInEntrant, CheckInEvent, CheckInEventStatus, CheckInTier
 from theme.connection import REQUIRES_SOCKET_CLASS
 from theme.dialog._helpers import dialog_actions, form_dialog, submit_on_enter
 from theme.notify import notify_error
+from theme.pickers import CHIP_PROPS
 
 OnDone = Callable[[], Awaitable[None]]
 
@@ -129,6 +130,7 @@ async def open_walk_up_dialog(
 
     with form_dialog('Add walk-up', card_classes='dialog-card dialog-card--sm') as dialog:
         with ui.column().classes('q-pa-md gap-3 full-width'):
+            # url-state: exempt — a form choice inside a dialog
             mode = ui.toggle({'member': 'A member', 'name': 'Just a name'}, value='member') \
                 .props('no-caps spread unelevated').classes('wiz-segmented w-full')
             member_box = ui.column().classes('w-full gap-1')
@@ -240,7 +242,7 @@ async def open_event_dialog(
                 {role.value: comp_label(role.value) for role in Role.tenant_grantable()},
                 label='Comp everyone with these roles', multiple=True,
                 value=list(event.comp_roles) if event else [],
-            ).props('outlined dense use-chips clearable').classes('w-full')
+            ).props(CHIP_PROPS).props('outlined dense clearable').classes('w-full')
             tiers = await SystemConfigService.get_volunteer_comp_tiers()
             threshold = f'{tiers[0]:g}' if tiers else None
             comp_volunteers = ui.switch(

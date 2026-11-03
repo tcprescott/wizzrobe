@@ -92,7 +92,7 @@ def test_dialog_cards_use_the_three_standard_sizes():
             continue
         arg = classes[-1].args[0] if classes[-1].args else None
         if not (isinstance(arg, ast.Constant) and isinstance(arg.value, str)):
-            continue  # a parameter, e.g. form_dialog(card_classes=...)
+            continue
         if 'dialog-card' not in arg.value.split():
             bad.append(f'{where}: classes {arg.value!r} lack dialog-card')
         elif _WIDTH_CLASS.search(arg.value):
@@ -134,8 +134,6 @@ def test_titles_come_from_page_header_not_typography_classes():
                 if any(isinstance(v, str) and _TITLE_CLASS.search(v) for v in values) and not _exempt(lines, node.lineno):
                     bad.append(f'{rel}:{node.lineno}')
     assert not bad, 'Heading-size classes (use page_header / section_panel / dialog_header):\n  ' + '\n  '.join(bad)
-
-
 
 
 def test_dialogs_use_the_shared_header():
@@ -469,8 +467,6 @@ def test_overflow_buttons_are_named_for_their_row():
         for i, line in enumerate(lines):
             if 'more_vert' not in line or EXEMPT in line:
                 continue
-            # The button's own tag or call: up to the closing `>` of a <q-btn>,
-            # or the next few chained lines of a ui.button.
             chunk = '\n'.join(lines[i:i + 4])
             chunk = chunk.split('<q-menu', 1)[0].split('ui.menu(', 1)[0]
             named = re.search(r"""aria-label[^\n]*?['"]\s*More|tooltip\(\s*['"]More""", chunk)
@@ -579,14 +575,22 @@ def test_destructive_calls_go_through_a_confirmation():
     )
 
 
-def test_side_menu_is_224px():
-    """The drawer's longest label needs about 175px; Quasar's 300px default left a
-    wide empty strip beside the nav on desktop."""
+def test_side_menu_width():
+    """248px pinned on desktop; on a phone 85% of the screen, capped at 340px, so
+    rows are thumb-sized and the page still peeks out. The width goes through the
+    prop, not CSS: Quasar offsets the closed drawer by it."""
+    from theme.base import DRAWER_WIDTH_DESKTOP, DRAWER_WIDTH_JS, DRAWER_WIDTH_PHONE_MAX
+
+    assert DRAWER_WIDTH_DESKTOP == 248
+    assert DRAWER_WIDTH_PHONE_MAX == 340
+    assert 'Quasar.Screen.width * 0.85' in DRAWER_WIDTH_JS
     base = (ROOT / 'theme' / 'base.py').read_text()
-    assert re.search(r"bordered width=224\b", base), 'The side menu drawer should be width=224'
+    assert ':width="{DRAWER_WIDTH_JS}"' in base, 'The side menu drawer should take its width from DRAWER_WIDTH_JS'
+    css = (ROOT / 'static' / 'css' / 'styles.css').read_text()
+    assert not re.search(r'\.q-drawer(--\w+)?\s*\{[^}]*(?<![-\w])width\s*:', css), (
+        'Set the drawer width through DRAWER_WIDTH_JS, not CSS'
+    )
 
-
-# --- styles.css ---------------------------------------------------------------
 
 def _strip_comments(css: str) -> str:
     return re.sub(r'/\*.*?\*/', lambda m: '\n' * m.group(0).count('\n'), css, flags=re.S)

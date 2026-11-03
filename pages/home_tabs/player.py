@@ -1,37 +1,48 @@
 
 
+from dataclasses import dataclass, replace
+from typing import Callable
+
 from nicegui import app, ui
 
 from application.services import (
     BracketService,
     ChallongeService,
+    EventService,
     FeatureFlagService,
     MatchHardPresetService,
     MatchRescheduleService,
     MatchService,
+    RoundScheduleService,
     TournamentService,
+    bracket_sources,
     get_user_from_session,
 )
+from application.services.event_service import with_event_name
 from application.services.match.match_reads import (
     RELATION_CREW,
     RELATION_PLAYER,
     RELATION_WATCHER,
 )
 from application.utils.app_links import HOME_PLAYER, HOME_SCHEDULE, home_url
-from application.utils.match_labels import challonge_round_label
+from application.utils.game_order import remaining_slots
+from application.utils.match_labels import challonge_round_label, entrant_name
 from application.utils.timezone import format_local_display
 from models import FeatureFlag, RescheduleRequestKind, RescheduleRequestStatus
 from pages.home_tabs.player_asks import render_opponent_requests
 from pages.home_tabs.race_rooms_section import render_race_rooms
 from theme.dialog.bracket_schedule_dialog import BracketScheduleDialog
+from theme.dialog.bracket_source_schedule_dialog import BracketSourceScheduleDialog
 from theme.dialog.challonge_schedule_dialog import ChallongeScheduleDialog
 from theme.dialog.hard_preset_dialog import HardPresetDialog
 from theme.dialog.match_dialog import UserMatchDialog
 from theme.dialog.match_sheet import MatchSheet
 from theme.dialog.reschedule_request_dialog import RescheduleRequestDialog
+from theme.links import link_button
 from theme.nav_badges import set_nav_count
 from theme.notify import notify_error
 from theme.section import section_panel
+from theme.steady import steady_refreshable
 from theme.tables.match import MatchTableView
 from theme.tables.match_access import MatchBoardAccess
 from theme.tables.match_player_run_sheet import (
@@ -40,13 +51,14 @@ from theme.tables.match_player_run_sheet import (
     decorate_player_row,
 )
 from theme.tables.preferences import TableKeys
+from theme.tables.run_sheet_meta import crew_columns
 
 
 def _next_game_number(bracket_match, best_of: int) -> int:
-    """The slot the service would allocate next — for labelling only.
+    """The slot the service would allocate next, which guards a stale dialog.
 
     ``list_open_matches_for_user`` only returns matchups with a slot free, so the
-    fallback is unreachable; it keeps the label sane rather than raising in a
+    fallback is unreachable; it keeps the dialog sane rather than raising in a
     render pass if that ever changes.
     """
     taken = {g.game_number for g in bracket_match.games}
@@ -68,7 +80,7 @@ def _notify_stale_schedule_link() -> None:
 
 def _report_stale_deep_link(deep_link: dict) -> None:
     """The same notice for the case where the viewer has no open matchups at all."""
-    stale = [deep_link.pop(key, None) for key in ('matchup_id', 'challonge_id')]
+    stale = [deep_link.pop(key, None) for key in ('matchup_id', 'challonge_id', 'startgg')]
     if any(v is not None for v in stale):
         _notify_stale_schedule_link()
 
@@ -86,8 +98,9 @@ def _booking_caption(tournaments) -> str:
     return caption + '.'
 
 
-async def _waiting_on_you(user) -> tuple[list, list]:
-    """The player's Challonge matchups and native bracket matchups with no time yet.
+async def _waiting_on_you(user) -> tuple[list, list, list]:
+    """The player's bracket matchups with no time yet: Challonge, native, and
+    every other linked bracket site (start.gg) through the shared bracket sources.
 
     Each source only where the community runs it: the services refuse a
     listing without their feature, and My Schedule itself isn't flag-gated.
@@ -100,10 +113,21 @@ async def _waiting_on_you(user) -> tuple[list, list]:
     matchups: list = []
     if FeatureFlag.BRACKETS in live:
         matchups = await BracketService().list_open_matches_for_user(user.id)
-    return challonge_rows, matchups
+    external = await bracket_sources.list_bookable_for_user(user)
+    # A Challonge best-of set comes back from the bracket sources a row per game.
+    sets = {x.key for x in external if x.source == 'challonge'}
+    challonge_rows = [cm for cm in challonge_rows if cm.id not in sets]
+    return challonge_rows, matchups, external
 
 
-def _bookable_count(challonge_rows, matchups) -> int:
+def _open_games(bracket_match) -> list[bool]:
+    """One entry per native game still to book, True where it's only played if needed."""
+    best_of = BracketService.resolve_best_of(bracket_match.bracket, bracket_match)
+    taken = {g.game_number for g in bracket_match.games}
+    return remaining_slots(best_of, len(taken), False) or [False]
+
+
+def _bookable_count(challonge_rows, matchups, external=()) -> int:
     """How many of them the player can book right now.
 
     A Challonge row whose opponent isn't matched to an account is listed (so the
@@ -115,7 +139,7 @@ def _bookable_count(challonge_rows, matchups) -> int:
         if cm.participant1 is not None and cm.participant2 is not None
         and cm.participant1.user_id is not None and cm.participant2.user_id is not None
     )
-    return linked + len(matchups)
+    return linked + sum(len(_open_games(bm)) for bm in matchups) + len(external)
 
 
 async def count_waiting_on_you(user) -> int:
@@ -125,36 +149,60 @@ async def count_waiting_on_you(user) -> int:
     return _bookable_count(*await _waiting_on_you(user))
 
 
-def _pick_row(
-    tournament_name: str, opponent_name: str, round_label: str,
-    button_label: str, on_click, *, source: str | None = None,
-    blocked: str | None = None,
-) -> None:
-    """One matchup in the Waiting-on-you card.
+@dataclass
+class _Pick:
+    """One matchup waiting on the player, before it is grouped by tournament."""
+    tournament_id: int
+    tournament_name: str
+    source: str | None
+    opponent_name: str
+    round_label: str
+    on_click: Callable
+    blocked: str | None = None
+    window_text: str | None = None
+    if_needed: bool = False
+    event_id: int | None = None
 
-    The tournament takes its own line across the tile: beside the button it
-    was cut to "Bracket De…" on a 360px phone, and it is what tells two
-    matchups against the same opponent apart. ``blocked`` disables the button
-    and says why on the row itself, because a tooltip never shows on a phone.
+
+def _render_picks(picks: list[_Pick]) -> None:
+    """The Waiting-on-you matchups, one group per tournament.
+
+    The tournament and its bracket-site tag are said once in the group's
+    header: during a group stage a player has several matchups in the same
+    tournament, and repeating its name on each row cut it to "Wizzrobe Dev
+    Tourna…" on a phone. A row that can't be booked yet shows why instead of a
+    greyed-out button, because a tooltip never shows on a phone.
     """
-    with ui.element('div').classes('wiz-pick-row column gap-1'):
-        with ui.row().classes('items-center gap-2 no-wrap full-width'):
-            ui.label(tournament_name).classes('text-bold ellipsis').style('min-width: 0')
-            if source:
-                ui.label(source).classes('wiz-chip wiz-chip--neutral')
-        with ui.row().classes('items-center no-wrap gap-2 full-width'):
-            with ui.column().classes('col min-w-0 gap-0 items-stretch'):
-                ui.label(f'vs {opponent_name}').classes('ellipsis')
-                if round_label:
-                    ui.label(round_label).classes('text-caption text-grey-7 ellipsis')
-            button = ui.button(button_label, icon='event', on_click=on_click) \
-                .props('color=primary flat')
-            if blocked:
-                button.disable()
-        if blocked:
-            with ui.row().classes('wiz-pick-row__note no-wrap items-start gap-2'):
-                ui.icon('info_outline', size='16px')
-                ui.label(blocked)
+    groups: dict[tuple, list[_Pick]] = {}
+    for pick in picks:
+        groups.setdefault((pick.tournament_id, pick.source), []).append(pick)
+    with ui.element('div').classes('wiz-pick-groups'):
+        for rows in groups.values():
+            with ui.element('div').classes('wiz-pick-group'):
+                with ui.row().classes('wiz-pick-group__head items-center no-wrap gap-2'):
+                    ui.label(rows[0].tournament_name).classes('col min-w-0')
+                    if rows[0].source:
+                        ui.label(rows[0].source).classes('wiz-chip wiz-chip--neutral')
+                for pick in rows:
+                    with ui.element('div').classes('wiz-pick-row'):
+                        with ui.row().classes('items-center no-wrap gap-3 full-width'):
+                            with ui.column().classes('col min-w-0 gap-0'):
+                                ui.label(f'vs {pick.opponent_name}').classes('wiz-pick-row__opponent')
+                                if pick.round_label:
+                                    ui.label(pick.round_label).classes('text-caption text-grey-7')
+                                if pick.if_needed:
+                                    ui.label('If needed').classes('wiz-chip wiz-chip--pending self-start q-mt-xs')
+                                if pick.window_text and not pick.blocked:
+                                    with ui.row().classes('wiz-pick-row__window no-wrap items-start gap-1'):
+                                        ui.icon('schedule', size='16px')
+                                        ui.label(pick.window_text)
+                            if not pick.blocked:
+                                ui.button('Pick a time', on_click=pick.on_click) \
+                                    .props('color=primary outline no-caps')
+                        if pick.blocked:
+                            with ui.row().classes('wiz-pick-row__note no-wrap items-start gap-2'):
+                                ui.icon('info_outline', size='16px')
+                                ui.label(pick.blocked)
 
 
 def _notify_stale_hard_preset_link() -> None:
@@ -196,22 +244,6 @@ def _notify_stale_reschedule_link() -> None:
     )
 
 
-def _show_one_match_chip() -> None:
-    """The board is narrowed to the DM's match. Say so, and offer the way out.
-
-    A one-row board with no explanation reads as a board that lost rows, and a
-    DM outlives the stage call it was sent about.
-    """
-    with ui.row().classes('items-center gap-2 q-mb-sm'):
-        with ui.element('span').classes('wiz-chip wiz-chip--pending'):
-            ui.icon('filter_alt', size='14px')
-            ui.label('Showing one match only')
-        ui.button(
-            'Show all my matches', icon='clear',
-            on_click=lambda: ui.navigate.to(home_url(HOME_PLAYER)),
-        ).props('flat dense color=primary')
-
-
 def _explain_other_match(relation: str) -> None:
     """``?match=`` named a match the viewer isn't playing. Say what it is to them.
 
@@ -221,18 +253,14 @@ def _explain_other_match(relation: str) -> None:
     watcher is pointed at the one board that lists a match they neither play nor crew.
     """
     if relation == RELATION_CREW:
-        # The crew section owns this one: it finds the card (past or upcoming),
-        # outlines it and scrolls to it, and says so if the match is over.
         return
     if relation == RELATION_WATCHER:
         with ui.row().classes('items-center gap-2 q-mb-sm'):
             with ui.element('span').classes('wiz-chip wiz-chip--neutral'):
                 ui.icon('visibility', size='14px')
                 ui.label("You're watching that match, not playing in it")
-            ui.button(
-                'Find it on the schedule', icon='event',
-                on_click=lambda: ui.navigate.to(home_url(HOME_SCHEDULE)),
-            ).props('flat dense color=primary')
+            link_button('Find it on the schedule', home_url(HOME_SCHEDULE), icon='event', new_tab=False) \
+                .props('flat dense color=primary')
         return
     ui.notify(
         "That match isn't one of yours, so here's your whole schedule.",
@@ -240,13 +268,11 @@ def _explain_other_match(relation: str) -> None:
     )
 
 
-# What each status means to the person who asked, rather than the machine key.
 _REQUEST_STATUS = {
     RescheduleRequestStatus.PENDING: ('Waiting on staff', 'warning'),
     RescheduleRequestStatus.APPROVED: ('Approved', 'positive'),
     RescheduleRequestStatus.DECLINED: ('Declined', 'negative'),
     RescheduleRequestStatus.WITHDRAWN: ('You withdrew this', 'grey'),
-    # Named from the reader's side: "superseded" is our word, not theirs.
     RescheduleRequestStatus.SUPERSEDED: ('Settled by another request', 'grey'),
 }
 
@@ -288,17 +314,18 @@ def _render_request_card(row, *, on_withdraw) -> None:
     ui.separator()
 
 
-def _round_label(bracket_match, best_of: int, number: int) -> str:
-    """'Round 2' / 'Losers round 1', plus the series position for a best-of-N."""
+def _round_label(bracket_match, best_of: int, position: int) -> str:
+    """'Round 2' / 'Losers round 1', plus where a best-of-N row sits among the games to book."""
     rnd = bracket_match.round
     base = f'Losers round {abs(rnd)}' if rnd < 0 else f'Round {rnd}'
-    return f'{base} — game {number} of {best_of}' if best_of > 1 else base
+    return bracket_sources.set_game_label(base, best_of, position)
 
 
 async def render_player_dashboard(
     schedule: int | None = None, reschedule: int | None = None,
     match: int | None = None, hard: int | None = None,
     agree: int | None = None, book: int | None = None, comments: int | None = None,
+    startgg: int | None = None,
 ):
     """The player's own schedule.
 
@@ -306,7 +333,7 @@ async def render_player_dashboard(
     schedule" DM's button (``?schedule=<id>`` on ``/home/player``). Its dialog is
     opened once the tab has rendered, so the notification's call to action ends
     at the date/time picker instead of at a page the reader then has to search.
-    ``book`` does the same for a Challonge matchup.
+    ``book`` does the same for a Challonge matchup, ``startgg`` for a start.gg one.
 
     ``reschedule`` is a match id doing the same for the declined-request DM:
     its "Ask again" button lands on the request form for that match, because
@@ -326,12 +353,8 @@ async def render_player_dashboard(
     answer is not on the row: the row holds a small toggle whose whole meaning
     is the explanation the dialog carries.
     """
-    # Always set: home applies the membership gate before any tab is built, so a
-    # signed-out visitor gets the join page and never reaches this section.
+    # Always set: home applies the membership gate before any tab is built.
     discord_id = app.storage.user.get('discord_id')
-    # Resolved once for the help icons below: three of them read from the event
-    # handbook, which filters by role, and each would otherwise look the viewer
-    # up for itself.
     viewer = await get_user_from_session(app.storage.user)
     match_service = MatchService()
     reschedule_service = MatchRescheduleService()
@@ -355,36 +378,25 @@ async def render_player_dashboard(
     )
     with panel.body:
         board_match_ids = None
-        # The staff-comment DM: the same one-match board, with the sheet open.
         match = match or comments
         if match:
             relation = await match_service.viewer_relation(int(match), viewer)
             if relation == RELATION_PLAYER:
                 board_match_ids = [int(match)]
-                _show_one_match_chip()
             else:
                 _explain_other_match(relation)
 
-        # The deep-linked matchup's opener, captured during the render below so
-        # `?schedule=<id>` (native) or `?book=<id>` (Challonge) can fire the same
-        # handler the button does. Per-client (a local, never module level) and
-        # cleared once used, so a later refresh of the section does not re-open
-        # the dialog under the reader.
-        deep_link = {'matchup_id': schedule, 'challonge_id': book}
+        # A per-client local, never module level, and cleared once used so a later refresh doesn't re-open the dialog.
+        deep_link = {'matchup_id': schedule, 'challonge_id': book, 'startgg': startgg}
 
-        # Everything waiting on the player to pick a time, in one card: native
-        # bracket matchups (the *only* scheduling route in a bracket-run
-        # tournament, since those turn off manual match requests) and Challonge
-        # ones. Where a matchup came from is a tag on its row, not a second card
-        # with the same title.
-        @ui.refreshable
+        @steady_refreshable
         async def waiting_section():
             user = await get_user_from_session(app.storage.user)
             if user is None:
                 return
-            challonge_rows, matchups = await _waiting_on_you(user)
-            set_nav_count('My Schedule', _bookable_count(challonge_rows, matchups))
-            if not challonge_rows and not matchups:
+            challonge_rows, matchups, external = await _waiting_on_you(user)
+            set_nav_count('My Schedule', _bookable_count(challonge_rows, matchups, external))
+            if not challonge_rows and not matchups and not external:
                 _report_stale_deep_link(deep_link)
                 return
 
@@ -396,77 +408,109 @@ async def render_player_dashboard(
 
             openers: dict = {}
             challonge_openers: dict = {}
+            external_openers: dict = {}
+            bookable = _bookable_count(challonge_rows, matchups, external)
             with ui.card().classes('wiz-subcard'):
-                ui.label('Waiting on you to pick a time').classes('wiz-subcard__title')
+                with ui.row().classes('items-center no-wrap gap-2'):
+                    ui.label('Waiting on you to pick a time').classes('wiz-subcard__title')
+                    if bookable:
+                        ui.badge(str(bookable), color=None).classes('wiz-nav-count')
                 ui.label(_booking_caption(
                     [cm.tournament for cm in challonge_rows]
-                    + [bm.bracket.tournament for bm in matchups],
+                    + [bm.bracket.tournament for bm in matchups]
+                    + [x.tournament for x in external],
                 )).classes('text-caption text-grey-7')
-                with ui.element('div').classes('wiz-pick-grid'):
-                    for cm in challonge_rows:
-                        me_is_p1 = cm.participant1 is not None and cm.participant1.user_id == user.id
-                        opponent = cm.participant2 if me_is_p1 else cm.participant1
-                        opponent_name = opponent.name if opponent else 'TBD'
-                        opponent_linked = opponent is not None and opponent.user_id is not None
+                picks: list[_Pick] = []
+                round_schedule = RoundScheduleService()
+                for cm in challonge_rows:
+                    me_is_p1 = cm.participant1 is not None and cm.participant1.user_id == user.id
+                    opponent = cm.participant2 if me_is_p1 else cm.participant1
+                    opponent_name = entrant_name(opponent)
+                    opponent_linked = opponent is not None and opponent.user_id is not None
 
-                        async def do_challonge(_=None, m=cm, oname=opponent_name):
-                            actor = await get_user_from_session(app.storage.user)
-                            await ChallongeScheduleDialog(
-                                m, actor=actor, opponent_name=oname, on_submit=after,
-                            ).open()
+                    async def do_challonge(_=None, m=cm, oname=opponent_name):
+                        actor = await get_user_from_session(app.storage.user)
+                        await ChallongeScheduleDialog(
+                            m, actor=actor, opponent_name=oname, on_submit=after,
+                        ).open()
 
-                        if opponent_linked:
-                            challonge_openers[cm.id] = do_challonge
-                        _pick_row(
-                            cm.tournament.name, opponent_name, challonge_round_label(cm.round),
-                            'Schedule', do_challonge, source='Challonge',
-                            blocked=None if opponent_linked else (
-                                f"Can't book yet: {opponent_name} isn't matched to a "
-                                "Wizzrobe account. Staff can match them."
+                    if opponent_linked:
+                        challonge_openers[cm.id] = do_challonge
+                    picks.append(_Pick(
+                        cm.tournament.id, cm.tournament.name, 'Challonge', opponent_name,
+                        challonge_round_label(cm.round), do_challonge,
+                        blocked=None if opponent_linked else (
+                            f"Can't book yet: {opponent_name} isn't matched to a "
+                            "Wizzrobe account."
+                        ),
+                        window_text=await round_schedule.describe_for_challonge_match(cm),
+                        event_id=cm.tournament.event_id,
+                    ))
+
+                for x in external:
+                    async def do_external(_=None, item=x):
+                        actor = await get_user_from_session(app.storage.user)
+                        await BracketSourceScheduleDialog(item, actor, on_submit=after).open()
+
+                    external_openers[(x.source, x.key)] = do_external
+                    picks.append(_Pick(
+                        x.tournament.id, x.tournament.name, x.source_label,
+                        x.opponent_name, x.round_label, do_external,
+                        window_text=x.window_text, if_needed=x.if_needed,
+                        event_id=x.tournament.event_id,
+                    ))
+
+                for bm in matchups:
+                    me_is_e1 = bm.entry1.entrant.user_id == user.id
+                    opponent = bm.entry2 if me_is_e1 else bm.entry1
+                    opponent_name = opponent.entrant.display_name
+                    best_of = bracket_service.resolve_best_of(bm.bracket, bm)
+                    number = _next_game_number(bm, best_of)
+
+                    async def do_schedule(_=None, m=bm, oname=opponent_name,
+                                          n=number, bo=best_of):
+                        actor = await get_user_from_session(app.storage.user)
+                        await BracketScheduleDialog(
+                            m.id, actor,
+                            opponent_name=oname,
+                            game_number=n,
+                            best_of=bo,
+                            opponent_can_ask=bool(
+                                m.bracket.tournament.allow_reschedule_requests
                             ),
-                        )
+                            tournament_name=m.bracket.tournament.name,
+                            round_label=_round_label(m, bo, n),
+                            tournament_id=m.bracket.tournament_id,
+                            player_ids=[
+                                m.entry1.entrant.user_id,
+                                m.entry2.entrant.user_id,
+                            ],
+                            on_submit=after,
+                        ).open()
 
-                    for bm in matchups:
-                        me_is_e1 = bm.entry1.entrant.user_id == user.id
-                        opponent = bm.entry2 if me_is_e1 else bm.entry1
-                        opponent_name = opponent.entrant.display_name
-                        best_of = bracket_service.resolve_best_of(bm.bracket, bm)
-                        number = _next_game_number(bm, best_of)
+                    openers[bm.id] = do_schedule
+                    window_text = await round_schedule.describe_for_bracket_match(bm)
+                    booked = len({g.game_number for g in bm.games})
+                    for position, if_needed in enumerate(_open_games(bm), start=booked + 1):
+                        picks.append(_Pick(
+                            bm.bracket.tournament_id, bm.bracket.tournament.name, None,
+                            opponent_name, _round_label(bm, best_of, position), do_schedule,
+                            window_text=window_text, if_needed=if_needed,
+                            event_id=bm.bracket.tournament.event_id,
+                        ))
 
-                        async def do_schedule(_=None, m=bm, oname=opponent_name,
-                                              n=number, bo=best_of):
-                            actor = await get_user_from_session(app.storage.user)
-                            await BracketScheduleDialog(
-                                m.id, actor,
-                                opponent_name=oname,
-                                game_number=n,
-                                best_of=bo,
-                                opponent_can_ask=bool(
-                                    m.bracket.tournament.allow_reschedule_requests
-                                ),
-                                tournament_name=m.bracket.tournament.name,
-                                round_label=_round_label(m, bo, n),
-                                tournament_id=m.bracket.tournament_id,
-                                player_ids=[
-                                    m.entry1.entrant.user_id,
-                                    m.entry2.entrant.user_id,
-                                ],
-                                on_submit=after,
-                            ).open()
+                events = await EventService.names_if_mixed(p.event_id for p in picks)
+                _render_picks([
+                    replace(p, tournament_name=with_event_name(p.tournament_name, p.event_id, events))
+                    for p in picks
+                ])
 
-                        openers[bm.id] = do_schedule
-                        _pick_row(
-                            bm.bracket.tournament.name, opponent_name,
-                            _round_label(bm, best_of, number),
-                            f'Schedule game {number}' if best_of > 1 else 'Schedule',
-                            do_schedule,
-                        )
-
-            # The openers only hold this viewer's own open matchups — the
-            # listings are already scoped to them — so an id from a forwarded
-            # link cannot open someone else's dialog; it falls through to the
-            # stale notice.
-            for key, table in (('matchup_id', openers), ('challonge_id', challonge_openers)):
+            # Only this viewer's own matchups are here, so a forwarded id can't open someone else's dialog.
+            startgg_openers = {k: v for (src, k), v in external_openers.items() if src == 'startgg'}
+            challonge_openers.update({k: v for (src, k), v in external_openers.items() if src == 'challonge'})
+            for key, table in (
+                ('matchup_id', openers), ('challonge_id', challonge_openers), ('startgg', startgg_openers),
+            ):
                 wanted = deep_link.pop(key, None)
                 if wanted is None:
                     continue
@@ -476,10 +520,8 @@ async def render_player_dashboard(
                 else:
                     _notify_stale_schedule_link()
 
-        # The player run sheet Event > Schedule uses, plus a ⋮ per line for
-        # what only a player of that match can do. The details sheet a tapped
-        # line opens holds the rest (seed, stations, who's confirmed).
-        columns = [*PLAYER_RUN_SHEET_COLUMNS, PLAYER_MENU_COLUMN]
+        columns = [*crew_columns(PLAYER_RUN_SHEET_COLUMNS, await EventService.current_event_broadcasters()),
+                   PLAYER_MENU_COLUMN]
         sheet = MatchSheet(None, access=MatchBoardAccess(),
                            decorate=lambda row: decorate_player_row(row, discord_id))
 
@@ -490,17 +532,12 @@ async def render_player_dashboard(
         async def get_query():
             return await match_service.get_matches_for_player(discord_id)
 
-        # Request Match only where a request can actually be made. The dialog's
-        # own dead end — "your tournaments are scheduled from their bracket" —
-        # is the right message once you are in it, but a button that exists only
-        # to explain that it does nothing is a button that should not be there.
-        # Same list the dialog offers, so the two cannot disagree.
         can_request = bool(
             viewer is not None
             and await TournamentService().list_player_requestable(viewer)
         )
 
-        @ui.refreshable
+        @steady_refreshable
         async def requests_section():
             """This viewer's own reschedule requests, and what became of them.
 
@@ -557,15 +594,7 @@ async def render_player_dashboard(
 
             await RescheduleRequestDialog(match, viewer, on_submit=after).open()
 
-        # Render order is what the reader owes the section, not what the section
-        # holds. A matchup with no time on it is the only thing here that is
-        # waiting on *them*, and it used to sit below a twelve-row board and a
-        # filter card — far enough down that the "matchup ready" DM landed on a
-        # page whose call to action was off-screen. Then the board, then the
-        # requests they have already made and are only tracking. An open race room
-        # means the match is close, so it leads.
         await render_race_rooms(viewer)
-        # Agreeing changes nothing on the board, so nothing there refreshes.
         await render_opponent_requests(viewer, agree_request_id=agree)
         await waiting_section()
 
@@ -583,6 +612,8 @@ async def render_player_dashboard(
             on_open_match=sheet.open,
         )
         sheet.view = table_view
+        if board_match_ids:
+            table_view.show_one_match_chip(home_url(HOME_PLAYER), 'Show all my matches')
         if comments and board_match_ids:
             sheet.open_when_loaded(int(comments))
 
@@ -591,6 +622,5 @@ async def render_player_dashboard(
             await _open_reschedule(int(reschedule))
         if hard is not None:
             await _open_hard_preset(int(hard))
-        # No initial refresh here: MatchTableView._initial_load owns it, and runs
-        # after the stored filters are restored rather than racing them.
+        # No initial refresh: MatchTableView._initial_load owns it, after the stored filters are restored.
 

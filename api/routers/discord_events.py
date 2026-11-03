@@ -10,7 +10,7 @@ from typing import List
 
 from fastapi import APIRouter, Depends
 
-from api.dependencies import ServiceErrorRoute, require_api_actor, require_write_actor
+from api.dependencies import ServiceErrorRoute, event_binding, require_api_actor, require_write_actor
 from api.schemas.discord_events import (
     DiscordEventTournamentResponse,
     DiscordEventTournamentUpdateRequest,
@@ -18,9 +18,9 @@ from api.schemas.discord_events import (
     ReconcileResultResponse,
 )
 from application.services import DiscordEventSyncService
-from models import User
+from models import Tournament, User
 
-router = APIRouter(prefix="/discord-events", tags=["Discord events"], route_class=ServiceErrorRoute)
+router = APIRouter(prefix="/discord-events", tags=["Discord events"], route_class=ServiceErrorRoute, dependencies=[Depends(event_binding(tournament_id=Tournament))])
 
 
 @router.get(
@@ -56,7 +56,8 @@ async def list_events(actor: User = Depends(require_api_actor)):
     description=(
         "Changes whether a tournament's matches appear as scheduled events in the community's "
         "Discord server, and how those events are titled, described and timed. Omitted fields "
-        "keep their value; changes reach Discord on the next sync.\n\n"
+        "keep their value; changes reach Discord on the next sync. Fails with 400 while no Discord "
+        "server is connected or the bot can't create events in it.\n\n"
         "**Who can call this:** Staff or Sync admin."
     ),
 )

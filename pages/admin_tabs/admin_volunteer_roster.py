@@ -26,8 +26,7 @@ _STATUS_ABBR = {
 
 _COLUMNS: list[dict] = [
     {'name': 'name', 'label': 'Name', 'field': 'name', 'sortable': True, 'align': 'left'},
-    # Sorts on the raw number, never the rendered string — "10" must not fall
-    # between "1" and "2".
+    # Sorts on the raw number, never the rendered string.
     {'name': 'hours', 'label': 'Hours', 'field': 'hours', 'sortable': True, 'align': 'right'},
     {'name': 'qualifications', 'label': 'Qualifications', 'field': 'qualifications', 'align': 'left'},
     {'name': 'availability', 'label': 'Availability', 'field': 'availability', 'align': 'left'},
@@ -81,8 +80,6 @@ async def admin_volunteer_roster_page() -> None:
             row_key='id',
         ).classes('full-width wiz-table').props(':grid="Quasar.Screen.lt.md"')
 
-        # --- Desktop cell slots ---
-
         table.add_slot('body-cell-hours', '''
             <q-td :props="props">
                 <span class="text-weight-medium">{{ props.value }}</span>
@@ -117,8 +114,6 @@ async def admin_volunteer_roster_page() -> None:
                        title="View availability &amp; qualifications" />
             </q-td>
         ''')
-
-        # --- Mobile card slot ---
 
         table.add_slot('item', '''
             <div class="q-pa-xs col-xs-12 col-sm-6 col-md-4">
@@ -167,8 +162,6 @@ async def admin_volunteer_roster_page() -> None:
         with gear_slot:
             preferences_button(table)
 
-        # --- Data loading ---
-
         async def load_roster() -> None:
             nonlocal volunteers_by_id
 
@@ -182,7 +175,7 @@ async def admin_volunteer_roster_page() -> None:
             positions = await position_service.list_all()
             position_by_id = {p.id: p for p in positions}
 
-            hours_by_user = {s.user_id: s for s in await hours_service.roster()}
+            hours_by_user = {s.user_id: s for s in await hours_service.roster(actor=actor)}
 
             all_quals = await qualification_service.list_all_qualifications()
             qual_map: dict[int, list[str]] = {}
@@ -216,8 +209,6 @@ async def admin_volunteer_roster_page() -> None:
 
             table.rows = rows
             table.update()
-
-        # --- Event handler ---
 
         async def handle_manage(event) -> None:
             row = event.args if isinstance(event.args, dict) else {}

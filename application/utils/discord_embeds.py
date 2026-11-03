@@ -17,30 +17,26 @@ from typing import Optional, Sequence
 
 import discord
 
-# Colour by category / match state (0xRRGGBB). Warm-tuned toward the app's
-# phoenix/status palette where it doesn't fight Discord's own semantics.
-COLOR_SCHEDULED = 0x5865F2    # blurple — informational / new
-COLOR_RESCHEDULED = 0xB45309  # burnt amber — needs attention
-COLOR_CHECKED_IN = 0xB45309   # amber — imminent
-COLOR_STARTED = 0x557A1F      # olive green — live
-COLOR_FINISHED = 0x6B6258     # warm gray — done
-COLOR_CONFIRMED = 0x0E7470    # teal — settled
-COLOR_STREAM = 0xE0A82E       # gold — highlight
-COLOR_CREW = 0x5865F2         # blurple
-COLOR_SEED = 0x8250DF         # purple
-COLOR_VOLUNTEER = 0x0E7470    # teal
-COLOR_JOIN_REQUEST = 0x5865F2  # blurple — informational, like a new assignment
-COLOR_CANCELLED = 0x9B2C2C    # deep red — called off, nothing to attend
-COLOR_STAGE = 0xBE185D        # rose — go somewhere else, and soon
+COLOR_SCHEDULED = 0x5865F2
+COLOR_RESCHEDULED = 0xB45309
+COLOR_CHECKED_IN = 0xB45309
+COLOR_STARTED = 0x557A1F
+COLOR_FINISHED = 0x6B6258
+COLOR_CONFIRMED = 0x0E7470
+COLOR_STREAM = 0xE0A82E
+COLOR_CREW = 0x5865F2
+COLOR_SEED = 0x8250DF
+COLOR_VOLUNTEER = 0x0E7470
+COLOR_JOIN_REQUEST = 0x5865F2
+COLOR_CANCELLED = 0x9B2C2C
+COLOR_STAGE = 0xBE185D
 
-# state_changed transitions → colour
 _STATE_COLORS = {
     'Started': COLOR_STARTED,
     'Finished': COLOR_FINISHED,
     'Confirmed': COLOR_CONFIRMED,
 }
 
-# A field tuple is (name, value, inline). Empty values are dropped.
 Field = tuple
 
 
@@ -98,14 +94,17 @@ def match_embed(
     stage_name: Optional[str] = None,
     description: Optional[str] = None,
     url: Optional[str] = None,
+    code: Optional[str] = None,
 ) -> discord.Embed:
-    """Embed for a match notification: Tournament / Players / Time / Stage."""
+    """Embed for a match notification: Tournament / Players / Time / Code / Stage."""
     fields: list[Field] = [('Tournament', tournament, True)]
     players = _players_value(player_names)
     if players:
         fields.append(('Players', players, True))
     if when is not None:
         fields.append(('Time', time_field(when), False))
+    if code:
+        fields.append(('Code', code, False))
     if stage_name:
         fields.append(('Stage', stage_name, True))
     return notification_embed(
@@ -125,8 +124,9 @@ def state_changed_embed(
 ) -> discord.Embed:
     """Started / Finished / Confirmed transition card."""
     emoji = {'Started': '🔴', 'Finished': '🏁', 'Confirmed': '☑️'}.get(new_state, '•')
+    label = 'Match result confirmed' if new_state == 'Confirmed' else f'Match {new_state.lower()}'
     return match_embed(
-        title=f"{emoji} Match {new_state.lower()}",
+        title=f"{emoji} {label}",
         color=_STATE_COLORS.get(new_state, COLOR_SCHEDULED),
         tournament=tournament, community_name=community_name,
         player_names=player_names, when=when, stage_name=stage_name,
@@ -200,13 +200,16 @@ def volunteer_embed(
     starts: Optional[datetime] = None,
     ends: Optional[datetime] = None,
     description: Optional[str] = None,
+    handover: str = '',
 ) -> discord.Embed:
-    """Embed for a volunteer shift: Position / Start / End."""
+    """Embed for a volunteer shift: Position / Start / End, then the handover line."""
     fields: list[Field] = [('Position', position, False)]
     if starts is not None:
         fields.append(('Start', time_field(starts), True))
     if ends is not None:
         fields.append(('End', time_field(ends), True))
+    # A field needs a name; a zero-width one shows the line without a heading.
+    fields.append(('\u200b', handover, False))
     return notification_embed(
         title=title, color=COLOR_VOLUNTEER, community_name=community_name,
         description=description, fields=fields,

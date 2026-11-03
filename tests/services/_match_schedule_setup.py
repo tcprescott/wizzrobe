@@ -30,7 +30,6 @@ def build_service() -> MatchScheduleService:
     svc.seedgen_service = SeedGenerationService()
     svc.audit_service = AuditService()
     svc.hard_preset_service = MatchHardPresetService()
-    svc._seed_locks = {}
     discord = MagicMock()
     discord.send_dm = AsyncMock(return_value=(True, "ok"))
     discord.send_dm_with_unwatch_button = AsyncMock(return_value=(True, "ok"))

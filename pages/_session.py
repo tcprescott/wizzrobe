@@ -24,7 +24,6 @@ def start_session(user: User, fields: Optional[dict[str, Any]] = None, *, passwo
     for key in (SESSION_AUTH_METHOD, SESSION_PASSWORD_STAMP_FIELD):
         storage.pop(key, None)
     if password:
-        # No Discord identity rides along: drop one a previous sign-in left.
         storage.pop('discord_id', None)
         storage[SESSION_AUTH_METHOD] = AUTH_METHOD_PASSWORD
         storage[SESSION_PASSWORD_STAMP_FIELD] = password_session_stamp(user)

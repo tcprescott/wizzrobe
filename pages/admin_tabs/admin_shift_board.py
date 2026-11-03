@@ -18,6 +18,7 @@ from application.services import (
     TablePreferenceService,
     get_user_from_session,
 )
+from application.services.my_timeline_service import event_day
 from application.services.volunteer import (
     DayGrid,
     GridRole,
@@ -29,7 +30,7 @@ from application.services.volunteer import (
 from application.services.volunteer.volunteer_position_service import VolunteerPositionService
 from application.utils.app_links import VOL_SCHEDULE, admin_url
 from application.utils.tenant_session import tenant_session_get, tenant_session_set
-from application.utils.timezone import timezone_label, today_local
+from application.utils.timezone import now_local, timezone_label
 from theme.dialog.volunteer_export_dialog import VolunteerExportDialog
 from theme.dialog.volunteer_shift_dialog import VolunteerShiftDialog
 from theme.dialog.volunteer_shift_sheet import DayShifts, VolunteerShiftSheet
@@ -40,6 +41,7 @@ from theme.notify import notify_error
 from theme.page_header import page_header
 from theme.tables.preferences import TableKeys
 from theme.timer_teardown import PageTimer
+from theme.url_state import iso_day, url_param, url_state
 from theme.volunteer_grid import (
     day_label,
     event_days,
@@ -50,8 +52,7 @@ from theme.volunteer_grid import (
     render_day_grid,
 )
 
-# Shares the Volunteer Shifts tab's remembered day: both are the coordinator's
-# "which day am I working on".
+# Shared with the Volunteer Shifts tab's remembered day on purpose.
 _DAY_KEY = 'volunteers:day'
 
 
@@ -102,10 +103,11 @@ async def admin_shift_board_page(day: Optional[str] = None) -> None:
         positions = []
     stored = await prefs.get(actor, TableKeys.ADMIN_SHIFT_BOARD) if actor else None
     saved = (stored or {}).get('columns') or []
-    # A deep link (?day=) outranks the remembered day, when it is a day of this event.
+    # The address outranks the remembered day; `day` is the request's and goes stale after a tab switch.
+    day = url_state().requested('day')
     wanted = day if day in {d.isoformat() for d in days} else tenant_session_get(_DAY_KEY)
     state = _BoardState(
-        day=opening_day(days, wanted, today_local()),
+        day=opening_day(days, wanted, event_day(now_local())),
         roles=arrange_roles(positions, saved),
         saved=saved,
     )
@@ -167,17 +169,24 @@ async def admin_shift_board_page(day: Optional[str] = None) -> None:
             roles=state.roles, saved=state.saved, on_saved=columns_saved,
         )
 
-    async def pick_day(d: date) -> None:
+    async def show_day(d: Optional[date]) -> None:
         state.day = d
         state.selected = 0
-        tenant_session_set(_DAY_KEY, d.isoformat())
         day_bar.refresh()
         await reload()
 
+    async def pick_day(d: date) -> None:
+        tenant_session_set(_DAY_KEY, d.isoformat())
+        await show_day(d)
+        day_param.set(d.isoformat())
+
+    async def restore_day(value: str) -> None:
+        await show_day(opening_day(days, value, event_day(now_local())))
+
     def toolbar() -> None:
         ui.button('Add shift', icon='add', on_click=lambda: add_shift()) \
-            .props('no-caps rounded color=primary')
-        with ui.button('Actions').props('flat no-caps color=primary icon-right=expand_more'):
+            .props('no-caps rounded color=primary').classes('wiz-write')
+        with ui.button('Actions').props('flat no-caps color=primary icon-right=expand_more').classes('wiz-write'):
             with ui.menu():
                 menu_action('view_list', 'Open the list view',
                             lambda: ui.navigate.to(admin_url(VOL_SCHEDULE, day=state.day)))
@@ -224,7 +233,11 @@ async def admin_shift_board_page(day: Optional[str] = None) -> None:
             selected_shift_id=state.selected,
         )
 
-    with ui.column().classes('page-container-wide'):
+    with ui.column().classes('page-container-wide') as page:
+        day_param = url_param(
+            'day', page, default='', value=state.day.isoformat() if state.day else '',
+            label=lambda v: day_label(d) if (d := iso_day(v)) else None, on_restore=restore_day,
+        )
         with page_header(
             'Shift Board',
             "Every station, hour by hour. Tap a shift to change who's on it, or an "
@@ -235,7 +248,5 @@ async def admin_shift_board_page(day: Optional[str] = None) -> None:
         summary()
         grid_view()
     await reload()
-    # Picks up check-ins, late notes and other coordinators' edits on a screen
-    # left open at the desk.
     PageTimer(60, reload)
 

@@ -63,8 +63,6 @@ class TestDetection:
         assert "window.socket.on('connect'" in script
 
     def test_tolerates_a_socket_that_does_not_exist_yet(self):
-        # window.socket is assigned in nicegui.js's mounted(), which can run
-        # after this snippet is parsed.
         script = connection_watch_script()
         assert 'if (window.socket && window.socket.on)' in script
         assert 'setTimeout(bindSocket' in script
@@ -85,16 +83,13 @@ class TestHooks:
         script = connection_watch_script()
         assert f'"{REQUIRES_SOCKET_CLASS}"' in script
         assert 'e.stopImmediatePropagation()' in script
-        # The listener must be registered with capture=true, i.e. before Vue's.
         assert '}, true);' in script
 
     def test_explains_the_refusal_without_the_socket(self):
-        # ui.notify would travel over the very socket that is down.
         script = connection_watch_script()
         assert 'Quasar.Notify.create' in script
 
     def test_marks_the_body_while_the_card_shows(self):
-        # The toast stack reads this class and height to open below the card.
         script = connection_watch_script()
         assert f'"{CARD_SHOWN_BODY_CLASS}"' in script
         assert '--wiz-connection-card-h' in script

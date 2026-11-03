@@ -22,8 +22,6 @@ async def _staff_token(username='sg-staff'):
     return await create_user_token(username=username, roles=[Role.STAFF])
 
 
-# --- Links: reads ---------------------------------------------------------
-
 class TestListLinks:
     async def test_list_links_staff_ok(self, db, app):
         _, raw = await _staff_token()
@@ -55,8 +53,6 @@ class TestListLinks:
             assert resp.status_code == 403
 
 
-# --- Episodes -------------------------------------------------------------
-
 class TestEpisodes:
     async def test_list_episodes_omits_payload(self, db, app):
         _, raw = await _staff_token()
@@ -85,8 +81,6 @@ class TestEpisodes:
             resp = await c.get('/api/speedgaming/links/999999/episodes')
             assert resp.status_code == 404
 
-
-# --- Links: writes --------------------------------------------------------
 
 class TestCreateLink:
     async def test_create_link_success(self, db, app):
@@ -129,7 +123,6 @@ class TestCreateLink:
             resp = await c.post('/api/speedgaming/links', json={
                 'tournament_id': 999999, 'event_slug': 'alttpr',
             })
-            # Unknown referenced tournament -> NotFoundError -> 404 (audit §2B.6).
             assert resp.status_code == 404
 
 

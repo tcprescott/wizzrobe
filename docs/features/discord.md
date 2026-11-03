@@ -7,7 +7,7 @@ and the mock mode that makes all of it developable offline. Implementation mecha
 
 ## Match notifications
 
-DMs fire on match lifecycle transitions:
+DMs fire on match lifecycle transitions. Approved crew are left out of every match DM below while the match has no stage; the stage-cleared DM is the exception (see [match participation](match-participation.md)).
 
 | Event | Recipients |
 |---|---|
@@ -15,18 +15,24 @@ DMs fire on match lifecycle transitions:
 | Players changed, time unchanged | players only — a fresh Acknowledge request |
 | Race room opened (players) | Join the race room | the racetime.gg room itself — off-site, like the seed link, because that is where the race is. Safe to link only because the room's slug is the one racetime returned from `startrace` |
 | Harder preset offered | players, when the tournament has a `hard_preset` and the seed is not yet rolled |
-| Checked in / started / finished / confirmed | players, approved crew and watchers — one DM each via `notify_match_participants` |
+| Checked in / confirmed | players, approved crew and watchers — one DM each via `notify_match_participants`. The check-in DM lists every assigned seat, and a seated player's copy leads with **Your seat** (`player_copies`) |
+| Started / finished | approved crew and watchers only, sent **silent** (no ping or phone buzz, Discord's `@silent`): the players are at the station and already know |
 | Cancelled | players, approved crew and watchers, resolved before the row is deleted |
 | Stage assigned / cleared | players, approved crew, watchers |
 | Stage reminder | the same audience, `stage_reminder_minutes` before the match |
 | Stream candidate | tournament subscribers, with crew-signup buttons |
-| Crew signup | the tournament's admins and crew coordinators (`get_crew_owners`), so a pending signup doesn't wait for someone to open the board |
-| Matchup ready to schedule | both entrants of a bracket matchup (also re-sent as a *rebook* if its game is later called off) |
+| Crew signup | the tournament's admins and crew coordinators (`get_crew_owners`), so a pending signup doesn't wait for someone to open the board. Silent by default, with commentator and tracker as separate notices. Every copy is edited in place once the signup is approved, removed by staff, or withdrawn by the volunteer |
+| Matchup ready to schedule | both entrants of a bracket matchup (also re-sent as a *rebook* if its game is later called off), sent **silent**: the matchup also waits in the player's Pick-a-time list |
 
 That last one is the only bracket-specific message — there are deliberately no
 advancement or elimination DMs. See
 [brackets.md → Notifications](brackets.md#notifications). Its button opens the
 schedule dialog directly; see [Calls to action](#calls-to-action).
+
+The table shows the shipped behaviour. Each community can override any row per
+kind of recipient (off, silent, or ping) on Admin → Notifications; the defaults,
+including the silent matchup-ready DM and silent started/finished copies, live in
+the [notification catalogue](#notification-settings-and-the-catalogue).
 
 **Series context.** A match that is one game of a bracket matchup leads its info
 block with `Round: Semifinals · Game 2 of 3 · Series 1-0`, resolved once by
@@ -57,10 +63,12 @@ tenant costs the button, not the DM.
 | Match scheduled (subscribers), stream candidate | View the schedule | `/home/schedule`, beside the crew buttons |
 | Seed ready | Open your seed | the randomizer — the one deliberately off-site link. A seed that isn't a URL (a Wind Waker permalink, Z1R seed and flags) rides in a code block instead, and the button reads **Copy it from Wizzrobe** and opens the match on the Player tab |
 | Crew assignment | View your crew slot | `/home/my-crew?match=<id>`, beside Acknowledge — the card that also carries Confirm and Withdraw |
+| Commentary partner invite | Open your invites | `/home/my-crew`, beside Decline / Accept — Commentary invites is the tab's first card |
 | Crew signup (to admins) | Review the signup | `/admin/match-schedule?match_id=<id>` — the approval toggle is on that row |
 | Crew withdrew (to admins) | Fill the slot | `/admin/match-schedule?match_id=<id>` |
+| Crew busy at the booked time (to admins) | Check the crew | `/admin/match-schedule?match_id=<id>` — the booking the held signups just moved onto |
 | Volunteer released (to coordinators) | Find cover | `/admin/volunteer-shifts?day=<shift day>` |
-| Volunteer shift reminder | Acknowledge (only if not yet acknowledged) · Can't make it | `/volunteer/my-shifts?release=<assignment id>` — the give-back dialog for that shift, open; a gone, finished or checked-in shift says so instead |
+| Volunteer shift reminder | Acknowledge (only if not yet acknowledged) · Can't make it | `/home/my-schedule?release=<assignment id>` — the give-back dialog for that shift, open; a gone, finished or checked-in shift says so instead |
 | Reschedule request (to staff) | Review the request | `/admin/match-schedule?reschedule_request=<id>` — the decision dialog, open. Not the board filtered to the match: the proposed time and the player's reason are the whole message and live in the dialog |
 | Reschedule request (to the opponent) | Agree · Open the request | Discord's Agree button is the control; the link is `/home/player?agree=<request id>`, the same request open in a dialog with its own **Agree** — the web-push copy of this DM has no Discord button, so the tap target has to carry one |
 | Reschedule declined (to the requester) | Ask again | `/home/player?reschedule=<match id>` — the request form, open, because a different time is the real next step after a refusal |
@@ -118,6 +126,14 @@ button (`theme/dialog/reschedule_agree_dialog.py`), gated by the same
 already agreed, closed (decided or withdrawn), or not a request waiting on this
 viewer (`MatchRescheduleService.agreement_link_state`).
 
+A link that opens something once leaves the address once the page has acted on
+it: `consume_deep_link(...)` (`theme/url_state.py`) strips the parameter with
+`history.replaceState`, so a reload doesn't reopen the dialog or repeat "That
+request has already been dealt with." Filters (`?match=`, `?match_id=`) stay;
+`?comments=` on the admin board settles into `?match_id=`. A new one-shot
+parameter in `application/utils/app_links.py` must be consumed where it's
+honoured, or `tests/theme/test_url_state.py` fails.
+
 ### Who a match DM is for
 
 One lifecycle change reaches up to four kinds of reader, and copy written for
@@ -168,6 +184,57 @@ nobody. So `MatchService._cancel_match` resolves recipients and builds the messa
 whose Unwatch button would carry the id of a match that no longer exists. The card
 uses `COLOR_CANCELLED`, the palette's only negative colour.
 
+### Retrying a DM Discord didn't take (the DM outbox)
+
+`send_dm` keeps the Discord message it is about to send (content, embed,
+buttons as a `ViewSpec`, link, silent) on the `SentMessage` row's `outbox`
+column, held by the sender for `DM_CLAIM_SECONDS`. A failure that may clear up
+on its own (`DM_RETRYABLE`: bot not initialized or offline, a timeout, Discord
+5xx or 429) leaves the row `pending` with its attempt counted; any other answer
+settles the row and clears the outbox. `dm_outbox_worker` (every minute,
+`dm_outbox` in `WORKERS`) resends what is waiting, Discord only, since the
+device, email and Telegram copies went the first time. It also picks up a row
+whose sender died mid-send, once the claim runs out. After five tries, or
+15 minutes, the row is logged as failed with "Gave up after…".
+
+Buttons have to come from a registered view (`ViewSpec(VIEW_X, *args)`, which is
+what every `send_dm_with_*` helper passes). A DM built with an ad-hoc
+`view_factory` lambda is sent once and never queued. An `on_sent` hook doesn't
+survive a resend, so a resent approval DM isn't edited in place later.
+
+## Notification settings and the catalogue
+
+[`application/services/notification_catalog.py`](../../application/services/notification_catalog.py)
+is the source of truth for every DM Wizzrobe sends: one `Notice` per message
+(key, group, title, what sends it) with a default `NotificationMode` (`off`,
+`silent`, `ping`) for each kind of recipient it reaches. A community stores only
+what it changed from those defaults (`NotificationSetting`); staff edit them on
+Admin → Notifications. Full detail:
+[notification-settings.md](notification-settings.md).
+
+`send_dm` (and every `send_dm_with_*`) takes `notice=`, a `NoticeTarget` such as
+`MATCH_SCHEDULED.to(PLAYERS)`. When given, the community's mode decides:
+`off` returns `(True, DM_NOTICE_OFF)` before anything is sent or mirrored to
+devices, email or Telegram; `silent` forces Discord's `@silent` (and quiet
+device and Telegram copies) whatever `silent=` the caller passed; `ping` forces
+a normal message. The user's own Discord-DM switch still applies afterwards.
+
+**Adding a DM.** Declare a `Notice` with `_notice(...)` in the catalogue (a new
+key, never a reused one: keys are stored, so renaming one drops every override
+saved against it), give each recipient column a default, and pass
+`notice=YOUR_NOTICE.to(<recipient>)` on the `send_dm` call. A sender that skips
+`notice=` can't be turned off or quietened by any community.
+
+**Staff alerts are tagged.** A match alert (a player's comment, a reschedule
+request) or a volunteer alert (running late, shift given back) resolves its
+recipients through `StaffAlertService.tagged_match_alert_recipients` /
+`tagged_volunteer_alert_recipients`, which pair each person with the column that
+governs their copy: `ON_DUTY` for whoever holds a shift with staff alerts on right
+now (even if they also admin the tournament), `ADMINS` for the tournament's
+admins or the volunteer coordinators, and `STAFF` only for the fallback when
+nobody is on shift. The sender passes that tag to `notice.to(...)`, so a
+community can, say, keep the on-shift desk pinging and silence the fallback.
+
 ## Guild-role → app-role sync
 
 Maps a user's Discord guild roles onto application roles at login, granting what
@@ -182,6 +249,12 @@ concurrently, since one person may belong to several communities' guilds — log
 latency stays at roughly one Discord round-trip instead of scaling with tenant
 count. Per-tenant mappings are `DiscordRoleMapping` rows managed on the admin
 **Role Mappings** tab.
+
+A mapping to a per-event role (`Role.is_per_event`) also names an `event`, the
+Default event unless staff pick another when adding it; the sync grants and
+revokes that role in that event only, and never touches grants in an archived
+event. Moving the Default later doesn't move existing mappings or re-grant
+anything. Community-wide roles map with `event` NULL.
 
 ### Accounts for members who have never signed in
 
@@ -206,6 +279,19 @@ tournament grant on an active tournament. An unmapped role, leaving the server
 (`on_member_remove` passes no member) and bots never create anything. An existing
 account is never renamed by this path; the new one takes the member's Discord
 username and global avatar hash, exactly what a first login would store.
+
+### Importing the whole server
+
+Admin → Users › Actions › **Import from Discord…** (`DiscordMemberImportService`,
+staff only) goes further than role sync: every human in the community's linked
+server gets an account and a membership (`MembershipSource.DISCORD_IMPORT`,
+"Discord import" in the Via column), roles or not. It exists so staff can enroll
+and map people (a Challonge entrant, a bracket seat) before they ever sign in.
+The dialog previews the counts first: people to add, already members, bots
+skipped, and people removed from the community skipped (a removal block is never
+lifted). Accounts match on Discord id, existing ones keep their name, nobody is
+DM'd, and one `tenant.members_imported` audit row and event covers the run. A
+second run only picks up people who joined the server since.
 
 ### Membership for anyone in the server
 
@@ -266,6 +352,56 @@ Audit actions: `discord_role.mapping_added` / `.mapping_removed` for staff edits
 the signing-in user), `user.provisioned` (`source: discord_role_sync`) for an
 account the sync created.
 
+## App → guild-role sync (Discord Roles from Wizzrobe)
+
+The reverse direction, behind `FeatureFlag.DISCORD_ROLE_SYNC` (off by default):
+Wizzrobe hands out roles in the community's server from what it knows. Staff set
+it up on **Settings → Discord → Discord Roles from Wizzrobe**, a checklist with a
+role picker per rule; a blank picker means the rule is off.
+
+| Rule (`DiscordRoleRuleKind`) | Who gets the role |
+|---|---|
+| `any_tournament` | Enrolled (`TournamentPlayers`) in any **active** tournament |
+| `live_match` | A player of a match that has started and not finished, started within the last 12 h (`LIVE_MATCH_WINDOW`) |
+| `tournament` | Enrolled in that one tournament |
+| `badge` (`lanyard`) | Holds an unrefunded, unremoved badge of that lanyard (VIP, Base, Day pass) in an **open** check-in event, linked to their account. Needs `EVENT_CHECK_IN` |
+
+Pieces: `models/discord_role_sync.py` (`DiscordRoleRule`, the `DiscordRoleGrant`
+ledger, `DiscordRoleSyncState`), `DiscordRoleSyncRepository`,
+`DiscordRoleSyncService`, `discord_role_sync_worker`, and the page
+`pages/admin_tabs/admin_discord_role_sync.py`.
+
+- **Only roles we gave come off.** A `DiscordRoleGrant` row is written after
+  Discord confirms an add, and only those rows are ever removed. A role the
+  person already held (a moderator gave it) gets no row, so it's never taken.
+  Clearing a rule takes its roles back on the next sync; Actions → *Remove every
+  role Wizzrobe gave…* clears every rule and syncs at once. Turning the feature
+  off leaves roles where they are, so clear first.
+- **Roles the bot can't manage are refused.** `role_problem()` checks Manage
+  Roles, the role's position against the bot's top role (`bot_role_access`), and
+  managed roles (boosts, bot and integration roles). `set_rule` refuses such a
+  role; the picker greys it out with the reason. Every sync re-checks: a rule
+  that broke later (roles reordered, permission removed) gets `problem` set, is
+  shown in red, and is skipped, its grants kept so the roles come off once fixed.
+- **No loops with Role Mappings.** A Discord role can't be both a mapping
+  (Discord → app role) and a rule here: everyone the rule covers would be granted
+  the mapped app role. Both services refuse the second use.
+- **Outages change nothing.** A run that can't read the server's roles, the bot's
+  access or the member snapshot records `last_error` and writes nothing. A
+  "bot not connected" failure mid-run stops the run; a one-off refusal is counted
+  and the rest carry on.
+- **Cadence.** The worker ticks every 15 s. A rule change, `match.started` /
+  `match.finished` / `match.deleted`, `tournament.enrolled` / `.withdrawn` and
+  the check-in sync and link events mark the tenant for the next tick; every
+  community with rules or grants also gets a full pass every 10 min, which
+  catches Challonge/start.gg roster syncs that publish no event.
+- People without a linked Discord account or not in the server are listed on the
+  card ("See who"), capped at 300.
+
+Audit actions: `discord_role.rule_set`, `.rule_cleared`, `.rules_reset`. The
+role writes themselves aren't audited per person; Discord's own audit log shows
+them with the reason "Wizzrobe role sync".
+
 ## Tournament notification preferences
 
 Users subscribe per tournament to hear about matches beyond their own.
@@ -295,6 +431,32 @@ is no service-level `get_subscribers()` abstraction.
 
 `Match.is_stream_candidate` is toggled by admins in the match dialog; turning it on
 fans out to `streamed_and_candidates` subscribers with crew-signup buttons attached.
+
+## Discord Scheduled Events mirror
+
+`DiscordEventReconcilerService` mirrors opted-in tournaments' matches into the
+community's guild as Scheduled Events (method detail in
+[services.md](../reference/services.md#discord_event_reconciler_servicepy--discordeventreconcilerservice)).
+
+- **Window**: matches up to 14 days ahead, with a small grace on the lower bound
+  so a match that just started keeps its event until it finishes.
+- **Setup problems pause the pass**: a missing bot permission, or the bot not
+  being in the server, stops that community's pass (one warning, shown on the
+  settings page) instead of failing every event, since staff fix it in Discord.
+- **Out-of-band deletes heal**: an event deleted in Discord is re-created and its
+  link repointed rather than erroring forever.
+- **Shared guilds**: only rows the current community owns are ever cancelled, so a
+  sibling community's events in the same guild are never touched.
+
+## Message safety
+
+Display names render live inside bot-authored DMs and embeds, and any member can
+set their own name and then trigger a DM to staff (a crew signup). So
+`UserService` refuses a name containing a masked link, a bare URL, a `discord.gg`
+invite or a mention (including `@everyone`/`@here`) (`_NAME_MARKUP`); otherwise
+an attacker's link would arrive in a message from the bot. Free text such as a
+player comment is escaped instead (see
+[match-participation.md](match-participation.md#match-comments)).
 
 ## Log in from Discord
 
@@ -330,6 +492,57 @@ creates one; a deactivated account gets a refusal in Discord instead of a link.
 No feature flag: it's on wherever the bot is in a linked server. The token
 store is in-process, like the Design B handoff's, so it assumes the
 single-worker deployment ([scaling-roadmap.md](../scaling-roadmap.md)).
+
+## Interactions over HTTP
+
+Button presses, modal submits and slash commands can reach Wizzrobe two ways,
+and the handlers in `discordbot/` don't know which:
+
+- **Gateway** (the default). Discord pushes `INTERACTION_CREATE` down the bot's
+  websocket and the handler answers by POSTing to Discord's callback endpoint.
+- **HTTP.** With **Interactions Endpoint URL** set in the Developer Portal to
+  `<BASE_URL>/discord/interactions`, Discord stops using the gateway for them
+  and POSTs each one there, signed with the application's ed25519 key.
+  [`api/inbound_webhooks.py`](../../api/inbound_webhooks.py) checks the
+  signature against `DISCORD_PUBLIC_KEY` (and refuses one more than 5 minutes
+  old), answers Discord's `PING`, and hands the rest to
+  [`discordbot/http_interactions.py`](../../discordbot/http_interactions.py).
+
+`http_interactions.dispatch` feeds the payload through discord.py's own
+`parse_interaction_create`, so the command tree, the view store and the
+`custom_id` prefix registry all run exactly as they do for a gateway event. The
+difference is one webhook adapter, set in the dispatch's context: for that
+interaction id it captures the handler's first response (`defer`,
+`send_message`, `send_modal`, `edit_message`, `autocomplete`) instead of
+POSTing it, and the endpoint returns it as the HTTP body. Followups and message
+edits go over REST as before. A handler still silent after 2.5 seconds gets a
+stand-in (a deferred update for a button, a private "thinking" for a command),
+and its late first answer is then sent as a followup or an edit of the message.
+Every handler defers first, so in practice the body is the defer.
+
+Setting the URL is a switch for the whole application, so set
+`DISCORD_PUBLIC_KEY` on the running app first: Discord validates the URL by
+sending a `PING` and a badly signed request, and saves it only if the first
+gets a `PONG` and the second a 401. Clearing the URL puts everything back on
+the gateway.
+
+**Running without the gateway.** `DISCORD_GATEWAY=off` makes a process sign in
+for REST only (`bot.login`, no websocket). DMs, DM edits and guild reads all
+still work (they're REST calls; `bot_ready()` counts a REST sign-in as usable),
+and buttons work through the endpoint above. What it loses is everything the
+gateway pushes: `on_member_update` / `on_member_remove` (inbound role sync and
+avatar refresh) and slash-command sync. Those run on
+[`bots.py`](../../bots.py), the always-on bot service, which forces the
+gateway on and also runs the racetime room bot and its auto-open worker, with
+the same delivery queues as the main app so events its handlers publish still
+reach webhooks. Today's single process needs none of this: leave
+`DISCORD_GATEWAY` on and `bots.py` unused.
+
+Not yet split across processes, for the Cloud Run step of
+[the mobile app spec](../specs/mobile-app.md): the racetime bot's room actions
+and the platform page's "restart bot" call into the in-process runtime, and the
+seed-rolled event that posts a seed to a room fires on the API. Both need the
+cross-process event bus.
 
 ## Mock mode
 

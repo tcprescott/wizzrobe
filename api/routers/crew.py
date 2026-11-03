@@ -1,19 +1,19 @@
 """Crew moderation endpoints (approval and acknowledgment).
 
-``crew_type`` is ``commentator`` or ``tracker``; ``crew_id`` is the id of the
-Commentator/Tracker signup row.
+``crew_type`` is ``commentator``, ``tracker`` or ``broadcaster``; ``crew_id``
+is the id of the Commentator/Tracker/Broadcaster signup row.
 """
 
 from fastapi import APIRouter, Depends
 
-from api.dependencies import ServiceErrorRoute, require_write_actor
+from api.dependencies import ServiceErrorRoute, event_binding, require_write_actor
 from api.schemas.crew import CrewApprovalRequest
 from api.schemas.detail import DetailResponse
 from application.errors import require_found
 from application.services import CrewService
 from models import User
 
-router = APIRouter(prefix="/crew", tags=["Crew"], route_class=ServiceErrorRoute)
+router = APIRouter(prefix="/crew", tags=["Crew"], route_class=ServiceErrorRoute, dependencies=[Depends(event_binding())])
 
 
 @router.post(
@@ -21,13 +21,13 @@ router = APIRouter(prefix="/crew", tags=["Crew"], route_class=ServiceErrorRoute)
     response_model=DetailResponse,
     summary="Approve or reject a crew signup",
     description=(
-        "Approves or rejects a commentator or tracker signup. `crew_type` is "
-        "`commentator` or `tracker`, and `crew_id` is the signup's id from "
+        "Approves or rejects a crew signup. `crew_type` is `commentator`, "
+        "`tracker` or `broadcaster`, and `crew_id` is the signup's id from "
         "`GET /matches/{match_id}/crew`. Approving DMs the crew member asking "
         "them to confirm; rejecting an approved signup clears their "
         "confirmation and DMs them that they're off the crew. Sending the state "
         "the signup is already in changes nothing and sends no DM. Fails with "
-        "400 when `crew_type` isn't one of the two roles.\n\n"
+        "400 when `crew_type` isn't one of the three roles.\n\n"
         "**Who can call this:** Staff, Admins of this tournament or its Crew coordinators."
     ),
 )
@@ -50,11 +50,11 @@ async def update_crew_approval(
     response_model=DetailResponse,
     summary="Acknowledge your own (approved) crew assignment",
     description=(
-        "Confirms you'll cover a crew slot an admin approved you for. "
-        "`crew_type` is `commentator` or `tracker` and `crew_id` is the "
+        "Confirms you'll cover a crew slot staff approved you for. "
+        "`crew_type` is `commentator`, `tracker` or `broadcaster` and `crew_id` is the "
         "signup's id. Acknowledging twice is harmless. Fails with 400 when the "
         "signup isn't yours, isn't approved yet, or `crew_type` isn't one of "
-        "the two roles.\n\n"
+        "the three roles.\n\n"
         "**Who can call this:** Yourself only."
     ),
 )

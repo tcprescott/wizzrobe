@@ -27,8 +27,6 @@ async def _make_room(*, slug, category='alttp', match=None, status=RaceRoomStatu
     return await RacetimeRoom.create(slug=slug, category=category, match=match, status=status)
 
 
-# --- Reads ----------------------------------------------------------------
-
 class TestOpenList:
     async def test_list_open_success(self, db, app):
         _, raw = await _staff_token()
@@ -52,6 +50,17 @@ class TestOpenList:
             resp = await c.get('/api/race-rooms/open')
             assert resp.status_code == 403
 
+
+    async def test_a_sync_admin_lists_and_cancels_open_rooms(self, db, app):
+        """Sync admins run the Racetime tab, so they read the list as well as cancel."""
+        _, raw = await create_user_token(username='sync', roles=[Role.SYNC_ADMIN])
+        room = await _make_room(slug='alttp/match-sync')
+        async with client_for(app, raw) as c:
+            resp = await c.get('/api/race-rooms/open')
+            assert resp.status_code == 200
+            assert {r['slug'] for r in resp.json()} == {'alttp/match-sync'}
+            resp = await c.post(f'/api/race-rooms/{room.id}/cancel', json={'reason': 'called off'})
+            assert resp.status_code == 200
 
 class TestByMatch:
     async def test_by_match_success(self, db, app):
@@ -80,8 +89,6 @@ class TestByMatch:
             resp = await c.get(f'/api/race-rooms/by-match/{match.id}')
             assert resp.status_code == 404
 
-
-# --- Writes ---------------------------------------------------------------
 
 class TestCancel:
     async def test_cancel_success(self, db, app):
@@ -175,20 +182,16 @@ class TestTenantIsolation:
             _, token_b = await create_user_token(username='b-staff', roles=[Role.STAFF])
 
         async with client_for(app, token_b) as c:
-            # /open must not surface tenant A's open room.
             open_resp = await c.get('/api/race-rooms/open')
             assert open_resp.status_code == 200
             assert room_a.slug not in {r['slug'] for r in open_resp.json()}
 
-            # by-match for A's match is a scoped miss -> 404.
             bm_resp = await c.get(f'/api/race-rooms/by-match/{match_a.id}')
             assert bm_resp.status_code == 404
 
-            # cancel of A's room by id -> scoped load-or-404.
             cancel_resp = await c.post(f'/api/race-rooms/{room_a.id}/cancel', json={})
             assert cancel_resp.status_code == 404
 
-            # status of A's room by id -> scoped load-or-404.
             status_resp = await c.patch(
                 f'/api/race-rooms/{room_a.id}/status',
                 json={'status': RaceRoomStatus.CANCELLED.value},

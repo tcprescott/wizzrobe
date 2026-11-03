@@ -172,7 +172,6 @@ class TestSubmitMatchRequest:
         assert match.comment == "req"
         assert {p.user_id for p in await MatchPlayers.filter(match=match)} == {actor.id, opponent.id}
         assert await TournamentPlayers.filter(tournament=t, user=actor).exists()
-        # actor auto-acked, opponent pending
         assert (await MatchAcknowledgment.get(match=match, user=actor)).acknowledged_at is not None
         assert (await MatchAcknowledgment.get(match=match, user=opponent)).acknowledged_at is None
         assert EventType.MATCH_CREATED in [e.event_type for e in captured_events]

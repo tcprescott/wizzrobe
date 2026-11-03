@@ -2,14 +2,16 @@ from fastapi import Request
 from fastapi.responses import RedirectResponse
 from nicegui import app, ui
 
-from application.services import AuthService, TenantService, get_user_from_session
+from application.event_context import get_current_event_id, stash_client_event_id
+from application.services import AuthService, EventService, TenantService, get_user_from_session
 from application.tenant_context import (
     get_current_tenant_id,
     is_host_mode,
     stash_client_host_mode,
     stash_client_tenant_id,
 )
-from middleware.auth import bind_display_timezone, enforce_membership, record_page_view
+from middleware.auth import bind_display_timezone, can_view_bound_event, enforce_membership, record_page_view
+from middleware.event_routing import default_event_redirect, row_event_redirect
 from pages.home_tabs.event import community_new_count, event_tab
 from pages.home_tabs.my_schedule import my_schedule_tab
 from pages.home_tabs.player import count_waiting_on_you
@@ -18,6 +20,7 @@ from pages.home_tabs.tournaments import tournaments_tab
 from theme.assets import asset_url
 from theme.base import BaseLayout
 from theme.empty_state import empty_panel
+from theme.links import link_button, set_link
 from theme.page_header import page_title
 from theme.timer_teardown import PageTimer
 
@@ -31,13 +34,9 @@ async def _render_platform_landing() -> None:
     user = await get_user_from_session(app.storage.user)
     tenants = [t for t in await TenantService.list_tenants() if t.is_active]
 
-    # Phoenix brand chrome. The picker is the platform's front door (bare host,
-    # no tenant), so it can't reuse the tenant BaseLayout drawer; apply the same
-    # stylesheet + palette + header so first impression reads as the product.
     ui.dark_mode(app.storage.user.get('dark_mode'))
     ui.add_head_html(f'<link rel="stylesheet" href="{asset_url("css/styles.css")}">')
-    # This page builds its own chrome rather than BaseLayout's, so it repeats
-    # the site-wide noindex (see theme/base.py).
+    # Own chrome, not BaseLayout's, so it must repeat the site-wide noindex.
     ui.add_head_html('<meta name="robots" content="noindex, nofollow">')
     ui.colors(
         primary='#9C6B12', secondary='#C24E12', accent='#E0A82E',
@@ -45,8 +44,6 @@ async def _render_platform_landing() -> None:
     )
     with ui.header().classes('wiz-header items-center no-wrap'):
         ui.label('Wizzrobe').classes('wiz-wordmark')
-        # Flexible spacer pushes the login/user controls to the right edge (see
-        # BaseLayout._render_header for the same pattern on tenant surfaces).
         ui.space()
         if user is not None:
             ui.label(user.preferred_name).classes('text-lg user-name')
@@ -54,17 +51,12 @@ async def _render_platform_landing() -> None:
             if avatar_url:
                 ui.image(avatar_url).props('width=32 height=32 fit=cover round').classes('user-avatar')
             else:
-                # No avatar URL (mock-login sessions, or Discord users on the
-                # default avatar): show a placeholder glyph rather than a broken image.
                 ui.icon('account_circle').classes('user-avatar user-avatar-placeholder')
-            ui.button(on_click=lambda: ui.navigate.to('/logout'), icon='logout', color=None) \
-                .props('flat').tooltip('Log out')
+            logout_btn = ui.button(icon='logout', color=None).props('flat').tooltip('Log out')
+            set_link(logout_btn, '/logout', new_tab=False)
         else:
-            login_btn = ui.button(
-                on_click=lambda: ui.navigate.to('/login'),
-                icon='login',
-                color=None,
-            ).props('flat').classes('login-button')
+            login_btn = ui.button(icon='login', color=None).props('flat').classes('login-button')
+            set_link(login_btn, '/login', new_tab=False)
             with login_btn:
                 ui.label('Login with Discord').classes('login-button-text')
             login_btn.tooltip('Login with Discord')
@@ -85,8 +77,6 @@ async def _render_platform_landing() -> None:
                                 ui.label(f'/t/{tenant.slug}').classes('text-caption text-muted')
                             ui.icon('arrow_forward').classes('text-primary')
         if tenants:
-            # The bare host has no drawer, so without this a first-time visitor
-            # here has no help at all. Help lives inside each community.
             with ui.row().classes('items-center gap-x-3 gap-y-1 q-mt-sm'):
                 ui.icon('help_outline').props('size=xs').classes('text-muted')
                 ui.label('New here? Read how it works:').classes('text-caption text-muted')
@@ -95,8 +85,7 @@ async def _render_platform_landing() -> None:
                         .classes('text-caption')
         if await AuthService.is_super_admin(user):
             ui.separator().classes('separator-spacing')
-            ui.button('Platform administration', icon='admin_panel_settings',
-                      on_click=lambda: ui.navigate.to('/platform')) \
+            link_button('Platform administration', '/platform', icon='admin_panel_settings', new_tab=False) \
                 .props('outline color=primary')
 
 
@@ -121,6 +110,11 @@ def deep_link_ids(**raw: str | None) -> tuple[dict[str, int | None], bool]:
     return ids, malformed
 
 
+PERSONAL_HOME_SECTIONS = frozenset({
+    'my-schedule', 'player', 'my-crew', 'availability', 'profile', 'equipment',
+})
+
+
 def create() -> None:
     async def home(
         section: str | None = None,
@@ -131,53 +125,50 @@ def create() -> None:
         hard: str | None = None,
         agree: str | None = None,
         book: str | None = None,
+        startgg: str | None = None,
         comments: str | None = None,
         focus: str | None = None,
+        release: str | None = None,
+        shifts: str | None = None,
     ):
-        # Bare platform host (no /t/<slug>) -> community picker, not a tenant home.
         tid = get_current_tenant_id()
         if tid is None:
             await _render_platform_landing()
             return
-        # On Air became the Watch page; old links and DMs land there.
         if section == 'on-air':
             return RedirectResponse(f"{request.scope.get('root_path', '') if request else ''}/live")
         ids, malformed_link = deep_link_ids(
             schedule=schedule, reschedule=reschedule, match=match, hard=hard, agree=agree,
-            book=book, comments=comments,
+            book=book, startgg=startgg, comments=comments, release=release, shifts=shifts,
         )
-        # A bare ``ui.page`` misses the page view ``_tenant_page`` records, so
-        # home records its own: every section under one path, like the hubs.
+        match_id = next((ids[k] for k in ('match', 'comments', 'hard', 'reschedule') if ids.get(k)), None)
+        redirect = None
+        if match_id is not None:
+            redirect = await row_event_redirect(request, await EventService.match_event_id(match_id))
+        elif section not in PERSONAL_HOME_SECTIONS:
+            redirect = await default_event_redirect(request)
+        if redirect is not None:
+            return redirect
+        # A bare ui.page misses _tenant_page's page view, so home records its own.
         record_page_view('/home', {'section': section, **ids})
         # Stash the tenant onto the connection so websocket UI handlers resolve it.
         stash_client_tenant_id(tid)
-        # Carry host mode too, so link-section buttons can hide on a custom domain.
+        stash_client_event_id(get_current_event_id())
         stash_client_host_mode(is_host_mode())
 
         ui.page_title(await TenantService.current_community_name() or 'Wizzrobe')
         signed_in = app.storage.user.get('authenticated', False)
-        # get_user_from_session enforces is_active, so a deactivated account
-        # is treated as logged-out here too (uniform with /admin, /equipment,
-        # the login flow, and the REST API) rather than still being shown its
-        # personalized home and admin/volunteer nav affordances.
+        # get_user_from_session enforces is_active, so a deactivated account is logged-out here.
         user = await get_user_from_session(app.storage.user)
-        # Bind the display clock. Same reason this page applies the membership
-        # gate itself: it is a bare ``ui.page``, so it never passes through
-        # ``_tenant_page`` and gets nothing from it. Without this every tab below
-        # — including the timezone picker on the Profile tab — renders on the
-        # fallback zone no matter what the community or the viewer chose.
+        # A bare ui.page never passes through _tenant_page: bind the display clock here, or every tab
+        # renders on the fallback zone.
         await bind_display_timezone(tid, user)
-        # The membership gate. This page is registered with a bare ``ui.page``
-        # (the same function also renders the platform community picker, which
-        # has no tenant and must stay anonymous), so it applies the gate itself
-        # rather than getting it from ``_tenant_page``.
-        #
-        # This is where the audit measured the symptom: a platform user with no
-        # roles and no membership loaded a brand-new community's home schedule,
-        # saw its first match with both players' names, and was offered Sign Up
-        # as commentator and tracker. The community's own spectator surface —
-        # the bracket views — stays public on its own routes.
+        # A bare ui.page (it also renders the anonymous community picker), so it applies the membership gate itself.
         if await enforce_membership(tid, user):
+            return
+        if not await can_view_bound_event(user):
+            from theme.error_page import render_not_found
+            await render_not_found(user=user)
             return
         if user is None and signed_in:
             with ui.row():
@@ -185,55 +176,25 @@ def create() -> None:
                 app.storage.user.clear()
             PageTimer(2, lambda: ui.navigate.to('/logout'), once=True)
             return
-        # Four tabs, on every community, whatever its feature flags. The count
-        # used to run from five to ten, which meant no two communities' phone nav
-        # looked alike and — because the bottom bar carries ``tabs[:4]`` and hides
-        # the rest behind More — a player's own matches were off the bar entirely.
-        # A feature that is off now removes a *view* or a *section*, never a tab.
-        #
-        # Each tab lists the slugs it absorbed. Those answer on read-in only, so
-        # DMs already sent (docs/features/discord.md) keep landing where they
-        # always did while the URL normalizes to the new slug on the first switch.
+        # Four tabs whatever the flags: the phone bottom bar carries tabs[:4], so a flag removes a view,
+        # never a tab. Each tab's aliases keep links in already-sent DMs landing.
         community_new = await community_new_count(user)
         tabs = [
-            # `view` is the section slug the visitor arrived on: the Event tab
-            # opens on the matching view, so /home/brackets still opens
-            # Brackets rather than the board.
-            # `badge` counts the community events listed since the member last
-            # opened the Community view (`/home/community`, which also answers
-            # the retired `/community-events`).
             {'label': 'Event', 'icon': 'stadium', 'aliases': ('schedule', 'brackets', 'community'),
              'badge': community_new,
              'content': (event_tab, (), {'view': section, 'community_new': community_new})},
-            # `schedule` is a bracket matchup id (`book` the same for a Challonge
-            # matchup): the matches section opens its schedule dialog on arrival, so the "matchup ready" DM's button
-            # lands on the date/time picker rather than on a page about it.
-            # `reschedule` is a match id doing the same job for the declined
-            # reschedule DM, whose next step is asking again with a new time.
-            # `match` narrows the board to one match, for the stage DMs — the
-            # player-side equivalent of `/admin/schedule?match_id=`.
-            # `hard` is a match id from the harder-settings DM, opening that
-            # match's private opt-in dialog. `agree` is a reschedule request id
-            # from the opponent DM, opening that request with its Agree button.
-            # `badge` counts the matches waiting on this player to pick a time.
-            # `comments` is a match id from the staff-comment DM: the board
-            # narrows to that match and opens its details on the comments.
-            {'label': 'My Schedule', 'icon': 'event_available',
+            {'label': 'My Schedule', 'icon': 'event_available', 'half': 'personal',
              'badge': await count_waiting_on_you(user),
-             'aliases': ('player', 'my-crew', 'availability', 'equipment'),
+             'aliases': ('player', 'my-crew', 'availability'),
              'content': (my_schedule_tab, (),
                          {'schedule': ids['schedule'], 'reschedule': ids['reschedule'],
                           'match': ids['match'], 'hard': ids['hard'], 'agree': ids['agree'],
-                          'book': ids['book'], 'comments': ids['comments']})},
-            # Signing up is the step that comes before having a schedule at all,
-            # and it used to be a checkbox on Profile that a player could use the
-            # app for a season without ever finding. Triforce text submission
-            # hangs off the card for the tournament it belongs to.
-            {'label': 'Tournaments', 'icon': 'emoji_events', 'aliases': ('triforce-texts',),
+                          'book': ids['book'], 'startgg': ids['startgg'],
+                          'comments': ids['comments'], 'release': ids['release'],
+                          'shifts': ids['shifts'] is not None})},
+            {'label': 'Tournaments', 'icon': 'emoji_events', 'aliases': ('triforce-texts',), 'half': 'personal',
              'content': tournaments_tab},
-            # `focus` is a Profile section id from the profile-nudge banner: the tab
-            # scrolls to and highlights the card that fixes the item.
-            {'label': 'Profile', 'icon': 'account_circle',
+            {'label': 'Profile', 'icon': 'account_circle', 'aliases': ('equipment',), 'half': 'personal',
              'content': (render_edit_info_tab, (), {'focus': focus})},
         ]
         if malformed_link:
@@ -247,9 +208,6 @@ def create() -> None:
             tabs=tabs, section=section, base_path=base_path, page_name='home', user=user,
         ).render()
 
-    # Home is the tenant landing (`/`) and its sections hang off `/home/<slug>`,
-    # matching the /admin/<slug> and /volunteer/<slug> hubs. Bare `/` renders the
-    # default section (the URL stays `/` until the first tab switch).
     ui.page('/')(home)
     ui.page('/home')(home)
     ui.page('/home/{section}')(home)

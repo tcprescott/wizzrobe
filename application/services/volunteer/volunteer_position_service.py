@@ -12,7 +12,6 @@ from application.services.auth_service import AuthService
 from application.services.volunteer.volunteer_role_mapping_service import (
     VolunteerRoleMappingService,
 )
-from application.tenant_context import require_tenant_id
 from models import User, VolunteerPosition
 
 
@@ -48,6 +47,15 @@ class VolunteerPositionService:
     async def list_active(self) -> List[VolunteerPosition]:
         return await self.repository.list_active()
 
+    async def list_for_viewer(
+        self, viewer: Optional[User], active_only: bool = False,
+    ) -> List[VolunteerPosition]:
+        await AuthService.ensure(
+            await AuthService.can_view_volunteer_schedule(viewer),
+            "You don't have access to the volunteer schedule.",
+        )
+        return await (self.repository.list_active() if active_only else self.repository.list_all())
+
     async def get(self, position_id: int) -> Optional[VolunteerPosition]:
         return await self.repository.get_by_id(position_id)
 
@@ -61,6 +69,7 @@ class VolunteerPositionService:
         is_active: bool = True,
         shift_length_minutes: Optional[int] = None,
         stagger_minutes: Optional[int] = None,
+        staff_alerts: bool = False,
     ) -> VolunteerPosition:
         await AuthService.ensure(
             await AuthService.can_manage_volunteers(actor),
@@ -69,13 +78,14 @@ class VolunteerPositionService:
         name = (name or '').strip()
         if not name:
             raise ValueError("Position name is required.")
-        if await VolunteerPosition.filter(name=name, tenant_id=require_tenant_id()).exists():
+        if await self.repository.name_taken(name):
             raise ValueError(f"A position named '{name}' already exists.")
         self._validate_stagger(shift_length_minutes, stagger_minutes)
         position = await self.repository.create(
             name=name, description=description, color=color,
             display_order=display_order, is_active=is_active,
             shift_length_minutes=shift_length_minutes, stagger_minutes=stagger_minutes,
+            staff_alerts=staff_alerts,
         )
         await self.audit_service.write_log(
             actor, AuditActions.VOLUNTEER_POSITION_CREATED,
@@ -88,11 +98,13 @@ class VolunteerPositionService:
             await AuthService.can_manage_volunteers(actor),
             "Only volunteer coordinators can manage positions.",
         )
+        if not fields:
+            return position
         if 'name' in fields:
             new_name = (fields['name'] or '').strip()
             if not new_name:
                 raise ValueError("Position name is required.")
-            if await VolunteerPosition.filter(name=new_name, tenant_id=require_tenant_id()).exclude(id=position.id).exists():
+            if await self.repository.name_taken(new_name, exclude_id=position.id):
                 raise ValueError(f"A position named '{new_name}' already exists.")
             fields['name'] = new_name
         if 'shift_length_minutes' in fields or 'stagger_minutes' in fields:
@@ -117,5 +129,4 @@ class VolunteerPositionService:
         await self.audit_service.write_log(
             actor, AuditActions.VOLUNTEER_POSITION_DELETED, {'position_id': position_id},
         )
-        # The cascade took its shifts, assignments and mappings with it.
         await self.role_mapping_service.reconcile_all(actor)

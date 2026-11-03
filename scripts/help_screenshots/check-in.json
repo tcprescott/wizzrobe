@@ -2,7 +2,7 @@
   {
     "name": "desk-phone",
     "user": "checkin_desk",
-    "path": "/checkin/1",
+    "path": "/volunteer/check-in-desk?event=1",
     "annotate": [
       {
         "selector": ".checkin-grid-card:has-text('Base Buyer') .checkin-link-btn",
@@ -22,10 +22,10 @@
   {
     "name": "link-dialog-phone",
     "user": "checkin_desk",
-    "path": "/checkin/1",
+    "path": "/volunteer/check-in-desk?event=1",
     "setup": [
       {
-        "fill": "input[placeholder=\"Search by name or badge code\"]",
+        "fill": "input[placeholder=\"Name or badge code\"]",
         "value": "Base Buyer"
       },
       {
@@ -57,11 +57,11 @@
   {
     "name": "dm-blocked-phone",
     "user": "checkin_desk",
-    "path": "/checkin/1",
+    "path": "/volunteer/check-in-desk?event=1",
     "selector": ".checkin-grid-card",
     "setup": [
       {
-        "fill": "input[placeholder=\"Search by name or badge code\"]",
+        "fill": "input[placeholder=\"Name or badge code\"]",
         "value": "Racer Nine"
       },
       {
@@ -72,11 +72,11 @@
   {
     "name": "refunded-phone",
     "user": "checkin_desk",
-    "path": "/checkin/1",
+    "path": "/volunteer/check-in-desk?event=1",
     "selector": ".checkin-grid-card",
     "setup": [
       {
-        "fill": "input[placeholder=\"Search by name or badge code\"]",
+        "fill": "input[placeholder=\"Name or badge code\"]",
         "value": "Refund Requester"
       },
       {

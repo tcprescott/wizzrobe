@@ -110,8 +110,10 @@ class TestScreenshotsAndManifestAgree:
     def test_every_manifest_entry_is_well_formed_and_unique(self):
         seen = set()
         for shot in _manifest():
-            for key in ('slug', 'name', 'path'):
+            for key in ('slug', 'name', 'device' if 'device' in shot else 'path'):
                 assert shot.get(key), f'manifest entry {shot} has no {key}'
+            if 'device' in shot:
+                assert 'path' not in shot, f'{shot}: a device shot is retaken by hand, so it has no path'
             assert IMAGE_SRC_RE.match(f"/static/help/{shot['slug']}/{shot['name']}.webp"), shot
             key = (shot['slug'], shot['name'])
             assert key not in seen, f'{key} is in the manifest twice'
@@ -248,6 +250,13 @@ class TestForStaff:
         assert 'coord' not in await _slugs(await _with_role(Role.STAFF, 15))
         assert 'coord' in await _slugs(await _with_role(Role.VOLUNTEER_COORDINATOR, 16))
 
+    async def test_single_tab_admin_roles_do_not_read_staff_articles(self, db, staff_catalog):
+        """Held to their own Admin tabs: a volunteer coordinator keeps the
+        article gated by their role, an equipment manager gets neither."""
+        vc = await _slugs(await _with_role(Role.VOLUNTEER_COORDINATOR, 18))
+        assert 'staff-board' not in vc and 'coord' in vc
+        assert await _slugs(await _with_role(Role.EQUIPMENT_MANAGER, 19)) == ['everyone']
+
     async def test_a_super_admin_reads_everything(self, db, staff_catalog):
         user = await make_user(discord_id=17)
         await UserRole.create(user=user, role=Role.SUPER_ADMIN, tenant=None)
@@ -291,3 +300,14 @@ def test_the_render_module_knows_the_image_kind():
     """A block kind the renderer has no branch for would silently vanish."""
     source = (ROOT / 'theme' / 'help' / 'render.py').read_text()
     assert re.search(r"block\.kind == 'image'", source)
+
+
+def test_shipped_role_articles_do_not_also_demand_staff_audience():
+    """``audience: staff`` and ``roles:`` must both pass, and ``audience: staff``
+    is staff, TA and CC only, so pairing it with a non-staff role would lock that
+    role out of its own article (a volunteer coordinator out of shift help)."""
+    offenders = [
+        a.slug for a in all_articles()
+        if a.audience != 'everyone' and a.roles and set(a.roles) - {Role.STAFF}
+    ]
+    assert offenders == []

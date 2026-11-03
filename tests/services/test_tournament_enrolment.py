@@ -67,13 +67,35 @@ async def test_enrolling_twice_is_refused_rather_than_silently_duplicated(
     assert 'already enrolled' in str(exc.value)
 
 
-async def test_entrant_management_requires_role_granting_authority(tournament, db):
+async def test_entrant_management_requires_staff_or_the_tournaments_admin(tournament, db):
     nobody = await User.create(discord_id=5203, username='nobody')
     target = await User.create(discord_id=5204, username='target')
     with pytest.raises(PermissionError):
         await TournamentService().enroll_player(tournament, target, nobody)
     with pytest.raises(PermissionError):
         await TournamentService().unenroll_player(tournament, target, nobody)
+
+
+async def test_a_tournament_admin_manages_entrants_of_their_own_tournament_only(
+    staff, tournament, member,
+):
+    """The players dialog offered Enrol and Remove to tournament admins and the
+    service refused every press. Rostering is part of running the tournament."""
+    ta = await User.create(discord_id=5205, username='ta')
+    await TenantMembership.create(user=ta, tenant_id=1)
+    await tournament.admins.add(ta)
+    other = await Tournament.create(name='Someone Else\'s')
+
+    service = TournamentService()
+    await service.enroll_player(tournament, member, ta)
+    assert [tp.user_id for tp in await service.get_enrolled_players(tournament)] == [member.id]
+    await service.unenroll_player(tournament, member, ta)
+    assert await service.get_enrolled_players(tournament) == []
+
+    with pytest.raises(PermissionError):
+        await service.enroll_player(other, member, ta)
+    with pytest.raises(PermissionError):
+        await service.unenroll_player(other, member, ta)
 
 
 async def test_entrant_changes_are_audited_under_the_shared_action(
@@ -100,11 +122,6 @@ async def test_entrant_changes_are_audited_under_the_shared_action(
     assert removed['added_tournament_ids'] == []
 
 
-# ---------------------------------------------------------------------------
-# The match-create side effect reports itself
-# ---------------------------------------------------------------------------
-
-
 async def test_ensure_players_enrolled_reports_who_it_enrolled(staff, tournament, member, db):
     """The dialog can only say "Alice was enrolled" if the service tells it."""
     from application.services import MatchService
@@ -113,7 +130,6 @@ async def test_ensure_players_enrolled_reports_who_it_enrolled(staff, tournament
     newly = await service.ensure_players_enrolled(tournament.id, [member.id], staff)
     assert [u.id for u in newly] == [member.id]
 
-    # Second time round nobody is new, so the dialog says nothing.
     assert await service.ensure_players_enrolled(tournament.id, [member.id], staff) == []
 
 
@@ -123,35 +139,28 @@ async def test_ensure_players_enrolled_reports_nothing_for_an_empty_roster(staff
     assert await MatchService().ensure_players_enrolled(tournament.id, [], staff) == []
 
 
-# --- The admin match dialog's Tournament options ---------------------------
-#
-# Two thirds of the unfiltered list could not be scheduled into, and the dialog
-# said so only after Create was pressed: an inactive tournament was offered on
-# equal footing with a live one, and six of ten options opened an empty player
-# menu with no message.
-
 async def test_an_inactive_tournament_is_not_offered(staff, tournament, db):
     await Tournament.create(name='Last Year', is_active=False)
-    offered, _counts = await TournamentService().list_schedulable()
+    offered, _counts = await TournamentService().list_schedulable(staff)
     assert [t.name for t in offered] == ['Spring Open']
 
 
 async def test_editing_a_match_keeps_its_own_tournament_in_the_list(staff, db):
     """Dropping it would blank the chip on the match being edited."""
     retired = await Tournament.create(name='Last Year', is_active=False)
-    offered, _counts = await TournamentService().list_schedulable(keep_id=retired.id)
+    offered, _counts = await TournamentService().list_schedulable(staff, keep_id=retired.id)
     assert retired.id in {t.id for t in offered}
 
 
 async def test_the_kept_tournament_is_not_duplicated_when_it_is_already_live(
     staff, tournament, db,
 ):
-    offered, _counts = await TournamentService().list_schedulable(keep_id=tournament.id)
+    offered, _counts = await TournamentService().list_schedulable(staff, keep_id=tournament.id)
     assert [t.id for t in offered].count(tournament.id) == 1
 
 
 async def test_a_missing_keep_id_is_not_an_error(staff, tournament, db):
-    offered, _counts = await TournamentService().list_schedulable(keep_id=99999)
+    offered, _counts = await TournamentService().list_schedulable(staff, keep_id=99999)
     assert [t.name for t in offered] == ['Spring Open']
 
 
@@ -161,6 +170,20 @@ async def test_entrant_counts_let_the_dialog_predict_an_empty_player_menu(
     empty = await Tournament.create(name='Nobody Yet')
     await TournamentService().enroll_player(tournament, member, staff)
 
-    _offered, counts = await TournamentService().list_schedulable()
+    _offered, counts = await TournamentService().list_schedulable(staff)
     assert counts.get(tournament.id) == 1
     assert counts.get(empty.id, 0) == 0
+
+
+async def test_a_tournament_admin_is_offered_only_the_tournaments_they_run(staff, tournament, db):
+    """create_match refuses any other tournament from them, so New Match must
+    not list it."""
+    ta = await User.create(discord_id=5206, username='ta2')
+    await TenantMembership.create(user=ta, tenant_id=1)
+    await Tournament.create(name='Not Theirs')
+    await tournament.admins.add(ta)
+
+    offered, _counts = await TournamentService().list_schedulable(ta)
+    assert [t.name for t in offered] == ['Spring Open']
+    staff_offered, _ = await TournamentService().list_schedulable(staff)
+    assert {t.name for t in staff_offered} == {'Spring Open', 'Not Theirs'}

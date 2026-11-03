@@ -6,8 +6,8 @@ from fastapi import APIRouter, Depends, status
 
 from api.dependencies import (
     ServiceErrorRoute,
+    event_binding,
     require_api_actor,
-    require_staff,
     require_write_actor,
 )
 from api.schemas.race_rooms import (
@@ -18,15 +18,14 @@ from api.schemas.race_rooms import (
 )
 from application.errors import require_found
 from application.services import (
-    AuthService,
     MatchService,
     RaceRoomService,
     RacetimeRoomService,
 )
 from application.tenant_context import require_tenant_id
-from models import RacetimeRoom, User
+from models import Match, RacetimeRoom, User
 
-router = APIRouter(prefix="/race-rooms", tags=["Race rooms"], route_class=ServiceErrorRoute)
+router = APIRouter(prefix="/race-rooms", tags=["Race rooms"], route_class=ServiceErrorRoute, dependencies=[Depends(event_binding(match_id=Match, room_id=RacetimeRoom))])
 
 
 async def _load_room_or_404(room_id: int) -> RacetimeRoom:
@@ -36,7 +35,6 @@ async def _load_room_or_404(room_id: int) -> RacetimeRoom:
     )
 
 
-# --- Reads ----------------------------------------------------------------
 # Literal single-segment routes are declared before parameterized ones.
 
 @router.get(
@@ -45,11 +43,11 @@ async def _load_room_or_404(room_id: int) -> RacetimeRoom:
     summary="List open race rooms",
     description=(
         "Lists this community's race rooms that are open or in progress.\n\n"
-        "**Who can call this:** Staff."
+        "**Who can call this:** Staff or Sync admin."
     ),
 )
-async def list_open(actor: User = Depends(require_staff)):
-    return await RacetimeRoomService().list_open_rooms_for_current_tenant()
+async def list_open(actor: User = Depends(require_api_actor)):
+    return await RacetimeRoomService().list_open_rooms_for_current_tenant(actor)
 
 
 @router.get(
@@ -62,8 +60,6 @@ async def get_by_match(match_id: int, actor: User = Depends(require_api_actor)):
     match = require_found(await MatchService().get_by_id(match_id), "Match")
     return require_found(await RacetimeRoomService().get_for_match(match), "Race room")
 
-
-# --- Writes ---------------------------------------------------------------
 
 @router.post(
     "",
@@ -95,12 +91,8 @@ async def create_room(payload: RaceRoomCreateRequest, actor: User = Depends(requ
     ),
 )
 async def cancel_room(room_id: int, payload: RaceRoomCancelRequest, actor: User = Depends(require_write_actor)):
-    await AuthService.ensure(
-        await AuthService.can_manage_sync(actor),
-        "You do not have permission to cancel a racetime room.",
-    )
     room = await _load_room_or_404(room_id)
-    await RaceRoomService().cancel_room(room, actor=actor, reason=payload.reason)
+    await RaceRoomService().cancel_room_as(room, actor=actor, reason=payload.reason)
     return room
 
 
@@ -116,9 +108,5 @@ async def cancel_room(room_id: int, payload: RaceRoomCancelRequest, actor: User 
     ),
 )
 async def set_status(room_id: int, payload: RaceRoomStatusUpdateRequest, actor: User = Depends(require_write_actor)):
-    await AuthService.ensure(
-        await AuthService.can_manage_sync(actor),
-        "You do not have permission to change a racetime room.",
-    )
     room = await _load_room_or_404(room_id)
-    return await RacetimeRoomService().set_status(room, payload.status)
+    return await RacetimeRoomService().set_status_as(room, payload.status, actor=actor)

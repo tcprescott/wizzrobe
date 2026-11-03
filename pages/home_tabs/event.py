@@ -19,7 +19,10 @@ from models import FeatureFlag, User
 from pages.community_events import EVENT_TAB, community_events_view
 from pages.home_tabs.brackets import brackets_tab
 from pages.home_tabs.schedule import schedule as schedule_view
+from theme.layout_probe import skip_layout_probe
 from theme.nav_badges import nav_count_badge
+from theme.steady import steady_refreshable
+from theme.url_state import url_param, url_state
 
 
 class EventView(NamedTuple):
@@ -29,19 +32,15 @@ class EventView(NamedTuple):
     label: str
     icon: str
     build: Callable[[], Awaitable[None]]
-    # None = always offered. Otherwise the view is absent where the community
-    # has that feature off, rather than the whole tab disappearing.
     flag: Optional[FeatureFlag] = None
 
 
 COMMUNITY = 'community'
 
-# Order is the reading order: the whole schedule, the tournament structure
-# behind it, then what attendees are running around it.
 VIEWS: tuple[EventView, ...] = (
     EventView('schedule', 'Schedule', 'schedule', schedule_view),
     EventView('brackets', 'Brackets', 'account_tree', brackets_tab, FeatureFlag.BRACKETS),
-    EventView(COMMUNITY, 'Community', 'groups', community_events_view, FeatureFlag.COMMUNITY_EVENTS),
+    EventView(COMMUNITY, 'Meetups', 'groups', community_events_view, FeatureFlag.COMMUNITY_EVENTS),
 )
 
 
@@ -98,29 +97,36 @@ def resolve_view(views: list[EventView], slug: Optional[str]) -> EventView:
 async def event_tab(view: Optional[str] = None, community_new: int = 0) -> None:
     live = await FeatureFlagService().enabled_flags()
     views = available_views(live)
-    state = {'slug': resolve_view(views, view).slug}
+    state = {'slug': resolve_view(views, url_state().requested('view') or view).slug}
 
-    @ui.refreshable
+    @steady_refreshable
     async def body() -> None:
         await resolve_view(views, state['slug']).build()
 
-    def switch(value: str) -> None:
+    async def switch(value: str) -> None:
+        if value == state['slug']:
+            return
         state['slug'] = value
-        body.refresh()
+        if view_param is None:
+            await body.refresh()
+            return
+        async with view_param.changing(value):
+            await body.refresh()
 
+    async def restore(value: str) -> None:
+        state['slug'] = resolve_view(views, value).slug
+        if toggle is not None:
+            toggle.set_value(state['slug'])
+        await body.refresh()
+
+    skip_layout_probe(body)
+
+    toggle: Optional[ui.toggle] = None
+    view_param = None
     with ui.column().classes('w-full'):
-        # A switcher over one option is just a label taking up room.
         if len(views) > 1:
-            # `page-container`, matching every view below it, so the switcher
-            # sits on the same left edge as the content it switches between.
             with ui.row().classes('page-container wiz-view-switch items-center'):
-                # No `color=`: on a q-btn-toggle that prop is the *inactive*
-                # background, so `color=primary` painted all three segments gold
-                # and the selected one was indistinguishable from the other two.
-                # `toggle-color` (primary by default) is the one that marks the
-                # selection; the rest of the look is .wiz-segmented in styles.css.
-                # The Event tab's count also rides the segment it leads to, and
-                # clears with it when that view opens.
+                # No `color=`: on q-btn-toggle that's the inactive background; `toggle-color` marks the selection.
                 badged = community_new > 0 and any(v.slug == COMMUNITY for v in views)
                 toggle = _SlottedToggle(
                     {v.slug: v.label for v in views},
@@ -131,4 +137,10 @@ async def event_tab(view: Optional[str] = None, community_new: int = 0) -> None:
                 if badged:
                     with toggle.add_slot(COMMUNITY):
                         nav_count_badge(EVENT_TAB, community_new).classes('q-ml-xs')
+                labels = {v.slug: v.label for v in views}
+                view_param = url_param(
+                    'view', toggle, default=views[0].slug, value=state['slug'],
+                    label=lambda v: labels.get(v) if v != views[0].slug else None,
+                    on_restore=restore,
+                )
         await body()

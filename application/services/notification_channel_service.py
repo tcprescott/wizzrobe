@@ -38,9 +38,11 @@ from itsdangerous import BadSignature, URLSafeSerializer
 from application.feature_flags import requires_feature
 from application.repositories import NotificationChannelRepository
 from application.services.audit_service import AuditActions, AuditService
+from application.services.sent_message_service import SentMessageRef, SentMessageService
 from application.utils.clients import sendgrid_client, telegram_client
 from application.utils.environment import get_base_url
 from application.utils.mocks.mock_discord import is_mock_discord
+from application.utils.settings_footnote import SettingsFootnote
 from models import FeatureFlag, User
 
 logger = logging.getLogger(__name__)
@@ -52,18 +54,14 @@ CODE_TTL = timedelta(minutes=15)
 TELEGRAM_LINK_TTL = timedelta(minutes=15)
 MAX_CODE_ATTEMPTS = 5
 
-#: Confirmation emails one account may request in a rolling hour.
 CODES_PER_HOUR = 5
-#: Test sends one account may make in a rolling ten minutes.
 TESTS_PER_WINDOW = 3
 TEST_WINDOW_SECONDS = 600
 
 _SUBJECT_LIMIT = 90
 _BODY_LIMIT = 4000
-_MARKDOWN = re.compile(r'\*\*|__|\\(?=[\[\]])')
-# Deliberately plain: one @, a dotted domain, no spaces, quotes or brackets.
-# The confirmation code is the real proof; this only stops obvious junk and
-# anything that could smuggle a second recipient or a header.
+# Strip only these: member names legitimately contain __.
+_MARKDOWN = re.compile(r'\*\*|\\(?=[\[\]])')
 _EMAIL_RE = re.compile(
     r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]{1,64}@"
     r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?"
@@ -80,7 +78,6 @@ class Channel(str, Enum):
     TELEGRAM = 'telegram'
 
 
-# Single worker, so an in-process window is enough (see login_throttle).
 _hits: Dict[Tuple[str, int], Deque[float]] = defaultdict(deque)
 
 
@@ -158,8 +155,6 @@ class NotificationChannelService:
     def __init__(self) -> None:
         self.repository = NotificationChannelRepository()
         self.audit_service = AuditService()
-
-    # ------------------------------------------------------------- email
 
     @requires_feature(FeatureFlag.NOTIFICATION_CHANNELS)
     async def start_email_verification(self, user: User, raw_email: str) -> str:
@@ -263,8 +258,6 @@ class NotificationChannelService:
             await self.repository.set_email_notifications(user, False)
         return True
 
-    # ---------------------------------------------------------- telegram
-
     @requires_feature(FeatureFlag.NOTIFICATION_CHANNELS)
     async def create_telegram_link(self, user: User) -> Optional[str]:
         """The ``t.me`` link that connects this account, or ``None`` in mock mode.
@@ -334,8 +327,6 @@ class NotificationChannelService:
             user, AuditActions.NOTIFICATION_TELEGRAM_LINKED, {'target_user_id': user.id},
         )
 
-    # ------------------------------------------------------------ tests
-
     # feature-gate: exempt — Discord and device tests work in every community;
     # email and Telegram are refused below unless the flag is on.
     async def send_test(self, user: User, channels: Iterable[Channel]) -> Dict[Channel, bool]:
@@ -372,17 +363,17 @@ class NotificationChannelService:
                 results[channel] = await self._telegram(user, message, url, label)
         return results
 
-    # --------------------------------------------------------- delivery
-
     # feature-gate: exempt — soft integration point on every DM; checks the flag itself.
     async def mirror_dm(
         self, discord_id: int, message: str, navigate: Optional[str] = None,
-        label: Optional[str] = None,
+        label: Optional[str] = None, silent: bool = False,
+        ref: Optional[SentMessageRef] = None, footnote: Optional[SettingsFootnote] = None,
     ) -> None:
         """Copy one Discord DM to the recipient's email and Telegram.
 
         Runs on the event dispatch worker inside the sending community's
-        ``tenant_scope``; never raises.
+        ``tenant_scope``; never raises. ``silent`` reaches Telegram only: an
+        email has no way to arrive quietly.
         """
         try:
             user = await self.repository.get_by_discord_id(discord_id)
@@ -398,14 +389,20 @@ class NotificationChannelService:
             reset_flag_cache()
             if not await FeatureFlagService().is_enabled(FeatureFlag.NOTIFICATION_CHANNELS):
                 return
-            if wants_email:
-                await self._email(user, message, navigate, label)
-            if wants_telegram:
-                await self._telegram(user, message, navigate, label)
+            emailed = await self._email(user, message, navigate, label, footnote) if wants_email else None
+            telegrammed = (
+                await self._telegram(user, message, navigate, label, silent=silent, footnote=footnote)
+                if wants_telegram else None
+            )
+            if ref is not None:
+                await SentMessageService().record_channels(ref, email=emailed, telegram=telegrammed)
         except Exception:
             logger.exception('email/Telegram DM mirror failed for discord id %s', discord_id)
 
-    async def _email(self, user: User, message: str, navigate: Optional[str], label: Optional[str]) -> bool:
+    async def _email(
+        self, user: User, message: str, navigate: Optional[str], label: Optional[str],
+        footnote: Optional[SettingsFootnote] = None,
+    ) -> bool:
         if not user.email:
             return False
         text = plain_text(message)
@@ -414,7 +411,15 @@ class NotificationChannelService:
         text_body = text
         if navigate:
             text_body += f'\n\n{label or "Open Wizzrobe"}: {navigate}'
-        text_body += f'\n\n--\n{footer}\nStop these emails: {stop}'
+        settings_line = f'{footnote.plain()}\n' if footnote else ''
+        text_body += f'\n\n--\n{settings_line}{footer}\nStop these emails: {stop}'
+        settings_html = ''
+        if footnote:
+            settings_html = (
+                f'<p style="margin-top:28px;margin-bottom:0;font-size:12px;color:#6F6D67">'
+                f'{html.escape(footnote.lead)} <a href="{html.escape(footnote.link.url, quote=True)}" '
+                f'style="color:#6F6D67">{html.escape(footnote.link.label)}</a>.</p>'
+            )
         paragraphs = ''.join(
             f'<p style="margin:0 0 12px">{html.escape(line)}</p>' for line in text.splitlines() if line.strip()
         )
@@ -427,8 +432,8 @@ class NotificationChannelService:
             )
         html_body = (
             '<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.5;color:#1C1B19">'
-            f'{paragraphs}{button}'
-            f'<p style="margin-top:28px;font-size:12px;color:#6F6D67">{html.escape(footer)} '
+            f'{paragraphs}{button}{settings_html}'
+            f'<p style="margin-top:{"8px" if footnote else "28px"};font-size:12px;color:#6F6D67">{html.escape(footer)} '
             f'<a href="{html.escape(stop, quote=True)}" style="color:#6F6D67">Stop these emails</a>.</p>'
             '</div>'
         )
@@ -450,20 +455,24 @@ class NotificationChannelService:
             return await sendgrid_client.send_email(to, subject, text, html_body, headers)
         return False
 
-    async def _telegram(self, user: User, message: str, navigate: Optional[str], label: Optional[str]) -> bool:
+    async def _telegram(
+        self, user: User, message: str, navigate: Optional[str], label: Optional[str],
+        silent: bool = False, footnote: Optional[SettingsFootnote] = None,
+    ) -> bool:
         chat_id = user.telegram_chat_id
         if chat_id is None:
             return False
         text = plain_text(message)
+        if footnote:
+            text += f'\n\n{footnote.plain()}'
         if is_mock_discord():
             suffix = f' [button: {label} -> {navigate}]' if navigate else ''
             print(f'[MOCK Telegram] -> {chat_id}: {text}{suffix}')
             return True
         if telegram_client.is_configured():
             try:
-                return await telegram_client.send_message(chat_id, text, navigate, label)
+                return await telegram_client.send_message(chat_id, text, navigate, label, silent=silent)
             except telegram_client.TelegramBlocked:
-                # They blocked the bot or deleted the chat; stop trying.
                 logger.info('Telegram chat for user %s refused messages; disconnecting it', user.id)
                 await self.repository.set_telegram(user, None, None)
                 return False

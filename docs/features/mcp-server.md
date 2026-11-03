@@ -121,26 +121,51 @@ goes, and a person who can see `claude.ai.evil.test` on the card can decline. Th
 host is rendered by `_redirect_target()` (host and port for `http(s)`, the whole
 URI for a native client's custom scheme, which has no netloc).
 
-**The write box.** One unticked checkbox, "Let it make changes". It is the only
-place write access can be granted: a client cannot request its way past it and a
-refresh cannot widen a grant without it, so raising a read-only connection to a
-writing one means reconnecting. Ticking it redraws the grant list — the two
-write lines appear and the closing note flips from "it cannot change anything" to
-"it acts as you" — because a card that lists writes while still promising
-read-only is worse than either half alone. The connection's kind is visible
-afterwards on the profile's credential list, where a writing grant carries a
-`can make changes` badge and a read-only one carries none.
+**The scope checklist.** The same card outside apps get
+(`theme/consent_scopes.py`): the eight areas from `application/api_scopes.py`
+in two groups, *Let it see* (ticked) and *Let it act as you* (unticked). The
+staff areas appear only for someone with an admin-side role in at least one
+community they belong to (`McpAuthService.offered_scopes`); there's no community
+picker, so the card says the grant works in every community, as whatever the
+person is in each. The grant carries exactly the ticked areas
+(`McpAuthService.approve(..., scopes=...)`), never what the client asked for,
+and a refresh cannot widen it. A grant with no change ticked is stamped
+`read_only`.
 
-**The typed confirmation.** Ticking the box also reveals a warning banner and a
+**The typed confirmation.** Ticking any change reveals a warning banner and a
 field asking for the phrase `this is dangerous` (`WRITE_CONFIRMATION_PHRASE`);
 Approve stays disabled until it matches, with case and spacing forgiven.
-`McpAuthService.approve(..., allow_write=True)` re-checks it and raises
-`ValueError` on a mismatch *before* consuming the pending request, so a typo
-leaves the screen usable and no other caller can grant write without it.
+`approve` re-checks it and raises `ValueError` on a mismatch *before* consuming
+the pending request, so a typo leaves the screen usable and no other caller can
+grant write without it.
+
+## Scopes on tools
+
+Every tool names one area at registration (`register(..., scope=ApiScope.X)`,
+no default), and only the orientation tools (`Gate.GLOBAL`) take none.
+Registration refuses a write tool in a read area and a read tool in a write
+area, so a read-only connection always reaches every read. `authorize` refuses a
+call outside the grant's areas with a `PermissionError` naming the area, and
+`tools/list` hides those tools. `tests/mcp/test_mcp_scopes.py` is the CI check:
+every tool scoped, staff-gated tools in staff areas, every read area used.
+
+Mapping rules, following `api/scopes.py` where a REST twin exists: your own
+data (notification settings, your shifts, checkouts, reschedule requests) is
+`profile`; anything a member can see is `schedule:read`; staff-gated reads and
+the platform reads are `staff:read`; player actions are `play`, crew signups
+and watching are `crew`, your own notification changes are `profile:write`, and
+every other write, platform writes included, is `staff:write`.
+
+**Connections made before scopes.** Their stored scope is `wizzrobe:read`
+and/or `wizzrobe:write`. `grant_scopes` reads either as every area, and
+`read_only` still refuses writes on a read-only one, so nobody has to reconnect
+and nothing they could call goes away. The wire-level scopes the server
+advertises stay `wizzrobe:read wizzrobe:write`; the consent card decides the
+grant.
 
 ## Choosing a community
 
-Every tool except `whoami`, `list_tenants` and the platform tools (`runtime_stats`, `platform_*`) takes a required `tenant` argument
+Every tool except `whoami`, `list_tenants`, `server_version` and the platform tools (`runtime_stats`, `platform_*`) takes a required `tenant` argument
 — a community slug. `list_tenants` returns the slugs the caller may use.
 
 **Membership floor.** A tool reaches a community only where its user belongs —
@@ -152,6 +177,29 @@ surface, where a token is bound to one community and can never address another.
 An unknown slug and an entitled-elsewhere slug produce **byte-identical**
 `not_found` errors, so error text cannot be diffed into a directory of the
 communities hosted here.
+
+### Choosing an event
+
+Event-owned tools (matches, tournaments, brackets, stages, volunteers, check-in,
+qualifiers, reports, exports) take an optional `event` slug. The registry adds
+it: `register(..., event=True)` (or a mapping of extra row arguments) appends a
+keyword-only `event` to the tool's signature and binds it before the tool runs.
+
+- Left out, the tool works in the community's default event.
+- A tool about rows works in the rows' own event. `ARG_ROWS` in
+  `mcpserver/registry.py` maps the shared argument names (`match_id`,
+  `tournament_id`, `shift_id`, …) to their models, list filters included; a
+  tool with its own (`entrant_id`) passes a mapping. Naming another event, or
+  rows from two events, is `not_found`. `test_mcp_events.py` fails when a tool
+  takes an `ARG_ROWS` argument without being event-owned.
+- A draft is `not_found` to anyone `EventService.can_view` refuses.
+- Community tools (members, roles, settings, webhooks) take no `event`, except
+  `grant_community_role` / `revoke_community_role` (per-event roles) and the
+  report filters on `list_audit_log`, `list_sent_messages`, `telemetry_summary`
+  and `telemetry_top`, where `event` only narrows the rows.
+
+`whoami` and `list_tenants` list each community's events (`EventInfo`: slug,
+name, status, default, dates).
 
 ## Authorization
 
@@ -198,6 +246,10 @@ a role — and the connection one is both cheaper and the common case.
 |---|---|---|
 | `whoami` | GLOBAL | Identity, roles, enabled flags per community, **and `can_write`**. The cheapest way to orient. |
 | `list_tenants` | GLOBAL | The slugs every other tool needs, with the same roles/flags. |
+| `server_version` | GLOBAL | Which build is running: version, commit, commit date, source link. The server's MCP handshake (`serverInfo.version`) carries the same version. |
+| `list_events`, `get_event`, `get_event_settings` | ACTOR | The events you can see and one event (`schedule:read`); its per-event settings (`staff:read`, `SystemConfigService` refuses non-staff). |
+| `create_event`, `update_event`, `go_live_event`, `make_default_event`, `archive_event`, `unarchive_event`, `update_event_settings` | ACTOR, write, `staff:write` (`EventService` checks Staff) | The Admin → Events lifecycle, by slug. `create_event` copies setup groups from `copy_from`. |
+| `delete_draft_event` | ACTOR, destructive, `staff:write` (Staff) | A draft with no matches. |
 
 Both report each community's live feature flags. A flag is not a permission, so
 it goes to everyone who can see the community — and reporting it lets a client
@@ -214,6 +266,7 @@ hold a writing grant in one client and a reading one in another.
 | `get_tournament_payouts` | ACTOR | `PAYOUTS` |
 | `list_stages`, `get_stage` | ACTOR | — |
 | `list_matches`, `get_match`, `get_schedule` | ACTOR | — |
+| `list_unbooked_matches` | ACTOR (staff, or the tournament's admins) | — |
 | `suggest_match_time` | ACTOR | — |
 | `match_operations_report` | ADMIN | — |
 | `my_reschedule_requests` | ACTOR | — |
@@ -226,6 +279,13 @@ earn. `set_tournament_prize_pool` and `set_tournament_payout_split` are its writ
 
 `list_tournament_players` is the roster Manage players shows, for staff or that
 tournament's admins.
+
+`list_unbooked_matches` is Match Schedule's "Not booked yet" view: open
+Challonge, start.gg and native bracket matchups with no game booked. It reads
+`bracket_sources.list_unbooked`, so it follows the same scope (staff see the
+community, a tournament admin their own tournaments, anyone else nothing) and
+skips a source whose flag is off. The totals and per-tournament counts cover
+every matchup; the rows stop at `limit`.
 
 `list_tournament_signups` reports the caller's own signup state per tournament,
 including `can_sign_up` / `can_withdraw`. Those two booleans are the service's
@@ -242,11 +302,12 @@ discover the clash after creating the match.
 | Tool | Gate | Flag |
 |---|---|---|
 | `get_user` | ACTOR (self, or staff for anyone else) | — |
+| `get_member_details` | STAFF | — |
 | `get_player_availability` | ACTOR (self, or staff for anyone else) | — |
 | `list_users` | STAFF | — |
 | `list_match_crew`, `crew_coverage_report` | ADMIN | — |
-| `list_volunteer_positions`, `list_volunteer_shifts` | ADMIN | `VOLUNTEERS` |
-| `volunteer_coverage`, `volunteer_hour_trends` | ADMIN | `VOLUNTEERS` |
+| `list_volunteer_positions`, `list_volunteer_shifts`, `volunteer_coverage` | ACTOR (service: `can_view_volunteer_schedule` — the Volunteer hub's roles plus coordinators; drafts hidden from non-coordinators) | `VOLUNTEERS` |
+| `volunteer_hour_trends` | VOLUNTEER_ADMIN | `VOLUNTEERS` |
 | `my_volunteer_shifts` | ACTOR | `VOLUNTEERS` |
 | `list_join_requests` | STAFF | — |
 
@@ -279,10 +340,21 @@ even contains ORM `Match` rows): `capacity_forecast` returns peaks and headroom
 instead of the full series, `stage_utilization` per-stage totals instead of
 every booking.
 
+### Exports
+| Tool | Gate |
+|---|---|
+| `list_my_exports`, `get_export` | ACTOR |
+| `export_tournaments`, `export_volunteer_data` (write) | ACTOR, re-checked in `DataExportService` |
+
+`get_export` returns the export and, once a tournament export is ready, its parsed
+`tournaments.json` document, so a client can read results without downloading a
+ZIP. See [data-exports.md](data-exports.md).
+
 ### Equipment
 | Tool | Gate | Flag |
 |---|---|---|
-| `list_equipment`, `get_equipment` | ACTOR | `EQUIPMENT` |
+| `list_equipment` | ACTOR (service: `can_manage_equipment`) | `EQUIPMENT` |
+| `get_equipment` | ACTOR | `EQUIPMENT` |
 | `my_equipment_checkouts` | ACTOR | `EQUIPMENT` |
 
 Mirrors `api/routers/equipment.py`. The inventory carries no role check at all:
@@ -309,19 +381,39 @@ model needs in one call to find one person.
 | Tool | Gate |
 |---|---|
 | `list_audit_log` | STAFF |
+| `list_sent_messages` | STAFF |
 | `telemetry_summary`, `telemetry_top`, `get_system_config` | STAFF |
 | `list_service_health`, `list_webhooks`, `list_webhook_deliveries` | STAFF |
+| `list_notification_settings` | STAFF |
+| `my_notification_settings` | ACTOR (your own) |
 | `list_feedback` | STAFF | `FEEDBACK` |
 | `runtime_stats` | PLATFORM (SUPER_ADMIN, checked again in `RuntimeStatsService`) |
+| `memory_census` | PLATFORM (SUPER_ADMIN, checked again in `RuntimeStatsService`) |
 
 `runtime_stats` is the live load on the process (event-loop lag and stalls,
 CPU, memory, connected tabs, DB pool, worker timing; see
 [observability.md](observability.md#live-load-runtime_stats)). It names no
 community because the figures cover all of them, which is also why a community
-role cannot read it.
+role cannot read it. `memory_census` counts what the heap holds by type, plus
+NiceGUI pages and elements still in memory and live-channel subscribers, for
+when `runtime_stats` shows memory climbing. It walks every tracked object, so
+each call freezes the app about as long as a full collection.
 
 `list_webhooks` never returns the signing secret, and `list_service_health` is
 the **tenant subset** only — the platform-wide board is `platform_service_health`.
+`list_notification_settings` mirrors `GET /api/notification-settings`: every
+message once per kind of recipient, with this community's mode and the default
+(see [notification-settings.md](notification-settings.md)).
+
+### Surveys
+`mcpserver/tools/surveys.py`, Gate STAFF, flag `SURVEYS`; mirrors `/api/surveys`. `add_survey_question` takes `agree_scale`, and the question tools take `other_option`, `none_option`, `min_picks`, `max_picks` and `long_answer`; the section tools take `description` and the per-role crew audiences. No tool asks the AI for suggestions.
+
+| Reads | Writes |
+|---|---|
+| `list_surveys`, `get_survey`, `list_survey_conditions`, `get_survey_results`, `list_survey_responses`, `list_survey_comments` | `mark_survey_comment`, `create_survey`, `duplicate_survey`, `update_survey`, `delete_survey`† (drafts only), `add_survey_section`, `update_survey_section`, `delete_survey_section`†, `move_survey_section`, `add_survey_question`, `update_survey_question`, `delete_survey_question`†, `move_survey_question` |
+
+† destructive. No tool sends, reminds or closes a survey (Thomas, 2026-10-27:
+"build only, send in the app"). `conditions` takes the same list as REST.
 
 ### Platform (super admin)
 The `/platform` page's tabs, in `mcpserver/tools/platform.py` (reads) and
@@ -362,7 +454,7 @@ discovers a round-trip later.
 | `list_presets`, `get_preset`, `list_randomizers` | ACTOR | — |
 | `list_triforce_texts` | ACTOR | `TRIFORCE_TEXTS` |
 | `list_race_room_profiles`, `get_race_room` | ACTOR | `RACETIME_ROOMS` |
-| `list_race_rooms` | STAFF | `RACETIME_ROOMS` |
+| `list_race_rooms` | ACTOR (service: Staff or Sync admin) | `RACETIME_ROOMS` |
 | `list_speedgaming_links`, `list_speedgaming_episodes` | ACTOR | `SPEEDGAMING_ETL` |
 
 `list_randomizers` is the peer of `GET /seeds/randomizers`: it filters on the
@@ -378,15 +470,16 @@ any crew coordinator.
 Several sit at ACTOR because the *service* carries the real check
 (`can_manage_presets`, `ensure_can_manage_sync`); mirroring the router's gate
 rather than inventing a stricter one keeps both surfaces answering the same
-question. `list_race_rooms` is the exception at STAFF, matching
-`GET /race-rooms/open`, whose service read has no gate of its own.
+question. `list_race_rooms` follows the same shape: the service's
+`list_open_rooms_for_current_tenant` lets Staff and Sync admins through.
 
 ### Feature-gated competition
 | Tool | Gate | Flag |
 |---|---|---|
 | `list_brackets`, `get_bracket`, `list_bracket_matches` | ACTOR | `BRACKETS` |
 | `list_bracket_entrants`, `get_bracket_standings` | ACTOR | `BRACKETS` |
-| `list_async_qualifiers`, `get_async_qualifier` | ACTOR | `ASYNC_QUALIFIERS` |
+| `get_tournament_bracket` | ACTOR (entrants' `user_id` only for Staff and the tournament's admins) | the tournament's bracket site: `BRACKETS`, `STARTGG` or `CHALLONGE` |
+| `list_async_qualifiers`, `get_async_qualifier` | ACTOR (admins get every qualifier they run and its pools; members get the open ones, without pools, as `/qualifiers` shows them) | `ASYNC_QUALIFIERS` |
 | `get_async_qualifier_leaderboard` | ACTOR | `ASYNC_QUALIFIERS` |
 | `list_async_qualifier_live_races` | ACTOR | `ASYNC_QUALIFIERS` |
 
@@ -399,13 +492,26 @@ the public pages and REST ([brackets.md](brackets.md#public-access--anonymous-an
 rather than prefetching per match: a fixed pair of queries covers the whole
 field, whatever its size.
 
+`get_tournament_bracket` (`BracketOverviewService`, mirrored by REST
+`GET /tournaments/{id}/bracket`) is the whole bracket in one shape, whichever
+site runs it: phases, pools, sets with both sides, feeders (`from_set_id` /
+`from_outcome`) and where the result goes (`winner_to` / `loser_to`), scores,
+the booked Wizzrobe games, and standings. It registers with no `feature=`
+because the tournament decides which flag applies; the delegated gated reads
+(`BracketService`, `StartggService.get_event_view`,
+`ChallongeService.get_bracket_mirror`) raise `not_found` when that flag is off.
+start.gg and Challonge come from the synced mirror only, never a live call
+(Challonge's API is metered), so Challonge scores come from confirmed bookings.
+Filters (`phase`, `pool`, `state`, `entrant`, `include_sets`) trim sets but not
+pool counts or standings.
+
 ## Writes
 
-Sixty-seven tools, served only to a connection approved for writing: twenty-one in
+Sixty-nine tools, served only to a connection approved for writing: twenty-one in
 [`mcpserver/tools/match_writes.py`](../../mcpserver/tools/match_writes.py), nine in
 [`mcpserver/tools/event_writes.py`](../../mcpserver/tools/event_writes.py), thirteen in
 [`mcpserver/tools/tournament_writes.py`](../../mcpserver/tools/tournament_writes.py),
-twenty-two in [`mcpserver/tools/admin_writes.py`](../../mcpserver/tools/admin_writes.py),
+twenty-four in [`mcpserver/tools/admin_writes.py`](../../mcpserver/tools/admin_writes.py),
 plus `sign_up_for_tournament` and `withdraw_from_tournament`, which live beside the
 other tournament tools in
 [`mcpserver/tools/tournaments.py`](../../mcpserver/tools/tournaments.py).
@@ -419,7 +525,7 @@ REST routes expose, tool for tool: `api/routers/match_actions.py`,
 position/shift/assignment writes and `POST /volunteers/assignments/{id}/check-in`
 in `api/routers/volunteers.py`, the role and membership writes in
 `api/routers/users.py`, the asset and lending writes in `api/routers/equipment.py`,
-`api/routers/payouts.py`, and `PATCH /discord-events/tournaments/{id}`.
+`api/routers/payouts.py`, `api/routers/notification_settings.py`, and `PATCH /discord-events/tournaments/{id}`.
 The event-day set was added for SG Live 2026, where the desk, coordinators and
 staff run the floor from their phones; the admin set followed so staff can set
 up and adjust tournaments, the schedule and the floor from a connected client.
@@ -434,20 +540,22 @@ replaces the whole asset.
 
 | Group | Tools |
 |---|---|
-| Scheduling | `create_match`, `submit_match_request`, `update_match`, `delete_match` |
+| Scheduling | `create_match`, `submit_match_request`, `update_match`, `delete_match`, `extend_match_to_set` |
 | Stream and stations | `set_match_stream_candidate`, `assign_match_stage`, `assign_match_stations` |
 | Lifecycle | `seat_match`, `start_match`, `finish_match`, `confirm_match`, `record_match_result`, `set_match_review`, `generate_match_seed` |
+| Crew approval | `set_crew_approval` (staff, tournament admins, crew coordinators) |
 | Your own participation | `signup_as_crew`, `withdraw_crew_signup`, `acknowledge_match`, `watch_match`, `unwatch_match`, `offer_match_for_stream`, `withdraw_stream_offer`, `sign_up_for_tournament`, `withdraw_from_tournament` |
 | Check-in desk (`EVENT_CHECK_IN`) | `check_in_attendee`, `undo_attendee_check_in`, `link_attendee`, `unlink_attendee`, `add_walk_up`, `sync_check_in_event` |
-| Volunteers (`VOLUNTEERS`) | `check_in_volunteer` |
+| Volunteers (`VOLUNTEERS`) | `check_in_volunteer`, `call_off_volunteer`, `call_off_volunteer_shift`, `undo_volunteer_call_off` |
 | Membership | `approve_join_request`, `deny_join_request` |
-| Tournaments | `create_tournament`, `update_tournament`, `delete_tournament`, `add_tournament_admin`, `remove_tournament_admin`, `add_crew_coordinator`, `remove_crew_coordinator`, `enroll_tournament_player`, `remove_tournament_player`, `update_tournament_discord_events` |
+| Tournaments | `create_tournament`, `update_tournament`, `delete_tournament`, `add_tournament_admin`, `remove_tournament_admin`, `add_crew_coordinator`, `remove_crew_coordinator`, `enroll_tournament_player`, `remove_tournament_player`, `drop_tournament_player`, `update_tournament_discord_events`, `set_stage_best_of` (paired read: `get_round_schedule`) |
 | Challonge (`CHALLONGE`) | `link_challonge_tournament`, `unlink_challonge_tournament`, `sync_challonge_tournament` |
 | Stages | `create_stage`, `update_stage`, `delete_stage` |
 | Volunteer schedule (`VOLUNTEERS`) | `create_volunteer_position`, `update_volunteer_position`, `delete_volunteer_position`, `create_volunteer_shift`, `update_volunteer_shift`, `delete_volunteer_shift`, `assign_volunteer`, `unassign_volunteer` |
 | Members and roles | `add_community_member`, `remove_community_member`, `grant_community_role`, `revoke_community_role` |
 | Equipment (`EQUIPMENT`) | `create_equipment`, `update_equipment`, `delete_equipment`, `check_out_equipment`, `check_in_equipment` |
 | Payouts (`PAYOUTS`) | `set_tournament_prize_pool`, `set_tournament_payout_split` |
+| Notification settings | `set_notification_setting`, `set_staff_notification_setting`, `reset_notification_settings` (staff, checked in `NotificationSettingsService`); `set_my_notification_preset`, `set_my_notification` (any member, own settings only) |
 
 Every one is registered at **ACTOR**, mirroring `require_write_actor`: holding a
 live token approved for writing is the bar at this layer, and the real check is
@@ -469,7 +577,8 @@ gets; `STAFF`/`ADMIN` gates still apply on top.
 
 Every write that removes something rather than adding or amending it (the
 `delete_*`, `remove_*`, `withdraw_*`, `unassign_volunteer`, `revoke_community_role`,
-`undo_attendee_check_in`, `unlink_attendee` and `unlink_challonge_tournament`) is
+`undo_attendee_check_in`, `unlink_attendee`, `unlink_challonge_tournament` and
+`reset_notification_settings`) is
 additionally annotated `destructiveHint`, which is how a client decides how hard to
 ask before proceeding. `tests/mcp/test_mcp_catalogue.py` holds the exact list.
 `delete_tournament` also needs `confirmation="permanently delete"` and an inactive

@@ -23,6 +23,7 @@ from theme.brackets import (
     state_label,
 )
 from theme.empty_state import empty_panel
+from theme.links import link_button
 
 
 def group_by_tournament(
@@ -54,26 +55,18 @@ def _render_stage(bracket: Bracket) -> None:
             ).classes('text-caption')
         with ui.row().classes('items-center gap-2 no-wrap'):
             ui.badge(state_label(bracket.state), color=state_color(bracket.state))
-            ui.button(
-                'View', icon='visibility',
-                on_click=lambda bid=bracket.id: ui.navigate.to(f'/brackets/{bid}'),
-            ).props('flat dense')
+            link_button('View', f'/brackets/{bracket.id}', icon='visibility', new_tab=False).props('flat dense')
 
 
 async def brackets_tab() -> None:
-    # DRAFT/CANCELLED stages are unpublished: the service hands a staff viewer
-    # the full list and everyone else only what is public.
     user = await get_user_from_session(app.storage.user)
     brackets = await BracketService().list_all_visible_brackets(user)
 
     with ui.column().classes('page-container'):
-        # No page title: the Event tab's view switcher above already says
-        # Brackets.
         if not brackets:
             empty_panel('No brackets have been published yet.', icon='account_tree')
             return
 
-        # Same compact intro line the Schedule view uses, for the same reason.
         with ui.row().classes('wiz-view-note items-center'):
             ui.label(
                 'Tournament brackets, standings, and results.'
@@ -88,15 +81,9 @@ def _render_tournament(tournament_id: int, name: str, stages: List[Bracket]) -> 
     with ui.card().classes('w-full q-pa-md'):
         with ui.row().classes('items-center justify-between w-full'):
             ui.label(name).classes('text-subtitle1 text-bold')
-            # Multi-stage tournaments get the stage index too; a
-            # single-stage one is fully described by the row below it.
             if len(stages) > 1:
-                ui.button(
-                    'All stages', icon='list',
-                    on_click=lambda tid=tournament_id: ui.navigate.to(
-                        f'/tournament/{tid}/brackets'
-                    ),
-                ).props('flat dense')
+                link_button('All stages', f'/tournament/{tournament_id}/brackets', icon='list', new_tab=False) \
+                    .props('flat dense')
         ui.separator()
         for bracket in stages:
             _render_stage(bracket)

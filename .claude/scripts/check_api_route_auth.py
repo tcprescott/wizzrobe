@@ -40,9 +40,22 @@ NON_ACTOR = {"require_feature"}
 
 # Documented exceptions, by (module stem, function name):
 #   health   — a liveness probe, deliberately open.
+#   version  — the build version, also printed on the public /about page.
 #   rotate   — a push service reissued an endpoint; the caller proves itself by
 #              knowing the old endpoint and auth, and has no token to send.
-ALLOWLIST = {("health", "health"), ("web_push", "rotate")}
+#   store_webhook — Stripe/PayPal post it; the store's signature, checked
+#              against that store's sealed secret, is the proof.
+ALLOWLIST = {
+    ("health", "health"), ("version", "version"), ("web_push", "rotate"),
+    # What's new, About and facts describe the app itself, like /version.
+    ("reading", "changelog"), ("reading", "about"), ("reading", "privacy"),
+    ("reading", "notices"), ("reading", "notice"), ("reading", "facts"),
+    ("tickets", "store_webhook"),
+    # Patreon sign-in return and webhook: the single-use state and the signature are the auth.
+    ("patreon", "patreon_callback"), ("patreon", "patreon_webhook"),
+    # POST only to carry a body; both read and save nothing (READ_ONLY_POSTS in api/scopes.py).
+    ("admin_match_schedule", "check_time"), ("admin_match_schedule", "suggest_time"),
+}
 
 
 def is_write_dep(name: str) -> bool:

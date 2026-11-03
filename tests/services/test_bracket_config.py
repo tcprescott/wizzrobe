@@ -23,7 +23,6 @@ class TestRoundsConfig:
         )
         assert normalized["rounds"]["1"]["best_of"] == 3
         assert normalized["rounds"]["1"]["scheduled_at"] == "2026-08-01T18:00:00+00:00"
-        # Negative keys address losers-bracket rounds.
         assert normalized["rounds"]["-1"]["best_of"] == 1
 
     def test_empty_round_entry_allowed(self):
@@ -100,7 +99,6 @@ class TestRoundsConfig:
             validate_bracket_config({"rounds": {"1": {"bogus": 1}}})
 
     def test_rounds_optional(self):
-        # A config with no rounds map stays valid and drops the unset key.
         normalized = validate_bracket_config({"swiss_rounds": 3})
         assert "rounds" not in normalized
 

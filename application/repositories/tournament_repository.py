@@ -7,17 +7,22 @@ Handles database operations for tournaments.
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional
 
-from application.repositories._base import TenantScopedRepository
+from tortoise.functions import Count
+
+from application.event_writes import guarded_delete
+from application.repositories._base import EventScopedRepository
+from application.repositories._event import current_event_id, event_scoped, live_event_scoped
 from application.repositories._tenant import current_tenant_id, scoped
-from models import Bracket, Match, Tournament, TournamentGrant, TournamentPlayers, TriforceText
+from models import Bracket, EventStatus, Match, Tournament, TournamentGrant, TournamentPlayers, TriforceText, User
 
 
-class TournamentRepository(TenantScopedRepository[Tournament]):
+class TournamentRepository(EventScopedRepository[Tournament]):
     """Repository for tournament data access.
 
     Every read is constrained to the current tenant via ``scoped(...)`` and every
     write stamps ``tenant_id=current_tenant_id()``; both raise if no tenant is in
-    context. ``TournamentPlayers`` reads that start from a global ``user`` are the
+    context. Lists are of the current event; a lookup by id is not, because a
+    row decides its own event. ``TournamentPlayers`` reads that start from a global ``user`` are the
     sharp edge — they must be tenant-filtered explicitly, since the reverse
     relation spans tenants.
     """
@@ -41,6 +46,13 @@ class TournamentRepository(TenantScopedRepository[Tournament]):
             query = query.prefetch_related('players', 'players__user')
         return await query.first()
     
+    @staticmethod
+    async def active_admin_tournaments(user: User) -> List[Tournament]:
+        """Active tournaments ``user`` admins in any live event, by name (cross-event)."""
+        return await live_event_scoped(
+            Tournament.filter(admins__id=user.id, is_active=True)
+        ).distinct().order_by('name')
+
     @staticmethod
     async def get_by_ids(tournament_ids: List[int]) -> List[Tournament]:
         """
@@ -69,7 +81,7 @@ class TournamentRepository(TenantScopedRepository[Tournament]):
         Returns:
             List of Tournament objects
         """
-        query = scoped(Tournament.all()).order_by('name')
+        query = event_scoped(Tournament.all()).order_by('name')
 
         if active_only:
             query = query.filter(is_active=True)
@@ -78,7 +90,20 @@ class TournamentRepository(TenantScopedRepository[Tournament]):
             query = query.prefetch_related('players', 'players__user')
         
         return await query
-    
+
+    @staticmethod
+    async def list_with_player_counts(only_ids: Optional[List[int]] = None) -> List[Tournament]:
+        """This event's tournaments by name, each with ``player_count`` annotated."""
+        query = event_scoped(Tournament.all())
+        if only_ids is not None:
+            query = query.filter(id__in=only_ids)
+        return await query.annotate(player_count=Count('players')).order_by('name')
+
+    @staticmethod
+    async def active_in_live_events() -> List[Tournament]:
+        """Every live event's active tournaments, by name (cross-event: Home › Tournaments)."""
+        return await live_event_scoped(Tournament.filter(is_active=True)).order_by('name')
+
     @staticmethod
     async def enrolment_counts() -> dict[int, int]:
         """``{tournament_id: entrants}`` for this tenant, in one query.
@@ -133,6 +158,19 @@ class TournamentRepository(TenantScopedRepository[Tournament]):
         return entrants
 
     @staticmethod
+    async def admins_by_tournament(
+        tournament_ids: List[int],
+    ) -> dict[int, list[Any]]:
+        """``{tournament_id: [User, …]}`` of each tournament's own admins, A to Z."""
+        tournaments = await scoped(
+            Tournament.filter(id__in=tournament_ids)
+        ).prefetch_related('admins')
+        return {
+            t.id: sorted(t.admins, key=lambda u: (u.display_name or u.username or '').lower())
+            for t in tournaments
+        }
+
+    @staticmethod
     async def enrolled_tournament_ids(user_id: int) -> set[int]:
         """The tournaments in *this tenant* one user is enrolled in.
 
@@ -146,8 +184,8 @@ class TournamentRepository(TenantScopedRepository[Tournament]):
 
     @staticmethod
     async def any_exists() -> bool:
-        """Whether this tenant has any tournament at all."""
-        return await scoped(Tournament.all()).exists()
+        """Whether the current event has any tournament at all."""
+        return await event_scoped(Tournament.all()).exists()
 
     @staticmethod
     async def any_enrolment() -> bool:
@@ -163,9 +201,10 @@ class TournamentRepository(TenantScopedRepository[Tournament]):
         Excludes the bracket-run ones (``allow_player_match_requests`` off) and
         archived ones (``is_active`` off), which ``submit_match_request`` refuses.
         Narrowed to the tournaments ``user_id`` is enrolled in when given, which
-        is what the request dialog's default (non-"show all") list needs.
+        is what the request dialog's default (non-"show all") list needs. The
+        dialog lives on My Schedule, so it spans every live event (cross-event).
         """
-        query = scoped(
+        query = live_event_scoped(
             Tournament.filter(allow_player_match_requests=True, is_active=True)
         ).order_by('name')
         if user_id is not None:
@@ -193,12 +232,15 @@ class TournamentRepository(TenantScopedRepository[Tournament]):
         return {t.id: t.name for t in tournaments}
     
     @staticmethod
-    async def create(
+    async def create(  # type: ignore[override]
         name: str,
         description: Optional[str] = None,
+        short_name: Optional[str] = None,
         seed_generator: Optional[str] = None,
         is_active: bool = True,
         is_test: bool = False,
+        players_release_seed: bool = False,
+        uses_tournament_room: bool = True,
         players_per_match: int = 2,
         bracket_url: Optional[str] = None,
         rules_url: Optional[str] = None,
@@ -209,6 +251,7 @@ class TournamentRepository(TenantScopedRepository[Tournament]):
         max_match_duration: Optional[int] = None,
         required_commentators: int = 1,
         required_trackers: int = 1,
+        required_broadcasters: int = 1,
         allow_player_match_requests: bool = True,
         config: Optional[Dict[str, Any]] = None,
         preset_id: Optional[int] = None,
@@ -219,6 +262,9 @@ class TournamentRepository(TenantScopedRepository[Tournament]):
         room_open_minutes_before: int = 30,
         stage_reminder_minutes: int = 30,
         require_racetime_link: bool = False,
+        racetime_bot_runs_room: bool = False,
+        racetime_seed_post_minutes: int = 10,
+        racetime_close_finish_ms: int = 1000,
         racetime_default_goal: Optional[str] = None,
         event_start_date: Optional[date] = None,
         event_end_date: Optional[date] = None,
@@ -235,6 +281,8 @@ class TournamentRepository(TenantScopedRepository[Tournament]):
             seed_generator: Name of seed generator to use
             is_active: Whether tournament is active
             is_test: Whether it is a staff-only test tournament
+            players_release_seed: Whether players release their own seed by all marking ready
+            uses_tournament_room: Whether its off-stream matches take room capacity
             players_per_match: Number of players per match
             bracket_url: URL to tournament bracket
             rules_url: URL to tournament rules
@@ -244,17 +292,22 @@ class TournamentRepository(TenantScopedRepository[Tournament]):
             required_commentators: Approved commentators a streamed match needs
                 to count as covered (0 = the role is not used here)
             required_trackers: Approved trackers a streamed match needs
+            required_broadcasters: Approved broadcasters, where the event has them
             
         Returns:
             Created Tournament object
         """
         return await Tournament.create(
             tenant_id=current_tenant_id(),
+            event_id=current_event_id(),
             name=name,
+            short_name=short_name,
             description=description,
             seed_generator=seed_generator,
             is_active=is_active,
             is_test=is_test,
+            players_release_seed=players_release_seed,
+            uses_tournament_room=uses_tournament_room,
             players_per_match=players_per_match,
             bracket_url=bracket_url,
             rules_url=rules_url,
@@ -265,6 +318,7 @@ class TournamentRepository(TenantScopedRepository[Tournament]):
             max_match_duration=max_match_duration,
             required_commentators=required_commentators,
             required_trackers=required_trackers,
+            required_broadcasters=required_broadcasters,
             allow_player_match_requests=allow_player_match_requests,
             config=config,
             preset_id=preset_id,
@@ -275,6 +329,9 @@ class TournamentRepository(TenantScopedRepository[Tournament]):
             room_open_minutes_before=room_open_minutes_before,
             stage_reminder_minutes=stage_reminder_minutes,
             require_racetime_link=require_racetime_link,
+            racetime_bot_runs_room=racetime_bot_runs_room,
+            racetime_seed_post_minutes=racetime_seed_post_minutes,
+            racetime_close_finish_ms=racetime_close_finish_ms,
             racetime_default_goal=racetime_default_goal,
             event_start_date=event_start_date,
             event_end_date=event_end_date,
@@ -306,7 +363,7 @@ class TournamentRepository(TenantScopedRepository[Tournament]):
             tournament: Tournament to unenroll from
             user: User to unenroll
         """
-        await scoped(TournamentPlayers.filter(tournament=tournament, user=user)).delete()
+        await guarded_delete(scoped(TournamentPlayers.filter(tournament=tournament, user=user)))
     
     @staticmethod
     async def get_enrolled_players(tournament: Tournament) -> List:
@@ -368,16 +425,10 @@ class TournamentRepository(TenantScopedRepository[Tournament]):
 
     @staticmethod
     async def get_enrolled_players_by_user(user) -> List:
-        """
-        Get all tournament enrollments for a specific user.
-        
-        Args:
-            user: User to get enrollments for
-            
-        Returns:
-            List of TournamentPlayers objects
-        """
-        return await scoped(TournamentPlayers.filter(user=user)).prefetch_related('tournament')
+        """This user's enrolments in every live event's tournaments (cross-event: their own schedule)."""
+        return await scoped(TournamentPlayers.filter(
+            user=user, tournament__event__status=EventStatus.LIVE,
+        )).prefetch_related('tournament')
     
     @staticmethod
     async def get_enrolled_players_by_tournament_id(tournament_id: int) -> List:

@@ -60,20 +60,20 @@ slug: equipment
 icon: inventory_2
 order: 65
 feature: EQUIPMENT                 # FeatureFlag member; omit if ungated
-audience: staff                    # staff articles only
-roles: STAFF, VOLUNTEER_COORDINATOR # narrows further; optional
+audience: staff                    # staff/TA/CC articles; optional
+roles: STAFF, VOLUNTEER_COORDINATOR # a role's own topic, instead of audience; optional
 summary: One line for the index card and search.
 ---
 ```
 
 - `feature:` hides the article (and prunes links to it) where the community has
   that flag off. Use the flag the surface itself is gated on.
-- `audience: staff` admits anyone who can open Admin: admin roles, **tournament
-  admins and crew coordinators** (per-tournament assignments, not roles), and
-  super-admins. Use it for anything those people also work from, Admin →
+- `audience: staff` admits staff, **tournament admins and crew coordinators**
+  (per-tournament assignments, not roles), and super-admins, but not the other
+  admin roles (volunteer coordinator, equipment manager, broadcast tech…). Use it for anything those people also work from, Admin →
   Schedule above all. `roles: STAFF` alone would shut tournament admins out.
-- `roles:` narrows to holders (super-admin always passes). Combine with
-  `audience: staff` for, say, volunteer coordination (`STAFF,
+- `roles:` narrows to holders (super-admin always passes). Use it **without**
+  `audience: staff` for a role's own topic, say volunteer coordination (`STAFF,
   VOLUNTEER_COORDINATOR`) or Challonge (`STAFF`).
 - A section for a narrower role inside a public article (the equipment desk
   inside "Borrowing equipment") is fine when the rest of the article is for

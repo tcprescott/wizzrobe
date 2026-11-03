@@ -16,6 +16,7 @@ from mcp.server.mcpserver import MCPServer
 
 from api.schemas.platform import LogLevelResponse
 from api.schemas.service_health import ProbeResultResponse
+from application.api_scopes import ApiScope
 from application.services import (
     CommunityOverview,
     FeatureFlagService,
@@ -38,8 +39,6 @@ from mcpserver.schemas import (
 )
 from mcpserver.tools._args import clamp
 from models import RacetimeBot, User
-
-# --- shared shapes, also used by platform_writes ------------------------------
 
 
 def community_row(overview: CommunityOverview) -> PlatformCommunity:
@@ -95,9 +94,6 @@ async def group_rows(actor: User) -> List[PlatformFeatureGroup]:
         PlatformFeatureGroup(**row, community_count=row['tenant_count'])
         for row in await FeatureFlagService().list_groups_with_counts(actor)
     ]
-
-
-# --- tools --------------------------------------------------------------------
 
 
 async def platform_list_communities() -> List[PlatformCommunity]:
@@ -185,4 +181,4 @@ def register_tools(mcp: MCPServer) -> None:
         (platform_list_log_levels, 'List log levels'),
         (platform_service_health, 'Platform health board'),
     ):
-        register(mcp, fn, gate=Gate.PLATFORM, title=title)
+        register(mcp, fn, gate=Gate.PLATFORM, scope=ApiScope.STAFF_READ, title=title)

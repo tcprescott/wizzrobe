@@ -52,6 +52,9 @@ class MatchReviewMixin:
         )
 
         match_live.publish(match.id)
+        from application.services import opt_in_notifications
+        from application.services.discord import discord_queue
+        discord_queue.enqueue(opt_in_notifications.match_flagged(match.id, actor.id, actor.preferred_name))
         return match
 
     async def clear_review(self, match_id: int, actor: User) -> Match:

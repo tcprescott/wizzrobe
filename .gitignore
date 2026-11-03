@@ -188,5 +188,8 @@ profile.html
 node_modules/
 !theme/markdown_editor/dist/
 
+# Generated from the routers by `npm run gen:api` (web/); never committed.
+web/openapi.json
+web/src/api/schema.d.ts
 # Door Randomizer patches written in dev (DOOR_SEED_DIR default)
 .door-seeds/

@@ -1,3 +1,4 @@
+
 from tortoise import fields
 from tortoise.models import Model
 
@@ -9,20 +10,22 @@ class VolunteerPosition(Model):
 
     id = fields.IntField(pk=True)
     tenant = fields.ForeignKeyField('models.Tenant', related_name='volunteer_positions', on_delete=fields.CASCADE)
+    # Keep nullable: not every write path stamps it yet.
+    event: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Event', related_name='volunteer_positions', on_delete=fields.CASCADE,
+    )
+    event_id: int
     name = fields.CharField(max_length=255)
     description = fields.TextField(null=True)
     color = fields.CharField(max_length=32, null=True)
     display_order = fields.IntField(default=0)
     is_active = fields.BooleanField(default=True)
-    # When both are set, the shift generator produces staggered rolling shifts
-    # for this position instead of fixed shared blocks (overlapping windows
-    # offset by ``stagger_minutes`` so handoffs happen one at a time).
     shift_length_minutes = fields.IntField(null=True)
     stagger_minutes = fields.IntField(null=True)
+    staff_alerts = fields.BooleanField(default=False)
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
-    # related fields
     shifts = fields.ReverseRelation["VolunteerShift"]
     qualifications = fields.ReverseRelation["VolunteerQualification"]
 
@@ -32,7 +35,7 @@ class VolunteerPosition(Model):
 
     class Meta:
         table = 'volunteerposition'
-        unique_together = (('tenant', 'name'),)
+        unique_together = (('tenant', 'event', 'name'),)
 
 
 class VolunteerShift(Model):
@@ -40,6 +43,11 @@ class VolunteerShift(Model):
 
     id = fields.IntField(pk=True)
     tenant = fields.ForeignKeyField('models.Tenant', related_name='volunteer_shifts', on_delete=fields.CASCADE)
+    # Keep nullable: not every write path stamps it yet.
+    event: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Event', related_name='volunteer_shifts', on_delete=fields.CASCADE,
+    )
+    event_id: int
     position = fields.ForeignKeyField('models.VolunteerPosition', related_name='shifts', on_delete=fields.CASCADE)
     starts_at = fields.DatetimeField(index=True)
     ends_at = fields.DatetimeField()
@@ -49,12 +57,11 @@ class VolunteerShift(Model):
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
-    # related fields
     assignments = fields.ReverseRelation["VolunteerAssignment"]
 
     class Meta:
         table = 'volunteershift'
-        indexes = (('position',),)  # starts_at is field-indexed; per-position lookups need position_id
+        indexes = (('position',),)
 
 
 class VolunteerAssignment(Model):
@@ -70,18 +77,23 @@ class VolunteerAssignment(Model):
     reminder_sent_at = fields.DatetimeField(null=True)
     checked_in_at = fields.DatetimeField(null=True)
     checked_in_by = fields.ForeignKeyField('models.User', related_name='volunteer_check_ins', null=True, on_delete=fields.SET_NULL)
-    # Stamped when the shift-start DM ("I'm here" / running late / can't make
-    # it) is queued, so each assignment gets it once.
     start_dm_sent_at = fields.DatetimeField(null=True)
-    # Self-reported from that DM; cleared on check-in.
     late_minutes = fields.IntField(null=True)
+    called_off_at = fields.DatetimeField(null=True)
+    called_off_by = fields.ForeignKeyField('models.User', related_name='volunteer_call_offs', null=True, on_delete=fields.SET_NULL)
+    called_off_note = fields.TextField(null=True)
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
+
+    @property
+    def counts_as_worked(self) -> bool:
+        """Checked in, or called off by staff: either way the shift is credited."""
+        return self.checked_in_at is not None or self.called_off_at is not None
 
     class Meta:
         table = 'volunteerassignment'
         unique_together = (('shift', 'user'),)
-        indexes = (('user',),)  # composite is shift-first; user-only "my shifts" lookup uncovered
+        indexes = (('user',),)
 
 
 class VolunteerQualification(Model):
@@ -97,7 +109,7 @@ class VolunteerQualification(Model):
     class Meta:
         table = 'volunteerqualification'
         unique_together = (('user', 'position'),)
-        indexes = (('position',),)  # composite is user-first; position-only lookup uncovered
+        indexes = (('position',),)
 
 
 class VolunteerRoleMapping(Model):
@@ -114,7 +126,11 @@ class VolunteerRoleMapping(Model):
     tenant = fields.ForeignKeyField(  # type: ignore[var-annotated]
         'models.Tenant', related_name='volunteer_role_mappings', on_delete=fields.CASCADE,
     )
-    # CASCADE: a deleted position confers nothing, so its mappings go with it.
+    # Keep nullable: not every write path stamps it yet.
+    event: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Event', related_name='volunteer_role_mappings', on_delete=fields.CASCADE,
+    )
+    event_id: int
     position = fields.ForeignKeyField(  # type: ignore[var-annotated]
         'models.VolunteerPosition', related_name='role_mappings', on_delete=fields.CASCADE,
     )
@@ -132,6 +148,11 @@ class VolunteerAvailability(Model):
 
     id = fields.IntField(pk=True)
     tenant = fields.ForeignKeyField('models.Tenant', related_name='volunteer_availability', on_delete=fields.CASCADE)
+    # Keep nullable: not every write path stamps it yet.
+    event: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Event', related_name='volunteer_availability', on_delete=fields.CASCADE,
+    )
+    event_id: int
     user = fields.ForeignKeyField('models.User', related_name='volunteer_availability', on_delete=fields.CASCADE)
     starts_at = fields.DatetimeField(index=True)
     ends_at = fields.DatetimeField()
@@ -142,7 +163,7 @@ class VolunteerAvailability(Model):
 
     class Meta:
         table = 'volunteeravailability'
-        indexes = (('user',),)  # starts_at is field-indexed; per-user reads need user_id
+        indexes = (('user',),)
 
 
 class PlayerAvailability(Model):
@@ -155,6 +176,11 @@ class PlayerAvailability(Model):
 
     id = fields.IntField(pk=True)
     tenant = fields.ForeignKeyField('models.Tenant', related_name='player_availability', on_delete=fields.CASCADE)
+    # Keep nullable: not every write path stamps it yet.
+    event: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Event', related_name='player_availability', on_delete=fields.CASCADE,
+    )
+    event_id: int
     user = fields.ForeignKeyField('models.User', related_name='player_availability', on_delete=fields.CASCADE)
     starts_at = fields.DatetimeField(index=True)
     ends_at = fields.DatetimeField()
@@ -165,4 +191,4 @@ class PlayerAvailability(Model):
 
     class Meta:
         table = 'playeravailability'
-        indexes = (('user',),)  # starts_at is field-indexed; per-user reads need user_id
+        indexes = (('user',),)

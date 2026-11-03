@@ -27,7 +27,9 @@ import html
 from typing import Callable, Dict, List, Optional
 
 from nicegui import app, background_tasks, context, ui
+from starlette.responses import RedirectResponse
 
+from application.event_context import event_scope, get_current_event_id
 from application.services import (
     AuthService,
     BracketService,
@@ -41,6 +43,7 @@ from application.services.bracket_engines.standings import (
 from application.tenant_context import require_tenant_id, tenant_scope
 from application.utils.route_params import parse_route_id
 from middleware.auth import public_page
+from middleware.event_routing import page_request, row_event_redirect
 from models import (
     Bracket,
     BracketEntry,
@@ -76,6 +79,8 @@ from theme.brackets.tables import render_crosstable, render_pairings, render_sta
 from theme.empty_state import empty_panel
 from theme.error_page import render_not_found
 from theme.page_header import page_title
+from theme.steady import steady_refreshable
+from theme.url_state import bind_url
 
 
 def _slot_label(
@@ -99,8 +104,6 @@ async def _next_stage_advancement(
     return (nxt.config or {}).get('advancement')
 
 
-# Delegated hover-run highlight: hovering any entrant row tints that entrant's
-# rows across every match in the bracket (Gracket's data-attribute technique).
 _HOVER_RUN_JS = (
     '<script>'
     'if(!window.__wizBracketHover){'
@@ -149,12 +152,12 @@ def _populate_bracket_toolbar(
         views.classes(remove='view-list view-bracket', add=f'view-{value}')
 
     with row:
-        ui.toggle(
+        layout = ui.toggle(
             {'list': 'List', 'bracket': 'Bracket'},
             value=view_state['v'],
             on_change=lambda e: set_view(e.value),
         ).props('dense unelevated no-caps size=sm').classes('wiz-segmented bracket-view-toggle')
-        # Zoom drives the 2-D canvas only, so it hides with it in list mode.
+        bind_url('layout', layout, default='list')
         with ui.row().classes('bracket-zoom-controls items-center gap-1'):
             ui.button(icon='zoom_out', on_click=lambda: step(-0.1)) \
                 .props('flat dense round').tooltip('Zoom out')
@@ -221,7 +224,6 @@ def _render_round_robin(
         group_of.setdefault(e.id, e.group_number)
 
     groups = sorted({group_of.get(e.id) for e in entries}, key=lambda g: (g is None, g))
-    # A per-group advancement rule tints/cuts each group's top `count`.
     per_group_cut = (
         advancement.get('count')
         if advancement and advancement.get('per_group')
@@ -305,6 +307,8 @@ def _render_swiss(
                 render_pairings(
                     [m for m in matches if m.round == r], entry_name, records,
                 )
+    bind_url('round', tabs, default=f'r{default_round}', choices=[f'r{r}' for r in rounds],
+             label=lambda v: f'Round {v[1:]}')
 
 
 def _static_view_link(path: str, *, public: bool) -> None:
@@ -346,21 +350,22 @@ async def _viewer():
 
 
 def create() -> None:
-    @public_page('/tournament/{tournament_id}/brackets', feature=FeatureFlag.BRACKETS)
-    async def bracket_index(tournament_id: str) -> None:
+    @public_page('/tournament/{tournament_id}/brackets', feature=FeatureFlag.BRACKETS, scope='row')
+    async def bracket_index(tournament_id: str) -> Optional[RedirectResponse]:
         user, is_staff = await _viewer()
         tid = parse_route_id(tournament_id)
 
         service = BracketService()
-        # The service decides what this viewer may see: a tournament with
-        # nothing published (name included) and DRAFT/CANCELLED stages are
-        # staff-only, answered exactly like an id that was never used.
+        # Unpublished tournaments and DRAFT/CANCELLED stages must 404 exactly like an unused id.
         tournament = (
             await service.get_visible_tournament(user, tid) if tid is not None else None
         )
         if tid is None or tournament is None:
             await render_not_found(user=user)
-            return
+            return None
+        redirect = await row_event_redirect(page_request(), tournament.event_id)
+        if redirect is not None:
+            return redirect
         brackets = await service.list_visible_brackets(user, tid)
         public_stages = [b for b in brackets if BracketService.is_published(b)]
 
@@ -380,7 +385,7 @@ def create() -> None:
             ui.separator().classes('separator-spacing')
             if not brackets:
                 empty_panel('No brackets have been published for this tournament.', icon='account_tree')
-                return
+                return None
             with ui.element('div').classes('wiz-tile-grid'):
                 for bracket in brackets:
                     with ui.card().classes('q-pa-md'):
@@ -405,24 +410,26 @@ def create() -> None:
                                         f'/brackets/{bid}'
                                     ),
                                 ).props('flat dense')
+        return None
 
-    @public_page('/brackets/{bracket_id}', feature=FeatureFlag.BRACKETS)
-    async def bracket_detail(bracket_id: str) -> None:
+    @public_page('/brackets/{bracket_id}', feature=FeatureFlag.BRACKETS, scope='row')
+    async def bracket_detail(bracket_id: str) -> Optional[RedirectResponse]:
         user, is_staff = await _viewer()
         parsed_id = parse_route_id(bracket_id)
         service = BracketService()
-        # An unpublished (DRAFT) or withdrawn stage reads as absent to everyone
-        # but staff, with the same page and status as an id never used.
         first = (
             await service.get_visible_bracket(user, parsed_id) if parsed_id is not None else None
         )
         if parsed_id is None or first is None:
             await render_not_found(user=user)
-            return
+            return None
         stage_id = parsed_id
         tournament = await Tournament.get_or_none(
             id=first.tournament_id, tenant_id=require_tenant_id(),
         )
+        redirect = await row_event_redirect(page_request(), tournament.event_id if tournament else None)
+        if redirect is not None:
+            return redirect
         tournament_name = tournament.name if tournament else 'Tournament'
         community = await TenantService.current_community_name() or 'Wizzrobe'
         ui.page_title(f'{first.name} — {tournament_name} — {community}')
@@ -435,22 +442,16 @@ def create() -> None:
         ui.add_head_html(f'<link rel="stylesheet" href="{asset_url("css/brackets.css")}">')
         _install_hover_run()
 
-        # Captured while the request context is live; row-action/live-refresh
-        # handlers fire from detached client events that have lost the tenant
-        # contextvar (and the slot context), so scoped reads/writes rebind the
-        # tenant and refreshes re-enter this client.
+        # Captured now: row-action and live-refresh handlers fire from detached events and must
+        # rebind the tenant and re-enter this client.
         tenant_id = require_tenant_id()
+        event_id = get_current_event_id()
         client = context.client
 
-        # Which view the phone toggle is on. Held per client (not module level)
-        # and outside the refreshable so a live BRACKET_* rebuild keeps the
-        # reader where they were instead of snapping back to the list.
+        # Per client and outside the refreshable, so a live rebuild keeps the reader's view.
         view_state: Dict[str, str] = {'v': 'list'}
 
-        # Debounced refresh: one report publishes several BRACKET_* events (and the
-        # report dialog also asks to refresh); without coalescing each would clear +
-        # rebuild the @ui.refreshable body separately and the rebuilds can stack
-        # into a duplicated render. A short debounce collapses the burst into one.
+        # Debounced: one report publishes several BRACKET_* events, and uncoalesced rebuilds stack into a duplicated render.
         _refresh_task: Dict[str, object] = {'t': None}
 
         async def _coalesced_refresh() -> None:
@@ -472,7 +473,7 @@ def create() -> None:
 
         async def open_match_dialog(match_id: int, client) -> None:
             with client:
-                with tenant_scope(tenant_id):
+                with tenant_scope(tenant_id), event_scope(event_id):
                     bracket = await service.get_visible_bracket(user, stage_id)
                     if bracket is None:
                         return
@@ -501,24 +502,17 @@ def create() -> None:
         def on_card_click(match_id: int) -> None:
             background_tasks.create(open_match_dialog(match_id, context.client))
 
-        @ui.refreshable
+        @steady_refreshable
         async def render_body() -> None:
-            # A live-event/dialog refresh re-runs this from a background task whose
-            # tenant contextvar is unset, so scope the reads explicitly (the admin
-            # dialogs do the same) rather than relying on the client-stash fallback.
-            with tenant_scope(tenant_id):
+            # Runs from a background task with no tenant contextvar: scope explicitly.
+            with tenant_scope(tenant_id), event_scope(event_id):
                 bracket = await service.get_visible_bracket(user, stage_id)
-                # An unpublished (DRAFT) stage reads as absent to everyone but
-                # staff — its seeded field is not public until the stage starts.
                 if bracket is None:
                     ui.label('Bracket not found.').classes('text-error')
                     return
                 entrants = await service.list_entrants(bracket.tournament_id)
                 entries = await service.list_entries(stage_id)
                 matches = await service.list_matches(stage_id)
-                # One extra query for the whole field: the derived per-matchup
-                # status and watch link the cards paint (U2). Public — the
-                # schedule already shows all of it signed out (D4).
                 live_state = await service.matchup_live_state(matches)
             entrant_name = {en.id: en.display_name for en in entrants}
             entry_name = {
@@ -535,8 +529,6 @@ def create() -> None:
                             f'{stage_label(bracket.stage_order)} · '
                             f'{format_label(bracket.format)}'
                         ).classes('text-caption')
-                        # The stage's rules as staff configured them — a
-                        # check on the setup, not something a player acts on.
                         setup = config_summary(bracket) if is_staff else []
                         if setup:
                             ui.label(' · '.join(setup)).classes('text-caption text-grey')
@@ -577,9 +569,6 @@ def create() -> None:
                         on_card_click=on_card_click, live_state=live_state,
                         viewer_entry_ids=mine, booked=booked_times(matches),
                     )
-                    # 2-D connector bracket (>= md); a per-round accordion (< md),
-                    # with the toolbar toggle swapping between them on a phone.
-                    # Exactly one is visible at a time — see brackets.css.
                     views = ui.element('div').classes(
                         f'bracket-views view-{view_state["v"]} w-full'
                     )
@@ -595,7 +584,7 @@ def create() -> None:
                             toolbar_row, views, wrapper, request_refresh, view_state,
                         )
                 else:
-                    with tenant_scope(tenant_id):
+                    with tenant_scope(tenant_id), event_scope(event_id):
                         advancement = await _next_stage_advancement(service, bracket)
                     complete = bracket.state == BracketState.COMPLETE
                     if bracket.format == BracketFormat.ROUND_ROBIN:
@@ -612,12 +601,11 @@ def create() -> None:
                         )
 
         await render_body()
-        # The tournament id enables the live match half (U2): MATCH_* payloads
-        # carry no bracket_id, so the subscriber filters on the tournament and
-        # lets the debounce absorb the wider net.
-        with tenant_scope(tenant_id):
+        # MATCH_* payloads carry no bracket_id, so the subscriber filters on the tournament id.
+        with tenant_scope(tenant_id), event_scope(event_id):
             live_bracket = await service.get_visible_bracket(user, stage_id)
         register_bracket_view(
             stage_id, request_refresh,
             tournament_id=live_bracket.tournament_id if live_bracket else None,
         )
+        return None

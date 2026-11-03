@@ -7,6 +7,7 @@ Handles all database operations for MatchAcknowledgment model.
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
+from application.event_writes import guarded_delete
 from application.repositories._tenant import current_tenant_id, scoped
 from models import Match, MatchAcknowledgment, User
 
@@ -79,15 +80,15 @@ class MatchAcknowledgmentRepository:
         stale = existing - set(by_id)
         removed = 0
         if stale:
-            removed = await scoped(
+            removed = await guarded_delete(scoped(
                 MatchAcknowledgment.filter(match=match, user_id__in=list(stale)),
-            ).delete()
+            ))
         return created, removed
 
     @staticmethod
     async def delete_for_match(match: Match) -> int:
-        return await scoped(MatchAcknowledgment.filter(match=match)).delete()
+        return await guarded_delete(scoped(MatchAcknowledgment.filter(match=match)))
 
     @staticmethod
     async def delete_for_user(match: Match, user: User) -> None:
-        await scoped(MatchAcknowledgment.filter(match=match, user=user)).delete()
+        await guarded_delete(scoped(MatchAcknowledgment.filter(match=match, user=user)))

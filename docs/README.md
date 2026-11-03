@@ -46,25 +46,36 @@ How each shipped subsystem behaves.
 | Doc | Feature |
 |---|---|
 | [features/brackets.md](features/brackets.md) | Native brackets: four formats, multi-stage chains, best-of-N series, the scheduling seam. Behind `FeatureFlag.BRACKETS` |
+| [features/data-exports.md](features/data-exports.md) | The export queue: tournament participants + matches ZIP/JSON (versioned schema), volunteer data, logged table CSVs, 3-day retention, throttling |
 | [features/match-participation.md](features/match-participation.md) | Crew signup and approval, player and crew acknowledgment, match watching |
 | [features/discord.md](features/discord.md) | Match DMs and fan-out, guild-role → app-role sync, notification preferences, `MOCK_DISCORD` |
 | [features/rom-patcher.md](features/rom-patcher.md) | The generic ROM patcher: hosted patches (Admin → Patches, `/patch/<token>`) and the open `/patcher` page |
 | [features/online-tournaments.md](features/online-tournaments.md) | SahasrahBot succession, user-definable tournament config, racetime/SpeedGaming/Discord-Events design rules |
 | [features/multitenancy.md](features/multitenancy.md) | `/t/<slug>` and custom-domain addressing, tenant context, query scoping, per-tenant roles, `/platform` |
+| [features/events.md](features/events.md) | Events inside a community: the `Event` model, event context, default event, which rows carry `event_id`, the events migration |
 | [features/feature-flags.md](features/feature-flags.md) | Two-tier per-tenant flags: super-admin availability + tenant enable, and how to gate a subsystem |
 | [features/mcp-server.md](features/mcp-server.md) | Remote MCP server at `/mcp`: typed tools, reads by default and writes on request, OAuth 2.1 only |
+| [features/graphql-api.md](features/graphql-api.md) | Read-only GraphQL at `/api/graphql`: REST's token door, limits, error codes, the committed schema |
+| [features/oauth-apps.md](features/oauth-apps.md) | The `/oauth` authorization server for third-party apps: registration, consent, PKCE, community-bound grants, rotation and reuse detection |
 | [features/webhooks.md](features/webhooks.md) | Staff-managed outbound webhooks: signing, retries, delivery log |
+| [features/scheduled-workers.md](features/scheduled-workers.md) | Worker registry, `WORKER_MODE`, the Cloud Scheduler tick endpoint and its OIDC check |
 | [features/event-system.md](features/event-system.md) | In-process event bus: publish/subscribe, `EventType` registry, `match_live` |
 | [features/audit-logging.md](features/audit-logging.md) | `AuditService`, `AuditActions` naming, `write_and_publish` |
 | [features/telemetry.md](features/telemetry.md) | Page views, curated interactions, domain-event mirror, Staff-only report |
 | [features/observability.md](features/observability.md) | Sentry wiring (events, logs, traces, tenant/worker tags), which failures log at ERROR, runtime log levels on `/platform` |
 | [features/web-push.md](features/web-push.md) | Declarative Web Push device notifications mirroring Discord DMs |
+| [features/native-apps.md](features/native-apps.md) | The iOS/Android store apps: Capacitor shells, native push (APNs/FCM), app links, the app's service worker |
 | [features/notification-channels.md](features/notification-channels.md) | Email (SendGrid) and Telegram copies of Discord DMs, confirmation, tests |
+| [features/notification-settings.md](features/notification-settings.md) | Admin → Notifications: the catalogue of every DM, per-community off/silent/ping per recipient, on-shift staff alerts, `send_dm(notice=...)` |
 | [features/admin-reports.md](features/admin-reports.md) | Crew hours, match export, audit viewer, trended insights |
 | [features/ada-accommodations.md](features/ada-accommodations.md) | Per-community ADA accommodation requests from the profile, a STAFF queue with status and private notes. Behind `FeatureFlag.ADA_ACCOMMODATIONS` |
+| [features/surveys.md](features/surveys.md) | Post-event surveys: targeted parts per tournament/position/crew/check-in, "Only show if…" conditions (up to 3 per question, 1 per section), DM send and remind, anonymous answers with small-group hiding. Behind `FeatureFlag.SURVEYS` |
 | [features/community-events.md](features/community-events.md) | Members-only `/community-events`: member-submitted, staff-approved events with Discord reminders for subscribers, and the reusable Tiptap markdown editor. Behind `FeatureFlag.COMMUNITY_EVENTS` |
+| [features/startgg.md](features/startgg.md) | start.gg bracket mirror: linking, entrant mapping, booking ready sets, opt-in result writeback, the shared `bracket_sources` contract. Behind `FeatureFlag.STARTGG` |
 | [features/event-check-in.md](features/event-check-in.md) | Matcherino-backed check-in desk for in-person events: badge-sale sync over the unofficial API, badge tiers, account matching, walk-ups, the `CHECK_IN_DESK` role. Behind `FeatureFlag.EVENT_CHECK_IN` |
+| [features/stream-layouts.md](features/stream-layouts.md) | OBS browser-source overlays per event: layout editor, stage links that follow the match on stage, pins. Behind `FeatureFlag.STREAM_LAYOUTS` |
 | [features/payouts.md](features/payouts.md) | Prize pool, placement splits with ties, computed amounts, Matcherino handles and the payout block. Behind `FeatureFlag.PAYOUTS` |
+| [features/item-tracker.md](features/item-tracker.md) | ALTTP item tracker for restreams: crew board, delayed stream preview, change log with undo, transparent OBS overlay, keysanity. Behind `FeatureFlag.ITEM_TRACKER` |
 | [features/profile-reminders.md](features/profile-reminders.md) | Staff-picked recommended profile items (Challonge linked, pronouns, ...) and the red banner that asks members to finish them |
 | [features/triforce-texts.md](features/triforce-texts.md) | Player submission and admin moderation |
 | [features/help.md](features/help.md) | Public `/help` articles + tappable help icons; the safe (non-`ui.markdown`) document model |
@@ -90,12 +101,13 @@ feature docs become the truth.
 | [plans/sgl26-randomizers.md](plans/sgl26-randomizers.md) | Research notes: what each SGL 2026 on-site tournament races on, per its rules doc, with the open questions to settle before `Tournament.randomizer_notes` is filled in. Delete after the October event |
 | [plans/pre-event-validation/](plans/pre-event-validation/README.md) | The manual test plan for everything the mocks and `/ui-validation` cannot reach — live Discord, real randomizers, racetime, push on real phones, PostgreSQL concurrency, deployment and load — plus the day-of runbook. Delete after the October event |
 | [plans/sahasrahbot-lessons/](plans/sahasrahbot-lessons/README.md) | Status tracker for the seven findings in [reviews/sahasrahbot-lessons.md](reviews/sahasrahbot-lessons.md): which shipped (the seed-provider envelope, seed provenance, abandoned-run expiry, racetime token refresh, config prerequisites) and why the rest are still open |
+| [specs/](specs/README.md) | Agreed specs for features in flight, and the lite/full templates. A spec is committed with the feature's first PR and deleted by the PR that ships it |
 | [reviews/](reviews/README.md) | UX evaluations, one flow each, measured against the running app — with the cross-cutting themes that recur across them |
 
 ## Conventions for this directory
 
 - **CLAUDE.md is canonical for rules.** A doc here explains mechanism and gives examples; it should not restate a rule CLAUDE.md already states — that is how the two drift apart.
 - **No hand-maintained counts.** Doc-stated totals of models, routers, services or repositories go stale within weeks — every such number in this tree was wrong before this was written, and two of them contradicted each other because the same count was maintained in two files. Say "every model", not a number, unless the number is the point and stable (the eleven roles, the four bracket formats).
-- **Design records are not kept after they ship.** Once a plan is implemented, the feature doc is the truth and the plan is deleted — git history holds the rationale. The same goes for point-in-time audit reports.
+- **Design records are not kept after they ship.** Once a plan or spec is implemented, the feature doc is the truth and the plan is deleted — git history holds the rationale. The same goes for point-in-time audit reports.
 - **Prose that restates code is what rots.** Prefer a table of names and one-line purposes over paragraphs describing what a function does.
 - `.claude/` hooks nag on edits to `models/`, `application/`, `api/`, `pages/`, `theme/`, `discordbot/` and `mcpserver/` — see [`.claude/README.md`](../.claude/README.md).

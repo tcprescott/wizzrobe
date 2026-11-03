@@ -11,6 +11,9 @@ class TournamentResponse(BaseModel):
 
     id: int = Field(..., description="The tournament's ID.")
     name: str = Field(..., description="The tournament's name.")
+    short_name: Optional[str] = Field(
+        None, description="Abbreviation shown where the full name won't fit, such as run sheets. Null means use the name.",
+    )
     description: Optional[str] = Field(None, description="Long description shown to players, as markdown.")
     seed_generator: Optional[str] = Field(
         None,
@@ -49,6 +52,13 @@ class TournamentResponse(BaseModel):
             "as covered. 0 means the tournament doesn't use the role."
         ),
     )
+    required_broadcasters: int = Field(
+        1,
+        description=(
+            "Approved broadcasters a streamed match needs, in an event with broadcasters "
+            "switched on. 0 means the tournament doesn't use the role."
+        ),
+    )
     allow_player_match_requests: bool = Field(
         ...,
         description=(
@@ -77,6 +87,12 @@ class TournamentResponse(BaseModel):
     )
     is_test: bool = Field(
         False, description="A test tournament: usable, but left off the public event-info tournament list.",
+    )
+    players_release_seed: bool = Field(
+        False, description="Players release their own seed: after check-in each taps Ready, and the seed rolls when all have.",
+    )
+    uses_tournament_room: bool = Field(
+        True, description="Whether its off-stream matches are played in, and count toward, the tournament room.",
     )
     preset_id: Optional[int] = Field(None, description="ID of the seed preset matches roll from, if any.")
     hard_preset_id: Optional[int] = Field(

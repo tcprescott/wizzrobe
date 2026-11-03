@@ -19,6 +19,7 @@ from application.services import (
 from models import Tournament, User
 from theme.dialog._helpers import form_dialog
 from theme.help.render import render_blocks
+from theme.steady import steady_refreshable
 
 _HELP_TEXT = (
     "Submit up to 3 lines (max 19 characters each) that may be embedded into "
@@ -67,8 +68,7 @@ async def _build_triforce_dialog(tournament: Tournament, user: User) -> None:
 
         if not can_submit:
             if tournament.triforce_access_message:
-                # Parsed to blocks, never ui.markdown: per-tournament admins write
-                # this and every player reads it, so it renders as element content.
+                # Parsed to blocks, never ui.markdown: admins write this and every player reads it.
                 with ui.element('div').classes('wiz-help-prose'):
                     render_blocks(parse_blocks(tournament.triforce_access_message))
             else:
@@ -90,7 +90,7 @@ async def _build_triforce_dialog(tournament: Tournament, user: User) -> None:
                     .classes('w-full')
                 )
 
-        @ui.refreshable
+        @steady_refreshable
         async def submissions_list() -> None:
             rows = await service.list_user_submissions(tournament.id, user)
             if not rows:

@@ -10,18 +10,17 @@ class Role(str, Enum):
     VOLUNTEER_COORDINATOR = 'volunteer_coordinator'
     EQUIPMENT_MANAGER = 'equipment_manager'
     VOLUNTEER = 'volunteer'
-    # Works the event check-in desk: checks people in, links registrants to
-    # accounts, runs a sync. Walk-ups and event setup stay STAFF-only.
     CHECK_IN_DESK = 'check_in_desk'
-    # Online-tournament admin surfaces (see docs/online-tournaments). Each gates a
-    # new subsystem's management UI/worker actions the way STAFF does the rest.
     PRESET_MANAGER = 'preset_manager'
     SYNC_ADMIN = 'sync_admin'
     QUALIFIER_ADMIN = 'qualifier_admin'
-    # Global platform role: manages tenants on the /platform surface. Its
-    # UserRole rows carry tenant=NULL (the only role that may) and stay visible
-    # inside any tenant request. Not grantable per-tenant.
     SUPER_ADMIN = 'super_admin'
+
+    @property
+    def label(self) -> str:
+        """The name people read. Differs from the value only where a role was
+        renamed in the UI without migrating stored grants and Discord mappings."""
+        return _ROLE_LABELS.get(self, self.value.replace('_', ' ').title())
 
     @classmethod
     def tenant_grantable(cls) -> 'list[Role]':
@@ -41,6 +40,24 @@ class Role(str, Enum):
         """
         return [role for role in cls if role is not cls.SUPER_ADMIN]
 
+    @property
+    def is_per_event(self) -> bool:
+        """Granted inside one event: a proctor at SGL 2026 isn't one at SGL 2027.
+
+        Staff and the online admin roles run things that outlive an event
+        (presets, sync, qualifiers), so they stay community-wide."""
+        return self in _PER_EVENT_ROLES
+
+    @classmethod
+    def community_wide(cls) -> 'list[Role]':
+        """The grantable roles that cover every event, in declaration order."""
+        return [role for role in cls.tenant_grantable() if not role.is_per_event]
+
+    @classmethod
+    def per_event(cls) -> 'list[Role]':
+        """The roles granted in one event, in declaration order."""
+        return [role for role in cls if role.is_per_event]
+
     @classmethod
     def volunteer_mappable(cls) -> 'list[Role]':
         """The roles a volunteer position may confer, in declaration order.
@@ -54,6 +71,13 @@ class Role(str, Enum):
             cls.PROCTOR, cls.STREAM_MANAGER, cls.TRIFORCE_SUBMITTER,
             cls.EQUIPMENT_MANAGER, cls.VOLUNTEER, cls.CHECK_IN_DESK,
         ]
+
+
+_PER_EVENT_ROLES = frozenset({Role.VOLUNTEER_COORDINATOR, *Role.volunteer_mappable()})
+
+_ROLE_LABELS: dict[Role, str] = {
+    Role.STREAM_MANAGER: 'Broadcast Tech',
+}
 
 
 class TournamentGrant(str, Enum):
@@ -70,11 +94,6 @@ class TournamentGrant(str, Enum):
     CREW_COORDINATOR = 'crew_coordinator'
 
 
-# Sentinel ``discord_id`` for the reserved system :class:`User` that automation
-# (workers, racetime/Discord bot handlers, ETL, qualifier scoring) acts as. A
-# real snowflake is always a large positive integer, so ``0`` can never collide
-# with a genuine Discord account. The row is marked ``is_system`` and resolved
-# via ``UserService.get_system_user()``.
 SYSTEM_USER_DISCORD_ID = 0
 
 
@@ -106,6 +125,15 @@ class FeatureFlag(str, Enum):
     COMMUNITY_EVENTS = 'community_events'
     EMERGENCY_CONTACTS = 'emergency_contacts'
     NOTIFICATION_CHANNELS = 'notification_channels'
+    STARTGG = 'startgg'
+    DISCORD_ROLE_SYNC = 'discord_role_sync'
+    PERSONAL_WEBHOOKS = 'personal_webhooks'
+    STREAM_LAYOUTS = 'stream_layouts'
+    ITEM_TRACKER = 'item_tracker'
+    THIRD_PARTY_APPS = 'third_party_apps'
+    SURVEYS = 'surveys'
+    TICKET_SALES = 'ticket_sales'
+    PATREON = 'patreon'
 
 
 class BracketFormat(str, Enum):
@@ -149,9 +177,9 @@ class BracketMatchState(str, Enum):
     scheduled into a ``Match``, ``COMPLETE`` once a winner is recorded.
     """
 
-    PENDING = 'pending'   # one or both entries not yet determined
-    OPEN = 'open'         # both entries known; playable / schedulable
-    COMPLETE = 'complete' # winner recorded
+    PENDING = 'pending'
+    OPEN = 'open'
+    COMPLETE = 'complete'
 
 
 class BracketMatchGameState(str, Enum):
@@ -164,9 +192,9 @@ class BracketMatchGameState(str, Enum):
     never played.
     """
 
-    SCHEDULED = 'scheduled' # linked to a Match, not yet decided
-    COMPLETE = 'complete'   # winner recorded
-    CANCELLED = 'cancelled' # never played (series clinched, or staff override)
+    SCHEDULED = 'scheduled'
+    COMPLETE = 'complete'
+    CANCELLED = 'cancelled'
 
 
 class BracketEntrantStatus(str, Enum):
@@ -190,12 +218,28 @@ class ApiTokenOrigin(str, Enum):
     ``PAT`` tokens are created on the profile page, carry a ``tenant``, and are
     accepted only by the REST API. ``OAUTH`` tokens are minted by the MCP
     authorization server, carry no tenant (platform-wide), and are accepted only
-    at ``/mcp``. Each surface rejects the other kind so a credential minted for
-    one can never be replayed against the other.
+    at ``/mcp``. ``APP`` tokens are grants a person approved for a third-party
+    app (:class:`~models.OAuthApp`): bound to the one community picked on the
+    consent screen, limited to the approved scopes, and accepted only by the
+    REST API. Each surface rejects the other kinds so a credential minted for
+    one can never be replayed against another.
     """
 
     PAT = 'pat'
     OAUTH = 'oauth'
+    APP = 'app'
+
+
+class OAuthClientType(str, Enum):
+    """How a third-party app proves who it is at the token endpoint.
+
+    ``CONFIDENTIAL`` apps run on a server and hold a client secret; ``PUBLIC``
+    apps (desktop, mobile, browser-only) cannot keep one and rely on PKCE alone.
+    Both must use PKCE.
+    """
+
+    CONFIDENTIAL = 'confidential'
+    PUBLIC = 'public'
 
 
 class RoleSource(str, Enum):
@@ -270,6 +314,19 @@ class CheckInEventStatus(str, Enum):
     CLOSED = 'closed'
 
 
+class EventStatus(str, Enum):
+    """Lifecycle of an :class:`~models.Event`.
+
+    Any number of events can be ``LIVE`` at once. Workers and DMs run only for
+    live events; an ``ARCHIVED`` event is read-only and staff can bring it back.
+    A ``DRAFT`` is seen only by staff and that event's own role holders.
+    """
+
+    DRAFT = 'draft'
+    LIVE = 'live'
+    ARCHIVED = 'archived'
+
+
 class CheckInEntrantSource(str, Enum):
     MATCHERINO = 'matcherino'
     WALK_UP = 'walk_up'
@@ -287,6 +344,19 @@ class CheckInTierLanyard(str, Enum):
     VIP = 'vip'
     BASE = 'base'
     DAY_PASS = 'day_pass'
+
+
+class DiscordRoleRuleKind(str, Enum):
+    """Who a :class:`~models.DiscordRoleRule` hands its Discord role to.
+
+    ``TOURNAMENT`` names its tournament and ``BADGE`` its lanyard; the other two
+    take no target.
+    """
+
+    ANY_TOURNAMENT = 'any_tournament'
+    LIVE_MATCH = 'live_match'
+    TOURNAMENT = 'tournament'
+    BADGE = 'badge'
 
 
 class CheckInLinkMethod(str, Enum):
@@ -337,10 +407,6 @@ class StationFormat(str, Enum):
     ALPHANUMERIC = 'alphanumeric'
 
 
-# The pattern each StationFormat enforces on a station label. Lives beside the
-# enum as the single definition: both the service that validates an assignment
-# and the dialog that pre-validates the field need it, and they are on opposite
-# sides of the presentation/service boundary.
 STATION_REGEXES = {
     StationFormat.FREE:         re.compile(r'^.{0,50}$'),
     StationFormat.NUMERIC:      re.compile(r'^\d+$'),
@@ -381,6 +447,19 @@ class MatchCommentKind(str, Enum):
     STAFF_TO_PLAYERS = 'staff_to_players'
 
 
+class CommentaryInviteStatus(str, Enum):
+    """Where a commentator's invite to a partner has got to.
+
+    ``CANCELLED`` is the inviter taking it back, or withdrawing from the match
+    before it was answered; ``DECLINED`` is the partner saying no.
+    """
+
+    PENDING = 'pending'
+    ACCEPTED = 'accepted'
+    DECLINED = 'declined'
+    CANCELLED = 'cancelled'
+
+
 class RescheduleRequestStatus(str, Enum):
     """Where a request has got to.
 
@@ -401,9 +480,17 @@ class RescheduleRequestStatus(str, Enum):
 class ChallongeMatchState(str, Enum):
     """Mirrors Challonge's match states relevant to scheduling."""
 
-    PENDING = 'pending'   # participants not yet fully determined
-    OPEN = 'open'         # both participants known and ready to play
-    COMPLETE = 'complete' # result recorded on Challonge
+    PENDING = 'pending'
+    OPEN = 'open'
+    COMPLETE = 'complete'
+
+
+class StartggSetState(str, Enum):
+    """A mirrored start.gg set, reduced to what scheduling needs."""
+
+    PENDING = 'pending'
+    OPEN = 'open'
+    COMPLETE = 'complete'
 
 
 class BotStatus(str, Enum):
@@ -429,6 +516,19 @@ class RaceRoomStatus(str, Enum):
     CANCELLED = 'cancelled'
 
 
+class RaceRoomHoldReason(str, Enum):
+    """Why a finished race the bot ran waits for staff instead of recording itself.
+
+    Declared in the order the checks run: the first that applies is the one
+    shown, since one reason is enough to send it to staff.
+    """
+
+    FPA = 'fpa'
+    UNMATCHED = 'unmatched'
+    FORFEIT = 'forfeit'
+    CLOSE_FINISH = 'close_finish'
+
+
 class SyncStatus(str, Enum):
     """Reconciliation state of a synced SpeedGaming episode (PR 7).
 
@@ -436,11 +536,11 @@ class SyncStatus(str, Enum):
     bare member (which repr's as ``SyncStatus.SYNCED``).
     """
 
-    PENDING = 'pending'      # discovered upstream, not yet materialized
-    SYNCED = 'synced'        # materialized/refreshed into a Match this cycle
-    SKIPPED = 'skipped'      # a lifecycle guard held the refresh back
-    CANCELLED = 'cancelled'  # upstream episode gone; the Match soft-detached
-    ERROR = 'error'          # transform/load failed (see ``sync_error``)
+    PENDING = 'pending'
+    SYNCED = 'synced'
+    SKIPPED = 'skipped'
+    CANCELLED = 'cancelled'
+    ERROR = 'error'
 
 
 class DiscordEventSource(str, Enum):
@@ -467,6 +567,9 @@ class StaffRequestKind(str, Enum):
     ADA_REQUEST = 'ada_request'
     JOIN_REQUEST = 'join_request'
     RESCHEDULE_REQUEST = 'reschedule_request'
+    COMMENTATOR_SIGNUP = 'commentator_signup'
+    TRACKER_SIGNUP = 'tracker_signup'
+    BROADCASTER_SIGNUP = 'broadcaster_signup'
 
 
 class AsyncQualifierRunStatus(str, Enum):
@@ -526,13 +629,14 @@ class MembershipSource(str, Enum):
     rows from before it was recorded.
     """
 
-    STAFF = 'staff'                          # Add Member, Add User, /platform bootstrap
-    JOIN_REQUEST = 'join_request'            # an approved join request
-    DISCORD_AUTO_JOIN = 'discord_auto_join'  # in the linked Discord server
-    OPEN = 'open'                            # signed in while membership was open
-    ROLE_GRANT = 'role_grant'                # a role granted by staff
-    DISCORD_ROLE = 'discord_role'            # a role from the Discord role sync
-    IMPORT = 'import'                        # the SpeedGaming import
+    STAFF = 'staff'
+    JOIN_REQUEST = 'join_request'
+    DISCORD_AUTO_JOIN = 'discord_auto_join'
+    OPEN = 'open'
+    ROLE_GRANT = 'role_grant'
+    DISCORD_ROLE = 'discord_role'
+    IMPORT = 'import'
+    DISCORD_IMPORT = 'discord_import'
 
 
 class JoinRequestStatus(str, Enum):
@@ -578,6 +682,18 @@ class ProviderTaskStatus(str, Enum):
         return frozenset({cls.SUCCEEDED, cls.FAILED, cls.ABANDONED})
 
 
+class ForfeitReason(str, Enum):
+    """Why a match was decided without being played out (``Match.forfeit_reason``)."""
+
+    NO_SHOW = 'no_show'
+    WITHDREW = 'withdrew'
+    DISQUALIFIED = 'disqualified'
+
+    @property
+    def label(self) -> str:
+        return {'no_show': 'No-show', 'withdrew': 'Withdrew', 'disqualified': 'Disqualified'}[self.value]
+
+
 class PresetOverride(str, Enum):
     """Staff's per-match answer to "which preset does this match roll with".
 
@@ -595,3 +711,121 @@ class PresetOverride(str, Enum):
 
     HARD = 'hard'
     STANDARD = 'standard'
+
+
+class NotificationMode(str, Enum):
+    """How one kind of recipient gets one notification.
+
+    ``OFF`` sends nothing on any channel; ``SILENT`` delivers without a ping or
+    phone buzz (Discord's @silent; email can't be quiet); ``PING`` is a normal
+    message.
+    """
+
+    OFF = 'off'
+    SILENT = 'silent'
+    PING = 'ping'
+
+
+class NotificationRecipient(str, Enum):
+    """The kinds of people a notification goes to, the columns of the settings grid."""
+
+    PLAYERS = 'players'
+    CREW = 'crew'
+    WATCHERS = 'watchers'
+    FOLLOWERS = 'followers'
+    VOLUNTEERS = 'volunteers'
+    ON_DUTY = 'on_duty'
+    ADMINS = 'admins'
+    STAFF = 'staff'
+    MEMBERS = 'members'
+
+    @property
+    def label(self) -> str:
+        return {'on_duty': 'On shift', 'staff': 'All staff'}.get(self.value, self.value.capitalize())
+
+
+class NotificationPreset(str, Enum):
+    """A person's starting point on Profile → Notifications, before any per-message choice.
+
+    ``EVERYTHING`` takes what the community sends as it sends it; ``NEEDS_ME``
+    pings only what asks something of them; ``QUIET`` pings only what's
+    time-critical and drops matches they watch or follow.
+    """
+
+    EVERYTHING = 'everything'
+    NEEDS_ME = 'needs_me'
+    QUIET = 'quiet'
+
+
+class SentMessageStatus(str, Enum):
+    """What Discord did with one logged DM (:class:`SentMessage`).
+
+    ``(str, Enum)`` (not ``StrEnum``) — render ``.value`` in f-strings.
+    """
+
+    PENDING = 'pending'
+    DELIVERED = 'delivered'
+    DISCORD_OFF = 'discord_off'
+    BLOCKED = 'blocked'
+    FAILED = 'failed'
+
+
+class DataExportKind(str, Enum):
+    """What a :class:`DataExport` row holds; each queued kind has one builder."""
+
+    TOURNAMENTS = 'tournaments'
+    VOLUNTEERS = 'volunteers'
+    TABLE_CSV = 'table_csv'
+
+
+class DataExportStatus(str, Enum):
+    """Where a requested export has got to.
+
+    ``QUEUED`` until the export worker picks it up, ``RUNNING`` while it builds,
+    then ``READY`` (files stored, downloadable until pruned) or ``FAILED``.
+    """
+
+    QUEUED = 'queued'
+    RUNNING = 'running'
+    READY = 'ready'
+    FAILED = 'failed'
+
+    @classmethod
+    def pending(cls) -> frozenset['DataExportStatus']:
+        return frozenset({cls.QUEUED, cls.RUNNING})
+
+
+class TicketProvider(str, Enum):
+    """A store a community connects its own account from to sell badges."""
+
+    STRIPE = 'stripe'
+    PAYPAL = 'paypal'
+
+    @property
+    def label(self) -> str:
+        return {'stripe': 'Stripe', 'paypal': 'PayPal'}[self.value]
+
+
+class TicketOrderStatus(str, Enum):
+    """Where a badge order is: waiting on the store, paid, lapsed, or refunded."""
+
+    PENDING = 'pending'
+    PAID = 'paid'
+    EXPIRED = 'expired'
+    REFUNDED = 'refunded'
+
+
+class TicketStatus(str, Enum):
+    """One badge: held while its order is pending, then valid, void or refunded."""
+
+    PENDING = 'pending'
+    VALID = 'valid'
+    VOID = 'void'
+    REFUNDED = 'refunded'
+
+
+class PatreonOAuthPurpose(str, Enum):
+    """Which Patreon sign-in a pending OAuth state belongs to."""
+
+    CREATOR = 'creator'
+    MEMBER = 'member'

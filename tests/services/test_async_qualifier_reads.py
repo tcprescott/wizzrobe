@@ -48,7 +48,6 @@ async def _submit(service, player, run, seconds: int):
     return await service.submit_run(player, run.id, elapsed_seconds=seconds)
 
 
-
 async def test_leaderboard_read_is_projected_but_scores_the_same_board(db):
     """The board is assembled from four scalars per run, not from hydrated runs.
 
@@ -65,8 +64,6 @@ async def test_leaderboard_read_is_projected_but_scores_the_same_board(db):
     fast = await _player(900101, 'fast_runner', display_name='Fast Runner')
     slow = await _player(900102, 'slow_runner')
 
-    # Two approved runs for the quick one, one for the other, plus rows the board
-    # must ignore: a pending run, a rejected one, and a forfeit.
     for seconds in (1200, 1300):
         run = await service.start_run(fast, q.id, pool.id)
         await _submit(service, fast, run, seconds)
@@ -75,7 +72,7 @@ async def test_leaderboard_read_is_projected_but_scores_the_same_board(db):
     await _submit(service, slow, run, 2400)
     await service.review_run(staff, run.id, approved=True)
     pending = await service.start_run(slow, q.id, pool.id)
-    await _submit(service, slow, pending, 1250)   # left pending on purpose
+    await _submit(service, slow, pending, 1250)
 
     rows = await service.run_repository.list_scored_for_leaderboard(q.id)
     assert all(set(row) == {'user_id', 'score', 'status', 'review_status',
@@ -88,7 +85,6 @@ async def test_leaderboard_read_is_projected_but_scores_the_same_board(db):
 
     board = await service.get_leaderboard(staff, q.id)
     by_name = {e.username: e for e in board}
-    # display_name wins over username, the same rule display_name() applies to a model.
     assert 'Fast Runner' in by_name and 'slow_runner' in by_name
     assert by_name['Fast Runner'].slots_filled == 2
     assert by_name['slow_runner'].slots_filled == 1
@@ -112,7 +108,6 @@ async def test_review_queue_context_counts_only_the_queues_runners(db):
     pending = await service.start_run(queued, q.id, pool.id)
     await _submit(service, queued, pending, 1300)
 
-    # Someone else's run, which must not appear in the context at all.
     theirs = await service.start_run(other, q.id, pool.id)
     await _submit(service, other, theirs, 1400)
     await service.review_run(staff, theirs.id, approved=True)

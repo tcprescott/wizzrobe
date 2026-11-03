@@ -21,6 +21,7 @@ from application.utils.timezone import format_local_time
 from models import User
 from theme.banner import banner
 from theme.notify import notify_error
+from theme.steady import steady_refreshable
 from theme.timer_teardown import PageTimer
 
 logger = logging.getLogger(__name__)
@@ -60,7 +61,7 @@ async def render_shift_arrival_banner(user: User | None) -> None:
     service = VolunteerArrivalService()
     tenant_id = get_current_tenant_id()
 
-    @ui.refreshable
+    @steady_refreshable
     async def section() -> None:
         try:
             with tenant_scope(tenant_id):

@@ -38,9 +38,7 @@ SUBTITLE = 'Who changed what, and when.'
 
 PAGE_SIZE = 50
 
-# Below this width the detail panel is hidden by CSS and an entry opens in a
-# dialog instead (a bottom sheet on a phone). Keep in step with
-# ``.wiz-audit__detail`` in static/css/styles.css.
+# Keep in step with .wiz-audit__detail in static/css/styles.css.
 _PANEL_MIN_WIDTH = 1024
 
 
@@ -77,9 +75,7 @@ async def audit_page(
     start_d, end_d = await default_date_range(start, end)
     user_id_int = parse_int(user_id)
     page_int = max(1, parse_int(page) or 1)
-    # The URL reuses the admin page's existing params: ``action`` carries the
-    # search text (it was "Action contains", so old bookmarks still work) and
-    # ``category`` the Area.
+    # `action` carries the search text so old bookmarks still work.
     search = (action or '').strip()
     area_key = category if area_by_key(category) else None
 

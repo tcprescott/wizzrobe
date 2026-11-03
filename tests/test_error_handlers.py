@@ -23,7 +23,6 @@ class TestLogUnhandledError:
         with patch('middleware.error_handlers.sentry_sdk'):
             error_id = log_unhandled_error(RuntimeError('boom'), '/somewhere')
         assert _UUID_RE.match(error_id)
-        # parses back to a UUID
         assert str(uuid.UUID(error_id)) == error_id
 
     def test_each_call_is_unique(self):
@@ -42,7 +41,6 @@ class TestLogUnhandledError:
         message = record.getMessage()
         assert f'error_id={error_id}' in message
         assert 'path=/boom' in message
-        # exc_info is attached so the traceback is captured in the logs
         assert record.exc_info is not None
         assert record.exc_info[1] is exc
 
@@ -73,6 +71,5 @@ class TestLogUnhandledError:
     def test_sentry_failure_does_not_break_logging(self):
         with patch('middleware.error_handlers.sentry_sdk') as sentry:
             sentry.set_tag.side_effect = RuntimeError('sentry down')
-            # Should not raise despite Sentry blowing up.
             error_id = log_unhandled_error(RuntimeError('boom'), '/x')
         assert _UUID_RE.match(error_id)

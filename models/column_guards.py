@@ -81,8 +81,7 @@ class IntRangeGuard:
         self.label = label
 
     def __call__(self, value: Any) -> None:
-        # bool is an int subclass and always fits; None is the unset case, which
-        # nullability (not this guard) decides.
+        # bool is an int subclass and always fits; None is left to nullability.
         if value is None or isinstance(value, bool) or not isinstance(value, int):
             return
         if value < self.low or value > self.high:

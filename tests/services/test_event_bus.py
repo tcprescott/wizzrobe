@@ -58,7 +58,6 @@ class TestSyncSubscribers:
 
         event_bus.subscribe_sync(boom)
         event_bus.subscribe_sync(seen.append)
-        # publish must not raise, and the healthy subscriber still runs.
         event_bus.publish(Event.create(EventType.MATCH_CREATED, {}))
         assert len(seen) == 1
 

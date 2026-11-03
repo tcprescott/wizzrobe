@@ -20,7 +20,6 @@ from models import User
 
 pytestmark = pytest.mark.usefixtures('bypass_auth')
 
-# (label used in the message, service factory, User column prefix, a sample id)
 PROVIDERS = [
     ('racetime', RacetimeService, 'racetime', 'rtHolder1'),
     ('Twitch', TwitchService, 'twitch', '20009'),
@@ -44,8 +43,6 @@ async def test_all_three_providers_report_a_collision_the_same_way(
     message = str(excinfo.value)
     assert 'already linked to holder' in message, message
     assert label in message, message
-    # Nothing was written: the pre-check runs before the save, so a refused link
-    # leaves the claimant exactly as they were.
     await claimant.refresh_from_db()
     assert getattr(claimant, f'{prefix}_user_id') is None
 

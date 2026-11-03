@@ -9,14 +9,13 @@ from typing import List, Optional
 
 from tortoise.functions import Max
 
+from application.repositories._event import tagged_event_id
 from application.repositories._tenant import current_tenant_id, scoped
 from models import Equipment, EquipmentLoan, EquipmentStatus, User
 
 
 class EquipmentRepository:
     """Repository for equipment and loan data access."""
-
-    # --- Assets ---
 
     @staticmethod
     async def create(
@@ -93,8 +92,6 @@ class EquipmentRepository:
     async def delete(equipment: Equipment) -> None:
         await equipment.delete()
 
-    # --- Loans ---
-
     @staticmethod
     async def create_loan(
         equipment: Equipment,
@@ -103,6 +100,7 @@ class EquipmentRepository:
     ) -> EquipmentLoan:
         return await EquipmentLoan.create(
             tenant_id=current_tenant_id(),
+            event_id=tagged_event_id(),
             equipment=equipment,
             borrower=borrower,
             checked_out_by=checked_out_by,

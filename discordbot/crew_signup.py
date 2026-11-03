@@ -11,8 +11,11 @@ from discordbot._ack_common import DMInteractionError, SendFn, run_dm_interactio
 CUSTOM_ID_PREFIX = 'crew_signup'
 
 
-def make_crew_signup_view(match_id: int) -> discord.ui.View:
-    """Create a Discord View with commentator and tracker signup buttons for a match."""
+def make_crew_signup_view(match_id: int, broadcaster: bool = False) -> discord.ui.View:
+    """Create a Discord View with the crew signup buttons for a match.
+
+    ``broadcaster`` adds the third button, for an event with broadcasters on.
+    """
     view = discord.ui.View(timeout=None)
     view.add_item(discord.ui.Button(
         label='Sign up as Commentator',
@@ -24,6 +27,12 @@ def make_crew_signup_view(match_id: int) -> discord.ui.View:
         style=discord.ButtonStyle.secondary,
         custom_id=f'{CUSTOM_ID_PREFIX}:tracker:{match_id}',
     ))
+    if broadcaster:
+        view.add_item(discord.ui.Button(
+            label='Sign up as Broadcaster',
+            style=discord.ButtonStyle.secondary,
+            custom_id=f'{CUSTOM_ID_PREFIX}:broadcaster:{match_id}',
+        ))
     return view
 
 
@@ -36,7 +45,7 @@ def _parse(custom_id: str) -> tuple[str, int]:
         match_id = int(match_id_str)
     except ValueError:
         raise DMInteractionError('Invalid match ID.') from None
-    if role not in ('commentator', 'tracker'):
+    if role not in ('commentator', 'tracker', 'broadcaster'):
         raise DMInteractionError('Invalid role.')
     return role, match_id
 
@@ -49,18 +58,15 @@ async def handle_crew_signup_interaction(interaction: discord.Interaction) -> No
     Responds ephemerally so only the clicking user sees the result.
     """
     from application.services import CrewService, MatchService
-    from discordbot._tenant import match_tenant_id
+    from discordbot._tenant import match_scope
 
     async def resolve_tenant(parsed: tuple[str, int]):
         _, match_id = parsed
-        return await match_tenant_id(match_id)
+        return await match_scope(match_id)
 
     async def handle(_interaction, parsed, user, send: SendFn) -> None:
         role, match_id = parsed
         match_service = MatchService()
-        # The "match finished -> signup closed" rule lives in
-        # CrewService.signup_crew (raised as ValueError, handled by the wrapper)
-        # so the web UI and REST API enforce it too.
         await CrewService().signup_crew(match_id, user, role)
         player_names = await match_service.get_player_names(match_id)
         await send(crew_signup_confirmation(role, player_names))

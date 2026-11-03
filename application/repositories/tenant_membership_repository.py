@@ -7,6 +7,8 @@ whether a user may see a tenant at all), so it is **not** tenant-scoped.
 
 from typing import Iterable, List, Optional, Set
 
+from tortoise.expressions import Subquery
+
 from models import MembershipSource, TenantMemberBlock, TenantMembership, User, UserRole
 
 
@@ -52,6 +54,27 @@ class TenantMembershipRepository:
         return await TenantMemberBlock.exists(user_id=user_id, tenant_id=tenant_id)
 
     @staticmethod
+    async def blocked_ids(user_ids: Iterable[int], tenant_id: int) -> Set[int]:
+        """The subset of ``user_ids`` blocked from ``tenant_id`` (one query)."""
+        wanted = set(user_ids)
+        if not wanted:
+            return set()
+        rows = await TenantMemberBlock.filter(
+            user_id__in=list(wanted), tenant_id=tenant_id,
+        ).values_list('user_id', flat=True)
+        return set(rows)  # type: ignore[arg-type]
+
+    @staticmethod
+    async def bulk_add(user_ids: Iterable[int], tenant_id: int, source: MembershipSource) -> None:
+        """Memberships for ``user_ids`` in one insert; existing rows are left alone."""
+        rows = [
+            TenantMembership(user_id=user_id, tenant_id=tenant_id, source=source)
+            for user_id in set(user_ids)
+        ]
+        if rows:
+            await TenantMembership.bulk_create(rows, ignore_conflicts=True)
+
+    @staticmethod
     async def block(user_id: int, tenant_id: int, blocked_by: Optional[User]) -> None:
         await TenantMemberBlock.get_or_create(
             user_id=user_id, tenant_id=tenant_id, defaults={'blocked_by': blocked_by},
@@ -82,3 +105,14 @@ class TenantMembershipRepository:
     @staticmethod
     async def list_for_tenant(tenant_id: int) -> List[TenantMembership]:
         return await TenantMembership.filter(tenant_id=tenant_id).prefetch_related('user')
+
+    @staticmethod
+    async def list_rows_for_tenant(tenant_id: int) -> List[TenantMembership]:
+        """The membership rows alone, without hydrating every member's ``User``."""
+        return await TenantMembership.filter(tenant_id=tenant_id)
+
+    @staticmethod
+    async def non_members(tenant_id: int) -> List[User]:
+        """Every account outside ``tenant_id`` except the system actor, by username."""
+        members = TenantMembership.filter(tenant_id=tenant_id).values('user_id')
+        return await User.filter(is_system=False).exclude(id__in=Subquery(members)).order_by('username')

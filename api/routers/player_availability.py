@@ -30,7 +30,7 @@ from api.schemas.player_availability import (
     PlayerAvailabilityResponse,
     SetPlayerAvailabilityRequest,
 )
-from application.services import AuthService, PlayerAvailabilityService
+from application.services import PlayerAvailabilityService
 from models import User
 
 router = APIRouter(
@@ -113,13 +113,8 @@ async def list_availability_for(
     ),
     actor: User = Depends(require_api_actor),
 ):
-    if user_id != actor.id:
-        await AuthService.ensure(
-            await AuthService.is_staff(actor),
-            "Staff access required to view other players' availability",
-        )
     target = await load_community_user_or_404(user_id, actor)
-    windows = await PlayerAvailabilityService().availability_for(target)
+    windows = await PlayerAvailabilityService().availability_of(target, actor=actor)
     return [
         window for window in windows
         if (start is None or window.ends_at >= start)

@@ -1,3 +1,4 @@
+
 from tortoise import fields
 from tortoise.models import Model
 
@@ -21,10 +22,13 @@ class RoomToken(Model):
     tenant = fields.ForeignKeyField(
         'models.Tenant', related_name='room_tokens', on_delete=fields.CASCADE
     )
+    # Keep nullable: not every write path stamps it yet.
+    event: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Event', related_name='room_tokens', on_delete=fields.CASCADE,
+    )
+    event_id: int
     label = fields.CharField(max_length=100)
     token_hash = fields.CharField(max_length=64, unique=True, index=True)
-    # SET_NULL: an issuer who leaves must not revoke the room PC's access on
-    # their way out — staff revoke a token deliberately or not at all.
     created_by = fields.ForeignKeyField(
         'models.User', related_name='room_tokens_created',
         null=True, on_delete=fields.SET_NULL,
@@ -63,7 +67,6 @@ class LogLevelOverride(Model):
     id = fields.IntField(pk=True)
     logger_name = fields.CharField(max_length=255, unique=True)
     level = fields.CharField(max_length=16)
-    # SET_NULL: the override outlives whoever set it; the audit row keeps who.
     updated_by: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
         'models.User', related_name='log_level_overrides',
         null=True, on_delete=fields.SET_NULL,
@@ -73,3 +76,87 @@ class LogLevelOverride(Model):
 
     class Meta:
         table = 'logleveloverride'
+
+
+class BrowserMonitoringSettings(Model):
+    """How the browser-side Sentry SDK behaves, set on ``/platform`` → Monitoring.
+
+    **Global** and a singleton (``id=1``): the browser reports to the same Sentry
+    project as the server, so these are properties of the deployment. No row
+    means the defaults: on, replay on error, every error sent.
+    """
+
+    id = fields.IntField(pk=True)
+    enabled = fields.BooleanField(default=True)
+    replay_on_error = fields.BooleanField(default=True)
+    sample_rate = fields.FloatField(default=1.0)
+    updated_by: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
+        'models.User', related_name='browser_monitoring_updates',
+        null=True, on_delete=fields.SET_NULL,
+    )
+    updated_at = fields.DatetimeField(auto_now=True)
+
+    class Meta:
+        table = 'browsermonitoringsettings'
+
+
+class BrowserErrorIgnoreRule(Model):
+    """A super-admin's rule for a browser error that should never reach Sentry.
+
+    **Global**. ``pattern`` is a case-insensitive substring of the error's
+    message (``match='message'``) or of a script URL in its stack
+    (``match='url'``). The browser drops a matching error before sending it, so
+    a rule added mid-event silences that error in every open tab at once.
+    """
+
+    id = fields.IntField(pk=True)
+    pattern = fields.CharField(max_length=200)
+    match = fields.CharField(max_length=16, default='message')
+    created_by: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
+        'models.User', related_name='browser_error_ignore_rules',
+        null=True, on_delete=fields.SET_NULL,
+    )
+    created_at = fields.DatetimeField(auto_now_add=True)
+
+    class Meta:
+        table = 'browsererrorignorerule'
+        unique_together = (('pattern', 'match'),)
+
+
+class OAuthHandoff(Model):
+    """A pending cross-host login handoff (``oauth_handoff_service``).
+
+    **Global** (no ``tenant`` FK): it carries a Discord login from the platform
+    host to whichever custom domain started it, before any community session
+    exists. Lives in the database rather than process memory so the claim can
+    land on a different instance from the mint. Single-use: the claim deletes the
+    row; expired rows are pruned on each mint.
+    """
+
+    nonce = fields.CharField(max_length=64, pk=True)
+    host = fields.CharField(max_length=255)
+    payload: dict = fields.JSONField()
+    expires_at = fields.DatetimeField(index=True)
+
+    class Meta:
+        table = 'oauthhandoff'
+
+
+class RateLimitWindow(Model):
+    """One rate-limit key's request count for one fixed one-minute window.
+
+    **Global** (no ``tenant`` FK): keys are client IPs, token hashes and OAuth
+    apps, counted across the whole API. Used only when ``MULTI_INSTANCE`` is
+    set, so every instance shares one budget per key; a single process keeps
+    its counters in memory. Rows older than a couple of windows are pruned as
+    requests arrive.
+    """
+
+    id = fields.BigIntField(pk=True)
+    key = fields.CharField(max_length=100)
+    window_start = fields.BigIntField()
+    hits = fields.IntField(default=0)
+
+    class Meta:
+        table = 'ratelimitwindow'
+        unique_together = (('key', 'window_start'),)

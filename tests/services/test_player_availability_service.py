@@ -27,22 +27,12 @@ def make_window(starts_hour, ends_hour, status=VolunteerAvailabilityStatus.AVAIL
     )
 
 
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
-
-
 @pytest.fixture
 def service():
     svc = object.__new__(PlayerAvailabilityService)
     svc.repository = MagicMock()
     svc.audit_service = make_audit_double()
     return svc
-
-
-# ---------------------------------------------------------------------------
-# covers (static) — opt-out, unlike VolunteerAvailabilityService.covers
-# ---------------------------------------------------------------------------
 
 
 class TestCovers:
@@ -78,15 +68,9 @@ class TestCovers:
         assert result == VolunteerAvailabilityStatus.AVAILABLE
 
     def test_touching_at_start_is_not_overlap(self):
-        # ends_at == slot start, so the block does not reach this slot
         windows = [make_window(4, 8, VolunteerAvailabilityStatus.UNAVAILABLE)]
         result = PlayerAvailabilityService.covers(windows, _dt(8), _dt(12))
         assert result == VolunteerAvailabilityStatus.AVAILABLE
-
-
-# ---------------------------------------------------------------------------
-# effective_segments (static)
-# ---------------------------------------------------------------------------
 
 
 class TestEffectiveSegments:
@@ -101,7 +85,6 @@ class TestEffectiveSegments:
         assert segs[0][2] == VolunteerAvailabilityStatus.AVAILABLE
 
     def test_gap_is_available_not_unknown(self):
-        # Blocked 10–12; the untouched 8–10 is available, never None
         windows = [make_window(10, 12, VolunteerAvailabilityStatus.UNAVAILABLE)]
         segs = PlayerAvailabilityService.effective_segments(windows, _dt(8), _dt(12))
         statuses = [s[2] for s in segs]
@@ -130,11 +113,6 @@ class TestEffectiveSegments:
         assert VolunteerAvailabilityStatus.UNAVAILABLE in statuses
 
 
-# ---------------------------------------------------------------------------
-# set_windows
-# ---------------------------------------------------------------------------
-
-
 class TestSetWindows:
     async def test_raises_when_window_ends_before_starts(self, service):
         user = SimpleNamespace(id=1)
@@ -149,11 +127,6 @@ class TestSetWindows:
             await service.set_windows(user, [bad])
 
 
-# ---------------------------------------------------------------------------
-# clear
-# ---------------------------------------------------------------------------
-
-
 class TestClear:
     async def test_deletes_and_audits(self, service):
         service.repository.delete_for_user = AsyncMock()
@@ -161,11 +134,6 @@ class TestClear:
         await service.clear(user)
         service.repository.delete_for_user.assert_awaited_once_with(user)
         service.audit_service.write_log.assert_awaited_once()
-
-
-# ---------------------------------------------------------------------------
-# availability_map
-# ---------------------------------------------------------------------------
 
 
 class TestAvailabilityMap:
@@ -182,3 +150,35 @@ class TestAvailabilityMap:
         service.repository.for_users_overlapping = AsyncMock(return_value=[])
         result = await service.availability_map([1], _dt(8), _dt(16))
         assert result == {}
+
+
+class TestReminder:
+    @pytest.fixture
+    def dismissals(self, monkeypatch):
+        from application.services import player_availability_service as mod
+
+        repo = SimpleNamespace(dismissed_checks=AsyncMock(return_value=set()), dismiss=AsyncMock(return_value=True))
+        monkeypatch.setattr(mod, 'ProfileNudgeRepository', repo)
+        return repo
+
+    async def test_shown_to_a_player_with_nothing_blocked(self, service, dismissals):
+        service.repository.list_for_user = AsyncMock(return_value=[])
+        assert await service.needs_reminder(SimpleNamespace(id=7)) is True
+
+    async def test_hidden_once_anything_is_blocked(self, service, dismissals):
+        service.repository.list_for_user = AsyncMock(return_value=[make_window(8, 10)])
+        assert await service.needs_reminder(SimpleNamespace(id=7)) is False
+        dismissals.dismissed_checks.assert_not_awaited()
+
+    async def test_hidden_for_good_once_put_away(self, service, dismissals):
+        from application.services.player_availability_service import REMINDER_KEY
+
+        service.repository.list_for_user = AsyncMock(return_value=[])
+        dismissals.dismissed_checks.return_value = {REMINDER_KEY}
+        assert await service.needs_reminder(SimpleNamespace(id=7)) is False
+
+    async def test_dismiss_records_the_key(self, service, dismissals):
+        from application.services.player_availability_service import REMINDER_KEY
+
+        await service.dismiss_reminder(SimpleNamespace(id=7))
+        dismissals.dismiss.assert_awaited_once_with(7, REMINDER_KEY)

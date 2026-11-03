@@ -17,11 +17,9 @@ from typing import Mapping, Optional
 
 from application.utils.environment import env_flag
 
-# One DNS label: 1-63 chars, alnum, internal hyphens allowed.
 _LABEL = r'[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?'
 _HOSTNAME_RE = re.compile(rf'^{_LABEL}(?:\.{_LABEL})*$')
 
-# Ports the browser omits from Host, so a normalized production domain is bare.
 _DEFAULT_PORTS = frozenset({'80', '443'})
 
 
@@ -57,13 +55,11 @@ def normalize_hostname(value: Optional[str]) -> Optional[str]:
         return None
     if '://' in v:
         v = v.split('://', 1)[1]
-    # Trim path / query / fragment, then any userinfo.
     v = v.split('/', 1)[0].split('?', 1)[0].split('#', 1)[0]
     if '@' in v:
         v = v.rsplit('@', 1)[1]
     if not v:
         return None
-    # Split host / port (IPv6 literals are unsupported for custom domains).
     host, sep, port = v.rpartition(':')
     if not (sep and port.isdigit()):
         host, port = v, ''
@@ -73,8 +69,7 @@ def normalize_hostname(value: Optional[str]) -> Optional[str]:
     try:
         host = host.encode('idna').decode('ascii')
     except (UnicodeError, ValueError):
-        # The strict idna codec rejects some already-ascii hosts; leave those to
-        # the regex below rather than dropping a valid ascii domain.
+        # The strict idna codec rejects some ascii hosts; leave them to the regex rather than drop them.
         pass
     if not _HOSTNAME_RE.match(host):
         return None

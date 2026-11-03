@@ -76,7 +76,6 @@ class MatchParticipants:
         current_ids = {p.user_id for p in current_players}
         new_ids = set(new_player_ids)
 
-        # Add new players (resolve + enroll in batch, not per player)
         to_add = new_ids - current_ids
         if to_add:
             add_users = await self.resolve_users(list(to_add))
@@ -84,7 +83,6 @@ class MatchParticipants:
             for user in add_users:
                 await self.match_repository.add_player(match, user)
 
-        # Remove old players (resolve the removed set in one query)
         to_remove = current_ids - new_ids
         removed: List[User] = []
         if to_remove:
@@ -110,7 +108,6 @@ class MatchParticipants:
         existing_ids = set(existing_map.keys())
         new_ids_set = set(new_ids)
 
-        # Add new (resolve the added set in one query)
         to_add = new_ids_set - existing_ids
         created = []
         if to_add:

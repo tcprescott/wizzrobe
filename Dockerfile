@@ -18,8 +18,12 @@ COPY . .
 
 # The commit this image was built from; Sentry reports it as the release so a
 # regression points at the deploy that introduced it. Set by publish.yml.
+# GIT_COMMIT_DATE dates the version (YYYY.MM.DD) and APP_VERSION, set on a tag
+# build, overrides it; both surface on /about, /api/version and MCP.
 ARG GIT_SHA=""
-ENV GIT_SHA=${GIT_SHA}
+ARG GIT_COMMIT_DATE=""
+ARG APP_VERSION=""
+ENV GIT_SHA=${GIT_SHA} GIT_COMMIT_DATE=${GIT_COMMIT_DATE} APP_VERSION=${APP_VERSION}
 
 # Run as an unprivileged user rather than root
 RUN useradd --create-home --uid 10001 appuser \

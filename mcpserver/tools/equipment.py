@@ -1,13 +1,12 @@
 """Equipment inventory reads.
 
 Gated at **actor** behind the ``EQUIPMENT`` flag, mirroring
-``api/routers/equipment.py`` and the home **Equipment** tab it shares a gate
-with. That tab carries no role check at all: in a community with the feature on,
-every member sees the inventory and who currently holds each item. These tools
-were originally ADMIN on the belief that the *admin* equipment tab was the gate
-of record; it is not, and the stricter gate only meant a member could see less
-through a connected client than in their own browser. ``private_notes`` — the
-one part of an asset that really is staff-only — stays out of both shapes.
+``api/routers/equipment.py``. A member reaches one asset at a time, as on its
+QR page (``pages/equipment.py``), which shows the holder and loan history to
+anyone; listing the whole register is the admin Equipment tab's job, so
+``list_equipment`` goes through ``EquipmentService.list_register``, which admits
+staff and equipment managers only. ``private_notes`` — the staff-only part of
+an asset — stays out of both shapes.
 
 ``EquipmentService`` carries its own ``@requires_feature`` on every read, so the
 flag is enforced twice — once at the registry gate, once in the owning service.
@@ -20,12 +19,15 @@ from typing import List, Optional
 from mcp.server.mcpserver import MCPServer
 
 from api.schemas.equipment import MyCheckoutResponse
+from application.api_scopes import ApiScope
 from application.errors import require_found
 from application.services import EquipmentService
 from mcpserver.auth import Gate, current_actor
 from mcpserver.registry import register
 from mcpserver.schemas import EquipmentDetail, EquipmentSummary, LoanRecord, TenantArg
 from models import EquipmentStatus, FeatureFlag
+
+MAX_LOANS = 25
 
 
 def _name(user) -> Optional[str]:
@@ -49,7 +51,7 @@ async def list_equipment(
 ) -> List[EquipmentSummary]:
     """List the community's equipment inventory and who currently holds each item.
 
-    `status` filters on the asset's state: `available`, `checked_out`, or
+    For staff and equipment managers. `status` filters on the asset's state: `available`, `checked_out`, or
     `retired`.
     """
     wanted: Optional[str] = None
@@ -63,7 +65,7 @@ async def list_equipment(
             ) from exc
 
     service = EquipmentService()
-    assets = await service.list_assets()
+    assets = await service.list_register(current_actor().user)
     open_loans = await service.open_loans_by_equipment_id()
     return [
         EquipmentSummary(
@@ -83,10 +85,11 @@ async def get_equipment(
     equipment_id: int,
     tenant: TenantArg = None,
 ) -> EquipmentDetail:
-    """Get one asset with its full checkout history, most recent first."""
+    """Get one asset with its most recent checkouts, newest first, and the total count."""
     service = EquipmentService()
     asset = require_found(await service.get_asset(equipment_id), 'Equipment')
-    loans = await service.loan_history(asset)
+    # Newest first, so an open loan is always inside the window.
+    loans = await service.loan_history(asset, limit=MAX_LOANS)
     open_loan = next((loan for loan in loans if loan.checked_in_at is None), None)
     return EquipmentDetail(
         id=asset.id,
@@ -97,6 +100,7 @@ async def get_equipment(
         borrower=_name(getattr(open_loan, 'borrower', None)),
         description=asset.description,
         loans=[_loan(loan) for loan in loans],
+        loan_count=await service.loan_count(asset),
     )
 
 
@@ -116,14 +120,14 @@ async def my_equipment_checkouts(tenant: TenantArg = None) -> List[MyCheckoutRes
 
 def register_tools(mcp: MCPServer) -> None:
     register(
-        mcp, my_equipment_checkouts, gate=Gate.ACTOR,
+        mcp, my_equipment_checkouts, gate=Gate.ACTOR, scope=ApiScope.PROFILE,
         feature=FeatureFlag.EQUIPMENT, title='My equipment checkouts',
     )
     register(
-        mcp, list_equipment, gate=Gate.ACTOR,
+        mcp, list_equipment, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ,
         feature=FeatureFlag.EQUIPMENT, title='List equipment',
     )
     register(
-        mcp, get_equipment, gate=Gate.ACTOR,
+        mcp, get_equipment, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ,
         feature=FeatureFlag.EQUIPMENT, title='Get equipment',
     )

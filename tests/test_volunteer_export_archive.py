@@ -1,6 +1,6 @@
 """Tests for the volunteer export dialog's archive assembly.
 
-Only the pure ``bundle_to_zip_bytes`` half is covered here — the dialog body
+Only the pure ``VolunteerExportBundle.to_zip_bytes`` half is covered here — the dialog body
 itself is NiceGUI rendering, exercised by ``/ui-validation``.
 """
 
@@ -11,7 +11,6 @@ import zipfile
 from application.services.volunteer.volunteer_export_service import VolunteerExportService
 from models import Role, UserRole, VolunteerPosition, VolunteerShift
 from tests.factories import make_user, utc
-from theme.dialog.volunteer_export_dialog import bundle_to_zip_bytes
 
 _next_discord_id = itertools.count(940000)
 
@@ -31,7 +30,7 @@ class TestBundleToZipBytes:
         )
         bundle = await VolunteerExportService().build(actor, utc(2026, 10, 4), utc(2026, 10, 5))
 
-        with zipfile.ZipFile(io.BytesIO(bundle_to_zip_bytes(bundle))) as archive:
+        with zipfile.ZipFile(io.BytesIO(bundle.to_zip_bytes())) as archive:
             names = archive.namelist()
             assert names[0] == 'README.txt'
             assert names[1:] == [f'{s.name}.csv' for s in bundle.sheets]

@@ -1,4 +1,5 @@
-"""Settings → Volunteers: shift reminders and the hour totals that earn rewards."""
+"""Settings → Volunteers (shift reminders, the community's) and Event settings →
+Volunteer reward tiers (the hour totals that earn rewards, each event's)."""
 
 from nicegui import ui
 
@@ -44,34 +45,21 @@ def _validate_comp_tiers(raw: str | None) -> str:
 
 async def volunteers_settings_pane(can_edit: bool) -> None:
     reminder_lead = await SystemConfigService.get_int(KEY_VOLUNTEER_REMINDER_LEAD_MINUTES)
-    comp_tiers = await SystemConfigService.get_volunteer_comp_tiers()
 
     card = await section_panel(
         'Shifts', icon='volunteer_activism',
-        subtitle='When volunteers hear about their next shift, and what their hours add up to.',
+        subtitle='When volunteers hear about their next shift.',
     )
-    with card.body:
-        with ui.column().classes('gap-1'):
-            reminder_input = ui.number(
-                'Reminder lead (minutes)', value=reminder_lead, min=1, format='%d',
-            ).classes('w-56')
-            field_hint('How long before a shift its volunteers get a DM. Blank uses 60.')
-        with ui.column().classes('gap-1 w-full'):
-            tiers_input = ui.input(
-                'Reward tiers (hours)', value=', '.join(_format_hours(t) for t in comp_tiers),
-            ).classes('w-72')
-            field_hint(
-                'Hour totals that earn a volunteer something, separated by commas. '
-                'Blank uses 8, 12, 16. Enter 0 if your community awards nothing by hours.'
-            )
+    with card.body, ui.column().classes('gap-1'):
+        reminder_input = ui.number(
+            'Reminder lead (minutes)', value=reminder_lead, min=1, format='%d',
+        ).classes('w-56')
+        field_hint('How long before a shift its volunteers get a DM. Blank uses 60.')
 
     async def save() -> bool:
         try:
             reminder_raw = positive_int_or_blank(reminder_input.value, 'The reminder lead')
-            tiers_raw = _validate_comp_tiers(tiers_input.value)
-            actor = await current_actor()
-            await SystemConfigService.set_raw(KEY_VOLUNTEER_REMINDER_LEAD_MINUTES, reminder_raw, actor)
-            await SystemConfigService.set_raw(KEY_VOLUNTEER_COMP_TIERS, tiers_raw, actor)
+            await SystemConfigService.set_raw(KEY_VOLUNTEER_REMINDER_LEAD_MINUTES, reminder_raw, await current_actor())
         except (ValueError, PermissionError) as e:
             notify_error(e)
             return False
@@ -79,7 +67,38 @@ async def volunteers_settings_pane(can_edit: bool) -> None:
         return True
 
     with card.panel:
-        SaveFooter(save, enabled=can_edit).watch(reminder_input, tiers_input)
+        SaveFooter(save, enabled=can_edit).watch(reminder_input)
     if not can_edit:
         reminder_input.disable()
+
+
+async def reward_tiers_pane(can_edit: bool) -> None:
+    comp_tiers = await SystemConfigService.get_volunteer_comp_tiers()
+
+    card = await section_panel(
+        'Reward tiers', icon='military_tech',
+        subtitle='The hour totals that earn a volunteer something at this event.',
+    )
+    with card.body, ui.column().classes('gap-1 w-full'):
+        tiers_input = ui.input(
+            'Reward tiers (hours)', value=', '.join(_format_hours(t) for t in comp_tiers),
+        ).classes('w-72')
+        field_hint(
+            'Hour totals separated by commas. Blank uses 8, 12, 16. '
+            'Enter 0 if this event awards nothing by hours.'
+        )
+
+    async def save() -> bool:
+        try:
+            tiers_raw = _validate_comp_tiers(tiers_input.value)
+            await SystemConfigService.set_raw(KEY_VOLUNTEER_COMP_TIERS, tiers_raw, await current_actor())
+        except (ValueError, PermissionError) as e:
+            notify_error(e)
+            return False
+        ui.notify('Reward tiers saved', color='positive')
+        return True
+
+    with card.panel:
+        SaveFooter(save, enabled=can_edit).watch(tiers_input)
+    if not can_edit:
         tiers_input.disable()

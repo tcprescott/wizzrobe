@@ -1,28 +1,36 @@
 ---
 name: plan-feature
 description: >-
-  Turn a feature request into a reviewed design brief BEFORE any code is
-  written: feature-flag decision, model sketch + tenant impact, layer
-  touchpoints, audit/event additions, test plan (including leak tests), seed
-  and docs touchpoints, and open questions. Use as step -1 of /add-feature —
-  whenever a task says "add/build a feature" and no agreed design exists yet.
-  Produces the brief in-chat and stops for the user's sign-off; implementation
-  then follows /add-feature.
+  Turn a feature request into an approved spec BEFORE any code is written,
+  following docs/specs/README.md: scoping questions, a lite or full spec from
+  docs/specs/templates/, mockups, one sign-off. The full spec's Data and
+  permissions and PR plan cover the feature-flag decision, model sketch +
+  tenant impact, layer touchpoints, audit/event additions, test plan, seed and
+  docs touchpoints. Use whenever a task adds a feature or changes a workflow
+  and no approved spec exists yet; implementation then follows /add-feature.
 ---
 
-# Planning a feature (design brief before code)
+# Planning a feature (spec before code)
 
-Produce the brief below **in-chat** (no file), then **stop and ask the open
-questions** — do not start implementing until the user signs off. Every section
-maps to an /add-feature step and to the guardrail that will enforce it later,
-so a complete brief means a friction-free build.
+Follow [docs/specs/README.md](../../../docs/specs/README.md): ask the scoping
+questions, write the spec from
+[templates/lite.md](../../../docs/specs/templates/lite.md) or
+[templates/full.md](../../../docs/specs/templates/full.md), make the mockups,
+then **stop for the one sign-off**. Don't start implementing until the spec is
+`Approved`. Bug fixes, copy tweaks, small polish and refactors skip this skill.
 
 Explore first: read the models/services/pages the feature touches, and check
 [docs/current-state.md](../../../docs/current-state.md) plus the relevant
-[docs/features/](../../../docs/features/) doc so the brief builds on what
+[docs/features/](../../../docs/features/) doc so the spec builds on what
 exists instead of re-inventing it.
 
-## The brief
+For a **full** spec, work through the checklist below and put the answers in
+its **Data and permissions** and **PR plan** sections (tests, seed rows and
+docs belong to the PR that owes them). Every item maps to an /add-feature step
+and to the guardrail that will enforce it later, so a complete spec means a
+friction-free build. A lite spec only needs the items that apply.
+
+## Full-spec checklist
 
 ### 1. Feature flag?
 
@@ -95,4 +103,6 @@ and `docs/features/` need updates (doc-reminder/doc-check hooks will nag).
 ### 7. Open questions
 
 Anything ambiguous: scope cuts, permissions, UX placement, naming, rollout.
-End the brief here and wait for answers + sign-off.
+Ask them (one per question card where the host has cards), log each answer in
+the spec's **Decisions**, and stop for sign-off once **Open questions** is
+empty.

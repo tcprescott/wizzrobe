@@ -26,6 +26,7 @@ from theme.brackets.tables import render_standings
 from theme.dialog._helpers import form_dialog
 from theme.dialog.confirmation_dialog import ConfirmationDialog
 from theme.notify import notify_error
+from theme.steady import steady_refreshable
 from theme.tables.admin_crud import current_actor
 
 from .shared import ELIM_FORMATS, entry_display_maps, match_label, round_display_names
@@ -72,7 +73,7 @@ async def open_results(row, client, *, service, tenant_id, tournament_id, on_cha
         actor = await current_actor()
         with form_dialog(f"Results — {row['name']}", card_classes='dialog-card dialog-card--lg') as dialog:
 
-            @ui.refreshable
+            @steady_refreshable
             async def body() -> None:
                 with tenant_scope(tenant_id):
                     bracket = await service.get_bracket(bracket_id)
@@ -131,9 +132,6 @@ async def open_results(row, client, *, service, tenant_id, tournament_id, on_cha
                     with ui.element('div').classes('bracket-embed-scroll'):
                         with ui.element('div').classes('bracket-2d w-full'):
                             render_elimination(matches, ctx, double=double)
-                        # The 2-D bracket is unusable in a phone-width dialog (a
-                        # ~1200px canvas in a ~300px box), so staff get the same
-                        # accordion as the public page.
                         with ui.element('div').classes('bracket-mobile-list w-full'):
                             render_elimination_mobile(matches, ctx, double=double)
                     ui.separator()
@@ -229,7 +227,7 @@ def _render_standings(bracket, standings, *, service, actor, tenant_id, on_done)
         f"Complete “{bracket.name}”? This writes every entrant's final rank from "
         'the standings above and locks the stage — it cannot be undone.',
         on_confirm=do_complete,
-        confirm_text='Complete stage',
+        confirm_text='Complete stage', busy_text='Completing…',
     )
     ui.button(
         'Complete stage from these standings', icon='flag', on_click=confirm.open,
@@ -290,10 +288,6 @@ def _render_match_lists(
         for m in complete_matches:
             result_row(m)
 
-    # Where the visual bracket is present these lists are the fallback, not the
-    # primary surface: collapsed, they stop a 32-match stage from burying the
-    # dialog's own actions under ~3000px of scroll. Swiss / round robin have no
-    # embed, so there they stay open — they are the only surface.
     if embedded:
         with ui.expansion(f'Open matches ({len(open_matches)})').classes('w-full'):
             open_list()

@@ -56,7 +56,5 @@ class TestEntryAvatars:
         assert entry_avatars(entrants, [_entry(50, 1)]) == {}
 
     def test_an_unfetched_user_relation_is_skipped_not_crashed(self):
-        # The relation is only prefetched by BracketService.list_entrants; any
-        # other source must degrade to the initial-letter disc.
         entrants = [_entrant(1, object())]
         assert entry_avatars(entrants, [_entry(50, 1)]) == {}

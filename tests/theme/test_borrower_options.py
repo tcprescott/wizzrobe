@@ -12,7 +12,6 @@ from theme.dialog.checkout_dialog import _borrower_options
 
 
 def _person(user_id: int, name: str, *, discord_id: int = 500, is_active: bool = True) -> User:
-    # Unsaved instances: the helper is pure and never touches the DB.
     return User(id=user_id, username=name, discord_id=discord_id, is_active=is_active)
 
 

@@ -4,7 +4,8 @@ Authentication is via a personal bearer token (``Authorization: Bearer
 wizzrobe_pat_...``) generated on the user's profile page. A token resolves to
 its owning :class:`User` and the request then runs the *same* service-layer
 permission checks as the web UI. A token flagged ``read_only`` may only call
-read (GET) endpoints.
+read (GET) endpoints. A third-party app's token is further limited to the
+scopes its user approved (:mod:`api.scopes`).
 
 ``ServiceErrorRoute`` translates the service layer's ``PermissionError`` /
 ``ValueError`` into ``403`` / ``400`` responses. It is scoped to the API
@@ -12,19 +13,28 @@ routers (via ``route_class``) so it never affects the NiceGUI frontend mounted
 on the same app.
 """
 
-from typing import Optional, Tuple
+from typing import Awaitable, Callable, Optional, Tuple
 
-from fastapi import Depends, HTTPException, Request, Response, status
+from fastapi import Depends, HTTPException, Query, Request, Response, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.routing import APIRoute
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from tortoise.models import Model
 
-from application.errors import NotFoundError
+from api.rate_limit import enforce_app_limit
+from api.scopes import scope_for
+from application.api_scopes import ApiScope, parse_scope
+from application.errors import EventArchivedError, NotFoundError
+from application.event_context import set_event_id
 from application.services.api_token_service import ApiTokenService
 from application.services.auth_service import AuthService
+from application.services.event_service import EventService
 from application.services.feature_flag_service import FeatureFlagService
+from application.services.oauth_grant_service import OAuthGrantService
+from application.services.telemetry_service import TelemetryEventType, TelemetryService
 from application.services.tenant_service import TenantService
 from application.services.timezone_service import TimezoneService
-from application.tenant_context import reset_tenant_id, set_tenant_id
+from application.tenant_context import require_tenant_id, reset_tenant_id, set_tenant_id, tenant_scope
 from application.timezone_context import set_timezone_name
 from models import ApiToken, ApiTokenOrigin, FeatureFlag, User
 
@@ -44,12 +54,39 @@ async def tenant_context_scope():
     finally:
         reset_tenant_id(token)
 
-# auto_error=False so a missing/malformed header yields our own 401 (FastAPI's
-# default for HTTPBearer is a 403), keeping all auth failures consistent.
+# auto_error=False so a missing header gets our 401, not HTTPBearer's default 403.
 bearer_scheme = HTTPBearer(
     auto_error=False,
     description="Personal API token generated on your profile page.",
 )
+
+
+def _require_scope(request: Request, token: ApiToken) -> None:
+    """Refuse a scoped token whose grant doesn't cover this route.
+
+    A PAT is unscoped: it acts with everything its owner may do, exactly as
+    before scopes existed. Every other origin that gets this far (an app token)
+    is limited to the scopes on its grant, and a route missing from the table
+    is refused rather than assumed open.
+    """
+    if token.origin == ApiTokenOrigin.PAT.value:
+        return
+    route = request.scope.get('route')
+    path = getattr(route, 'path', '').removeprefix('/api')
+    required = scope_for(request.method, path)
+    if isinstance(required, ApiScope):
+        if required in parse_scope(token.scope):
+            return
+        detail = f"This app wasn't given the {required.value} scope"
+        challenge = f'Bearer error="insufficient_scope", scope="{required.value}"'
+    else:
+        detail = "Apps can't use this endpoint; it needs a personal API token"
+        challenge = 'Bearer error="insufficient_scope"'
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail=detail,
+        headers={"WWW-Authenticate": challenge},
+    )
 
 
 def _reject_read_only(token: ApiToken) -> None:
@@ -61,7 +98,77 @@ def _reject_read_only(token: ApiToken) -> None:
         )
 
 
+async def _ensure_app_grant_usable(token: ApiToken) -> None:
+    """A third-party app grant also needs its community's flag on and its app alive.
+
+    Runs after the grant's community is bound. A community that turned the
+    flag off answers 404, as for any other disabled feature; a disabled app's
+    grant is a dead credential, so 401. What the grant's scopes allow is a
+    separate check.
+    """
+    if not await FeatureFlagService().is_enabled(FeatureFlag.THIRD_PARTY_APPS):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Third-party apps are not enabled for this community",
+        )
+    try:
+        await OAuthGrantService().ensure_grant_usable(token)
+    except NotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(exc),
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from exc
+
+
+COMMUNITY_HEADER = 'X-Wizzrobe-Community'
+
+EVENT_QUERY_HELP_READER = (
+    "The event to read about, by its slug (see `GET /api/events`). Leave it out for "
+    "the community's default event."
+)
+
+
+def _is_first_party(token: ApiToken) -> bool:
+    """Wizzrobe's own app: an app grant with no community, from a first-party app."""
+    app = getattr(token, 'oauth_app', None)
+    return (
+        token.origin == ApiTokenOrigin.APP.value
+        and token.tenant_id is None
+        and app is not None
+        and bool(app.first_party)
+    )
+
+
+async def _first_party_tenant(request: Request, token: ApiToken):
+    """The community a first-party call names in its header.
+
+    Its grant carries every scope its owner could use, so the scope table and
+    the third-party flag don't apply; membership is checked by the caller as
+    for any token.
+    """
+    if token.oauth_app is None or token.oauth_app.disabled_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="This app has been disabled",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    slug = (request.headers.get(COMMUNITY_HEADER) or '').strip()
+    if not slug:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Name the community in the {COMMUNITY_HEADER} header",
+        )
+    tenant = await TenantService.get_by_slug(slug)
+    if tenant is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Community not found")
+    return tenant
+
+
 async def resolve_token(
+    request: Request,
     creds: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
 ) -> Tuple[User, ApiToken]:
     """Resolve and authenticate the bearer token, returning ``(user, token)``.
@@ -89,46 +196,214 @@ async def resolve_token(
             headers={"WWW-Authenticate": "Bearer"},
         )
     user, token = result
-    # An OAuth token belongs to the MCP server: it is platform-wide (no tenant),
-    # and its holder consented to that surface, not to this one. Refusing it
-    # here — and refusing a PAT at /mcp — means a credential minted for one
-    # surface can never be replayed against the other.
-    #
-    # More load-bearing than it looks now that an MCP grant can carry write
-    # access: an OAuth token has tenant=NULL, and everything below this line
-    # derives the request's community from token.tenant_id. A write-capable
-    # tenant-less credential reaching that code has no community to act in.
+    # Refuse OAuth tokens here: they're tenant-less, and everything below derives the community from token.tenant_id.
     if token.origin == ApiTokenOrigin.OAUTH.value:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="This token is for the MCP server and cannot be used with the REST API",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    # A PAT acts within exactly one tenant: set the request tenant context from
-    # it (the token was resolved globally, before any context existed), so the
-    # same tenant-aware service checks the web UI uses apply here.
-    tenant = await TenantService.get_by_id(token.tenant_id)
+    first_party = _is_first_party(token)
+    if first_party:
+        tenant = await _first_party_tenant(request, token)
+    else:
+        _require_scope(request, token)
+        tenant = await TenantService.get_by_id(token.tenant_id)
     if tenant is None or not tenant.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="This tenant is inactive",
         )
-    # Removal revokes a member's tokens, but a token can outlive membership by
-    # other routes (removed before that existed, a super-admin who lost the
-    # role), so the check that decides it runs on every request.
+    # Not redundant with revoke-on-removal: a token can outlive membership other ways.
     if not await TenantService.is_member(user.id, tenant.id) and not await AuthService.is_super_admin(user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not a member of this community",
         )
     set_tenant_id(tenant.id)
-    # REST responses stay UTC — timezone is a presentation concern and a
-    # programmatic client should get one canonical instant. But a few endpoints
-    # accept or derive a calendar *date*, and a date has no meaning without a
-    # zone; those resolve on the community's clock, matching what its members
-    # see, rather than silently on UTC's.
+    if token.origin == ApiTokenOrigin.APP.value and not first_party:
+        await _ensure_app_grant_usable(token)
+        if token.oauth_app_id is not None:
+            await enforce_app_limit(token.oauth_app_id)
+    set_event_id(await EventService.default_event_id(tenant.id), tenant.id)
+    request.state.api_actor = (user, token)
     set_timezone_name(await TimezoneService.tenant_timezone_name(tenant.id))
     return user, token
+
+
+async def resolve_identity(
+    creds: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
+) -> Tuple[User, ApiToken]:
+    """Who a token belongs to, and the token, without binding a community.
+
+    For the calls that span communities (``GET /api/me/communities``) and the
+    platform routes, which name their community by id. Wizzrobe's own app and
+    personal tokens may make them; a third-party app's grant is held to the one
+    community it was given, and an MCP token belongs at ``/mcp``.
+    """
+    if creds is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="API token required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    try:
+        result = await ApiTokenService().resolve_actor(creds.credentials)
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    if result is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired API token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    user, token = result
+    if token.origin == ApiTokenOrigin.PAT.value or _is_first_party(token):
+        app = token.oauth_app
+        if app is not None and app.disabled_at is not None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="This app has been disabled",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        return user, token
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="This token is limited to one community and can't list others",
+    )
+
+
+async def require_identity(resolved: Tuple[User, ApiToken] = Depends(resolve_identity)) -> User:
+    """:func:`resolve_identity`'s user."""
+    return resolved[0]
+async def _reader_tenant(request: Request, token: Optional[ApiToken]):
+    """The community a reading call is about: the token's own, else the header's."""
+    if token is not None and not _is_first_party(token):
+        return await TenantService.get_by_id(token.tenant_id) if token.tenant_id is not None else None
+    slug = (request.headers.get(COMMUNITY_HEADER) or '').strip()
+    if not slug:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Name the community in the {COMMUNITY_HEADER} header",
+        )
+    return await TenantService.get_by_slug(slug)
+
+
+async def require_reader(
+    request: Request,
+    event: Optional[str] = Query(None, description=EVENT_QUERY_HELP_READER),
+    creds: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
+) -> Optional[User]:
+    """The reader of a public page, or ``None`` when nobody is signed in.
+
+    For help, the event handbook and the other pages the website serves to
+    anyone: the community comes from the header (or a personal token's own),
+    and a token only decides which role-gated articles show. A token that
+    doesn't belong to a member reads as signed out rather than being refused,
+    because nothing here is closed to outsiders. A token that no longer
+    resolves is still a 401, so the app refreshes it instead of quietly
+    dropping someone's staff articles. A third-party app's token reads as
+    signed out: its grant covers its scopes, not what its owner may read.
+    """
+    token: Optional[ApiToken] = None
+    user: Optional[User] = None
+    if creds is not None:
+        try:
+            result = await ApiTokenService().resolve_actor(creds.credentials)
+        except PermissionError as exc:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+        if result is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired API token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        if result[1].origin == ApiTokenOrigin.PAT.value or _is_first_party(result[1]):
+            user, token = result
+    tenant = await _reader_tenant(request, token)
+    if tenant is None or not tenant.is_active:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Community not found")
+    if user is not None and not (
+        await TenantService.is_member(user.id, tenant.id) or await AuthService.is_super_admin(user)
+    ):
+        user = None
+    set_tenant_id(tenant.id)
+    set_event_id(await EventService.default_event_id(tenant.id), tenant.id)
+    if event is not None:
+        event_id = await EventService.call_event_id(user, event)
+        if event_id is not None:
+            set_event_id(event_id, tenant.id)
+    set_timezone_name(await TimezoneService.tenant_timezone_name(tenant.id))
+    return user
+
+
+def reader_feature(flag: FeatureFlag):
+    """:func:`require_feature` for a public page: 404 when the community lacks ``flag``."""
+
+    async def _reader_feature(reader: Optional[User] = Depends(require_reader)) -> None:
+        if not await FeatureFlagService().is_enabled(flag):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="This feature is not enabled for this community.",
+            )
+
+    _reader_feature.feature_flag = flag  # type: ignore[attr-defined]  # read by api.openapi_docs
+    return _reader_feature
+
+
+EVENT_QUERY_HELP = (
+    "The event to work in, by its slug (see `GET /api/events`). Leave it out for "
+    "the community's default event. A call about one row (a match, a shift) "
+    "works in that row's event, and naming a different event is a 404."
+)
+
+
+def event_binding(**rows: type[Model]) -> Callable[..., Awaitable[None]]:
+    """A router dependency that binds the event an event-owned call works in.
+
+    ``rows`` maps a path parameter to the model it names (``match_id=Match``):
+    a call about such a row works in the row's event, so ``?event=`` can only
+    agree with it. Every event-owned router attaches one, naming its row
+    parameters; ``tests/api/test_event_binding.py`` fails when a router's path
+    parameter is neither mapped nor listed as naming no row.
+    """
+
+    async def bind_event(
+        request: Request,
+        event: Optional[str] = Query(None, description=EVENT_QUERY_HELP),
+        resolved: Tuple[User, ApiToken] = Depends(resolve_token),
+    ) -> None:
+        pairs = []
+        for name, model in rows.items():
+            raw = request.path_params.get(name)
+            if raw is not None and str(raw).isdigit():
+                pairs.append((model, int(raw)))
+        event_id = await EventService.call_event_id(resolved[0], event, pairs)
+        if event_id is not None:
+            set_event_id(event_id, require_tenant_id())
+
+    bind_event.event_rows = rows  # type: ignore[attr-defined]
+    return bind_event
+
+
+EVENT_FILTER_HELP = (
+    "Only records from this event, by its slug (see `GET /api/events`). Leave it "
+    "out for the whole community, every event and the records that belong to none."
+)
+
+
+async def event_filter(
+    event: Optional[str] = Query(None, description=EVENT_FILTER_HELP),
+    resolved: Tuple[User, ApiToken] = Depends(resolve_token),
+) -> Optional[int]:
+    """The event id a community-wide report narrows to, or None for all of it.
+
+    Unlike ``event_binding`` nothing is bound: audit, sent messages and
+    telemetry belong to the community and only carry an event for filtering.
+    """
+    if event is None:
+        return None
+    return await EventService.call_event_id(resolved[0], event)
 
 
 async def require_api_actor(
@@ -149,10 +424,18 @@ async def require_write_actor(
 
 
 async def require_admin(actor: User = Depends(require_api_actor)) -> User:
-    """Authenticated user who can view the admin area (any admin role in this community or
-    tournament admin/crew-coordinator membership)."""
+    """Authenticated user who can read the community's reports: staff, or a
+    tournament admin or crew coordinator here (``can_view_admin``)."""
     await AuthService.ensure(
         await AuthService.can_view_admin(actor), "Admin access required"
+    )
+    return actor
+
+
+async def require_volunteer_admin(actor: User = Depends(require_api_actor)) -> User:
+    """``require_admin`` plus a volunteer coordinator, for the admin-side volunteer reads."""
+    await AuthService.ensure(
+        await AuthService.can_view_volunteer_admin(actor), "Admin access required"
     )
     return actor
 
@@ -179,13 +462,35 @@ async def require_staff_write(
     return user
 
 
-async def require_super_admin(actor: User = Depends(require_api_actor)) -> User:
+async def require_app_staff_write(
+    resolved: Tuple[User, ApiToken] = Depends(resolve_token),
+) -> User:
+    """Staff, calling from Wizzrobe's own app.
+
+    For the few actions Thomas kept off the open API (sending, reminding and
+    closing a survey DM everyone it reaches): a personal token or a third-party
+    app gets a 403 even when its owner is staff.
+    """
+    user, token = resolved
+    if not _is_first_party(token):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the Wizzrobe app can do this",
+        )
+    _reject_read_only(token)
+    await AuthService.ensure(await AuthService.is_staff(user), "Staff access required")
+    return user
+
+
+async def require_super_admin(actor: User = Depends(require_identity)) -> User:
     """Authenticated user holding the global ``SUPER_ADMIN`` role.
 
     Unlike :func:`require_staff` (which is tenant-scoped), this gates on the
     platform-global role (``UserRole`` with ``tenant=None``). Use it for global,
     non-tenant-scoped resources such as :class:`RacetimeBot` and the full
     service-health board, whose services do not (or cannot) apply a tenant gate.
+    It binds no community, so Wizzrobe's own app calls these routes without
+    naming one, and audit rows land with ``tenant=NULL``.
     """
     await AuthService.ensure(
         await AuthService.is_super_admin(actor), "Super admin access required"
@@ -194,7 +499,7 @@ async def require_super_admin(actor: User = Depends(require_api_actor)) -> User:
 
 
 async def require_super_admin_write(
-    resolved: Tuple[User, ApiToken] = Depends(resolve_token),
+    resolved: Tuple[User, ApiToken] = Depends(resolve_identity),
 ) -> User:
     """Super-admin user with a non-read-only token. Use on mutating global routes."""
     user, token = resolved
@@ -202,6 +507,26 @@ async def require_super_admin_write(
     await AuthService.ensure(
         await AuthService.is_super_admin(user), "Super admin access required"
     )
+    return user
+
+
+async def require_app_super_admin_write(
+    resolved: Tuple[User, ApiToken] = Depends(resolve_identity),
+) -> User:
+    """Super admin, signed in through Wizzrobe's own app, with a token that may write.
+
+    For the platform writes that carry a credential (a sign-in password): a
+    personal token or a chat client could put one in a transcript, so only the
+    first-party app may send them.
+    """
+    user, token = resolved
+    if not _is_first_party(token):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the Wizzrobe app can do this. Use the app's Platform screen.",
+        )
+    _reject_read_only(token)
+    await AuthService.ensure(await AuthService.is_super_admin(user), "Super admin access required")
     return user
 
 
@@ -231,13 +556,14 @@ class ServiceErrorRoute(APIRoute):
 
     - ``PermissionError`` -> 403
     - ``NotFoundError``   -> 404 (checked before ``ValueError``, which it subclasses)
+    - ``EventArchivedError`` -> 409 (likewise a ``ValueError``)
     - ``ValueError``      -> 400
     """
 
     def get_route_handler(self):
         original_handler = super().get_route_handler()
 
-        async def custom_handler(request: Request) -> Response:
+        async def translated(request: Request) -> Response:
             try:
                 return await original_handler(request)
             except PermissionError as exc:
@@ -250,10 +576,49 @@ class ServiceErrorRoute(APIRoute):
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=str(exc) or "Not found",
                 ) from exc
+            except EventArchivedError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=str(exc),
+                ) from exc
             except ValueError as exc:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=str(exc),
                 ) from exc
 
+        async def custom_handler(request: Request) -> Response:
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+            try:
+                response = await translated(request)
+                status_code = response.status_code
+                return response
+            except HTTPException as exc:
+                status_code = exc.status_code
+                raise
+            except RequestValidationError:
+                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+                raise
+            finally:
+                await _record_api_call(request, self, status_code)
+
         return custom_handler
+
+
+async def _record_api_call(request: Request, route: APIRoute, status_code: int) -> None:
+    """One usage-telemetry row per authenticated request; unauthenticated ones are skipped."""
+    resolved = getattr(request.state, 'api_actor', None)
+    if resolved is None:
+        return
+    user, token = resolved
+    # Routers carry no /api prefix (main.py mounts it there), so add it here.
+    template = f"/api{route.path_format}"
+    with tenant_scope(token.tenant_id):
+        await TelemetryService().track_api_call(
+            event_type=TelemetryEventType.REST_REQUEST,
+            target=f"{request.method} {template}",
+            path=template,
+            user_id=user.id,
+            username=user.username,
+            outcome='ok' if status_code < 400 else str(status_code),
+        )

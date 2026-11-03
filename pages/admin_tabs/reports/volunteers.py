@@ -39,9 +39,6 @@ async def volunteers_page(
     **_unused,
 ) -> None:
     start_d, end_d = await default_date_range(start, end)
-    # Reading these numbers and staffing the shifts are different capabilities:
-    # a crew coordinator can see the coverage report and cannot manage
-    # volunteers, so they get the numbers and no link.
     viewer = await get_user_from_session(app.storage.user)
     can_staff_shifts = await AuthService.can_manage_volunteers(viewer)
 
@@ -72,8 +69,6 @@ async def volunteers_page(
                     ui.label(f'{len(understaffed)} shift(s) need {total_open} more volunteer(s).') \
                         .classes('text-body2')
                     if can_staff_shifts:
-                        # The headline sentence is the most actionable line in the
-                        # whole reports section; make it, not only the table, a route.
                         first_day = _local_day(min(r['starts_at'] for r in understaffed))
                         ui.space()
                         ui.button(
@@ -113,8 +108,6 @@ async def volunteers_page(
         with shifts_panel.body:
             table = ui.table(columns=columns, rows=rows, pagination=25, row_key='starts_at') \
                 .classes('full-width')
-            # Only the rows that name work get a route out of it: a fully
-            # staffed shift has nowhere to go.
             drill_actions = enable_drill_link(
                 table, columns, rows,
                 lambda r: admin_url(VOL_SCHEDULE, day=r['day']) if r['understaffed'] else None,

@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Callable, Tuple
+from typing import Callable, Optional, Tuple
 
 from models import User
 from racetimebot.handler import RaceHandler
@@ -33,13 +33,14 @@ from racetimebot.transport import (
     RacetimeAuthError,
     RacetimeTransientError,
     RacetimeTransport,
+    RoomSource,
     build_transport,
 )
 
 logger = logging.getLogger(__name__)
 
 INITIAL_BACKOFF_SECONDS = 5
-MAX_BACKOFF_SECONDS = 300  # ~5 minutes, per the health decision
+MAX_BACKOFF_SECONDS = 300
 
 
 class CategoryConnection:
@@ -56,6 +57,7 @@ class CategoryConnection:
         bot_service,
         system_user: User,
         transport_factory: Callable[..., RacetimeTransport] = build_transport,
+        room_source: Optional[RoomSource] = None,
     ) -> None:
         self.bot_id = bot_id
         self.category = category
@@ -65,6 +67,7 @@ class CategoryConnection:
         self.bot_service = bot_service
         self.system_user = system_user
         self._transport_factory = transport_factory
+        self.room_source = room_source
         self._stop = asyncio.Event()
         self._transport: RacetimeTransport | None = None
 
@@ -73,7 +76,15 @@ class CategoryConnection:
             client_id=self.client_id,
             client_secret=self.client_secret,
             category=self.category,
+            room_source=self.room_source,
         )
+
+    async def send(self, slug: str, action: dict) -> bool:
+        """Speak in room ``slug`` over the live transport; ``False`` while disconnected."""
+        transport = self._transport
+        if transport is None:
+            return False
+        return await transport.send(slug, action)
 
     async def _heartbeat(self) -> None:
         await self.bot_service.record_heartbeat(self.bot_id)
@@ -114,7 +125,6 @@ class CategoryConnection:
             self._transport = None
 
     async def _sleep_backoff(self, seconds: float) -> None:
-        # Interruptible sleep: a stop request cuts the backoff short.
         try:
             await asyncio.wait_for(self._stop.wait(), timeout=seconds)
         except asyncio.TimeoutError:
@@ -133,8 +143,7 @@ class CategoryConnection:
                 try:
                     await self.bot_service.record_error(self.bot_id, self.system_user, str(exc))
                 except Exception:
-                    # Recording is bookkeeping; letting it escape would end the
-                    # connection loop for good with nothing to restart it.
+                    # Never let this escape: it would end the connection loop with nothing to restart it.
                     logger.exception('failed to record racetime bot %s error', self.category)
                 outcome, connected = 'transient', False
 
@@ -162,7 +171,6 @@ class CategoryConnection:
         self._stop.set()
         transport = self._transport
         if transport is not None:
-            # Best-effort: unblock a live run() loop.
             try:
                 asyncio.get_event_loop().create_task(transport.close())
             except Exception:

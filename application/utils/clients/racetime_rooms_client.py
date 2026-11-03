@@ -16,6 +16,7 @@ slug without touching the network, so dev and tests can open rooms freely.
 
 from __future__ import annotations
 
+import asyncio
 import secrets
 import time
 from dataclasses import dataclass
@@ -28,13 +29,10 @@ from application.utils.clients.racetime_client import (
 )
 
 _TIMEOUT_SECONDS = 15
-# Replace a cached bot token this long before racetime says it expires.
 _REFRESH_MARGIN_SECONDS = 600
 _DEFAULT_TOKEN_LIFETIME_SECONDS = 36000
 
-# Process-wide bot token cache, keyed by client id. Shared infrastructure like
-# the discord queue, not per-user state: every room a category opens rides the
-# same bot credential, and a fresh grant per room would only earn rate limits.
+# Process-wide on purpose: one credential per category; a fresh grant per room earns rate limits.
 _tokens: Dict[str, Tuple[str, float]] = {}
 
 
@@ -163,8 +161,10 @@ class RacetimeRoomsClient:
                             f'({resp.status}){": " + reason if reason else ""}'
                         )
                     return slug_from_location(resp.headers.get('Location'))
-        except aiohttp.ClientError as exc:
-            raise RacetimeAPIError(f'could not reach racetime.gg: {exc}') from exc
+        except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
+            raise RacetimeAPIError(
+                f'could not reach racetime.gg: {exc or type(exc).__name__}'
+            ) from exc
 
     async def _token(self, session, client_id: str, client_secret: str) -> str:
         cached = _tokens.get(client_id)
@@ -175,6 +175,8 @@ class RacetimeRoomsClient:
             'client_secret': client_secret,
             'grant_type': 'client_credentials',
         }) as resp:
+            if resp.status >= 500:
+                raise RacetimeAPIError(f'racetime.gg is having trouble ({resp.status})')
             if resp.status >= 400:
                 raise RacetimeAPIError(
                     f'racetime rejected the bot credentials ({resp.status})'

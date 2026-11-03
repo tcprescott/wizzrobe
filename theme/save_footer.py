@@ -60,8 +60,6 @@ class SaveFooter:
             ui.button('Discard', on_click=self.discard).props('flat no-caps color=primary')
             self.button = ui.button(label, on_click=self.save).props('color=primary unelevated no-caps')
         self._enabled = enabled
-        # Hidden until there is something to save: a row of greyed-out Save
-        # buttons down a page of cards reads as a form that is broken.
         self.row.set_visibility(False)
         self._group = _collecting.get()
         if self._group is not None:

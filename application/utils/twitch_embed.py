@@ -13,7 +13,6 @@ from application.utils.safe_url import http_url_or_empty
 
 _TWITCH_HOSTS = {'twitch.tv', 'www.twitch.tv', 'm.twitch.tv', 'go.twitch.tv'}
 _CHANNEL = re.compile(r'^[A-Za-z0-9_]{1,25}$')
-# Paths under twitch.tv that are pages, not channels.
 _RESERVED = {
     'directory', 'videos', 'settings', 'subscriptions', 'inventory', 'wallet',
     'downloads', 'jobs', 'p', 'search', 'login', 'signup', 'turbo', 'prime',
@@ -60,3 +59,12 @@ def player_url(channel: str, parent: str) -> str:
     """
     query = urlencode({'channel': channel, 'parent': parent, 'autoplay': 'true', 'muted': 'true'})
     return f'{_PLAYER}?{query}'
+
+
+def preview_url(channel: str) -> str:
+    """Twitch's still of ``channel``'s stream, refreshed by Twitch every few minutes.
+
+    A plain image on Twitch's CDN, so it costs no player, no cookies and works on
+    the static Watch page. An offline channel gets Twitch's grey placeholder.
+    """
+    return f'https://static-cdn.jtvnw.net/previews-ttv/live_user_{channel}-640x360.jpg'

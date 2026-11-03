@@ -1,7 +1,10 @@
+
 from tortoise import fields
 from tortoise.models import Model
 
 from .enums import (
+    CommentaryInviteStatus,
+    ForfeitReason,
     MatchCommentKind,
     PresetOverride,
     RescheduleRequestKind,
@@ -13,53 +16,52 @@ from .enums import (
 class Match(Model):
     id = fields.IntField(pk=True)
     tenant = fields.ForeignKeyField('models.Tenant', related_name='matches', on_delete=fields.CASCADE)
+    # Keep nullable: not every write path stamps it yet.
+    event: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Event', related_name='matches', on_delete=fields.CASCADE,
+    )
+    event_id: int
     tournament = fields.ForeignKeyField('models.Tournament', related_name='matches')
-    # SET_NULL: deleting a stage (or seed) detaches its matches instead of
-    # cascade-deleting the entire match and its players/crew/acknowledgments.
     stage = fields.ForeignKeyField(
         'models.Stage', related_name='matches', null=True, on_delete=fields.SET_NULL
     )
     scheduled_at = fields.DatetimeField(null=True, index=True)
-    seated_at = fields.DatetimeField(null=True) # now known as "Checked In"
+    seated_at = fields.DatetimeField(null=True)
     started_at = fields.DatetimeField(null=True)
     finished_at = fields.DatetimeField(null=True, index=True)
     confirmed_at = fields.DatetimeField(null=True)
     comment = fields.TextField(null=True)
     is_stream_candidate = fields.BooleanField(default=False)
     title = fields.CharField(max_length=255, null=True)
+    description = fields.TextField(null=True)
     generated_seed = fields.ForeignKeyField(
         'models.GeneratedSeeds', related_name='matches', null=True, on_delete=fields.SET_NULL
     )
-    # Staff overruling the players' hard-preset choice for this one match, in
-    # either direction (see ``PresetOverride``). Null is the normal case: the
-    # players decide. Set only while the seed is unrolled — afterwards
-    # ``generated_seed.preset`` is the record of what actually happened and this
-    # column would be a claim about a decision already made.
+    # Only set while the seed is unrolled; afterwards generated_seed.preset is the record.
     preset_override = fields.CharEnumField(
         PresetOverride, max_length=16, null=True,
     )
-    # Source marker for the SpeedGaming ETL (PR 7). Non-null = this Match was
-    # materialized from an SG episode, which makes the ETL-owned fields
-    # (``scheduled_at``, players, ``tournament``) read-only in Wizzrobe — the guard
-    # lives in ``MatchService.update_match``. SET_NULL so purging a synced episode
-    # soft-detaches the Match (everything Wizzrobe added on top survives) rather
-    # than cascade-deleting it. OneToOne: an episode maps to exactly one Match.
+    # Non-null makes the ETL-owned fields read-only (guard in MatchService.update_match).
     speedgaming_episode = fields.OneToOneField(
         'models.SpeedGamingEpisode', related_name='match', null=True, on_delete=fields.SET_NULL
     )
-    # Proctor-set "an admin should look at this before confirming" flag. Cleared
-    # when the admin confirms — confirming *is* the resolution. Deliberately not
-    # a state: the match is still Finished, and deliberately just a flag: the
-    # proctor raising it is standing in the room, and typing up what happened is
-    # the admin's conversation to have, not a textarea to fill in mid-event.
     needs_review = fields.BooleanField(default=False)
-    # Set when the stage reminder for this match has been sent, so the worker
-    # fires once. Cleared whenever the stage changes, which re-arms it.
+    bracket_placeholders = fields.JSONField(null=True)  # type: ignore[var-annotated]
+    bracket_link_lost = fields.BooleanField(default=False)
+    crew_hold_source = fields.CharField(max_length=16, null=True)
+    crew_hold_key = fields.IntField(null=True)
+    set_game = fields.IntField(null=True)
+    set_best_of = fields.IntField(null=True)
+    set_first = fields.ForeignKeyField(  # type: ignore[var-annotated]
+        'models.Match', related_name='set_games', null=True, on_delete=fields.CASCADE
+    )
+    # Clear on every stage change: that's what re-arms the reminder.
     stage_reminder_sent_at = fields.DatetimeField(null=True)
+    forfeit_reason = fields.CharEnumField(ForfeitReason, max_length=16, null=True)
+    forfeit_note = fields.CharField(max_length=280, null=True)
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
-    # related fields
     acknowledgments = fields.ReverseRelation["MatchAcknowledgment"]
     challonge_match = fields.ReverseRelation["ChallongeMatch"]
 
@@ -91,9 +93,8 @@ class Match(Model):
             return 'Scheduled'
 
     class Meta:
-        # scheduled_at / finished_at are indexed at the field level; these FK
-        # columns drive the tournament- and stage-scoped schedule/report filters.
         indexes = (('tournament',), ('stage',))
+        unique_together = (('tenant', 'crew_hold_source', 'crew_hold_key'),)
 
 
 class MatchPlayers(Model):
@@ -102,18 +103,23 @@ class MatchPlayers(Model):
     match = fields.ForeignKeyField('models.Match', related_name='players')
     user = fields.ForeignKeyField('models.User', related_name='match_players')
     finish_rank = fields.IntField(null=True)
-    # Elapsed finish time in whole seconds, captured from a racetime room result
-    # (PR 6). Null for non-finishers (forfeit / no-show / DQ) and for matches not
-    # run through a race room. ``finish_rank`` remains the place (1 = winner).
     finish_time = fields.IntField(null=True)
     assigned_station = fields.CharField(max_length=50, null=True)
+    late_minutes = fields.IntField(null=True)
+    late_at = fields.DatetimeField(null=True)
+    late_note = fields.CharField(max_length=280, null=True)
+    seed_ready_at = fields.DatetimeField(null=True)
+    # Set once, so toggling Ready can't DM the opponent repeatedly; never clear it.
+    seed_nudged_at = fields.DatetimeField(null=True)
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
     class Meta:
         unique_together = (('match', 'user'),)
         table = 'matchplayers'
-        indexes = (('user',),)  # composite is match-first; user-only reverse lookup uncovered
+        # Without this, an UPDATE reorders rows (heap order) and swaps who is listed first.
+        ordering = ('id',)
+        indexes = (('user',),)
 
 
 class MatchAcknowledgment(Model):
@@ -134,6 +140,11 @@ class MatchAcknowledgment(Model):
 class Stage(Model):
     id = fields.IntField(pk=True)
     tenant = fields.ForeignKeyField('models.Tenant', related_name='stages', on_delete=fields.CASCADE)
+    # Keep nullable: not every write path stamps it yet.
+    event: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Event', related_name='stages', on_delete=fields.CASCADE,
+    )
+    event_id: int
     name = fields.CharField(max_length=255)
     stream_url = fields.CharField(max_length=255, null=True)
     is_active = fields.BooleanField(default=True)
@@ -142,7 +153,7 @@ class Stage(Model):
 
     class Meta:
         table = 'stage'
-        unique_together = (('tenant', 'name'),)
+        unique_together = (('tenant', 'event', 'name'),)
 
 
 class Station(Model):
@@ -160,16 +171,14 @@ class Station(Model):
 
     id = fields.IntField(pk=True)
     tenant = fields.ForeignKeyField('models.Tenant', related_name='stations', on_delete=fields.CASCADE)
+    # Keep nullable: not every write path stamps it yet.
+    event: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Event', related_name='stations', on_delete=fields.CASCADE,
+    )
+    event_id: int
     name = fields.CharField(max_length=50)
-    # Free-text grouping ("North wall", "Row A") shown beside the name in the
-    # picker. Purely a label — it carries no pairing semantics.
     section = fields.CharField(max_length=50, null=True)
-    # Which half of the room. The seating suggestion puts a match's two players
-    # on different sides; a null side can still be assigned by hand but can
-    # never satisfy that rule, so the suggestion draws from it last.
     side = fields.CharEnumField(StationSide, max_length=10, null=True)
-    # Seat index along a row, used only to tell whether two stations are
-    # neighbours: same side and same section, positions one apart.
     position = fields.IntField(null=True)
     sort_order = fields.IntField(default=0)
     is_active = fields.BooleanField(default=True)
@@ -178,7 +187,7 @@ class Station(Model):
 
     class Meta:
         table = 'station'
-        unique_together = (('tenant', 'name'),)
+        unique_together = (('tenant', 'event', 'name'),)
 
 
 class Commentator(Model):
@@ -187,11 +196,14 @@ class Commentator(Model):
     user = fields.ForeignKeyField('models.User', related_name='commentaries')
     match = fields.ForeignKeyField('models.Match', related_name='commentators')
     approved = fields.BooleanField(default=False)
-    # SET_NULL: deleting the approver must not delete another user's crew signup.
     approved_by = fields.ForeignKeyField(
         'models.User', related_name='approved_commentaries', null=True, on_delete=fields.SET_NULL
     )
     acknowledged_at = fields.DatetimeField(null=True)
+    invited_by: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
+        'models.User', related_name='invited_commentaries', null=True, on_delete=fields.SET_NULL
+    )
+    invited_by_id: int | None
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
@@ -200,13 +212,52 @@ class Commentator(Model):
         table = 'commentator'
 
 
+class CommentaryInvite(Model):
+    """A commentator asking someone to commentate a match with them.
+
+    Nobody is signed up until the partner accepts; then they get an ordinary
+    ``Commentator`` row (``invited_by`` set) that staff approve on its own.
+    ``dm_channel_id``/``dm_message_id`` are the partner's DM, so it can be
+    edited once the invite is answered or cancelled.
+    """
+
+    id = fields.IntField(pk=True)
+    tenant: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Tenant', related_name='commentary_invites', on_delete=fields.CASCADE
+    )
+    tenant_id: int
+    match: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Match', related_name='commentary_invites', on_delete=fields.CASCADE
+    )
+    match_id: int
+    inviter: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.User', related_name='commentary_invites_sent', on_delete=fields.CASCADE
+    )
+    inviter_id: int
+    invitee: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.User', related_name='commentary_invites_received', on_delete=fields.CASCADE
+    )
+    invitee_id: int
+    status = fields.CharEnumField(
+        CommentaryInviteStatus, default=CommentaryInviteStatus.PENDING, max_length=16
+    )
+    dm_channel_id = fields.BigIntField(null=True)
+    dm_message_id = fields.BigIntField(null=True)
+    responded_at = fields.DatetimeField(null=True)
+    created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True)
+
+    class Meta:
+        table = 'commentaryinvite'
+        indexes = (('match', 'status'), ('invitee', 'status'))
+
+
 class Tracker(Model):
     id = fields.IntField(pk=True)
     tenant = fields.ForeignKeyField('models.Tenant', related_name='trackers', on_delete=fields.CASCADE)
     user = fields.ForeignKeyField('models.User', related_name='trackers')
     match = fields.ForeignKeyField('models.Match', related_name='trackers')
     approved = fields.BooleanField(default=False)
-    # SET_NULL: deleting the approver must not delete another user's crew signup.
     approved_by = fields.ForeignKeyField(
         'models.User', related_name='approved_trackers', null=True, on_delete=fields.SET_NULL
     )
@@ -217,6 +268,26 @@ class Tracker(Model):
     class Meta:
         unique_together = (('match', 'user'),)
         table = 'tracker'
+
+
+class Broadcaster(Model):
+    """Someone running the stream for a match: a crew role shaped like :class:`Tracker`."""
+
+    id = fields.IntField(pk=True)
+    tenant = fields.ForeignKeyField('models.Tenant', related_name='broadcasters', on_delete=fields.CASCADE)  # type: ignore[var-annotated]
+    user = fields.ForeignKeyField('models.User', related_name='broadcasts')  # type: ignore[var-annotated]
+    match = fields.ForeignKeyField('models.Match', related_name='broadcasters')  # type: ignore[var-annotated]
+    approved = fields.BooleanField(default=False)
+    approved_by = fields.ForeignKeyField(  # type: ignore[var-annotated]
+        'models.User', related_name='approved_broadcasts', null=True, on_delete=fields.SET_NULL
+    )
+    acknowledged_at = fields.DatetimeField(null=True)
+    created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True)
+
+    class Meta:
+        unique_together = (('match', 'user'),)
+        table = 'broadcaster'
 
 
 class MatchWatcher(Model):
@@ -230,7 +301,7 @@ class MatchWatcher(Model):
     class Meta:
         unique_together = ('user', 'match')
         table = 'matchwatcher'
-        indexes = (('match',),)  # composite is user-first; match-only fan-out lookup uncovered
+        indexes = (('match',),)
 
 
 class MatchStreamVolunteer(Model):
@@ -246,9 +317,7 @@ class MatchStreamVolunteer(Model):
     """
 
     id = fields.IntField(pk=True)
-    # Untyped FKs like every other model here; the three annotations keep the
-    # mypy ratchet flat for a new file (the ORM builds these descriptors at
-    # runtime, so mypy cannot infer them).
+    # Keep these annotations: an untyped FK on a new model adds mypy-ratchet errors.
     tenant: fields.ForeignKeyRelation = fields.ForeignKeyField(
         'models.Tenant', related_name='match_stream_volunteers', on_delete=fields.CASCADE
     )
@@ -264,7 +333,7 @@ class MatchStreamVolunteer(Model):
     class Meta:
         unique_together = ('user', 'match')
         table = 'matchstreamvolunteer'
-        indexes = (('match',),)  # composite is user-first; match-only fan-out lookup uncovered
+        indexes = (('match',),)
 
 
 class MatchComment(Model):
@@ -315,8 +384,7 @@ class MatchRescheduleRequest(Model):
     """
 
     id = fields.IntField(pk=True)
-    # Untyped FKs elsewhere in this module predate the mypy ratchet; annotating
-    # the ones on a new model keeps its baseline at zero.
+    # Keep these annotations: an untyped FK on a new model adds mypy-ratchet errors.
     tenant: fields.ForeignKeyRelation = fields.ForeignKeyField(
         'models.Tenant', related_name='reschedule_requests', on_delete=fields.CASCADE
     )
@@ -329,22 +397,14 @@ class MatchRescheduleRequest(Model):
     kind = fields.CharEnumField(
         RescheduleRequestKind, default=RescheduleRequestKind.RESCHEDULE, max_length=20
     )
-    # Null means "I can't make this slot, you pick" — a player who knows only
-    # that they are unavailable still has something worth saying. Always null on
-    # a CANCEL, which proposes no time by definition.
     proposed_at = fields.DatetimeField(null=True)
     reason = fields.TextField()
-    # Snapshotted at submission because approving overwrites ``Match.scheduled_at``:
-    # without this, a decided request no longer records what it moved away from.
+    # Snapshot at submission: approving overwrites Match.scheduled_at.
     original_scheduled_at = fields.DatetimeField(null=True)
-    # Set when the match's *other* player agrees, and read as a signal, never a
-    # gate — staff decide either way. Only meaningful on a two-player match; see
-    # ``MatchRescheduleService`` for why a third player skips this entirely.
     opponent_agreed_at = fields.DatetimeField(null=True)
     status = fields.CharEnumField(
         RescheduleRequestStatus, default=RescheduleRequestStatus.PENDING, max_length=20
     )
-    # SET_NULL: deleting a staff account must not delete a player's request.
     decided_by: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
         'models.User', related_name='decided_reschedule_requests', null=True,
         on_delete=fields.SET_NULL,
@@ -356,11 +416,7 @@ class MatchRescheduleRequest(Model):
 
     class Meta:
         table = 'matchreschedulerequest'
-        # No unique constraint: "one open request per player per match" is a
-        # rule about PENDING rows only, which a composite unique cannot express
-        # (and encoding ``status`` into one would forbid a second request after
-        # a decline — exactly the retry the decline DM invites). The service
-        # enforces it; the index below is what makes that check cheap.
+        # No unique key on purpose: "one open request" applies to PENDING rows only and a key would block retry after a decline.
         indexes = (('match', 'status'), ('status',))
 
 
@@ -385,9 +441,7 @@ class MatchHardPresetOptIn(Model):
     """
 
     id = fields.IntField(pk=True)
-    # Untyped FKs like every other model here; the three annotations keep the
-    # mypy ratchet flat for a new file (the ORM builds these descriptors at
-    # runtime, so mypy cannot infer them).
+    # Keep these annotations: an untyped FK on a new model adds mypy-ratchet errors.
     tenant: fields.ForeignKeyRelation = fields.ForeignKeyField(
         'models.Tenant', related_name='match_hard_preset_opt_ins', on_delete=fields.CASCADE
     )

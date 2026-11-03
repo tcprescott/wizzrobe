@@ -8,7 +8,17 @@ import pytest
 
 from application.services import SeedGenerationService
 from application.tenant_context import tenant_scope
-from models import Preset, RandomizerCredential, Role, Tenant
+from models import (
+    GeneratedSeeds,
+    Match,
+    Preset,
+    ProviderTask,
+    ProviderTaskStatus,
+    RandomizerCredential,
+    Role,
+    Tenant,
+    Tournament,
+)
 from tests.api_helpers import client_for, create_user_token
 
 
@@ -17,11 +27,7 @@ def mock_seedgen(monkeypatch):
     monkeypatch.setenv('MOCK_SEEDGEN', '1')
 
 
-# --- /randomizers ---------------------------------------------------------
-
 async def test_list_randomizers(db, app):
-    # The catalogue advertises what this community can actually roll: the default
-    # test tenant has no randomizer credentials, so the keyed backends are absent.
     _, raw = await create_user_token(username='reader', read_only=True)
     async with client_for(app, raw) as c:
         resp = await c.get('/api/seeds/randomizers')
@@ -53,9 +59,6 @@ async def test_randomizers_requires_auth(db, app):
 
 
 async def test_uncredentialed_randomizer_dropped_from_catalogue(db, app):
-    # A fresh tenant has no randomizer credentials, so the keyed dk64r backend is
-    # filtered out of the catalogue (mirrors the web selectors); the
-    # credential-free randomizers stay.
     b = await Tenant.create(name='NoDK', slug='no-dk')
     with tenant_scope(b.id):
         _, token_b = await create_user_token(username='b-reader', roles=[Role.STAFF])
@@ -67,10 +70,8 @@ async def test_uncredentialed_randomizer_dropped_from_catalogue(db, app):
         assert 'alttpr' in names
 
 
-# --- POST /seeds ----------------------------------------------------------
-
 async def test_generate_seed_happy_path(db, app):
-    _, raw = await create_user_token(username='roller')
+    _, raw = await create_user_token(username='roller', roles=[Role.PRESET_MANAGER])
     async with client_for(app, raw) as c:
         resp = await c.post('/api/seeds', json={'randomizer': 'alttpr'})
         assert resp.status_code == 200
@@ -78,7 +79,7 @@ async def test_generate_seed_happy_path(db, app):
 
 
 async def test_generate_seed_with_preset(db, app):
-    _, raw = await create_user_token(username='roller')
+    _, raw = await create_user_token(username='roller', roles=[Role.PRESET_MANAGER])
     preset = await Preset.create(name='Custom', randomizer='alttpr', settings={'foo': 'bar'})
     async with client_for(app, raw) as c:
         resp = await c.post('/api/seeds', json={'randomizer': 'alttpr', 'preset_id': preset.id})
@@ -87,8 +88,7 @@ async def test_generate_seed_with_preset(db, app):
 
 
 async def test_generate_seed_queued_randomizer_202(db, app):
-    # A task-queue randomizer answers 202 with a pollable task, not a permalink.
-    _, raw = await create_user_token(username='roller')
+    _, raw = await create_user_token(username='roller', roles=[Role.PRESET_MANAGER])
     async with client_for(app, raw) as c:
         resp = await c.post('/api/seeds', json={'randomizer': 'dk64r'})
         assert resp.status_code == 202, resp.text
@@ -100,25 +100,42 @@ async def test_generate_seed_queued_randomizer_202(db, app):
         assert polled.json()['task_id'] == body['task_id']
 
 
+async def test_task_for_a_match_reports_its_seed(db, app):
+    _, raw = await create_user_token(username='roller', roles=[Role.PRESET_MANAGER])
+    tournament = await Tournament.create(name='Cup', is_active=True, seed_generator='dk64r')
+    pending = await Match.create(tournament=tournament)
+    seed = await GeneratedSeeds.create(seed_url='https://dk64randomizer.com/x', randomizer='dk64r')
+    rolled = await Match.create(tournament=tournament, generated_seed=seed)
+    queued = await ProviderTask.create(provider='dk64r', operation='generate_seed', match=pending)
+    done = await ProviderTask.create(
+        provider='dk64r', operation='generate_seed', match=rolled,
+        status=ProviderTaskStatus.SUCCEEDED,
+    )
+    async with client_for(app, raw) as c:
+        waiting = await c.get(f'/api/seeds/tasks/{queued.id}')
+        assert waiting.status_code == 200, waiting.text
+        assert waiting.json()['url'] is None
+        finished = await c.get(f'/api/seeds/tasks/{done.id}')
+        assert finished.status_code == 200, finished.text
+        assert finished.json()['url'] == 'https://dk64randomizer.com/x'
+
+
 async def test_generate_seed_unknown_preset_404(db, app):
-    _, raw = await create_user_token(username='roller')
+    _, raw = await create_user_token(username='roller', roles=[Role.PRESET_MANAGER])
     async with client_for(app, raw) as c:
         resp = await c.post('/api/seeds', json={'randomizer': 'alttpr', 'preset_id': 999999})
         assert resp.status_code == 404
 
 
 async def test_generate_seed_unsupported_randomizer_400(db, app):
-    _, raw = await create_user_token(username='roller')
+    _, raw = await create_user_token(username='roller', roles=[Role.PRESET_MANAGER])
     async with client_for(app, raw) as c:
         resp = await c.post('/api/seeds', json={'randomizer': 'nope'})
         assert resp.status_code == 400
 
 
 async def test_generate_seed_uncredentialed_randomizer_400(db, app):
-    # dk64r is a valid randomizer, but rolling it needs this community's own API
-    # key; without one the ValueError from credential resolution becomes a 400
-    # naming the missing credential. MOCK_SEEDGEN is disabled for this one case:
-    # the mock short-circuits before any credential is read, by design.
+    # MOCK_SEEDGEN off for this case: the mock short-circuits before any credential is read.
     monkeypatch = pytest.MonkeyPatch()
     monkeypatch.delenv('MOCK_SEEDGEN', raising=False)
     b = await Tenant.create(name='NoDK2', slug='no-dk2')
@@ -144,6 +161,29 @@ async def test_generate_seed_rejects_read_only_token(db, app):
     async with client_for(app, raw) as c:
         resp = await c.post('/api/seeds', json={'randomizer': 'alttpr'})
         assert resp.status_code == 403
+
+
+async def test_generate_seed_refuses_a_plain_member(db, app):
+    """A free roll spends the community's randomizer keys: players can't."""
+    _, raw = await create_user_token(username='player')
+    async with client_for(app, raw) as c:
+        resp = await c.post('/api/seeds', json={'randomizer': 'alttpr'})
+        assert resp.status_code == 403
+
+
+@pytest.mark.parametrize('role', [Role.PROCTOR, Role.VOLUNTEER])
+async def test_generate_seed_refuses_other_roles(db, app, role):
+    _, raw = await create_user_token(username='other', roles=[role])
+    async with client_for(app, raw) as c:
+        resp = await c.post('/api/seeds', json={'randomizer': 'alttpr'})
+        assert resp.status_code == 403
+
+
+async def test_generate_seed_allows_staff(db, app):
+    _, raw = await create_user_token(username='staffer', roles=[Role.STAFF])
+    async with client_for(app, raw) as c:
+        resp = await c.post('/api/seeds', json={'randomizer': 'alttpr'})
+        assert resp.status_code == 200
 
 
 # --- cross-tenant preset scoping -----------------------------------------

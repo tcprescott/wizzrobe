@@ -1,15 +1,10 @@
 """Request schemas for tournament write actions."""
 
 from datetime import date, datetime
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Literal, Optional, Tuple
 
 from pydantic import BaseModel, Field
 
-# Per-tournament "tournament days" override. The mapping keys off each day
-# (``YYYY-MM-DD``) to an ``[open, close]`` pair of ``HH:MM`` strings; its
-# ``model_dump()`` yields the ``{date: (open, close)}`` shape the service's
-# ``validate_hours_mapping`` consumes directly. ``None`` (or omission on update)
-# leaves the tournament inheriting the tenant setting.
 _HOURS_DESC = (
     'Per-day match hours as {"YYYY-MM-DD": ["HH:MM open", "HH:MM close"]}. '
     'Omit or null to inherit the community setting.'
@@ -25,11 +20,25 @@ _CREW_DESC = (
     'as covered. 0 means this tournament does not use the role. Does not '
     'restrict signups.'
 )
+_BROADCASTER_NOTE = (
+    " Broadcasters only count in an event that has them switched on (Event settings,"
+    " Crew); elsewhere the role is off whatever this says."
+)
 _UPDATE_NOTE = ' Omit to leave it unchanged.'
 _CLEAR_NOTE = ' Omit to leave it unchanged; null clears it.'
+_RELEASE_DESC = (
+    'Players release their own seed: once a match is checked in, each player '
+    'marks Ready for seed and the seed rolls and is sent when every player has. '
+    'Proctors and staff can still roll it any time. Ignored for racetime.gg tournaments.'
+)
 _TEST_DESC = (
     'Marks a test tournament: it stays usable but is left off the public '
     'event-info tournament list.'
+)
+_ROOM_DESC = (
+    'Whether its matches are played in the tournament room. False leaves its '
+    'off-stream matches out of room capacity: the capacity forecast, the '
+    'room-full check and suggested times.'
 )
 _REQUESTS_DESC = 'Whether players may request their own matches.'
 _PRESET_DESC = (
@@ -45,12 +54,17 @@ _PROFILE_DESC = 'ID of the race room profile new rooms use (online tournaments).
 _AUTO_ROOMS_DESC = 'Open racetime rooms automatically before each match. Needs a racetime bot.'
 _ROOM_OPEN_DESC = 'How many minutes before the match an automatic room opens.'
 _REQUIRE_LINK_DESC = 'Require players to have linked a racetime account.'
+_SHORT_NAME_DESC = (
+    "Abbreviation of up to 40 characters, shown where the full name won't fit (run sheets, "
+    "the timeline). Leave it out to use the name."
+)
 _GOAL_DESC = 'Racetime goal new rooms use.'
 _STAGE_REMINDER_DESC = 'How many minutes before a match the stage reminder DM goes out. 0 turns it off.'
 
 
 class TournamentCreateRequest(BaseModel):
     name: str = Field(..., description="The tournament's name. Can't be blank.")
+    short_name: Optional[str] = Field(None, description=_SHORT_NAME_DESC)
     description: Optional[str] = Field(None, description="Long description shown to players, as markdown.")
     seed_generator: Optional[str] = Field(
         None, description="Key of the randomizer that rolls this tournament's seeds, or null for none.",
@@ -70,6 +84,7 @@ class TournamentCreateRequest(BaseModel):
     players_per_match: int = Field(2, description="How many players a match in this tournament has.")
     required_commentators: int = Field(default=1, ge=0, description=_CREW_DESC)
     required_trackers: int = Field(default=1, ge=0, description=_CREW_DESC)
+    required_broadcasters: int = Field(default=1, ge=0, description=_CREW_DESC + _BROADCASTER_NOTE)
     event_start_date: Optional[date] = Field(default=None, description=_DATE_DESC)
     event_end_date: Optional[date] = Field(default=None, description=_DATE_DESC)
     tournament_hours: Optional[Dict[date, Tuple[str, str]]] = Field(
@@ -78,6 +93,8 @@ class TournamentCreateRequest(BaseModel):
     signups_open_at: Optional[datetime] = Field(default=None, description=_SIGNUP_DESC)
     signups_close_at: Optional[datetime] = Field(default=None, description=_SIGNUP_DESC)
     is_test: bool = Field(False, description=_TEST_DESC)
+    players_release_seed: bool = Field(False, description=_RELEASE_DESC)
+    uses_tournament_room: bool = Field(True, description=_ROOM_DESC)
     allow_player_match_requests: bool = Field(True, description=_REQUESTS_DESC)
     preset_id: Optional[int] = Field(None, description=_PRESET_DESC)
     hard_preset_id: Optional[int] = Field(None, description=_HARD_PRESET_DESC)
@@ -92,6 +109,9 @@ class TournamentCreateRequest(BaseModel):
 
 class TournamentUpdateRequest(BaseModel):
     name: Optional[str] = Field(None, description="New name. Can't be blank." + _UPDATE_NOTE)
+    short_name: Optional[str] = Field(
+        None, description=_SHORT_NAME_DESC + ' An empty string clears it.' + _UPDATE_NOTE,
+    )
     description: Optional[str] = Field(
         None, description="Long description, as markdown. An empty string clears it." + _UPDATE_NOTE,
     )
@@ -119,6 +139,9 @@ class TournamentUpdateRequest(BaseModel):
     players_per_match: Optional[int] = Field(None, description="How many players a match has." + _UPDATE_NOTE)
     required_commentators: Optional[int] = Field(default=None, ge=0, description=_CREW_DESC + _UPDATE_NOTE)
     required_trackers: Optional[int] = Field(default=None, ge=0, description=_CREW_DESC + _UPDATE_NOTE)
+    required_broadcasters: Optional[int] = Field(
+        default=None, ge=0, description=_CREW_DESC + _BROADCASTER_NOTE + _UPDATE_NOTE,
+    )
     event_start_date: Optional[date] = Field(default=None, description=_DATE_DESC)
     event_end_date: Optional[date] = Field(default=None, description=_DATE_DESC)
     tournament_hours: Optional[Dict[date, Tuple[str, str]]] = Field(
@@ -127,6 +150,8 @@ class TournamentUpdateRequest(BaseModel):
     signups_open_at: Optional[datetime] = Field(default=None, description=_SIGNUP_DESC)
     signups_close_at: Optional[datetime] = Field(default=None, description=_SIGNUP_DESC)
     is_test: Optional[bool] = Field(None, description=_TEST_DESC + _UPDATE_NOTE)
+    players_release_seed: Optional[bool] = Field(None, description=_RELEASE_DESC + _UPDATE_NOTE)
+    uses_tournament_room: Optional[bool] = Field(None, description=_ROOM_DESC + _UPDATE_NOTE)
     allow_player_match_requests: Optional[bool] = Field(None, description=_REQUESTS_DESC + _UPDATE_NOTE)
     preset_id: Optional[int] = Field(None, description=_PRESET_DESC + _CLEAR_NOTE)
     hard_preset_id: Optional[int] = Field(None, description=_HARD_PRESET_DESC + _CLEAR_NOTE)
@@ -152,4 +177,36 @@ class ChallongeLinkRequest(BaseModel):
 class ChallongeSyncResponse(BaseModel):
     counts: Dict[str, Any] = Field(
         ..., description="What the sync found or changed, such as participant and match counts.",
+    )
+
+
+class RoundScheduleStageResponse(BaseModel):
+    key: str = Field(..., description="The stage key, such as `group`, `e1` (semifinals), `e0` (final) or `gf`.")
+    label: str = Field(..., description="The stage's name as staff see it.")
+    detail: str = Field(..., description="How many matchups the stage has and how many are booked.")
+    total: int = Field(..., description="Matchups in the stage.")
+    booked: int = Field(..., description="Matchups in the stage that already have a match booked.")
+    placeholder: bool = Field(..., description="True when the bracket hasn't created this stage's matchups yet.")
+    best_of: int = Field(..., description="Games each matchup in the stage plays.")
+    opens_at: Optional[datetime] = Field(None, description="When the stage opens for booking (UTC).")
+    closes_at: Optional[datetime] = Field(None, description="When the stage closes for booking (UTC).")
+    daily_from: Optional[str] = Field(None, description="Daily booking hours start, HH:MM on the community's clock.")
+    daily_until: Optional[str] = Field(None, description="Daily booking hours end, HH:MM on the community's clock.")
+
+    @classmethod
+    def from_stage(cls, stage: Any) -> 'RoundScheduleStageResponse':
+        window = stage.window
+        return cls(
+            key=stage.key, label=stage.label, detail=stage.detail, total=stage.total,
+            booked=stage.booked, placeholder=stage.placeholder, best_of=stage.best_of,
+            opens_at=window.opens if window else None,
+            closes_at=window.closes if window else None,
+            daily_from=window.daily_from.strftime('%H:%M') if window and window.daily_from else None,
+            daily_until=window.daily_until.strftime('%H:%M') if window and window.daily_until else None,
+        )
+
+
+class StageBestOfRequest(BaseModel):
+    best_of: Literal[1, 3, 5] = Field(
+        ..., description="Games each matchup in the stage plays. Matches already booked keep their length.",
     )

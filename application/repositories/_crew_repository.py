@@ -1,7 +1,7 @@
 """
 Crew Repository - shared Data Access Layer for crew-signup models.
 
-Commentator and Tracker have identical persistence shapes, so the actual CRUD
+Commentator, Tracker and Broadcaster have identical persistence shapes, so the actual CRUD
 lives here and the concrete repositories only bind the model class.
 """
 
@@ -11,19 +11,17 @@ from typing import Generic, List, Optional, Type, TypeVar
 from tortoise.expressions import Q
 from tortoise.models import Model
 
+from application.repositories._save import save_fields
 from application.repositories._tenant import current_tenant_id, scoped
 from models import Match, User
 
 T = TypeVar("T", bound=Model)
 
-#: How long past its start an unfinished match still counts as upcoming crew
-#: work. Longer than any match runs late; shorter than a day, so a row nobody
-#: closed out yesterday does not sit at the top of today's list.
 STALE_UNFINISHED = timedelta(hours=12)
 
 
 class CrewRepository(Generic[T]):
-    """Generic data access for a crew-signup model (Commentator/Tracker).
+    """Generic data access for a crew-signup model (Commentator/Tracker/Broadcaster).
 
     Subclasses set ``model`` to the concrete Tortoise model.
     """
@@ -65,6 +63,7 @@ class CrewRepository(Generic[T]):
                 Q(match__scheduled_at__gte=since)
                 | Q(match__finished_at__isnull=True,
                     match__scheduled_at__gte=since - STALE_UNFINISHED)
+                | Q(match__crew_hold_source__isnull=False)
             )
         return await query.prefetch_related(
             'match', 'match__tournament', 'match__stage',
@@ -85,8 +84,13 @@ class CrewRepository(Generic[T]):
     async def update(cls, crew_member: T, **fields) -> T:
         """Update a crew entry."""
         await crew_member.update_from_dict(fields)
-        await crew_member.save()
+        await save_fields(crew_member, *fields)
         return crew_member
+
+    @classmethod
+    async def move_to_match(cls, crew_member: T, match: Match) -> T:
+        """Re-point a signup at another match, keeping its id, approval and acknowledgment."""
+        return await cls.update(crew_member, match_id=match.id)
 
     @classmethod
     async def delete(cls, crew_member: T) -> None:

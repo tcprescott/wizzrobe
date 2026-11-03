@@ -15,6 +15,7 @@ from application.repositories import (
     RacetimeBotRepository,
     TournamentRepository,
 )
+from application.services._tournament_drop import TournamentDropMixin
 from application.services._tournament_signup import (
     COLOR_SIGNUP,
     TournamentSignupCard,
@@ -36,21 +37,18 @@ __all__ = [
     'TournamentSignupCard',
 ]
 
-# Sentinel distinguishing "caller did not supply preset_id" (leave as-is) from an
-# explicit None (detach the preset). Update-only; create defaults to no preset.
+# Distinguishes "not supplied" (leave as-is) from an explicit None (detach).
 _UNSET = object()
 
-# The phrase a caller must repeat to permanently delete a tournament. Compared
-# case-insensitively after stripping, but never inferred from anything else on
-# screen — a deletion has to be typed out.
 DELETE_CONFIRMATION_PHRASE = 'permanently delete'
 
 
-class TournamentService(TournamentSignupMixin):
+class TournamentService(TournamentDropMixin, TournamentSignupMixin):
     """Service for tournament-related business operations.
 
     Player self-service signup lives in
-    :class:`~application.services._tournament_signup.TournamentSignupMixin`.
+    :class:`~application.services._tournament_signup.TournamentSignupMixin`, and
+    staff dropping a player in :class:`~application.services._tournament_drop.TournamentDropMixin`.
     """
 
     def __init__(self) -> None:
@@ -164,6 +162,23 @@ class TournamentService(TournamentSignupMixin):
             return None
         return SystemConfigService.validate_hours_mapping(tournament_hours) or None
 
+    SHORT_NAME_MAX = 40
+
+    @classmethod
+    def _short_name(cls, value: Optional[str]) -> Optional[str]:
+        """Blank clears it (the full name shows instead)."""
+        cleaned = (value or '').strip()
+        if len(cleaned) > cls.SHORT_NAME_MAX:
+            raise ValueError(f'Keep the short name to {cls.SHORT_NAME_MAX} characters or fewer.')
+        return cleaned or None
+
+    @staticmethod
+    def _non_negative(value: Any, what: str) -> int:
+        number = int(value or 0)
+        if number < 0:
+            raise ValueError(f"{what} cannot be negative")
+        return number
+
     @staticmethod
     def _crew_requirement(value: Any, role: str) -> int:
         """Coerce a crew-requirement count, rejecting negatives.
@@ -172,10 +187,7 @@ class TournamentService(TournamentSignupMixin):
         would make a stream candidate permanently covered — the mirror image of
         the false gap this setting exists to fix.
         """
-        count = int(value or 0)
-        if count < 0:
-            raise ValueError(f"Required {role} cannot be negative")
-        return count
+        return TournamentService._non_negative(value, f'Required {role}')
 
     @staticmethod
     def _check_automation_prerequisites(
@@ -209,6 +221,7 @@ class TournamentService(TournamentSignupMixin):
         self,
         name: str,
         description: Optional[str] = None,
+        short_name: Optional[str] = None,
         seed_generator: Optional[str] = None,
         bracket_url: Optional[str] = None,
         rules_url: Optional[str] = None,
@@ -219,9 +232,12 @@ class TournamentService(TournamentSignupMixin):
         max_match_duration: Optional[int] = None,
         is_active: bool = True,
         is_test: bool = False,
+        players_release_seed: bool = False,
+        uses_tournament_room: bool = True,
         players_per_match: int = 2,
         required_commentators: int = 1,
         required_trackers: int = 1,
+        required_broadcasters: int = 1,
         allow_player_match_requests: bool = True,
         config: Optional[Dict[str, Any]] = None,
         preset_id: Optional[int] = None,
@@ -232,6 +248,9 @@ class TournamentService(TournamentSignupMixin):
         room_open_minutes_before: int = 30,
         stage_reminder_minutes: int = 30,
         require_racetime_link: bool = False,
+        racetime_bot_runs_room: bool = False,
+        racetime_seed_post_minutes: int = 10,
+        racetime_close_finish_ms: int = 1000,
         racetime_default_goal: Optional[str] = None,
         event_start_date: Any = None,
         event_end_date: Any = None,
@@ -260,9 +279,7 @@ class TournamentService(TournamentSignupMixin):
         tournament_hours = self._normalize_tournament_hours(tournament_hours)
         preset = await self._resolve_preset(preset_id)
         if preset is not None:
-            # The preset owns the randomizer: everything that still reads
-            # ``seed_generator`` (triforce texts, the schedule's roll button)
-            # would otherwise treat a preset-only tournament as having none.
+            # Set seed_generator too: its readers would otherwise see a preset-only tournament as having none.
             seed_generator = preset.randomizer
         preset_id = preset.id if preset is not None else None
         hard_preset = await self._resolve_hard_preset(hard_preset_id, preset)
@@ -276,6 +293,7 @@ class TournamentService(TournamentSignupMixin):
 
         tournament = await self.repository.create(
             name=name.strip(),
+            short_name=self._short_name(short_name),
             description=description.strip() if description else None,
             seed_generator=seed_generator,
             bracket_url=normalize_http_url(bracket_url, 'The bracket link'),
@@ -287,9 +305,12 @@ class TournamentService(TournamentSignupMixin):
             max_match_duration=max_match_duration,
             is_active=is_active,
             is_test=is_test,
+            players_release_seed=players_release_seed,
+            uses_tournament_room=uses_tournament_room,
             players_per_match=players_per_match,
             required_commentators=self._crew_requirement(required_commentators, 'commentators'),
             required_trackers=self._crew_requirement(required_trackers, 'trackers'),
+            required_broadcasters=self._crew_requirement(required_broadcasters, 'broadcasters'),
             allow_player_match_requests=allow_player_match_requests,
             config=config,
             preset_id=preset_id,
@@ -300,6 +321,9 @@ class TournamentService(TournamentSignupMixin):
             room_open_minutes_before=room_open_minutes_before,
             stage_reminder_minutes=stage_reminder_minutes,
             require_racetime_link=require_racetime_link,
+            racetime_bot_runs_room=racetime_bot_runs_room,
+            racetime_seed_post_minutes=self._non_negative(racetime_seed_post_minutes, 'Seed post minutes'),
+            racetime_close_finish_ms=self._non_negative(racetime_close_finish_ms, 'The close-finish gap'),
             racetime_default_goal=(racetime_default_goal.strip() if racetime_default_goal else None),
             event_start_date=event_start_date,
             event_end_date=event_end_date,
@@ -321,6 +345,7 @@ class TournamentService(TournamentSignupMixin):
         tournament: Tournament,
         name: Optional[str] = None,
         description: Optional[str] = None,
+        short_name: Optional[str] = None,
         seed_generator: Optional[str] = None,
         bracket_url: Optional[str] = None,
         rules_url: Optional[str] = None,
@@ -331,9 +356,12 @@ class TournamentService(TournamentSignupMixin):
         max_match_duration: Optional[int] = None,
         is_active: Optional[bool] = None,
         is_test: Optional[bool] = None,
+        players_release_seed: Optional[bool] = None,
+        uses_tournament_room: Optional[bool] = None,
         players_per_match: Optional[int] = None,
         required_commentators: Optional[int] = None,
         required_trackers: Optional[int] = None,
+        required_broadcasters: Optional[int] = None,
         allow_player_match_requests: Optional[bool] = None,
         config: Optional[Dict[str, Any]] = None,
         preset_id: Any = _UNSET,
@@ -344,6 +372,9 @@ class TournamentService(TournamentSignupMixin):
         room_open_minutes_before: Optional[int] = None,
         stage_reminder_minutes: Optional[int] = None,
         require_racetime_link: Optional[bool] = None,
+        racetime_bot_runs_room: Optional[bool] = None,
+        racetime_seed_post_minutes: Optional[int] = None,
+        racetime_close_finish_ms: Optional[int] = None,
         racetime_default_goal: Any = _UNSET,
         event_start_date: Any = _UNSET,
         event_end_date: Any = _UNSET,
@@ -366,6 +397,8 @@ class TournamentService(TournamentSignupMixin):
         update_data: Dict[str, Any] = {}
         if name is not None:
             update_data['name'] = name.strip()
+        if short_name is not None:
+            update_data['short_name'] = self._short_name(short_name)
         if description is not None:
             update_data['description'] = description.strip() if description else None
         if seed_generator is not None:
@@ -390,6 +423,10 @@ class TournamentService(TournamentSignupMixin):
             update_data['is_active'] = is_active
         if is_test is not None:
             update_data['is_test'] = is_test
+        if players_release_seed is not None:
+            update_data['players_release_seed'] = players_release_seed
+        if uses_tournament_room is not None:
+            update_data['uses_tournament_room'] = uses_tournament_room
         if players_per_match is not None:
             update_data['players_per_match'] = players_per_match
         if required_commentators is not None:
@@ -400,6 +437,10 @@ class TournamentService(TournamentSignupMixin):
             update_data['required_trackers'] = self._crew_requirement(
                 required_trackers, 'trackers'
             )
+        if required_broadcasters is not None:
+            update_data['required_broadcasters'] = self._crew_requirement(
+                required_broadcasters, 'broadcasters'
+            )
         if allow_player_match_requests is not None:
             update_data['allow_player_match_requests'] = allow_player_match_requests
         if config is not None:
@@ -407,17 +448,12 @@ class TournamentService(TournamentSignupMixin):
         if preset_id is not _UNSET:
             preset = await self._resolve_preset(preset_id)
             update_data['preset_id'] = preset.id if preset is not None else None
-            # The preset decides which randomizer rolls the seed, so attaching one
-            # rewrites ``seed_generator`` and detaching one clears it — unless this
-            # same call named a generator explicitly (the legacy REST shape).
             if preset is not None:
                 update_data['seed_generator'] = preset.randomizer
             elif seed_generator is None:
                 update_data['seed_generator'] = None
         if hard_preset_id is not _UNSET:
-            # Validated against whichever standard preset this call leaves in
-            # place, not the one that happened to be stored: attaching both in a
-            # single edit must still be checked against each other.
+            # Validate against the preset this call leaves in place, not the stored one.
             standard = (
                 preset if preset_id is not _UNSET
                 else await self.preset_repository.get_by_id(tournament.preset_id)  # type: ignore[attr-defined]
@@ -426,8 +462,6 @@ class TournamentService(TournamentSignupMixin):
             hard = await self._resolve_hard_preset(hard_preset_id, standard)
             update_data['hard_preset_id'] = hard.id if hard is not None else None
         elif preset_id is not _UNSET and tournament.hard_preset_id is not None:  # type: ignore[attr-defined]
-            # The standard preset moved out from under an existing hard preset.
-            # Re-validate the pair rather than leaving a mismatched randomizer.
             existing_hard = await self.preset_repository.get_by_id(tournament.hard_preset_id)  # type: ignore[attr-defined]
             if existing_hard is not None and (
                 preset is None or existing_hard.randomizer != preset.randomizer
@@ -448,13 +482,18 @@ class TournamentService(TournamentSignupMixin):
             update_data['stage_reminder_minutes'] = stage_reminder_minutes
         if require_racetime_link is not None:
             update_data['require_racetime_link'] = require_racetime_link
+        if racetime_bot_runs_room is not None:
+            update_data['racetime_bot_runs_room'] = racetime_bot_runs_room
+        if racetime_seed_post_minutes is not None:
+            update_data['racetime_seed_post_minutes'] = self._non_negative(racetime_seed_post_minutes, 'Seed post minutes')
+        if racetime_close_finish_ms is not None:
+            update_data['racetime_close_finish_ms'] = self._non_negative(racetime_close_finish_ms, 'The close-finish gap')
         if racetime_default_goal is not _UNSET:
             update_data['racetime_default_goal'] = (
                 racetime_default_goal.strip() if racetime_default_goal else None
             )
         if event_start_date is not _UNSET or event_end_date is not _UNSET:
-            # Validate the window as a pair, using the current stored value for
-            # whichever bound the caller left untouched.
+            # Validate as a pair with the stored bound this call left alone.
             raw_start = event_start_date if event_start_date is not _UNSET else tournament.event_start_date
             raw_end = event_end_date if event_end_date is not _UNSET else tournament.event_end_date
             norm_start, norm_end = self._normalize_event_dates(raw_start, raw_end)
@@ -465,9 +504,7 @@ class TournamentService(TournamentSignupMixin):
         if tournament_hours is not _UNSET:
             update_data['tournament_hours'] = self._normalize_tournament_hours(tournament_hours)
         if signups_open_at is not _UNSET or signups_close_at is not _UNSET:
-            # Validated as a pair against the stored value for whichever bound
-            # this call left alone, so an edit that only moves the close date
-            # cannot land it before an open date already saved.
+            # Validate as a pair with the stored bound this call left alone.
             raw_open = signups_open_at if signups_open_at is not _UNSET else tournament.signups_open_at
             raw_close = signups_close_at if signups_close_at is not _UNSET else tournament.signups_close_at
             if raw_open and raw_close and raw_close <= raw_open:
@@ -477,10 +514,7 @@ class TournamentService(TournamentSignupMixin):
             if signups_close_at is not _UNSET:
                 update_data['signups_close_at'] = signups_close_at
 
-        # Checked against the *post-update* shape, falling back to what is stored
-        # for every field this call left alone: clearing the bot on a tournament
-        # that already has automatic rooms on is the same broken state as
-        # switching rooms on without one, and must be refused the same way.
+        # Check the post-update shape: clearing the bot with automatic rooms on is as broken as the reverse.
         def _after(key: str, default=None):
             if key in update_data:
                 return update_data[key]
@@ -564,6 +598,7 @@ class TournamentService(TournamentSignupMixin):
             await AuthService.can_grant_roles(actor),
             "Only Staff can grant Tournament Admin",
         )
+        await TenantMembershipService.require_community_users([target.id], actor)
         await self.repository.set_tournament_grant(
             tournament, target, TournamentGrant.TOURNAMENT_ADMIN, granted=True
         )
@@ -598,6 +633,7 @@ class TournamentService(TournamentSignupMixin):
             await AuthService.can_grant_roles(actor),
             "Only Staff can grant Crew Coordinator",
         )
+        await TenantMembershipService.require_community_users([target.id], actor)
         await self.repository.set_tournament_grant(
             tournament, target, TournamentGrant.CREW_COORDINATOR, granted=True
         )
@@ -633,8 +669,25 @@ class TournamentService(TournamentSignupMixin):
     async def get_tournament_by_id(self, tournament_id: int) -> Optional[Tournament]:
         return await self.repository.get_by_id(tournament_id)
 
+    async def list_for_viewer(
+        self, viewer: Optional[User], active_only: bool = False,
+    ) -> list[Tournament]:
+        """Inactive tournaments are hidden from players; admins see them all."""
+        if not active_only and not await AuthService.can_view_admin(viewer):
+            active_only = True
+        return await self.repository.get_all(active_only=active_only)
+
+    async def get_for_viewer(
+        self, viewer: Optional[User], tournament_id: int,
+    ) -> Optional[Tournament]:
+        """One tournament, or ``None`` when missing or inactive and ``viewer`` isn't an admin."""
+        tournament = await self.repository.get_by_id(tournament_id)
+        if tournament is None or tournament.is_active or await AuthService.can_view_admin(viewer):
+            return tournament
+        return None
+
     async def list_schedulable(
-        self, keep_id: Optional[int] = None,
+        self, actor: Optional[User], keep_id: Optional[int] = None,
     ) -> tuple[list[Tournament], dict[int, int]]:
         """The admin match dialog's Tournament options, and their entrant counts.
 
@@ -645,8 +698,14 @@ class TournamentService(TournamentSignupMixin):
         (``keep_id`` spares the one an existing match already points at, so
         editing it does not blank its own chip); the counts let the dialog
         label the rest.
+
+        A tournament admin is offered only the tournaments they run, the same
+        ones ``create_match`` will accept from them.
         """
         tournaments = await self.repository.get_all(active_only=True)
+        if not await AuthService.is_staff(actor):
+            admin_ids, _ = await AuthService.tournament_scope(actor)
+            tournaments = [t for t in tournaments if t.id in admin_ids]
         if keep_id is not None and not any(t.id == keep_id for t in tournaments):
             current = await self.repository.get_by_id(keep_id)
             if current is not None:
@@ -689,13 +748,13 @@ class TournamentService(TournamentSignupMixin):
         method must hit the same wall.
         """
         await AuthService.ensure(
-            await AuthService.can_grant_roles(actor),
-            'Only Staff can manage tournament entrants',
+            await AuthService.can_edit_tournament(actor, tournament),
+            'Only staff or this tournament\'s admins can manage its entrants',
         )
         if not await TenantMembershipService().is_member(target):
             raise ValueError(
                 f'{target.display_name or target.username} is not a member of this '
-                'community — add them on the Users tab first.'
+                'community — add them on the Members tab first.'
             )
         if await self.repository.is_player_enrolled(tournament, target):
             raise ValueError(
@@ -706,8 +765,8 @@ class TournamentService(TournamentSignupMixin):
 
     async def unenroll_player(self, tournament: Tournament, target: User, actor: User) -> None:
         await AuthService.ensure(
-            await AuthService.can_grant_roles(actor),
-            'Only Staff can manage tournament entrants',
+            await AuthService.can_edit_tournament(actor, tournament),
+            'Only staff or this tournament\'s admins can manage its entrants',
         )
         await self.repository.unenroll_player(tournament, target)
         await self._record_enrolment(actor, target, tournament, added=False)

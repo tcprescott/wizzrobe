@@ -44,9 +44,6 @@ def service() -> BracketService:
     return BracketService()
 
 
-# ---------------------------------------------------------------------------
-# create_bracket
-# ---------------------------------------------------------------------------
 class TestCreateBracket:
     async def test_happy_path(self, service):
         actor = await _staff()
@@ -79,7 +76,6 @@ class TestCreateBracket:
         bracket = await service.create_bracket(
             actor, t.id, 'Main', BracketFormat.SINGLE_ELIM,
         )
-        # Editable while DRAFT and independent of start state (display-only).
         updated = await service.set_round_metadata(
             actor, bracket.id,
             {'1': {'best_of': 3, 'scheduled_at': '2026-08-01T18:00:00+00:00'}},
@@ -130,9 +126,6 @@ class TestCreateBracket:
             await service.create_bracket(actor, t.id, '   ', BracketFormat.SINGLE_ELIM)
 
 
-# ---------------------------------------------------------------------------
-# entrants / enrollment
-# ---------------------------------------------------------------------------
 class TestRoster:
     async def test_add_entrant_placeholder(self, service):
         actor = await _staff()
@@ -193,9 +186,6 @@ class TestRoster:
             await service.enroll(actor, bracket.id, entrant.id)
 
 
-# ---------------------------------------------------------------------------
-# start_bracket
-# ---------------------------------------------------------------------------
 async def _seeded_bracket(service, fmt, n, config=None, stage_order=0):
     """Create a bracket with ``n`` enrolled entrants seeded 1..n. Returns (actor, bracket)."""
     actor = await _staff()
@@ -219,24 +209,20 @@ class TestStartSingleElim:
         assert len(matches) == len(graph)
         assert {m.round for m in matches} == {gm.round for gm in graph}
 
-        # Byes: engine is_bye nodes are COMPLETE with the correct winner.
         by_coord = {(m.round, m.position): m for m in matches}
         for gm in graph:
             m = by_coord[(gm.round, gm.position)]
             if gm.is_bye:
                 assert m.state == BracketMatchState.COMPLETE
-                # The single real seed is the winner.
                 real_seed = gm.entry1_seed if gm.entry1_seed is not None else gm.entry2_seed
                 winner_entry = await service.repository.get_entry(m.winner_id)
                 assert winner_entry.seed == real_seed
 
-        # Round-1 real matches (both seeds present, not a bye) are OPEN.
         for gm in graph:
             if gm.round == 1 and not gm.is_bye and gm.entry1_seed and gm.entry2_seed:
                 m = by_coord[(1, gm.position)]
                 assert m.state == BracketMatchState.OPEN
 
-        # Pointers persisted: any node with a winner_to points at the right match.
         for gm in graph:
             if gm.winner_to is None:
                 continue
@@ -259,9 +245,7 @@ class TestStartDoubleElim:
         assert len(matches) == len(graph)
 
         rounds = {m.round for m in matches}
-        # Losers bracket = negative rounds.
         assert any(r < 0 for r in rounds)
-        # Grand final + reset are the two highest positive rounds.
         gf_reset = sorted(r for r in rounds if r > 0)[-2:]
         assert len(gf_reset) == 2
 
@@ -274,7 +258,6 @@ class TestStartRoundRobin:
         await service.start_bracket(actor, bracket.id)
 
         matches = await service.list_matches(bracket.id)
-        # 4 players single round robin = C(4,2) = 6 pairings.
         assert len(matches) == 6
         assert all(m.state == BracketMatchState.OPEN for m in matches)
 
@@ -288,10 +271,8 @@ class TestStartSwiss:
         assert all(m.round == 1 for m in matches)
         byes = [m for m in matches if m.state == BracketMatchState.COMPLETE]
         opens = [m for m in matches if m.state == BracketMatchState.OPEN]
-        # 5 players → 2 pairs + 1 bye.
         assert len(byes) == 1
         assert len(opens) == 2
-        # The bye match has a winner and an empty entry2.
         assert byes[0].winner_id is not None
         assert byes[0].entry2_id is None
 
@@ -313,21 +294,17 @@ class TestStartGuards:
             await service.start_bracket(actor, bracket.id)
 
     async def test_missing_seeds_auto_assigned(self, service):
-        # Enroll with no seeds; start should fill contiguous 1..N.
         actor = await _staff()
         t = await _tournament()
         bracket = await service.create_bracket(actor, t.id, 'Main', BracketFormat.SINGLE_ELIM)
         for i in range(4):
             entrant = await service.add_entrant(actor, t.id, f'P{i}')
-            await service.enroll(actor, bracket.id, entrant.id)  # seed=None
+            await service.enroll(actor, bracket.id, entrant.id)
         await service.start_bracket(actor, bracket.id)
         seeds = sorted(e.seed for e in await service.list_entries(bracket.id))
         assert seeds == [1, 2, 3, 4]
 
 
-# ---------------------------------------------------------------------------
-# seed validation
-# ---------------------------------------------------------------------------
 class TestSeedValidation:
     async def _drafted(self, service):
         actor = await _staff()
@@ -372,10 +349,8 @@ class TestSeedValidation:
         assert (await service.get_bracket(bracket.id)).state == BracketState.ACTIVE
 
     async def test_start_rejects_duplicate_manual_seeds(self, service):
-        # enroll does not validate seeds, so duplicates reach start; start must
-        # reject rather than silently drop the collapsed entrant.
         actor, t, bracket = await self._drafted(service)
-        for i, seed in enumerate([1, 2, 2, 4]):  # duplicate 2, missing 3
+        for i, seed in enumerate([1, 2, 2, 4]):
             entrant = await service.add_entrant(actor, t.id, f'P{i}')
             await service.enroll(actor, bracket.id, entrant.id, seed=seed)
         with pytest.raises(ValueError, match='contiguous'):
@@ -383,16 +358,13 @@ class TestSeedValidation:
 
     async def test_start_rejects_out_of_range_manual_seed(self, service):
         actor, t, bracket = await self._drafted(service)
-        for i, seed in enumerate([1, 2, 3, 9]):  # 9 out of range for N=4
+        for i, seed in enumerate([1, 2, 3, 9]):
             entrant = await service.add_entrant(actor, t.id, f'P{i}')
             await service.enroll(actor, bracket.id, entrant.id, seed=seed)
         with pytest.raises(ValueError, match='contiguous'):
             await service.start_bracket(actor, bracket.id)
 
 
-# ---------------------------------------------------------------------------
-# list_all_brackets (the public browse read)
-# ---------------------------------------------------------------------------
 class TestListAllBrackets:
     async def test_orders_by_tournament_then_stage_with_tournament_loaded(self, service):
         actor = await _staff()
@@ -407,7 +379,6 @@ class TestListAllBrackets:
         rows = await service.list_all_brackets()
 
         assert [b.name for b in rows] == ['Groups', 'Playoff', 'Main']
-        # Prefetched, so the browse tab groups without a query per row.
         assert [b.tournament.name for b in rows] == ['Alpha', 'Alpha', 'Beta']
 
     async def test_inactive_tournaments_sort_last(self, service):
@@ -423,9 +394,6 @@ class TestListAllBrackets:
         assert await service.list_all_brackets() == []
 
 
-# ---------------------------------------------------------------------------
-# tenant isolation
-# ---------------------------------------------------------------------------
 async def test_bracket_not_visible_across_tenants(service, two_tenants):
     tenant_a, tenant_b = two_tenants
     with tenant_scope(tenant_a.id):
@@ -436,5 +404,4 @@ async def test_bracket_not_visible_across_tenants(service, two_tenants):
     with tenant_scope(tenant_b.id):
         assert await service.get_bracket(bracket.id) is None
         assert await service.list_brackets(t.id) == []
-        # The browse read spans tournaments, so it is the easiest one to leak.
         assert await service.list_all_brackets() == []

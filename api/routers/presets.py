@@ -1,7 +1,9 @@
 """Preset endpoints — tenant-authored seed-rolling presets.
 
 Reads are open to any authenticated token (the management gate lives in the
-service). Writes reject read-only tokens at the HTTP layer and are re-gated by
+service), but the two picker reads blank each preset's settings for anyone who
+can't manage presets: a tournament editor needs the name, and a preset can be
+meant to stay secret until race day. Writes reject read-only tokens at the HTTP layer and are re-gated by
 ``PresetService`` (``can_manage_presets``: STAFF / SUPER_ADMIN / PRESET_MANAGER).
 """
 
@@ -15,8 +17,8 @@ from api.schemas.presets import (
     PresetResponse,
     PresetUpdateRequest,
 )
-from application.services import PresetService
-from models import User
+from application.services import AuthService, PresetService
+from models import Preset, User
 
 router = APIRouter(prefix="/presets", tags=["Presets"], route_class=ServiceErrorRoute)
 
@@ -28,8 +30,8 @@ router = APIRouter(prefix="/presets", tags=["Presets"], route_class=ServiceError
     description=(
         "Lists this community's seed presets. With `randomizer` set, returns only that "
         "randomizer's presets.\n\n"
-        "**Who can call this:** Any member when `randomizer` is set; otherwise Staff or "
-        "Preset manager."
+        "**Who can call this:** Any member when `randomizer` is set, with `settings` left "
+        "empty unless you're Staff or a Preset manager; otherwise Staff or Preset manager."
     ),
 )
 async def list_presets(
@@ -38,7 +40,7 @@ async def list_presets(
 ):
     service = PresetService()
     if randomizer is not None:
-        return await service.list_by_randomizer(randomizer)
+        return await _for_viewer(actor, await service.list_by_randomizer(randomizer))
     return await service.list_presets(actor)
 
 
@@ -48,12 +50,21 @@ async def list_presets(
     summary="List selectable presets",
     description=(
         "Lists every preset in this community, for choosing one on a tournament. The same "
-        "rows as `GET /presets`, open to every member.\n\n"
+        "rows as `GET /presets`, with `settings` left empty unless you're Staff or a Preset "
+        "manager.\n\n"
         "**Who can call this:** Any member."
     ),
 )
 async def list_selectable(actor: User = Depends(require_api_actor)):
-    return await PresetService().list_selectable()
+    return await _for_viewer(actor, await PresetService().list_selectable())
+
+
+async def _for_viewer(actor: User, presets: List[Preset]) -> List[PresetResponse]:
+    rows = [PresetResponse.model_validate(p) for p in presets]
+    if not await AuthService.can_manage_presets(actor):
+        for row in rows:
+            row.settings = {}
+    return rows
 
 
 @router.get(

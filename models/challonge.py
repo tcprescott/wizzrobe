@@ -13,8 +13,7 @@ class ChallongeConnection(Model):
     """
 
     id = fields.IntField(pk=True)
-    # One connection per tenant: the most recent row for a tenant is
-    # authoritative (each tenant links its own Challonge service account).
+    # The most recent row per tenant is authoritative.
     tenant = fields.ForeignKeyField('models.Tenant', related_name='challonge_connections', on_delete=fields.CASCADE)
     access_token = fields.CharField(max_length=512)
     refresh_token = fields.CharField(max_length=512, null=True)
@@ -44,16 +43,15 @@ class ChallongeParticipant(Model):
     name = fields.CharField(max_length=255, null=True)
     challonge_user_id = fields.CharField(max_length=64, null=True)
     user = fields.ForeignKeyField('models.User', related_name='challonge_participations', null=True, on_delete=fields.SET_NULL)
-    # Set when a tournament editor assigned ``user`` by hand — an entrant added
-    # by name has no Challonge account to resolve. Sync never overwrites it.
     user_assigned_manually = fields.BooleanField(default=False)
+    active = fields.BooleanField(default=True)
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
     class Meta:
         table = 'challongeparticipant'
         unique_together = (('tournament', 'challonge_participant_id'),)
-        indexes = (('user',),)  # resolve participants for a linked wizzrobe user
+        indexes = (('user',),)
 
 
 class ChallongeMatch(Model):
@@ -69,9 +67,16 @@ class ChallongeMatch(Model):
     challonge_match_id = fields.CharField(max_length=64)
     round = fields.IntField(null=True)
     state = fields.CharEnumField(ChallongeMatchState, default=ChallongeMatchState.PENDING, max_length=20)
+    # Challonge doesn't label group vs elimination rounds, so this is set once and never cleared.
+    group_stage = fields.BooleanField(default=False)
     participant1 = fields.ForeignKeyField('models.ChallongeParticipant', related_name='matches_as_p1', null=True, on_delete=fields.SET_NULL)
     participant2 = fields.ForeignKeyField('models.ChallongeParticipant', related_name='matches_as_p2', null=True, on_delete=fields.SET_NULL)
     winner_participant = fields.ForeignKeyField('models.ChallongeParticipant', related_name='matches_as_winner', null=True, on_delete=fields.SET_NULL)
+    identifier = fields.CharField(max_length=16, null=True)
+    slot1_prereq = fields.CharField(max_length=64, null=True)
+    slot2_prereq = fields.CharField(max_length=64, null=True)
+    slot1_label = fields.CharField(max_length=64, null=True)
+    slot2_label = fields.CharField(max_length=64, null=True)
     match = fields.ForeignKeyField('models.Match', related_name='challonge_match', null=True, on_delete=fields.SET_NULL)
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
@@ -91,8 +96,6 @@ class ChallongeApiUsage(Model):
     """
 
     id = fields.IntField(pk=True)
-    # Per-tenant connections mean per-tenant Challonge quotas: usage is tallied
-    # per (tenant, period), not globally.
     tenant = fields.ForeignKeyField('models.Tenant', related_name='challonge_api_usage', on_delete=fields.CASCADE)
     period = fields.CharField(max_length=7)  # 'YYYY-MM' (UTC)
     request_count = fields.IntField(default=0)

@@ -23,15 +23,15 @@ from application.events import EventType
 from application.repositories import TournamentRepository
 from application.services._challonge_signup import roster_locked
 from application.services.audit_service import AuditActions, AuditService
+from application.services.notification_catalog import PLAYERS, SIGNED_UP
 from application.services.tenant_membership_service import TenantMembershipService
+from application.utils.clients.startgg_client import event_url
 from application.utils.discord_embeds import COLOR_SCHEDULED
 from application.utils.tournament_signup import SignupWindow, signup_window_state
 from models import FeatureFlag, Tournament, User
 
 logger = logging.getLogger(__name__)
 
-# Blurple, the same informational tone the join-request and crew DMs use — a
-# signup confirmation is news, not something to act on.
 COLOR_SIGNUP = COLOR_SCHEDULED
 
 
@@ -49,18 +49,17 @@ class TournamentSignupCard:
     enrolled: bool
     entrant_count: int
     entrants: List[User] = field(default_factory=list)
-    # Roster lives on a linked Challonge bracket: signing up adds the player
-    # there, under the Challonge account linked on their profile.
+    admins: List[User] = field(default_factory=list)
     challonge_managed: bool = False
-    # The viewer's linked Challonge username, None when they have not linked.
     challonge_name: Optional[str] = None
-    # The bracket has started, so Challonge no longer takes roster changes.
     roster_locked: bool = False
-    # Bracket entrants nobody has mapped to a Wizzrobe user, by Challonge name.
     unmapped_entrant_names: List[str] = field(default_factory=list)
+    startgg_url: Optional[str] = None
 
     @property
     def _roster_open(self) -> bool:
+        if self.startgg_url:
+            return False
         return not (self.challonge_managed and self.roster_locked)
 
     @property
@@ -84,12 +83,12 @@ class TournamentSignupCard:
         )
 
     @property
+    def signs_up_on_startgg(self) -> bool:
+        """Open, but the sign-up itself happens on start.gg."""
+        return bool(self.startgg_url) and not self.enrolled and self.window is SignupWindow.OPEN
+
+    @property
     def can_withdraw(self) -> bool:
-        # UPCOMING counts: staff can enrol someone before signups open, and
-        # there is no roster to protect yet — locking them in before the window
-        # has even started would be a rule with nothing behind it. Only a closed
-        # window, or a Challonge bracket that has started, makes withdrawing
-        # staff's call.
         return (
             self.enrolled
             and self.window is not SignupWindow.CLOSED
@@ -104,6 +103,7 @@ async def record_enrolment_change(
     tournament_id: int,
     *,
     added: bool,
+    notify: bool = False,
 ) -> None:
     """The audit row and the event every enrolment change shares.
 
@@ -124,10 +124,7 @@ async def record_enrolment_change(
     payloads stay a single tournament wide and every consumer sees the same
     granularity whichever screen made the change.
     """
-    # Optional in the signature because the scheduling paths that reach here
-    # carry an optional actor; `write_log` raises on None rather than writing an
-    # unattributable row, which is the enforcement — not an `if actor:` guard
-    # that would silently skip the audit.
+    # No `if actor:` guard: write_log raising on None is the enforcement.
     await audit_service.write_and_publish(
         actor,  # type: ignore[arg-type]
         AuditActions.USER_TOURNAMENT_ENROLLMENT_UPDATED,
@@ -139,6 +136,12 @@ async def record_enrolment_change(
         EventType.TOURNAMENT_ENROLLED if added else EventType.TOURNAMENT_WITHDRAWN,
         event_extra={'tournament_id': tournament_id, 'user_id': target.id},
     )
+    if notify and actor is not None:
+        from application.services import opt_in_notifications
+        from application.services.discord import discord_queue
+        discord_queue.enqueue(opt_in_notifications.enrolment_changed(
+            tournament_id, target.id, actor.id, added=added,
+        ))
 
 
 class TournamentSignupMixin:
@@ -164,38 +167,37 @@ class TournamentSignupMixin:
 
         return FeatureFlag.CHALLONGE in await FeatureFlagService().enabled_flags()
 
-    async def _challonge_managed_ids(self) -> set[int]:
-        """Tournaments whose roster is driven by a synced Challonge bracket.
-
-        Empty when the community has the feature off. One query for the whole
-        card list; ``_signup_target`` asks the same question of a single row it
-        already holds.
-        """
-        if not await self._challonge_live():
-            return set()
-        rows = await self.repository.get_all(active_only=False)
-        return {t.id for t in rows if t.challonge_tournament_id}
-
     async def list_signup_cards(
-        self, user: Optional[User] = None, now: Optional[datetime] = None,
+        self, user: Optional[User] = None, now: Optional[datetime] = None, *, live_events: bool = False,
     ) -> List[TournamentSignupCard]:
         """Every active tournament, with this viewer's signup state on each.
+
+        The event in scope's, or with ``live_events`` every live event's
+        (Home › Tournaments, which groups them by event).
 
         One place resolves the window, the enrolment and the entrant list, so the
         tab, the REST payload and the MCP tool cannot describe the same
         tournament differently. A Challonge-linked tournament's roster is its
         mirrored bracket, not the Wizzrobe player pool.
         """
-        tournaments = await self.repository.get_all(active_only=True)
+        tournaments = (
+            await self.repository.active_in_live_events() if live_events
+            else await self.repository.get_all(active_only=True)
+        )
         if not tournaments:
             return []
         ids = [t.id for t in tournaments]
         counts = await self.repository.enrolment_counts()
         entrants = await self.repository.entrants_by_tournament(ids)
+        admins = await self.repository.admins_by_tournament(ids)
         enrolled_ids = (
             await self.repository.enrolled_tournament_ids(user.id) if user else set()
         )
-        challonge_ids = await self._challonge_managed_ids()
+        challonge_ids = (
+            {t.id for t in tournaments if t.challonge_tournament_id}
+            if await self._challonge_live() else set()
+        )
+        startgg_live = await self._startgg_live()
         rosters = {}
         if challonge_ids:
             from application.services.challonge_service import ChallongeService
@@ -216,6 +218,11 @@ class TournamentSignupMixin:
                     enrolled=t.id in enrolled_ids,
                     entrant_count=counts.get(t.id, 0),
                     entrants=entrants.get(t.id, []),
+                    admins=admins.get(t.id, []),
+                    startgg_url=(
+                        event_url(t.startgg_event_slug)
+                        if startgg_live and t.startgg_event_slug else None
+                    ),
                 ))
                 continue
             roster = rosters.get(t.id, [])
@@ -225,6 +232,7 @@ class TournamentSignupMixin:
                 enrolled=user is not None and any(p.user_id == user.id for p in roster),
                 entrant_count=len(roster),
                 entrants=[p.user for p in roster if p.user is not None],
+                admins=admins.get(t.id, []),
                 challonge_managed=True,
                 challonge_name=challonge_name,
                 roster_locked=roster_locked(t.challonge_state),
@@ -234,10 +242,13 @@ class TournamentSignupMixin:
             ))
         return cards
 
+    @staticmethod
+    async def _startgg_live() -> bool:
+        from application.services.feature_flag_service import FeatureFlagService
+
+        return FeatureFlag.STARTGG in await FeatureFlagService().enabled_flags()
+
     async def _is_challonge_managed(self, tournament: Tournament) -> bool:
-        # Asked of the row in hand rather than through ``_challonge_managed_ids``,
-        # which loads the tenant's whole tournament table — worth it once per
-        # page build, wasteful on every single signup.
         return bool(tournament.challonge_tournament_id) and await self._challonge_live()
 
     async def _signup_target(self, tournament_id: int, *, joining: bool) -> Tournament:
@@ -257,6 +268,11 @@ class TournamentSignupMixin:
         )
         if not tournament.is_active:
             raise ValueError('That tournament is not accepting signups.')
+        if tournament.startgg_event_slug and await self._startgg_live():
+            raise ValueError(
+                f'{tournament.name} takes sign-ups on start.gg: '
+                f'{event_url(tournament.startgg_event_slug)}'
+            )
         state = signup_window_state(tournament.signups_open_at, tournament.signups_close_at)
         if state is SignupWindow.CLOSED:
             raise ValueError(
@@ -311,7 +327,7 @@ class TournamentSignupMixin:
         self, actor: User, target: User, tournament: Tournament, *, added: bool,
     ) -> None:
         return await record_enrolment_change(
-            self.audit_service, actor, target, tournament.id, added=added,
+            self.audit_service, actor, target, tournament.id, added=added, notify=True,
         )
 
     async def _notify_signup(self, user: User, tournament: Tournament) -> None:
@@ -343,7 +359,7 @@ class TournamentSignupMixin:
             link = await notification_links.home_tournaments()
             discord_queue.enqueue(
                 DiscordService().send_dm(
-                    int(user.discord_id), body, embed=embed, link=link,
+                    int(user.discord_id), body, embed=embed, link=link, notice=SIGNED_UP.to(PLAYERS),
                 )
             )
         except Exception:

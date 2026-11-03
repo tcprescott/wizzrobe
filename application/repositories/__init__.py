@@ -6,6 +6,7 @@ They should NOT contain business logic - only data fetching/persistence.
 """
 
 from .accommodation_repository import AccommodationRepository
+from .ai_provider_repository import AiProviderRepository
 from .api_token_repository import ApiTokenRepository
 from .async_qualifier_repository import (
     AsyncQualifierLiveRaceRepository,
@@ -18,6 +19,8 @@ from .async_qualifier_repository import (
 )
 from .audit_repository import AuditRepository
 from .bracket_repository import BracketRepository
+from .broadcaster_repository import BroadcasterRepository
+from .browser_monitoring_repository import BrowserMonitoringRepository
 from .challonge_repository import ChallongeRepository
 from .check_in_repository import (
     CheckInEntrantRepository,
@@ -26,21 +29,29 @@ from .check_in_repository import (
     CheckInTierRepository,
     CheckInUserLookupRepository,
 )
+from .commentary_invite_repository import CommentaryInviteRepository
 from .commentator_repository import CommentatorRepository
 from .community_event_repository import (
     CommunityEventRepository,
     CommunityEventSeenRepository,
     CommunityEventSubscriptionRepository,
 )
+from .data_export_repository import DataExportRepository
+from .device_push_token_repository import DevicePushTokenRepository
 from .discord_role_mapping_repository import DiscordRoleMappingRepository
+from .discord_role_sync_repository import DiscordRoleSyncRepository
 from .discord_scheduled_event_repository import DiscordScheduledEventRepository
 from .discord_tournament_grant_repository import DiscordTournamentGrantRepository
 from .door_seed_repository import DoorSeedRepository
 from .emergency_contact_repository import EmergencyContactRepository
 from .equipment_repository import EquipmentRepository
+from .event_repository import EventRepository
+from .event_setup_repository import EventSetupRepository
 from .feature_flag_group_repository import FeatureFlagGroupRepository
 from .feature_flag_repository import TenantFeatureFlagRepository
 from .feedback_repository import FeedbackRepository
+from .friend_repository import FriendRepository
+from .item_tracker_repository import ItemTrackerRepository
 from .log_level_override_repository import LogLevelOverrideRepository
 from .match_acknowledgment_repository import MatchAcknowledgmentRepository
 from .match_comment_repository import MatchCommentRepository
@@ -50,7 +61,15 @@ from .match_stream_volunteer_repository import MatchStreamVolunteerRepository
 from .match_watcher_repository import MatchWatcherRepository
 from .matcherino_login_repository import MatcherinoLoginRepository
 from .mcp_auth_repository import McpAuthRepository
+from .member_details_repository import MemberDetailsRepository
 from .notification_channel_repository import NotificationChannelRepository
+from .notification_preference_repository import NotificationPreferenceRepository
+from .notification_setting_repository import NotificationSettingRepository
+from .oauth_app_repository import OAuthAppRepository
+from .oauth_handoff_repository import OAuthHandoffRepository
+from .patreon_repository import PatreonRepository
+from .personal_webhook_outbox_repository import PersonalWebhookOutboxRepository
+from .personal_webhook_repository import PersonalWebhookRepository
 from .player_availability_repository import PlayerAvailabilityRepository
 from .preset_repository import PresetRepository
 from .profile_nudge_repository import ProfileNudgeRepository
@@ -59,20 +78,29 @@ from .race_room_profile_repository import RaceRoomProfileRepository
 from .racetime_bot_repository import RacetimeBotRepository
 from .racetime_room_repository import RacetimeRoomRepository
 from .randomizer_credential_repository import RandomizerCredentialRepository
+from .rate_limit_repository import RateLimitRepository
 from .reschedule_request_repository import RescheduleRequestRepository
 from .rom_patch_repository import RomPatchRepository
 from .room_token_repository import RoomTokenRepository
+from .sent_message_repository import SentMessageRepository
 from .speedgaming_episode_repository import SpeedGamingEpisodeRepository
 from .speedgaming_event_link_repository import SpeedGamingEventLinkRepository
 from .staff_request_dm_repository import StaffRequestDMRepository
 from .stage_repository import StageRepository
+from .startgg_repository import StartggRepository
 from .station_repository import StationRepository
+from .stream_layout_repository import StreamLayoutRepository
+from .survey_context_repository import SurveyContextRepository
+from .survey_participation_repository import SurveyParticipationRepository
+from .survey_repository import SurveyRepository
 from .table_preference_repository import TablePreferenceRepository
 from .telemetry_repository import TelemetryRepository
 from .tenant_join_request_repository import TenantJoinRequestRepository
 from .tenant_logo_repository import TenantLogoRepository
 from .tenant_membership_repository import TenantMembershipRepository
 from .tenant_repository import TenantRepository
+from .ticket_repository import TicketOrderRepository, TicketRepository, TicketStoreRepository, TicketTypeRepository
+from .tournament_export_repository import TournamentExportRepository
 from .tournament_notification_repository import TournamentNotificationRepository
 from .tournament_payout_repository import TournamentPayoutRepository
 from .tournament_repository import TournamentRepository
@@ -86,13 +114,13 @@ from .volunteer_position_repository import VolunteerPositionRepository
 from .volunteer_qualification_repository import VolunteerQualificationRepository
 from .volunteer_role_mapping_repository import VolunteerRoleMappingRepository
 from .volunteer_shift_repository import VolunteerShiftRepository
-from .watch_layout_repository import WatchLayoutRepository
 from .web_push_repository import WebPushRepository
 from .webhook_delivery_repository import WebhookDeliveryRepository
 from .webhook_repository import WebhookRepository
 
 __all__ = [
     'AccommodationRepository',
+    'AiProviderRepository',
     'ApiTokenRepository',
     'AsyncQualifierLiveRaceRepository',
     'AsyncQualifierPermalinkRepository',
@@ -102,24 +130,34 @@ __all__ = [
     'AsyncQualifierRunRepository',
     'AuditRepository',
     'BracketRepository',
+    'BroadcasterRepository',
+    'BrowserMonitoringRepository',
     'ChallongeRepository',
     'CheckInEntrantRepository',
     'CheckInEventRepository',
     'CheckInPassRepository',
     'CheckInTierRepository',
     'CheckInUserLookupRepository',
+    'CommentaryInviteRepository',
     'CommentatorRepository',
     'CommunityEventRepository',
     'CommunityEventSeenRepository',
     'CommunityEventSubscriptionRepository',
+    'DataExportRepository',
+    'DevicePushTokenRepository',
     'DiscordRoleMappingRepository',
+    'DiscordRoleSyncRepository',
     'DiscordScheduledEventRepository',
     'DiscordTournamentGrantRepository',
     'DoorSeedRepository',
     'EmergencyContactRepository',
     'EquipmentRepository',
+    'EventRepository',
+    'EventSetupRepository',
     'FeatureFlagGroupRepository',
     'FeedbackRepository',
+    'FriendRepository',
+    'ItemTrackerRepository',
     'LogLevelOverrideRepository',
     'MatchAcknowledgmentRepository',
     'MatchCommentRepository',
@@ -129,7 +167,15 @@ __all__ = [
     'MatchWatcherRepository',
     'MatcherinoLoginRepository',
     'McpAuthRepository',
+    'MemberDetailsRepository',
     'NotificationChannelRepository',
+    'NotificationPreferenceRepository',
+    'NotificationSettingRepository',
+    'OAuthAppRepository',
+    'OAuthHandoffRepository',
+    'PatreonRepository',
+    'PersonalWebhookOutboxRepository',
+    'PersonalWebhookRepository',
     'PlayedPermalinks',
     'PlayerAvailabilityRepository',
     'PresetRepository',
@@ -139,14 +185,21 @@ __all__ = [
     'RacetimeBotRepository',
     'RacetimeRoomRepository',
     'RandomizerCredentialRepository',
+    'RateLimitRepository',
     'RescheduleRequestRepository',
     'RomPatchRepository',
     'RoomTokenRepository',
+    'SentMessageRepository',
     'SpeedGamingEpisodeRepository',
     'SpeedGamingEventLinkRepository',
     'StaffRequestDMRepository',
     'StageRepository',
+    'StartggRepository',
     'StationRepository',
+    'StreamLayoutRepository',
+    'SurveyContextRepository',
+    'SurveyParticipationRepository',
+    'SurveyRepository',
     'TablePreferenceRepository',
     'TelemetryRepository',
     'TenantFeatureFlagRepository',
@@ -154,6 +207,11 @@ __all__ = [
     'TenantLogoRepository',
     'TenantMembershipRepository',
     'TenantRepository',
+    'TicketOrderRepository',
+    'TicketRepository',
+    'TicketStoreRepository',
+    'TicketTypeRepository',
+    'TournamentExportRepository',
     'TournamentNotificationRepository',
     'TournamentPayoutRepository',
     'TournamentRepository',
@@ -167,7 +225,6 @@ __all__ = [
     'VolunteerQualificationRepository',
     'VolunteerRoleMappingRepository',
     'VolunteerShiftRepository',
-    'WatchLayoutRepository',
     'WebPushRepository',
     'WebhookDeliveryRepository',
     'WebhookRepository',

@@ -34,6 +34,8 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from application.errors import NotFoundError
 from application.repositories import WebPushRepository
 from application.services.audit_service import AuditActions, AuditService
+from application.services.native_push_service import NativePushService
+from application.services.sent_message_service import SentMessageRef, SentMessageService
 from application.utils import web_push as protocol
 from application.utils.environment import get_base_url, is_production
 from application.utils.ssrf import ensure_public_host
@@ -44,10 +46,7 @@ logger = logging.getLogger(__name__)
 # Magic value that opts a push message into declarative parsing (Safari 18.4+).
 DECLARATIVE_WEB_PUSH_VERSION = 8030
 
-# The DM templates (application/utils/discord_messages.py) only ever emit
-# **bold** plus the backslash that keeps a member-typed bracket from forming a
-# masked link, so only those are stripped — usernames and URLs legitimately
-# contain __, ~~ and backticks and must pass through untouched.
+# Strip only these: usernames and URLs legitimately contain __, ~~ and backticks.
 _MARKDOWN_TOKENS = re.compile(r'\*\*|\\(?=[\[\]])')
 
 
@@ -96,8 +95,6 @@ def _resolve_vapid_config(raw_key: str, subject: str, base_url: str) -> Optional
     if not raw_key:
         return None
     if not subject and base_url.startswith('https://'):
-        # RFC 8292 wants a mailto: or https: contact; a production BASE_URL
-        # qualifies, so it is the natural fallback.
         subject = base_url
     if not (subject.startswith('mailto:') or subject.startswith('https://')):
         logger.warning(
@@ -120,8 +117,6 @@ def _vapid_config() -> Optional[_VapidConfig]:
     )
 
 
-# Shared client so keep-alive connections to the handful of push-service hosts
-# are reused across sends instead of paying a TCP+TLS handshake per DM.
 _http_client: Optional[httpx.AsyncClient] = None
 
 
@@ -145,15 +140,12 @@ class WebPushService:
 
     DELIVERY_TIMEOUT = 10.0
     TTL_SECONDS = 24 * 60 * 60
-    # DM mirrors are time-sensitive (match starting, please acknowledge).
     URGENCY = 'high'
     MAX_BODY_LENGTH = 500
 
     def __init__(self) -> None:
         self.repository = WebPushRepository()
         self.audit_service = AuditService()
-
-    # ------------------------------------------------------------ config
 
     @staticmethod
     def is_configured() -> bool:
@@ -167,8 +159,6 @@ class WebPushService:
             return None
         return protocol.public_key_b64url(config.private_key)
 
-    # ------------------------------------------------------- subscriptions
-
     async def list_subscriptions(self, user: User) -> List[WebPushSubscription]:
         return await self.repository.list_for_user(user)
 
@@ -179,11 +169,7 @@ class WebPushService:
             raise ValueError('Push subscription endpoint must be an https:// URL')
         if len(endpoint) > 1024:
             raise ValueError('Push subscription endpoint is too long')
-        # The stored endpoint is later POSTed to server-side by _deliver_one, so
-        # a browser-supplied endpoint is an SSRF vector. Reject non-public hosts
-        # in production (mirrors the webhook guard); real push services
-        # (fcm.googleapis.com, web.push.apple.com, *.notify.windows.com,
-        # updates.push.services.mozilla.com) all resolve to public addresses.
+        # SSRF guard: the stored endpoint is POSTed server-side, so reject non-public hosts.
         if is_production():
             await ensure_public_host(parsed.hostname, subject='Push subscription endpoint')
         try:
@@ -249,8 +235,7 @@ class WebPushService:
         if subscription is None:
             raise NotFoundError('Subscription not found')
         if not hmac.compare_digest(subscription.auth, (old_auth or '').strip()):
-            # Same message as the miss above: an attacker probing endpoints must
-            # not learn which of the two checks they failed.
+            # Same message as the miss above, so a prober can't tell which check failed.
             raise NotFoundError('Subscription not found')
 
         rotated = await self.repository.rotate(
@@ -296,49 +281,51 @@ class WebPushService:
             {'subscription_id': subscription.id, 'endpoint_host': urlparse(subscription.endpoint).hostname},
         )
 
-    # ------------------------------------------------------------ delivery
-
     async def mirror_dm(
         self, discord_id: int, message: str, navigate: Optional[str] = None,
+        silent: bool = False, ref: Optional[SentMessageRef] = None,
     ) -> None:
-        """Mirror a Discord DM to the recipient's subscribed devices.
+        """Mirror a Discord DM to the recipient's devices: browsers and store apps.
 
         Enqueued fire-and-forget from the DM chokepoint onto the event
         dispatch worker; must never raise and must stay cheap when the user
-        has no subscriptions (one indexed query).
+        has no devices (one indexed query per transport).
 
         ``navigate`` is the DM's call-to-action URL, so a notification that asks
         for something opens the control that does it. Without it the reader lands
         on whatever page the app happened to leave them on.
         """
         try:
-            if not self.is_configured():
-                return
-            subscriptions = await self.repository.list_for_discord_id(discord_id)
-            if not subscriptions:
-                return
-            await self._send_to_subscriptions(
-                subscriptions,
-                title='Wizzrobe',
-                body=self._plain_text(message),
-                navigate=navigate,
+            body = self._plain_text(message)
+            sent = 0
+            tried = False
+            if self.is_configured():
+                subscriptions = await self.repository.list_for_discord_id(discord_id)
+                if subscriptions:
+                    tried = True
+                    sent += await self._send_to_subscriptions(
+                        subscriptions, title='Wizzrobe', body=body, navigate=navigate, silent=silent,
+                    )
+            sent += await NativePushService().send_to_discord_id(
+                discord_id, title='Wizzrobe', body=body, navigate=navigate, silent=silent,
             )
+            if ref is not None and (sent or tried):
+                await SentMessageService().record_push(ref, sent)
         except Exception:
-            logger.exception('web push DM mirror failed for discord id %s', discord_id)
+            logger.exception('device push DM mirror failed for discord id %s', discord_id)
 
     async def send_test(self, user: User, message: str, navigate: Optional[str] = None) -> bool:
         """Send ``message`` to every device ``user`` has. ``True`` if any took it."""
-        if not self.is_configured():
-            return False
-        subscriptions = await self.repository.list_for_user(user)
-        if not subscriptions:
-            return False
-        sent = await self._send_to_subscriptions(
-            subscriptions, title='Wizzrobe', body=self._plain_text(message), navigate=navigate,
-        )
+        body = self._plain_text(message)
+        sent = 0
+        if self.is_configured():
+            subscriptions = await self.repository.list_for_user(user)
+            if subscriptions:
+                sent += await self._send_to_subscriptions(
+                    subscriptions, title='Wizzrobe', body=body, navigate=navigate,
+                )
+        sent += await NativePushService().send_to_user(user, title='Wizzrobe', body=body, navigate=navigate)
         return sent > 0
-
-    # ----------------------------------------------------------- internals
 
     def _plain_text(self, message: str) -> str:
         text = _MARKDOWN_TOKENS.sub('', message or '').strip()
@@ -346,15 +333,20 @@ class WebPushService:
             text = text[: self.MAX_BODY_LENGTH - 1] + '…'
         return text
 
-    def _build_payload(self, *, title: str, body: str, navigate: Optional[str] = None) -> bytes:
+    def _build_payload(
+        self, *, title: str, body: str, navigate: Optional[str] = None, silent: bool = False,
+    ) -> bytes:
         """The Declarative Web Push message body (also parsed by sw.js on Chrome)."""
+        notification: dict = {
+            'title': title,
+            'body': body,
+            'navigate': navigate or f'{get_base_url()}/',
+        }
+        if silent:
+            notification['silent'] = True
         return json.dumps({
             'web_push': DECLARATIVE_WEB_PUSH_VERSION,
-            'notification': {
-                'title': title,
-                'body': body,
-                'navigate': navigate or f'{get_base_url()}/',
-            },
+            'notification': notification,
         }, ensure_ascii=False).encode()
 
     async def _send_to_subscriptions(
@@ -364,14 +356,13 @@ class WebPushService:
         title: str,
         body: str,
         navigate: Optional[str] = None,
+        silent: bool = False,
     ) -> int:
         config = _vapid_config()
         if config is None:
             return 0
-        payload = self._build_payload(title=title, body=body, navigate=navigate)
+        payload = self._build_payload(title=title, body=body, navigate=navigate, silent=silent)
         client = _get_http_client()
-        # Deliveries are independent — run them concurrently so one slow push
-        # service can't serialize a whole fan-out.
         results = await asyncio.gather(
             *(self._deliver_one(client, subscription, payload, config) for subscription in subscriptions)
         )
@@ -385,8 +376,6 @@ class WebPushService:
         config: _VapidConfig,
     ) -> bool:
         try:
-            # Encryption is ~1ms of pure CPU per message (fresh ECDH + HKDF +
-            # AES-GCM, inherent to RFC 8291) — keep it off the shared event loop.
             body = await asyncio.to_thread(
                 protocol.encrypt_payload, payload, subscription.p256dh, subscription.auth
             )
@@ -398,20 +387,11 @@ class WebPushService:
                 'Authorization': config.authorization_for(subscription.endpoint),
             }
         except ValueError as exc:
-            # Stored keys the protocol layer rejects can never succeed — prune.
             logger.warning('pruning web push subscription %s (bad keys: %s)', subscription.id, exc)
             await self.repository.delete(subscription)
             return False
 
-        # Re-resolve the destination at delivery time, the way webhook_service
-        # does. The subscribe/rotate check resolved DNS once, but this POST
-        # re-resolves it — so an endpoint whose host is repointed at an internal
-        # address afterwards (slow DNS rebinding) would otherwise be
-        # dereferenced with a stale verdict. Production-only, matching
-        # _validate_subscription, which allows local endpoints in development.
-        # Not a prune: the host may be fine again on the next send, and deleting
-        # a real device's subscription over a transient answer is worse than
-        # skipping one notification.
+        # Re-resolve at delivery (DNS rebinding). Skip, don't prune: the host may answer fine next time.
         if is_production():
             try:
                 await ensure_public_host(
@@ -432,7 +412,6 @@ class WebPushService:
             return False
 
         if response.status_code in (404, 410):
-            # The push service says this subscription no longer exists.
             logger.info('pruning expired web push subscription %s (HTTP %s)',
                         subscription.id, response.status_code)
             await self.repository.delete(subscription)

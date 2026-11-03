@@ -12,11 +12,12 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List, Mapping, Optional
 
 from application.utils.timezone import format_local_display, to_local
 from models import Bracket, BracketEntry, BracketFormat, BracketMatch, BracketState
 from theme.assets import asset_url
+from theme.favicon import icon_links_html
 
 from ..labels import format_label, stage_label, state_label
 from ..render import build_context
@@ -33,14 +34,13 @@ class StaticBracketView:
     entries: List[BracketEntry]
     matches: List[BracketMatch]
     entry_name: Dict[int, str]
-    # entry_id -> Discord avatar URL (``theme.brackets.render.entry_avatars``).
     entry_avatar: Dict[int, str] = field(default_factory=dict)
     live_state: Dict[int, dict] = field(default_factory=dict)
     advancement: Optional[dict] = None
     generated_at: Optional[datetime] = None
-    # Path prefix carrying any /t/<slug> root_path, so links work in path mode.
     root_path: str = ''
     primary_color: Optional[str] = None
+    icons: Dict[str, str] = field(default_factory=dict)
     refresh_seconds: int = 60
 
 
@@ -54,12 +54,10 @@ class StaticIndexView:
     generated_at: Optional[datetime] = None
     root_path: str = ''
     primary_color: Optional[str] = None
+    icons: Dict[str, str] = field(default_factory=dict)
     refresh_seconds: int = 300
 
 
-# The static views load the app stylesheets for the shared bracket look, plus
-# this small shell — the interactive pages get their frame from Quasar, which is
-# exactly the payload (and the socket behind it) this view exists to avoid.
 _SHELL_CSS = """
 *, *::before, *::after { box-sizing: border-box; }
 /* Every text colour routes through the --bracket-* properties brackets.css
@@ -102,11 +100,6 @@ a { color: var(--wiz-link, #9C6B12); }
   color: var(--bracket-muted, #6b7280); text-align: center; }
 """
 
-# Hover-run highlight, the one behaviour worth 300 bytes of vanilla JS: it needs
-# no socket, no framework and no state, and it is what makes a large bracket
-# readable. Everything else in the static view is served pre-rendered. The theme
-# follows the ``wiz_dark`` cookie the app's dark-mode toggle writes
-# (``theme.chrome.dark_mode_button``), else the reader's system theme.
 _HOVER_JS = (
     "<script>(function(){var t=function(on){return function(e){"
     "var el=e.target.closest?e.target.closest('[data-entrant-id]'):null;if(!el)return;"
@@ -133,9 +126,9 @@ def _document(
     generated_at: Optional[datetime],
     footer_links: str = '',
     description: str = '',
+    icons: Optional[Mapping[str, str]] = None,
 ) -> str:
-    # HTML escaping does nothing inside <style>, so the colour is re-checked
-    # here rather than trusting every caller to have validated it.
+    # HTML escaping does nothing inside <style>, so the colour is re-checked here.
     if primary_color and not _HEX_COLOR.fullmatch(primary_color):
         primary_color = None
     palette = (
@@ -157,13 +150,10 @@ def _document(
         '<meta name="robots" content="noindex, nofollow">'
         f'{refresh}'
         f'<title>{_esc(title)}</title>'
-        # What a link unfurl (Discord, chat apps) shows: these pages are the
-        # link staff paste into a channel, and a bare <title> is all it had.
         f'<meta property="og:title" content="{_esc(title)}">'
         + (f'<meta property="og:description" content="{_esc(description)}">' if description else '')
-        +
-        '<link rel="icon" href="/static/icons/icon-192.png">'
-        f'<link rel="stylesheet" href="{asset_url("css/styles.css")}">'
+        + icon_links_html(icons)
+        + f'<link rel="stylesheet" href="{asset_url("css/styles.css")}">'
         f'<link rel="stylesheet" href="{asset_url("css/brackets.css")}">'
         f'<style>{_SHELL_CSS}</style>{palette}'
         '</head><body>'
@@ -191,9 +181,7 @@ def render_bracket_document(view: StaticBracketView) -> str:
     entry_name = view.entry_name
     root = view.root_path
 
-    # No config_summary here: the stage's rules as configured are a check for
-    # staff, and this page is for spectators (the interactive page shows them
-    # to staff only, for the same reason).
+    # No config_summary: the configured rules are staff-only, and this page is for spectators.
     header = _tag(
         'div', 'wizs-card',
         _tag('div', 'wizs-title', _esc(bracket.name))
@@ -261,6 +249,7 @@ def render_bracket_document(view: StaticBracketView) -> str:
         body=bar + _tag('div', 'wizs-wrap', body),
         refresh_seconds=view.refresh_seconds,
         primary_color=view.primary_color,
+        icons=view.icons,
         generated_at=view.generated_at,
         footer_links=(
             f'<a href="{_esc(root)}/brackets/{_esc(bracket.id)}">interactive view</a>'
@@ -308,6 +297,7 @@ def render_index_document(view: StaticIndexView) -> str:
         body=_bar(view.tournament_name, 'Bracket stages') + body,
         refresh_seconds=view.refresh_seconds,
         primary_color=view.primary_color,
+        icons=view.icons,
         generated_at=view.generated_at,
         footer_links=(
             f'<a href="{_esc(root)}/tournament/{_esc(view.tournament_id)}/brackets">'
@@ -318,6 +308,7 @@ def render_index_document(view: StaticIndexView) -> str:
 
 def render_not_found_document(
     *, root_path: str = '', community: str = '', primary_color: Optional[str] = None,
+    icons: Optional[Mapping[str, str]] = None,
 ) -> str:
     """The static twin of the app's 404: same words, a way back, no framework.
 
@@ -341,5 +332,6 @@ def render_not_found_document(
         body=_bar(community or 'Wizzrobe', '') + body,
         refresh_seconds=0,
         primary_color=primary_color,
+        icons=icons,
         generated_at=None,
     )

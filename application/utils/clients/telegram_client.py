@@ -1,11 +1,13 @@
 """Minimal Telegram Bot API client.
 
 Configured by ``TELEGRAM_BOT_TOKEN`` (from @BotFather). The bot only ever
-talks to people who opened it with their own one-time link, and it reads its
-updates by long polling (:func:`get_updates`), so no public webhook URL needs
-registering.
+talks to people who opened it with their own one-time link. It reads its
+updates by long polling (:func:`get_updates`) unless ``TELEGRAM_WEBHOOK_SECRET``
+is set, in which case Telegram POSTs each update to ``/telegram/webhook``
+(:func:`set_webhook`) and no process has to stay up polling.
 """
 
+import asyncio
 import logging
 import os
 from dataclasses import dataclass
@@ -16,6 +18,9 @@ import httpx
 logger = logging.getLogger(__name__)
 
 _TIMEOUT = httpx.Timeout(40.0, connect=5.0)
+# Not the 40s long-poll timeout: a slow send would hold the shared notification queue.
+_SEND_TIMEOUT = httpx.Timeout(10.0, connect=5.0)
+_POLL_BACKOFF_SECONDS = 15
 
 _client: Optional[httpx.AsyncClient] = None
 _bot_username: Optional[str] = None
@@ -56,9 +61,9 @@ async def aclose() -> None:
         _client = None
 
 
-async def _call(method: str, payload: dict) -> Optional[dict]:
+async def _call(method: str, payload: dict, http_timeout: httpx.Timeout = _SEND_TIMEOUT) -> Optional[dict]:
     try:
-        response = await _get_client().post(_url(method), json=payload)
+        response = await _get_client().post(_url(method), json=payload, timeout=http_timeout)
     except httpx.HTTPError as exc:
         # The token is in the URL, so never log the exception's request.
         logger.warning('Telegram %s failed: %s', method, type(exc).__name__)
@@ -87,14 +92,18 @@ async def send_message(
     text: str,
     button_url: Optional[str] = None,
     button_label: Optional[str] = None,
+    silent: bool = False,
 ) -> bool:
     """Send plain text, with one link button when ``button_url`` is https.
+
+    ``silent`` delivers it without a sound or vibration.
 
     Raises :class:`TelegramBlocked` when the chat no longer accepts messages.
     """
     payload: dict = {'chat_id': chat_id, 'text': text, 'disable_web_page_preview': True}
-    # Telegram rejects the whole message for a non-https button (a dev
-    # localhost link), so that case falls back to text only.
+    if silent:
+        payload['disable_notification'] = True
+    # Telegram rejects the whole message for a non-https button, so fall back to text only.
     if button_url and button_url.startswith('https://'):
         payload['reply_markup'] = {
             'inline_keyboard': [[{'text': button_label or 'Open', 'url': button_url}]],
@@ -108,18 +117,46 @@ async def get_updates(offset: Optional[int], poll_seconds: int = 25) -> List[Tel
     if offset is not None:
         payload['offset'] = offset
     try:
-        body = await _call('getUpdates', payload)
+        body = await _call('getUpdates', payload, http_timeout=_TIMEOUT)
     except TelegramBlocked:
+        body = None
+    if body is None:
+        await asyncio.sleep(_POLL_BACKOFF_SECONDS)
         return []
-    updates: List[TelegramUpdate] = []
-    for raw in (body or {}).get('result', []):
-        message = raw.get('message') or {}
-        chat = message.get('chat') or {}
-        updates.append(TelegramUpdate(
-            update_id=int(raw['update_id']),
-            chat_id=chat.get('id'),
-            chat_type=chat.get('type'),
-            username=(message.get('from') or {}).get('username'),
-            text=(message.get('text') or '').strip(),
-        ))
-    return updates
+    return [parse_update(raw) for raw in (body or {}).get('result', [])]
+
+
+def parse_update(raw: dict) -> TelegramUpdate:
+    """One update, as ``getUpdates`` lists it or the webhook POSTs it."""
+    message = raw.get('message') or {}
+    chat = message.get('chat') or {}
+    return TelegramUpdate(
+        update_id=int(raw['update_id']),
+        chat_id=chat.get('id'),
+        chat_type=chat.get('type'),
+        username=(message.get('from') or {}).get('username'),
+        text=(message.get('text') or '').strip(),
+    )
+
+
+def webhook_secret() -> Optional[str]:
+    """The shared secret Telegram echoes in ``X-Telegram-Bot-Api-Secret-Token``."""
+    value = (os.getenv('TELEGRAM_WEBHOOK_SECRET') or '').strip()
+    return value or None
+
+
+async def set_webhook(url: str, secret: str) -> bool:
+    """Point Telegram at ``url``. Telegram then refuses ``getUpdates`` until it's deleted."""
+    payload = {'url': url, 'secret_token': secret, 'allowed_updates': ['message']}
+    try:
+        return await _call('setWebhook', payload) is not None
+    except TelegramBlocked:
+        return False
+
+
+async def delete_webhook() -> bool:
+    """Drop any webhook so long polling works again (a no-op when none is set)."""
+    try:
+        return await _call('deleteWebhook', {}) is not None
+    except TelegramBlocked:
+        return False

@@ -10,15 +10,13 @@ from types import SimpleNamespace
 from typing import Optional
 
 from application.services.reports_service import (
+    CHECK_IN_TO_START,
     DEFAULT_MATCH_DURATION_MIN,
+    LATE_PUSH_LIMIT,
     ReportsService,
     event_day_bounds,
 )
 from application.utils.timezone import EASTERN_TZ, to_local
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
 
 
 def make_match(
@@ -61,11 +59,6 @@ def naive(year, month, day, hour=0, minute=0) -> datetime:
     return datetime(year, month, day, hour, minute)
 
 
-# ---------------------------------------------------------------------------
-# _local: naive treated as UTC
-# ---------------------------------------------------------------------------
-
-
 class TestEastern:
     def test_returns_none_for_none(self):
         assert ReportsService._local(None) is None
@@ -85,7 +78,6 @@ class TestEastern:
         assert result.hour == 14
 
     def test_aware_utc_is_converted(self):
-        # UTC 2025-01-15 19:30 → ET 14:30
         dt = utc(2025, 1, 15, 19, 30)
         result = ReportsService._local(dt)
         assert result.hour == 14
@@ -96,11 +88,6 @@ class TestEastern:
         result = ReportsService._local(dt)
         assert result.hour == 14
         assert result.minute == 30
-
-
-# ---------------------------------------------------------------------------
-# _match_window
-# ---------------------------------------------------------------------------
 
 
 class TestMatchWindow:
@@ -131,7 +118,7 @@ class TestMatchWindow:
         sched = to_display(2025, 10, 23, 14, 0)
         m = make_match(scheduled_at=sched, avg_duration=60)
         ws, we = ReportsService._match_window(m)
-        assert (we - ws) == timedelta(hours=1 + 1)  # start is sched-1h, end is sched+60min
+        assert (we - ws) == timedelta(hours=1 + 1)
 
     def test_no_finished_defaults_to_90_min_when_no_tournament_avg(self):
         sched = to_display(2025, 10, 23, 14, 0)
@@ -140,25 +127,94 @@ class TestMatchWindow:
         assert (we - ws) == timedelta(minutes=60 + DEFAULT_MATCH_DURATION_MIN)
 
     def test_naive_scheduled_at_treated_as_utc(self):
-        # Naive UTC 19:00 → ET 14:00; start should be 13:00 ET (one hour prior)
         sched = naive(2025, 1, 15, 19, 0)
         m = make_match(scheduled_at=sched)
         ws, _ = ReportsService._match_window(m)
         assert ws.hour == 13
 
+    def test_late_unchecked_match_slides_with_now(self):
+        sched = to_display(2025, 10, 23, 14, 0)
+        now = to_display(2025, 10, 23, 14, 40)
+        m = make_match(scheduled_at=sched, avg_duration=60)
+        ws, we = ReportsService._match_window(m, now=now)
+        assert ws == to_display(2025, 10, 23, 13, 0)
+        assert we == to_display(2025, 10, 23, 15, 40)
+
+    def test_not_yet_late_match_keeps_its_slot(self):
+        sched = to_display(2025, 10, 23, 14, 0)
+        m = make_match(scheduled_at=sched, avg_duration=60)
+        _, we = ReportsService._match_window(m, now=to_display(2025, 10, 23, 13, 30))
+        assert we == to_display(2025, 10, 23, 15, 0)
+
+    def test_late_slide_stops_at_limit(self):
+        sched = to_display(2025, 10, 23, 14, 0)
+        m = make_match(scheduled_at=sched, avg_duration=60)
+        _, we = ReportsService._match_window(m, now=to_display(2025, 10, 24, 9, 0))
+        assert we == sched + LATE_PUSH_LIMIT + timedelta(minutes=60)
+
+    def test_late_check_in_runs_from_check_in(self):
+        sched = to_display(2025, 10, 23, 14, 0)
+        seated = to_display(2025, 10, 23, 14, 25)
+        m = make_match(scheduled_at=sched, seated_at=seated, avg_duration=60)
+        ws, we = ReportsService._match_window(m, now=to_display(2025, 10, 23, 14, 50))
+        assert ws == seated
+        assert we == to_display(2025, 10, 23, 15, 25)
+
+    def test_started_match_ignores_now(self):
+        sched = to_display(2025, 10, 23, 14, 0)
+        started = to_display(2025, 10, 23, 14, 10)
+        m = make_match(scheduled_at=sched, seated_at=sched, started_at=started, avg_duration=60)
+        _, we = ReportsService._match_window(m, now=to_display(2025, 10, 23, 16, 0))
+        assert we == to_display(2025, 10, 23, 15, 10)
+
+    def test_setup_pushes_unchecked_match_end(self):
+        sched = to_display(2025, 10, 23, 14, 0)
+        m = make_match(scheduled_at=sched, avg_duration=60)
+        ws, we = ReportsService._match_window(
+            m, now=to_display(2025, 10, 23, 13, 30), setup=CHECK_IN_TO_START,
+        )
+        assert ws == to_display(2025, 10, 23, 13, 0)
+        assert we == to_display(2025, 10, 23, 15, 15)
+
+    def test_setup_runs_from_check_in(self):
+        sched = to_display(2025, 10, 23, 14, 0)
+        seated = to_display(2025, 10, 23, 14, 25)
+        m = make_match(scheduled_at=sched, seated_at=seated, avg_duration=60)
+        _, we = ReportsService._match_window(
+            m, now=to_display(2025, 10, 23, 14, 30), setup=CHECK_IN_TO_START,
+        )
+        assert we == to_display(2025, 10, 23, 15, 40)
+
+    def test_setup_counts_early_check_in_from_slot(self):
+        sched = to_display(2025, 10, 23, 14, 0)
+        seated = to_display(2025, 10, 23, 13, 50)
+        m = make_match(scheduled_at=sched, seated_at=seated, avg_duration=60)
+        ws, we = ReportsService._match_window(m, setup=CHECK_IN_TO_START)
+        assert ws == seated
+        assert we == to_display(2025, 10, 23, 15, 15)
+
+    def test_setup_slides_with_late_unchecked_match(self):
+        sched = to_display(2025, 10, 23, 14, 0)
+        m = make_match(scheduled_at=sched, avg_duration=60)
+        _, we = ReportsService._match_window(
+            m, now=to_display(2025, 10, 23, 14, 40), setup=CHECK_IN_TO_START,
+        )
+        assert we == to_display(2025, 10, 23, 15, 55)
+
+    def test_setup_ignored_once_started(self):
+        sched = to_display(2025, 10, 23, 14, 0)
+        started = to_display(2025, 10, 23, 14, 10)
+        m = make_match(scheduled_at=sched, seated_at=sched, started_at=started, avg_duration=60)
+        _, we = ReportsService._match_window(m, setup=CHECK_IN_TO_START)
+        assert we == to_display(2025, 10, 23, 15, 10)
+
     def test_end_not_before_start(self):
-        # Edge case: finished_at before seated_at
         sched = to_display(2025, 10, 23, 14, 0)
         seated = to_display(2025, 10, 23, 14, 0)
-        finished = to_display(2025, 10, 23, 13, 0)  # before seated
+        finished = to_display(2025, 10, 23, 13, 0)
         m = make_match(scheduled_at=sched, seated_at=seated, finished_at=finished)
         ws, we = ReportsService._match_window(m)
         assert we >= ws
-
-
-# ---------------------------------------------------------------------------
-# _auto_interval_minutes
-# ---------------------------------------------------------------------------
 
 
 class TestAutoIntervalMinutes:
@@ -186,11 +242,6 @@ class TestAutoIntervalMinutes:
         s = to_display(2025, 10, 23, 0, 0)
         e = s + timedelta(hours=96)
         assert ReportsService._auto_interval_minutes(s, e) == 60
-
-
-# ---------------------------------------------------------------------------
-# peak_times
-# ---------------------------------------------------------------------------
 
 
 class TestPeakTimes:
@@ -222,19 +273,11 @@ class TestPeakTimes:
         assert len(peaks) == 2
 
 
-# ---------------------------------------------------------------------------
-# event_day_bounds
-# ---------------------------------------------------------------------------
-
-
 class TestEventDayBounds:
     def test_start_is_local_midnight(self):
         from datetime import date
         s, e = event_day_bounds(date(2025, 10, 23))
         assert s == to_display(2025, 10, 23, 0, 0)
-        # The bound is returned UTC-aware; it is midnight *on the display clock*,
-        # which is what the equality above pins. Asserting the tzinfo object
-        # would only re-assert the storage convention.
         assert s.utcoffset() == timedelta(0)
         assert to_local(s).hour == 0
 

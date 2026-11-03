@@ -17,6 +17,7 @@ MATCH_PREFETCH = (
     'players__user',
     'commentators__user',
     'trackers__user',
+    'broadcasters__user',
 )
 
 
@@ -29,6 +30,7 @@ def serialize_match(match: Match) -> MatchResponse:
     resp = MatchResponse.model_validate(match, from_attributes=True)
     resp.commentators = [c for c in resp.commentators if c.approved]
     resp.trackers = [t for t in resp.trackers if t.approved]
+    resp.broadcasters = [b for b in resp.broadcasters if b.approved]
     return resp
 
 

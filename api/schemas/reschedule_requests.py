@@ -21,8 +21,6 @@ class RescheduleRequestResponse(BaseModel):
         ),
     )
     reason: str = Field(..., description="The requester's own words on why they need the change.")
-    # UTC, like every other timestamp the REST layer emits. Only Discord gets
-    # per-viewer rendering; an API consumer converts for itself.
     proposed_at: Optional[datetime] = Field(
         None, description="The time the requester asked for, in UTC, or null when they left it to staff."
     )

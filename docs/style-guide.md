@@ -93,7 +93,7 @@ full-width cards: in a 1200-1400px container a full-width card puts its name
 and its button 1100px apart. The grid drops to one column on a phone by itself.
 An empty list inside one spans the grid; a list with nothing to show yet that
 stands alone is `empty_panel(message, icon=…)`: a dashed `wiz-empty-panel` with
-an icon, the message and a cat fact.
+an icon, the message and a fun fact.
 
 Don't put a lede in a caption label after the header (it floated 40px below the
 title on 20 pages), and don't size a title or a section heading with `text-h1`…`text-h6` (a section heading inside a card is `section-title`).
@@ -117,6 +117,7 @@ title on 20 pages), and don't size a title or a section heading with `text-h1`�
 | A table | `enable_mobile_grid(table, columns, table_key=TableKeys.X, …)` | A bare `ui.table` (the `check_table_grid` and `check_table_prefs` hooks enforce this) |
 | Text input / select | `.props('outlined dense')` | `filled`, `standout` |
 | Two-to-four way toggle | `ui.toggle(...).props('no-caps dense unelevated').classes('wiz-segmented')` | A row of separate buttons, a bare `ui.toggle` |
+| A switch between views (tabs, segments, a day) | Tie it to the address: `bind_url(key, switch, …)` or `url_param(…)` ([url_state](reference/frontend.md#addresses-titles-and-back)), so Back, reload and links keep the view | A switcher the address bar doesn't follow (the `check_view_urls` hook enforces this) |
 | A Copy button | `copy_to_clipboard(value, label)` (`theme/clipboard.py`) | Inline `navigator.clipboard` JavaScript |
 | A credential shown once | `show_secret_dialog(title, secret, noun=…)` (`theme/dialog/secret_dialog.py`) | A hand-built reveal dialog |
 | Admin refresh | `refresh_button` (`theme/tables/admin_crud.py`) | |
@@ -125,6 +126,39 @@ title on 20 pages), and don't size a title or a section heading with `text-h1`�
 | Actions on a row or card | One button plus a ⋮ (`more_vert`) menu, see [Actions and menus](#actions-and-menus) | Open, Edit and Delete as separate buttons on every row |
 | A list of matches | `MatchTableView(layout='run_sheet')`, see [Match boards](#match-boards) | A new card-per-match layout |
 | The viewer's crew Sign up / Withdraw | `crew_signup_section` (`theme/tables/match_slots.py`) | A button placed per surface |
+
+## The new app (`web/`)
+
+The React app that replaces NiceGUI at switch-over (spec
+[mobile-app.md](specs/mobile-app.md)) keeps the same Studio language: same tokens
+(`web/src/styles/tokens.css`), one accent, one type family, light and dark. Many
+threads build its screens in parallel, so every screen draws from the same few
+parts. Before writing a new layout or component, check this table; if nothing
+fits, add the part to `web/src/components/` (or `web/src/admin/kit/` for admin
+only) so the next screen reuses it, and add a line here.
+
+| Need | Use | Not |
+|---|---|---|
+| A list of sections or records with one open at a time | **The side list.** Desktop: the list in a column beside the open item. Phone: the list is its own screen; tapping opens the item with a back link (`chevron_left` + the list's name) above its title. Me, Work, Admin and Settings all work this way, and it's Thomas's default for any new list. Records: `SideList` (`web/src/admin/kit/`); grouped menus: `SectionNav` (same folder, also used by Platform). A row's status chip and its line of text sit together in `.side-list__meta`. A list in groups (Stream Layouts' Stages and Layouts) is one `SideListCard` per group, each with its `title` | Tabs across the top, a drawer, a separate dashboard page |
+| A wide list where columns matter more than one open item | `DataTable` (`web/src/admin/kit/`): a table on desktop, one card per row on a phone from the same columns; `primary` column names the row, `onOpen` + `selectedKey` for a row that opens | A bare `<table>` (overflows a phone), a hand-built card list |
+| The open record's own page: its header, tabs and form | `forms.css` in `web/src/admin/kit/`: `.detail-head` (title + chips + Actions), `.detail-tabs` (NavLinks), `.filter-chips` above a list, `.t-form` / `.t-form__grid` panels, `.t-check`, `.t-kv`, `.t-actions` (Undo changes on the left, Save on the right). Dates through `InstantField`, numbers through `NumberField`, reads through `useAdminQuery` (same folder). The open record's title is an `h1` on a phone (no page header there) and an `h2` on desktop | Per-screen copies of these classes, a bare `datetime-local` input |
+| A screen of settings | `PaneScreen` (`web/src/admin/kit/`): the panes as a side list, each pane a stack of cards. A card of fields is a `SettingsCard` that saves on its own (Save and Discard appear once something changes, `useDraft` holds the edit, `UnsavedChangesGuard` asks before leaving); a card whose rows act straight away (stations, connected apps) is a `ListCard` with one header button and a ⋮ per row. Admin → Settings and Event settings both use it | One Save button for a whole pane, a save that fires on every keystroke |
+| The top of a screen | `PageHeader` (title, one-line `lede`, `actions`) | A hand-styled `<h1>` |
+| Toolbar actions | One main `Button` plus `ActionsMenu` | Three loose buttons |
+| A row's or card's actions | One button plus `RowMenu` (⋮), whose `label` names the row ("More for SGL26"); destructive items sort last and confirm first | Edit and Delete as separate buttons on every row |
+| A titled block | `Panel` (`title`, `actions`) with `PanelRow` rows | A bordered `<div>` |
+| A form or confirmation | `FormDialog`: centred card on desktop, bottom sheet on phone, footer of extras ⋮ · Cancel · primary | A page-level modal of your own |
+| Status / count | `Chip` (`ok`, `pending`, `live`, `neutral`, `cancelled`, `info`) and `CountBadge` | Coloured text, a hand-built pill |
+| Nothing to show | `EmptyState` (icon + one-line title + what to do) | A grey caption |
+| Loading / failed | `Spinner` with a label; on failure a `Banner tone="error"` with a "Try again" button | A blank screen, a raw error string |
+| A notice | `Banner` (`info`, `warning`, `error`, `accent`) | A coloured row |
+| Phone or desktop in code | `usePhone()` (`web/src/lib/usePhone.ts`, below 768px), only where the markup differs; otherwise CSS | Your own media query in JS |
+| An icon | `Icon` with a name from `web/src/components/icons.ts` (add the SVG import there) | An icon font, inline SVG |
+
+Every new screen gets targets in `web/scripts/a11y.mjs` (phone and desktop,
+light and dark), and its mockups use the shared frame in
+`/mnt/project-files/mobile-app/admin-mockups/` (`admin.html` + `tokens.css`) so
+they look like the app.
 
 ## Actions and menus
 
@@ -166,6 +200,21 @@ row in equal halves; on desktop it's a right-aligned pair.
 `test_negative_action_sits_left_of_the_positive_one` checks every pair whose
 labels say which is which (Decline, Reject, Remove, Clear, Withdraw, Cancel
 against Approve, Confirm, Save, Assign, Publish).
+
+**A slow button says what it's doing.** Anything that waits on another
+service (a randomizer, racetime.gg, Challonge, start.gg, SpeedGaming, Discord,
+Matcherino) or loops over many rows can take seconds. Wire it with
+`busy_click('Syncing…', handler)` (`theme/busy.py`): while it runs the button
+swaps its content for a spinner and the busy words on a neutral fill, ignores
+further presses, and shows a seconds count after three seconds
+(`static/js/busy.js`). A job that knows its size reports it with
+`current_busy().progress('Rolling', n, total)` ("Rolling 7 of 25…"). A ⋮ menu
+item closes as it's tapped, so the same words go on a spinner toast instead
+(`async with busy(None, …)`). A confirmation in front of a slow action passes
+`busy_text=` to `ConfirmationDialog`, which keeps the dialog open with its
+confirm button busy until the work is done. A `ui.table` slot button binds
+`:loading` and `wiz-busy-btn` to a row flag and drops in
+`slot_busy_template('Rolling…')`. Icon-only buttons keep a plain spinner.
 
 **Help is one "?" at the end of the heading row.** See the Help row above; in a
 dialog title it sits just before Close and matches it (a "Help" pill on desktop,
@@ -222,7 +271,9 @@ Desktop pages use the width rather than stretching one column across it:
   (Users wraps roles in 9-20rem and names in 7-12rem) rather than leaving
   Quasar's `nowrap` to stretch one column: a 31-character Discord handle or six
   role tags otherwise push the table off the page.
-- The side menu is 224px. Don't widen it for one long label; shorten the label.
+- The side menu is 248px pinned on desktop and 85% of the screen (up to 340px) as the phone overlay, with 40px rows on desktop and 48px rows on a phone. Both come from `DRAWER_WIDTH_*` in `theme/base.py`. Don't widen it for one long label; shorten the label.
+- The side menu is one system: Watch live is a link of its own at the top, then a Home / Volunteer / Admin strip whose choice swaps the page list under it in place (the menu stays open), and only picking a page navigates. Volunteer and Admin list their pages through `register_section_menu` (`theme/section_menu.py`); a new hub section registers one.
+- The side menu marks two things differently. The section you're in (Home, Volunteer, Admin, Help…) gets an accent tint via `mark_nav_section()` in `theme/nav_section.py`; the page within it (a tab row) gets the grey `q-item--active` fill. Both fill the icon.
 
 ## Match boards
 
@@ -236,6 +287,12 @@ board), never a new card list.
 - **One line per match, grouped by what it needs**: Needs a decision, Live now,
   Up next, Waiting for players, Confirmed. A line says only which match, when,
   where, crew counts and status. Anything wider belongs in the sheet.
+- **The status rail**: a line's state is an uppercase word in its colour
+  (`STATUS_WORD`, `theme/tables/run_sheet_meta.py`) with the same colour down
+  the row's or card's left edge (`RAIL`): green live, amber late or waiting on a
+  call, red flagged, blue checked in, grey otherwise. The word is always there,
+  so colour is never the only cue. A phone card leads with the time, its end and
+  the state on one line (`card_head`), and the names take the full width below.
 - **Everything you can do to a match lives in its match sheet**
   (`theme/dialog/match_sheet.py`), which opens when you tap the line: a side
   sheet on desktop, a bottom sheet on a phone.
@@ -306,7 +363,8 @@ read as one set:
 
 Most people open this app on a phone at the venue, so about 390px is the width
 that matters. CI checks four phones: 360px (Galaxy S24), 393px (iPhone 15 Pro),
-412px (Pixel 7) and 440px (iPhone 16 Pro Max). The 2026-10 phone sweep
+412px (Pixel 7) and 440px (iPhone 16 Pro Max); a pull request checks 360px
+only and main checks all four. The 2026-10 phone sweep
 found the same handful of mistakes on page after page; each has a shared fix
 in the "Phone layout" block of `styles.css`.
 
@@ -324,9 +382,50 @@ in the "Phone layout" block of `styles.css`.
 The phone pass in `scripts/ui_a11y_scan.js` (the `"phone"` block in
 `scripts/ui_a11y_ci.json`) loads every page on each of those phones and
 fails when the page scrolls sideways, an element runs off the screen or out of
-its card, text is cut off without an ellipsis, or a flex or grid item is
-stretched more than 96px past its content. It can't judge ordinary spacing or
+its card, text is cut off without an ellipsis, text is squeezed to fewer than
+eight characters a line over three or more lines (a chip or button beside a
+flex item took its width), or a flex or grid item is stretched more than 96px
+past its content. A target can set its own `"loginAs"` when only that user
+sees the content (a player's own match cards). It can't judge ordinary spacing or
 verbosity: look at the page at phone width yourself before calling it done.
+
+## Hold still
+
+Nothing on screen moves unless the person looking at it moved it. In the
+2026-10-16 demo, buttons slid out from under people's fingers twice: the Match
+Schedule board jumped sideways every time the Needs you list reloaded, and boards
+reshuffled when someone else checked a match in. A page that moves between two
+correct states is wrong for the frames in between, and screenshots never show it.
+
+- **A section that reloads keeps its old content until the new is ready.** An
+  async builder under `@ui.refreshable` blanks while it awaits, so everything
+  below it jumps up and back. Use `@steady_refreshable` (`theme/steady.py`),
+  which builds off-screen and swaps in one step; the `check_steady_refresh` hook
+  blocks the old shape. When you hand-roll a refresh, query first, then clear and
+  rebuild without awaiting in between (the Needs you inbox, `theme/match_inbox.py`).
+- **Reserve the space for what will arrive.** A spinner, an empty state or a
+  placeholder takes the height of what replaces it. A banner or count that can
+  appear after load gets a slot that is already there.
+- **Changes update rows where they sit, the viewer's own included.** On a match
+  board (`MatchTableView`, via `theme/tables/match_hold.py`) a row that now
+  belongs in another group stays put with a "Now Ready to start" tag, a removed
+  match fades in place with a "Removed" tag and no working buttons, and a new
+  match waits off the board. A "N changes held · Tidy up" pill counts them, and
+  the board re-sorts in one step when the viewer taps it, scrolls, or leaves the
+  board untouched for a minute. Never insert a row above what someone is
+  looking at. A tag is absolutely placed (or sits under the time on desktop), so
+  adding it never changes a row's height.
+- **A row's state change never swaps its controls' sides.** A badge that replaces
+  a button takes that button's slot (see [Actions and menus](#actions-and-menus)).
+
+`scripts/ui_layout_shift.js` checks this in CI. It loads every page in
+`scripts/ui_layout_shift_ci.json` at desktop and phone width, redraws every live
+section with unchanged data (`theme/layout_probe.py`, only installed when the app
+runs with `WIZ_LAYOUT_PROBE=1`), and fails any element that moves more than 2px.
+A failure names the element and how far it moved; the usual cause is a section
+that went empty, or changed height, while it rebuilt. Targets with `live` steps then
+change matches from a second session (check one in, delete one) and fail when a
+board row moves by more than the rows above it grew.
 
 ## Words
 
@@ -342,17 +441,30 @@ Add member, roles, and "Ask to join it first" gates. If a sentence would still b
 true of someone who joined the community but isn't at the event, "member" is
 right; if it's about the person at the event, it's "attendee".
 
+Call the people who run the community **staff**, never "admins". Staff and
+admins are the same people and are treated the same, so a sentence that means
+"someone who runs things" says staff: "Check with staff", "Only staff can grant
+roles", "Someone else on staff saved this match". **Admin** is only the title of
+the Admin Desk, the overseer of the tournament room. Anything about the room and
+how it runs (checking a match in, a flagged result, a no-show, a dispute, who
+may come in) is the Admin Desk's call, so "tell the admin", "the on-call admin"
+and "Flag for admin review" stay. So do the names of things: the Admin side-menu
+section and its "Admin → X" pointers, the Tournament admin role (someone who runs
+one tournament), and "platform admin" for the people who run Wizzrobe itself.
+
 ## Checking your change
 
 Automated, on every PR:
 
 | Check | Catches |
 |---|---|
-| `tests/theme/test_style_guide.py` | Dialog cards off the three sizes; colour literals in `.style()` / slot `style=`; `text-h1`…`h5` titles; hex colours in CSS rules outside token definitions; `:root` aliases not restated for dark mode; text tokens under 4.5:1 on any surface in either mode; Cancel or Close after the primary button in a dialog footer; a dialog footer with more than two buttons or over 30 characters of labels; a Decline/Reject/Remove/Withdraw-style button right of an Approve/Confirm/Save-style one in the same group; a `.match-filters-card` with no Filters toggle; a Close in a dialog footer; a hand-built dialog without `mobile_sheet`; an inline `min-width`/`max-width` inside a dialog; a `more_horiz` overflow icon; a row's ⋮ not named "More for …"; a red menu item that isn't last in its menu; an awaited `delete_*`/`remove_*`/`cancel_*`/`clear_*`/… service call that no `ConfirmationDialog` stands in front of; the side menu off 224px |
+| `tests/theme/test_style_guide.py` | Dialog cards off the three sizes; colour literals in `.style()` / slot `style=`; `text-h1`…`h5` titles; hex colours in CSS rules outside token definitions; `:root` aliases not restated for dark mode; text tokens under 4.5:1 on any surface in either mode; Cancel or Close after the primary button in a dialog footer; a dialog footer with more than two buttons or over 30 characters of labels; a Decline/Reject/Remove/Withdraw-style button right of an Approve/Confirm/Save-style one in the same group; a `.match-filters-card` with no Filters toggle; a Close in a dialog footer; a hand-built dialog without `mobile_sheet`; an inline `min-width`/`max-width` inside a dialog; a `more_horiz` overflow icon; a row's ⋮ not named "More for …"; a red menu item that isn't last in its menu; an awaited `delete_*`/`remove_*`/`cancel_*`/`clear_*`/… service call that no `ConfirmationDialog` stands in front of; the side menu off its `DRAWER_WIDTH_*` sizes |
 | `tests/test_a11y_names.py` | Icon-only `<q-btn>` in a slot template with no name |
 | `check_table_grid`, `check_table_prefs` hooks | Tables with no phone card view or no `table_key` |
-| `scripts/ui_a11y_scan.js` (CI `browser` job) | On every page in `scripts/ui_a11y_ci.json`, in light and dark: axe's WCAG 2.1 A/AA rules, and rendered text under 4.5:1 |
-| `scripts/ui_a11y_scan.js` phone pass | On the same pages at 360, 393, 412 and 440px: sideways scrolling, elements running off the screen or out of their card, text cut off without an ellipsis, empty bands over 96px |
+| `scripts/ui_a11y_scan.js` (CI `browser-a11y` job) | On every page in `scripts/ui_a11y_ci.json`, in light and dark: axe's WCAG 2.1 A/AA rules, and rendered text under 4.5:1 |
+| `check_steady_refresh` hook | An async `@ui.refreshable` in `pages/` or `theme/`, which blanks while it loads |
+| `scripts/ui_layout_shift.js` (CI `browser` job) | On every page in `scripts/ui_layout_shift_ci.json`, at desktop and phone width: anything that moves more than 2px when the page redraws its live sections with unchanged data. See [Hold still](#hold-still) |
+| `scripts/ui_a11y_scan.js` phone pass | On the same pages at 360px on a pull request, and at 360, 393, 412 and 440px on main: sideways scrolling, elements running off the screen or out of their card, text cut off without an ellipsis, text squeezed to a few letters a line, empty bands over 96px |
 
 The browser scan runs locally against the seeded app (boot and seed as in the
 [ui-validation skill](../.claude/skills/ui-validation/SKILL.md)):
@@ -363,7 +475,8 @@ node scripts/ui_a11y_scan.js scripts/ui_a11y_ci.json
 ```
 
 It loads six pages at a time (`A11Y_CONCURRENCY=1` for one at a time, which
-makes a flaky hit easier to read) and writes `report.json` under
+makes a flaky hit easier to read; `A11Y_PHONE_WIDTHS=360` checks one phone, as
+a pull request does) and writes `report.json` under
 `<outDir>/a11y/`. When it fails:
 
 - **A contrast hit** names the element, its class and the ratio. Fix the colour

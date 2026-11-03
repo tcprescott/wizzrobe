@@ -27,12 +27,9 @@ Pure stdlib, so the Sentry setup can use it without importing the UI layer.
 import logging
 import traceback
 
-# Raised by nicegui.element.Element.parent_slot. Matched rather than caught by
-# type because NiceGUI raises a bare RuntimeError.
+# Matched by message: NiceGUI raises a bare RuntimeError.
 _DELETED_SLOT = 'parent slot of the element has been deleted'
 
-# The frame that raises belongs to nicegui.timer, or a submodule of it
-# (nicegui.elements.timer subclasses the base).
 _TIMER_MODULE = 'nicegui.timer'
 
 

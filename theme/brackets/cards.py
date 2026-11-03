@@ -40,10 +40,6 @@ _STATE_CLASS = {
     BracketMatchState.COMPLETE: 'is-complete',
 }
 
-# The derived live statuses that override the matchup's own state class (U2).
-# ``SCHEDULED``/``UNSCHEDULED``/``COMPLETE``/``PENDING`` are absent on purpose:
-# they say nothing ``_STATE_CLASS`` doesn't already say, and a card that shouted
-# about every state would stop drawing the eye to the one being played.
 LIVE_STATUS_CLASS = {
     MatchStatus.LIVE: 'is-live',
     MatchStatus.CHECKED_IN: 'is-checked-in',
@@ -61,23 +57,15 @@ class BracketContext:
     """
 
     entry_name: Dict[int, str]
-    # entry_id -> Discord avatar URL, for the entrants whose entrant row is
-    # linked to an account that has one. Absent = the initial-letter disc.
     entry_avatar: Dict[int, str] = field(default_factory=dict)
     entry_seed: Dict[int, Optional[int]] = field(default_factory=dict)
     match_number: Dict[int, int] = field(default_factory=dict)
-    slot_sources: Dict = field(default_factory=dict)  # (match_id, slot) -> SlotSource
+    slot_sources: Dict = field(default_factory=dict)
     rounds_config: Dict[str, dict] = field(default_factory=dict)
-    scheduled_fmt: Callable[[str], str] = str  # UTC iso -> display string
+    scheduled_fmt: Callable[[str], str] = str
     on_card_click: Optional[Callable[[int], None]] = None
-    # {bracket_match_id: {'status': MatchStatus, 'watch_url': str}} from
-    # ``BracketService.matchup_live_state``. Empty for a caller that didn't
-    # resolve it, which renders exactly the pre-U2 card.
     live_state: Dict[int, dict] = field(default_factory=dict)
-    # Entry ids that are the signed-in viewer's own, so their run is marked.
     viewer_entries: set = field(default_factory=set)
-    # {bracket_match_id: (short, full)} — the next booked time of an
-    # unfinished matchup (``render.booked_times``).
     booked: Dict[int, tuple] = field(default_factory=dict)
 
 
@@ -126,8 +114,7 @@ def _render_slot(match: BracketMatch, slot: int, ctx: BracketContext) -> None:
 
     with row:
         seed = ctx.entry_seed.get(entry_id) if entry_id is not None else None
-        # Always emit the seed cell (empty when unseeded) so the four columns
-        # (seed · avatar · name · score) stay aligned across every slot.
+        # Always emit the seed cell so the four columns stay aligned across slots.
         ui.label(str(seed) if seed is not None else '').classes('bracket-seed')
 
         if entry_id is not None:
@@ -142,8 +129,6 @@ def _render_slot(match: BracketMatch, slot: int, ctx: BracketContext) -> None:
             ui.label(placeholder_text(match, slot, ctx, completed=completed)) \
                 .classes('bracket-name is-placeholder')
 
-        # Score cell: the visual anchor. Number when scored, else a W/L glyph;
-        # FF marks the forfeiting (losing) side of a walkover.
         score = _slot_score(match, slot)
         if completed and match.forfeit and is_loser:
             score_txt = 'FF'
@@ -167,9 +152,7 @@ def render_avatar(name: str, url: Optional[str] = None) -> None:
     with ui.element('div').classes('bracket-avatar').style(
         f'--bracket-avatar-hue: {avatar_hue(name)}'
     ):
-        # The initial always renders; the avatar sits on top of it. A hash that
-        # went stale 404s, ``q-img`` paints nothing, and the letter shows through
-        # — no broken-image glyph, no blank disc.
+        # The initial always renders under the avatar: a stale hash 404s and q-img paints nothing.
         ui.label(avatar_initial(name))
         if url:
             ui.image(url).classes('bracket-avatar-img').props('no-spinner')
@@ -289,10 +272,6 @@ def _render_header(
         with ui.row().classes('bracket-header-meta'):
             scheduled = meta.get('scheduled_at')
             if scheduled:
-                # "Round time" — the *planned* time for the round, which is a
-                # different thing from each game's ``Match.scheduled_at`` shown
-                # on the card and in the dialog, and allowed to differ from it
-                # (U3c). Unlabelled, the two read as a contradiction.
                 ui.label(f'Round time: {ctx.scheduled_fmt(scheduled)}') \
                     .classes('bracket-header-time') \
                     .tooltip('Planned time for this round; each game carries its own scheduled time')

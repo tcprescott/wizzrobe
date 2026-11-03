@@ -5,7 +5,7 @@ panel disappears on its own once the required steps are done. See the
 tenant-onboarding plan, design decision 3.
 """
 
-from typing import Callable, List, Optional
+from typing import AbstractSet, Callable, List, Optional
 
 from nicegui import ui
 
@@ -16,8 +16,13 @@ from theme.page_header import page_header
 def render_setup_checklist(
     steps: List[SetupStep],
     on_go: Optional[Callable[[str], None]] = None,
+    reachable_tabs: Optional[AbstractSet[str]] = None,
 ) -> None:
-    """Render the checklist. ``on_go`` receives a tab label to switch to."""
+    """Render the checklist. ``on_go`` receives a tab label to switch to.
+
+    ``reachable_tabs`` is the viewer's own Admin tabs, when known: a step done on
+    a tab they can't open says who does it rather than linking to a refusal.
+    """
     required = [s for s in steps if s.required]
     advisory = [s for s in steps if not s.required]
 
@@ -32,17 +37,21 @@ def render_setup_checklist(
         with ui.card().classes('w-full'):
             with ui.element('div').classes('wiz-tile-grid'):
                 for step in required:
-                    _render_step(step, on_go)
+                    _render_step(step, on_go, reachable_tabs)
 
             if advisory:
                 ui.separator().classes('q-my-sm')
                 ui.label('Recommended, not required').classes('text-caption text-grey')
                 with ui.element('div').classes('wiz-tile-grid'):
                     for step in advisory:
-                        _render_step(step, on_go)
+                        _render_step(step, on_go, reachable_tabs)
 
 
-def _render_step(step: SetupStep, on_go: Optional[Callable[[str], None]]) -> None:
+def _render_step(
+    step: SetupStep,
+    on_go: Optional[Callable[[str], None]],
+    reachable_tabs: Optional[AbstractSet[str]] = None,
+) -> None:
     with ui.row().classes('items-start no-wrap w-full q-py-xs gap-3'):
         ui.icon(
             'check_circle' if step.done else 'radio_button_unchecked',
@@ -51,7 +60,11 @@ def _render_step(step: SetupStep, on_go: Optional[Callable[[str], None]]) -> Non
             ui.label(step.label).classes('text-weight-medium' if not step.done else 'text-grey')
             if not step.done:
                 ui.label(step.hint).classes('text-caption text-grey')
-        if not step.done and on_go is not None:
+        if step.done or on_go is None:
+            return
+        if reachable_tabs is not None and step.tab not in reachable_tabs:
+            ui.label('Staff do this').classes('text-caption text-grey text-no-wrap')
+        else:
             ui.button(
                 step.tab, icon='arrow_forward',
                 on_click=lambda _=None, tab=step.tab: on_go(tab),

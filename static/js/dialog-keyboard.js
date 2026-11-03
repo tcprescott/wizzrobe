@@ -1,19 +1,5 @@
-/*
- * Keep an open dialog above the on-screen keyboard.
- *
- * iOS Safari (and Chrome on Android since 108) don't shrink the layout
- * viewport when the keyboard opens; only the visual viewport shrinks, and
- * position:fixed elements stay anchored to the layout viewport behind the
- * keyboard. Safari normally pans the page to reveal the focused field, but
- * Quasar's iOS scroll lock (preventScroll's onAppleResize) scrolls the page
- * back while a dialog is open, so a bottom sheet's fields stayed under the
- * keyboard.
- *
- * While the keyboard is up this pins each dialog to the visual viewport via
- * --wiz-vv-top / --wiz-vv-bottom / --wiz-vv-height on <html> (the
- * html.wiz-kb-open rules in styles.css read them), then scrolls the focused
- * field into view inside the dialog card.
- */
+/* iOS Safari (and Android Chrome 108+) leave position:fixed on the layout viewport behind the keyboard, and
+   Quasar's iOS scroll lock undoes Safari's pan, so dialogs are pinned to the visual viewport via --wiz-vv-*. */
 (function () {
   if (window.__wizDialogKeyboard) return;
   window.__wizDialogKeyboard = true;
@@ -21,16 +7,20 @@
   var vv = window.visualViewport;
   if (!vv) return;
 
-  // A keyboard (or its accessory bar) takes well over this; browser toolbars
-  // sliding in and out take less.
+  // A keyboard (or its accessory bar) takes well over this; toolbars sliding in and out take less.
   var KEYBOARD_MIN = 120;
   var root = document.documentElement;
   var probe = null;
   var pending = false;
   var open = false;
+  var standalone = window.matchMedia && window.matchMedia('(display-mode: standalone)').matches;
+  // A toolbar-sized shortfall; anything bigger is a real resize, not the bug.
+  var STANDALONE_GAP_MAX = 160;
+  var tallest = 0;
+  var tallestWidth = 0;
+  var gap = 0;
 
-  // The box a position:fixed element is laid out against. innerHeight and
-  // clientHeight each disagree with it on iOS depending on toolbar state.
+  // innerHeight and clientHeight each disagree with the fixed-layout box on iOS, depending on toolbar state.
   function layoutHeight() {
     if (!probe) {
       probe = document.createElement('div');
@@ -62,7 +52,9 @@
     pending = false;
     var full = layoutHeight();
     var kb = full - vv.height;
-    var next = dialogOpen() && vv.scale < 1.01 && kb > KEYBOARD_MIN;
+    var up = vv.scale < 1.01 && kb > KEYBOARD_MIN;
+    if (standalone) pinStandalone(full, up);
+    var next = dialogOpen() && up;
     if (next) {
       var top = Math.max(0, vv.offsetTop);
       var bottom = Math.max(0, full - vv.offsetTop - vv.height);
@@ -82,6 +74,20 @@
     if (open) requestAnimationFrame(revealFocused);
   }
 
+  function pinStandalone(full, up) {
+    if (window.innerWidth !== tallestWidth) {
+      tallestWidth = window.innerWidth;
+      tallest = 0;
+    }
+    tallest = Math.max(tallest, full);
+    var short = tallest - full;
+    var next = !up && short > 0 && short <= STANDALONE_GAP_MAX ? short : 0;
+    if (next === gap) return;
+    gap = next;
+    if (gap) root.style.setProperty('--wiz-standalone-gap', gap + 'px');
+    else root.style.removeProperty('--wiz-standalone-gap');
+  }
+
   function schedule() {
     if (pending) return;
     pending = true;
@@ -90,8 +96,8 @@
 
   vv.addEventListener('resize', schedule);
   vv.addEventListener('scroll', schedule);
-  // The keyboard can already be up when focus moves between fields, and a
-  // dialog can close with it still up; neither resizes the viewport.
+  if (standalone) window.addEventListener('scroll', schedule, { passive: true });
+  // Focus can move between fields with the keyboard up, and a dialog can close with it up; neither resizes the viewport.
   document.addEventListener('focusin', schedule);
   document.addEventListener('focusout', function () { setTimeout(schedule, 0); });
   new MutationObserver(function () { if (open || dialogOpen()) schedule(); })

@@ -19,6 +19,7 @@ or cached artifact, or a notification rendered for someone else. See
 ``docs/timezone-handling.md``.
 """
 
+import re
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Optional, Union
 from zoneinfo import ZoneInfo
@@ -27,12 +28,11 @@ from application.timezone_context import (
     FALLBACK_TIMEZONE,
     current_timezone,
     get_zone,
+    hour_cycle_scope,
     is_valid_timezone,
+    uses_12_hour,
 )
 
-# The app's historical fixed zone. Retained as a named constant because a few
-# call sites legitimately need *this specific* zone rather than the viewer's:
-# the fallback when nothing resolves, and tests asserting the default.
 EASTERN_TZ = ZoneInfo(FALLBACK_TIMEZONE)
 
 TzArg = Optional[Union[str, ZoneInfo]]
@@ -122,10 +122,7 @@ def parse_local_datetime(date_str: str, time_str: str, tz: TzArg = None) -> date
 
     local_dt = naive_dt.replace(tzinfo=zone)
 
-    # A nonexistent wall clock is detectable by round-tripping: for a real time,
-    # UTC → back to the zone reproduces the same wall clock. Inside a spring-
-    # forward gap it does not, because the zone maps the gap onto a different
-    # instant than the one the naive value names.
+    # The round-trip detects a spring-forward gap: a nonexistent wall clock won't reproduce itself.
     if local_dt.astimezone(timezone.utc).astimezone(zone).replace(tzinfo=None) != naive_dt:
         raise ValueError(
             f"{date_str} {time_str} does not exist in {zone.key} — "
@@ -195,13 +192,42 @@ def to_utc_aware(dt: datetime) -> datetime:
     return dt.astimezone(timezone.utc)
 
 
+_CLOCK = re.compile(r'%H:%M(:%S)?')
+
+
+def _clock_12(local: datetime, fmt: str) -> str:
+    """``fmt`` with each ``%H:%M`` (and ``%H:%M:%S``) spelled as ``9:30 PM``.
+
+    The hour and suffix are built here rather than with ``%-I``/``%p``: ``%-I``
+    is glibc-only and ``%p`` follows the process locale. A no-break space keeps
+    ``PM`` from wrapping onto a line of its own.
+    """
+    hour = str(local.hour % 12 or 12)
+    suffix = 'AM' if local.hour < 12 else 'PM'
+    return _CLOCK.sub(lambda m: f"{hour}:%M{m.group(1) or ''}\u00a0{suffix}", fmt)
+
+
+def strftime_local(local: datetime, fmt: str) -> str:
+    """``local.strftime(fmt)`` on the viewer's 12- or 24-hour clock.
+
+    For a datetime already on the right wall clock. Only display formats go
+    through here: a value for a native ``<input type=time>`` must stay ``%H:%M``.
+    """
+    if uses_12_hour() and 'T%H' not in fmt:
+        fmt = _clock_12(local, fmt)
+    return local.strftime(fmt)
+
+
 def format_local_datetime(
     dt: Optional[datetime], fmt: str = "%Y-%m-%d %H:%M", tz: TzArg = None
 ) -> str:
-    """Format a datetime on the display clock. ``''`` when ``dt`` is None."""
+    """Format a datetime on the display clock. ``''`` when ``dt`` is None.
+
+    ``%H:%M`` follows the viewer's 12/24-hour choice (``9:30 PM`` or ``21:30``).
+    """
     if dt is None:
         return ''
-    return to_local(dt, tz).strftime(fmt)
+    return strftime_local(to_utc_aware(dt).astimezone(_resolve(tz)), fmt)
 
 
 def format_local_date(dt: Optional[Union[datetime, date]], tz: TzArg = None) -> str:
@@ -219,8 +245,29 @@ def format_local_date(dt: Optional[Union[datetime, date]], tz: TzArg = None) -> 
 
 
 def format_local_time(dt: Optional[datetime], tz: TzArg = None) -> str:
-    """Format the time portion on the display clock, ``HH:MM`` (24-hour)."""
+    """Format the time portion on the display clock, ``21:30`` or ``9:30 PM``."""
     return format_local_datetime(dt, "%H:%M", tz)
+
+
+def input_time(dt: Optional[datetime], tz: TzArg = None) -> str:
+    """``HH:MM`` on the display clock for a native ``<input type=time>`` value.
+
+    Always 24-hour, whatever the viewer reads: the input wants ``21:30`` and
+    shows it in the browser's own format.
+    """
+    if dt is None:
+        return ''
+    return to_utc_aware(dt).astimezone(_resolve(tz)).strftime("%H:%M")
+
+
+def format_local_hour(dt: Optional[datetime], tz: TzArg = None) -> str:
+    """An hour-scale axis label: ``21:00``, or ``9 PM`` on a 12-hour clock."""
+    if dt is None:
+        return ''
+    local = to_utc_aware(dt).astimezone(_resolve(tz))
+    if uses_12_hour():
+        return f"{local.hour % 12 or 12}\u00a0{'AM' if local.hour < 12 else 'PM'}"
+    return local.strftime("%H:%M")
 
 
 def format_local_time_range(
@@ -245,7 +292,19 @@ def format_local_display(dt: Optional[datetime], tz: TzArg = None) -> str:
     """
     if dt is None:
         return ''
-    return to_local(dt, tz).strftime("%Y-%m-%d %H:%M %Z")
+    return strftime_local(to_utc_aware(dt).astimezone(_resolve(tz)), "%Y-%m-%d %H:%M %Z")
+
+
+def format_local_short(dt: Optional[datetime], tz: TzArg = None) -> str:
+    """A compact stamp for a busy cell, ``Oct 20 23:59``: no year, no zone.
+
+    Only for surfaces that state the zone once nearby (a caption or header),
+    since a bare time is otherwise ambiguous.
+    """
+    if dt is None:
+        return ''
+    month, day, clock = format_local_datetime(dt, "%b %d %H:%M", tz).split(maxsplit=2)
+    return f"{month} {int(day)} {clock}"
 
 
 def timezone_label(tz: TzArg = None, at: Optional[datetime] = None) -> str:
@@ -257,3 +316,25 @@ def timezone_label(tz: TzArg = None, at: Optional[datetime] = None) -> str:
     zone = _resolve(tz)
     moment = (at or datetime.now(timezone.utc)).astimezone(zone)
     return moment.strftime("%Z")
+
+
+_DISCORD_TIME = re.compile(r'<t:(\d{1,12})(?::[tTdDfFR])?>')
+_DISCORD_TIME_PAIR = re.compile(r'<t:(\d{1,12}):[tTdDfF]> · <t:\1:R>')
+
+
+def readable_discord_times(text: str, tz: TzArg = None) -> str:
+    """Discord's ``<t:…>`` timestamp markup as plain local times.
+
+    For every copy of a DM that isn't Discord (device, email and Telegram
+    notifications, the Sent messages log), which would otherwise show the raw
+    ``<t:1792593000:F>``. A time with its countdown becomes the one time.
+    """
+    if '<t:' not in (text or ''):
+        return text or ''
+    text = _DISCORD_TIME_PAIR.sub(r'<t:\1:F>', text)
+    # Always 12-hour: a copy rendered inside a staff UI handler would otherwise get their clock.
+    with hour_cycle_scope(True):
+        return _DISCORD_TIME.sub(
+            lambda m: format_local_display(datetime.fromtimestamp(int(m.group(1)), timezone.utc), tz),
+            text,
+        )

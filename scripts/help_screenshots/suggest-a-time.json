@@ -1,0 +1,67 @@
+[
+  {
+    "name": "suggest-phone",
+    "user": "player_one",
+    "path": "/home/my-schedule",
+    "setup": [
+      {
+        "click": ".wiz-subcard:has-text('Waiting on you to pick a time') >> button:has-text('Pick a time')"
+      },
+      {
+        "waitFor": ".q-dialog .q-card"
+      },
+      {
+        "click": ".q-dialog button:has-text('Suggest a time')"
+      },
+      {
+        "wait": 1200
+      }
+    ],
+    "selector": ".q-dialog .q-card",
+    "padding": 0,
+    "annotate": [
+      {
+        "selector": ".q-dialog button:has-text('Suggest a time')",
+        "n": 1
+      }
+    ]
+  },
+  {
+    "name": "check-this-time-phone",
+    "user": "player_one",
+    "path": "/home/my-schedule",
+    "setup": [
+      {
+        "click": ".wiz-subcard:has-text('Waiting on you to pick a time') >> button:has-text('Pick a time')"
+      },
+      {
+        "waitFor": ".q-dialog .q-card"
+      },
+      {
+        "fill": ".q-dialog input[type=time]",
+        "value": "23:30"
+      },
+      {
+        "click": ".q-dialog button:has-text('Schedule') >> nth=-1"
+      },
+      {
+        "waitFor": ".q-dialog:has-text('Check this time') .q-card"
+      },
+      {
+        "wait": 800
+      }
+    ],
+    "selector": ".q-dialog:has-text('Check this time') .q-card",
+    "padding": 0,
+    "annotate": [
+      {
+        "selector": ".q-dialog:has-text('Check this time') button:has-text('Change time')",
+        "n": 1
+      },
+      {
+        "selector": ".q-dialog:has-text('Check this time') button:has-text('Schedule anyway')",
+        "n": 2
+      }
+    ]
+  }
+]

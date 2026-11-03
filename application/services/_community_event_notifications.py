@@ -11,7 +11,17 @@ from datetime import datetime, timezone
 from typing import Iterable, Optional
 
 from application.services import staff_request_dms
-from models import CommunityEvent, Role, StaffRequestKind, User
+from application.services.notification_catalog import (
+    EVENT_APPROVED,
+    EVENT_CANCELLED,
+    EVENT_MOVED,
+    EVENT_POSTED_FOR_YOU,
+    EVENT_REJECTED,
+    FOLLOWERS,
+    MEMBERS,
+    NoticeTarget,
+)
+from models import CommunityEvent, CommunityEventStatus, Role, StaffRequestKind, User
 
 logger = logging.getLogger(__name__)
 
@@ -47,13 +57,13 @@ def format_duration(minutes: int) -> str:
     return f'{hours}h' if hours else f'{mins}m'
 
 
-async def _send(recipients: Iterable[User], message: str, embed, link) -> None:
+async def _send(recipients: Iterable[User], message: str, embed, link, notice: NoticeTarget) -> None:
     from application.services.discord import DiscordService, discord_queue
 
     service = DiscordService()
     for user in recipients:
         if _wants_dm(user):
-            discord_queue.enqueue(service.send_dm(int(user.discord_id), message, embed=embed, link=link))
+            discord_queue.enqueue(service.send_dm(int(user.discord_id), message, embed=embed, link=link, notice=notice))
 
 
 async def notify_staff_of_submission(event: CommunityEvent, host: User) -> None:
@@ -67,10 +77,10 @@ async def notify_staff_of_submission(event: CommunityEvent, host: User) -> None:
 
         community = await TenantService.current_community_name()
         message = submitted_to_staff_dm(community, host.preferred_name, event.title)
-        embed = event_embed(event, title='📅 Community event to review', color=COLOR_JOIN_REQUEST,
+        embed = event_embed(event, title='📅 Meetup to review', color=COLOR_JOIN_REQUEST,
                             community_name=community, description=message)
         link = await notification_links.admin_community_event(event.id)
-        staff = [u for u in await UserRoleRepository.list_users_with_role(Role.STAFF) if u.id != host.id]
+        staff = [u for u in await UserRoleRepository.list_users_with_role(Role.STAFF, active_only=True) if u.id != host.id]
         await staff_request_dms.send(StaffRequestKind.COMMUNITY_EVENT, event.id, staff, message,
                                      embed=embed, link=link)
     except Exception:
@@ -141,16 +151,36 @@ async def notify_host_of_decision(event: CommunityEvent, host: User, *, approved
         community = await TenantService.current_community_name()
         if approved:
             message = approved_dm(community, event.title, event.rsvp_enabled)
-            title, color = '✅ Community event approved', COLOR_CONFIRMED
+            title, color = '✅ Meetup approved', COLOR_CONFIRMED
             link = await notification_links.community_event(event.id)
         else:
             message = rejected_dm(community, event.title, event.review_note or '', was_listed)
-            title, color = '📅 Community event not listed', COLOR_CANCELLED
+            title, color = '📅 Meetup not listed', COLOR_CANCELLED
             link = await notification_links.community_event(event.id, label='Edit the event')
         embed = event_embed(event, title=title, color=color, community_name=community, description=message)
-        await _send([host], message, embed, link)
+        await _send([host], message, embed, link, (EVENT_APPROVED if approved else EVENT_REJECTED).to(MEMBERS))
     except Exception:
         logger.exception('community event %s: host notification failed', event.id)
+
+
+async def notify_host_of_handover(event: CommunityEvent, host: User, actor: User, *,
+                                  new_event: bool) -> None:
+    """Tell a member staff made them the host of ``event``."""
+    try:
+        from application.services import notification_links
+        from application.services.tenant_service import TenantService
+        from application.utils.discord_embeds import COLOR_CONFIRMED
+        from application.utils.discord_messages_community_events import handed_over_dm
+
+        community = await TenantService.current_community_name()
+        message = handed_over_dm(community, actor.preferred_name, event.title, new_event=new_event,
+                                 listed=event.status is CommunityEventStatus.APPROVED)
+        embed = event_embed(event, title="📅 You're hosting a meetup", color=COLOR_CONFIRMED,
+                            community_name=community, description=message)
+        link = await notification_links.community_event(event.id)
+        await _send([host], message, embed, link, EVENT_POSTED_FOR_YOU.to(MEMBERS))
+    except Exception:
+        logger.exception('community event %s: handover notification failed', event.id)
 
 
 async def notify_subscribers(event: CommunityEvent, subscribers: Iterable[User], *,
@@ -165,12 +195,12 @@ async def notify_subscribers(event: CommunityEvent, subscribers: Iterable[User],
         community = await TenantService.current_community_name()
         if cancelled:
             message = cancelled_dm(event.title)
-            title, color = '🚫 Community event cancelled', COLOR_CANCELLED
+            title, color = '🚫 Meetup cancelled', COLOR_CANCELLED
         else:
             message = time_changed_dm(event.title, time_field(event.starts_at))
-            title, color = '🕑 Community event moved', COLOR_RESCHEDULED
+            title, color = '🕑 Meetup moved', COLOR_RESCHEDULED
         embed = event_embed(event, title=title, color=color, community_name=community, description=message)
         link = await notification_links.community_event(event.id)
-        await _send(subscribers, message, embed, link)
+        await _send(subscribers, message, embed, link, (EVENT_CANCELLED if cancelled else EVENT_MOVED).to(FOLLOWERS))
     except Exception:
         logger.exception('community event %s: subscriber notification failed', event.id)

@@ -33,6 +33,7 @@ from application.feature_flags import requires_feature
 from application.repositories import MatcherinoLoginRepository
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
+from application.services.notification_catalog import MATCHERINO_REFUSED, STAFF
 from application.utils.clients.matcherino_client import (
     MAX_REFRESH_TOKEN_LENGTH,
     MatcherinoAPIError,
@@ -147,7 +148,7 @@ class MatcherinoLoginService:
         await AuthService.ensure(await AuthService.can_manage_check_in(actor), _STAFF_DENIED)
         from application.repositories.user_role_repository import UserRoleRepository
 
-        staff = await UserRoleRepository.list_users_with_role(Role.STAFF)
+        staff = await UserRoleRepository.list_users_with_role(Role.STAFF, active_only=True)
         return sorted((u for u in staff if not u.is_system), key=lambda u: u.preferred_name.lower())
 
     @requires_feature(FeatureFlag.EVENT_CHECK_IN)
@@ -201,4 +202,4 @@ class MatcherinoLoginService:
             community_name=community, description=body,
         )
         link = await notification_links.admin_matcherino_login()
-        discord_queue.enqueue(DiscordService().send_dm(int(recipient.discord_id), body, embed=embed, link=link))
+        discord_queue.enqueue(DiscordService().send_dm(int(recipient.discord_id), body, embed=embed, link=link, notice=MATCHERINO_REFUSED.to(STAFF)))

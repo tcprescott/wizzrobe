@@ -1,0 +1,10 @@
+services:
+  mediamtx:
+    image: bluenviron/mediamtx:1.9.3
+    restart: unless-stopped
+    volumes:
+      - ./mediamtx.yml:/mediamtx.yml:ro
+    ports:
+      - "8890:8890/udp"   # SRT in from OBS
+      - "8889:8889/tcp"   # WebRTC signalling (WHEP) and MediaMTX's own player page
+      - "8189:8189/udp"   # WebRTC media

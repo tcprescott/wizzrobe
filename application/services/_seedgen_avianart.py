@@ -69,7 +69,6 @@ async def _poll_until_built(session: aiohttp.ClientSession, name: str, seed_hash
         if status == 'finished':
             return result
         if status == 'failure':
-            # An unknown preset name is accepted by generate and fails here.
             raise SeedProviderInvalidRequest(
                 f'AVIANART could not build a "{name}" seed. Check the preset name on avianart.games.',
                 provider='avianart', operation='generate_seed',
@@ -88,7 +87,7 @@ async def generate_avianart(settings: Optional[dict]) -> RolledSeed:
     except ValueError as e:
         raise SeedProviderInvalidRequest(str(e), provider='avianart', operation='generate_seed') from None
 
-    async with aiohttp.ClientSession() as session:
+    async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=120)) as session:
         async with session.post(
             AVIANART_API, params={'action': 'generate', 'preset': name},
             json=[{'args': {'race': True}}],

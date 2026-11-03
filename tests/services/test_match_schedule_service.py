@@ -5,6 +5,16 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from application.services.match.match_schedule_service import MatchScheduleService
+from application.services.notification_catalog import (
+    FOLLOWERS,
+    MATCH_CHECKED_IN,
+    MATCH_CONFIRMED,
+    MATCH_FINISHED,
+    MATCH_SCHEDULED,
+    MATCH_STARTED,
+    PLAYERS,
+    WATCHERS,
+)
 from application.utils.discord_messages import (
     _players_label,
     checked_in_dm,
@@ -13,6 +23,7 @@ from application.utils.discord_messages import (
     state_changed_dm,
     stream_candidate_dm,
 )
+from models import NotificationMode
 from tests.factories import make_audit_double
 
 
@@ -78,26 +89,29 @@ class MockMatch:
         self.tournament = MockTournament(is_racetime_enabled=is_racetime_enabled)
         self.players = players if players is not None else []
         self.stage = stage
-        # The dispute flag: confirm_match clears it (and audits the clear), so a
-        # stand-in without this attribute would hide that half of confirming.
         self.needs_review = needs_review
         self.save = AsyncMock()
         self.fetch_related = AsyncMock()
         self.refresh_from_db = AsyncMock()
 
 
-def mock_players(*names, ranks=None):
+def mock_players(*names, ranks=None, stations=None):
     """MatchPlayers stand-ins.
 
-    The DM builders read ``user.preferred_name``; ``confirm_match`` reads
-    ``finish_rank`` to decide whether a result was ever recorded, so both are
-    present. ``ranks=None`` means no result recorded yet.
+    The DM builders read ``user.preferred_name`` and ``assigned_station``;
+    ``confirm_match`` reads ``finish_rank`` to decide whether a result was ever
+    recorded. ``ranks=None`` means no result recorded yet, ``stations=None`` no
+    seats assigned. Discord ids run 101, 102, ...
     """
     names = names or ("Alice", "Bob")
     ranks = ranks if ranks is not None else [None] * len(names)
+    stations = stations if stations is not None else [None] * len(names)
     return [
-        SimpleNamespace(user=SimpleNamespace(preferred_name=n), finish_rank=r)
-        for n, r in zip(names, ranks, strict=False)
+        SimpleNamespace(
+            user=SimpleNamespace(preferred_name=n, discord_id=101 + i),
+            finish_rank=r, assigned_station=st,
+        )
+        for i, (n, r, st) in enumerate(zip(names, ranks, stations, strict=False))
     ]
 
 
@@ -111,13 +125,50 @@ def service():
     svc.match_repository.stamp_if_unset = AsyncMock(return_value=True)
     svc.discord_service = MagicMock()
     svc.seedgen_service = MagicMock()
-    svc._seed_locks = {}
     svc.audit_service = make_audit_double()
     svc.notify_match_participants = AsyncMock()
     return svc
 
 
 class TestSeatMatch:
+    async def test_dm_carries_seats_and_each_players_own(self, service):
+        match = MockMatch(players=mock_players(stations=["A1", "A2"]))
+        with patch(
+            'application.services.match.match_schedule_service.bracket_line_for',
+            AsyncMock(return_value=''),
+        ), patch(
+            'application.services.match.match_schedule_service._community_name',
+            AsyncMock(return_value='SGL'),
+        ):
+            await service.seat_match(match)
+
+        args = service.notify_match_participants.call_args
+        text, embed = args.args[1], args.args[2]
+        assert "Seats: Alice: A1 · Bob: A2" in text
+        assert "Your seat" not in text
+        assert [f.name for f in embed.fields][-1] == 'Seats'
+
+        copies = args.kwargs['player_copies']
+        alice_text, alice_embed = copies[101]
+        assert "Your seat: **A1**" in alice_text
+        assert (alice_embed.fields[0].name, alice_embed.fields[0].value) == ('Your seat', '**A1**')
+        assert "**A2**" in copies[102][0]
+
+    async def test_no_seats_no_seat_lines(self, service):
+        match = MockMatch(players=mock_players())
+        with patch(
+            'application.services.match.match_schedule_service.bracket_line_for',
+            AsyncMock(return_value=''),
+        ), patch(
+            'application.services.match.match_schedule_service._community_name',
+            AsyncMock(return_value='SGL'),
+        ):
+            await service.seat_match(match)
+
+        args = service.notify_match_participants.call_args
+        assert "Seat" not in args.args[1]
+        assert args.kwargs['player_copies'] == {}
+
     async def test_sets_seated_at(self, service):
         match = MockMatch(players=mock_players())
         await service.seat_match(match)
@@ -195,6 +246,11 @@ class TestStartMatch:
         await service.start_match(match)
         assert match.seated_at == seated
 
+    async def test_dm_is_the_match_started_notice(self, service):
+        await service.start_match(MockMatch(seated_at=datetime.now()))
+        kwargs = service.notify_match_participants.call_args.kwargs
+        assert kwargs == {'notice': MATCH_STARTED, 'player_copies': None, 'seed_ready_buttons': False}
+
 
 class TestFinishMatch:
     async def test_sets_finished_at(self, service):
@@ -209,6 +265,12 @@ class TestFinishMatch:
         await service.finish_match(match)
         service.match_repository.stamp_if_unset.assert_awaited_once()
 
+    async def test_dm_is_the_match_finished_notice(self, service):
+        now = datetime.now()
+        await service.finish_match(MockMatch(seated_at=now, started_at=now))
+        kwargs = service.notify_match_participants.call_args.kwargs
+        assert kwargs == {'notice': MATCH_FINISHED, 'player_copies': None, 'seed_ready_buttons': False}
+
     async def test_raises_if_not_started(self, service):
         match = MockMatch()
         with pytest.raises(ValueError, match="started before finishing"):
@@ -221,7 +283,6 @@ class TestFinishMatch:
             await service.finish_match(match)
 
     async def test_does_not_require_confirmed_at_to_be_none(self, service):
-        # confirmed_at is irrelevant to finish check
         now = datetime.now()
         match = MockMatch(seated_at=now, started_at=now)
         await service.finish_match(match)
@@ -247,6 +308,11 @@ class TestConfirmMatch:
         match = self._played_out()
         await service.confirm_match(match)
         service.match_repository.stamp_if_unset.assert_awaited_once()
+
+    async def test_dm_is_the_result_confirmed_notice(self, service):
+        await service.confirm_match(self._played_out())
+        kwargs = service.notify_match_participants.call_args.kwargs
+        assert kwargs == {'notice': MATCH_CONFIRMED, 'player_copies': None, 'seed_ready_buttons': False}
 
     async def test_raises_if_not_finished(self, service):
         match = MockMatch()
@@ -293,8 +359,6 @@ class TestFullLifecycle:
         await service.seat_match(match)
         await service.start_match(match)
         await service.finish_match(match)
-        # Recording the winner sits between finishing and confirming; without it
-        # confirm_match refuses (see TestConfirmMatch).
         match.players[0].finish_rank = 1
         match.players[1].finish_rank = 2
         await service.confirm_match(match)
@@ -356,12 +420,12 @@ class TestNotifyTournamentSubscribersScheduled:
         with patch('application.repositories.TournamentNotificationRepository', return_value=mock_repo):
             await service.notify_tournament_subscribers_scheduled(match, "msg", [])
 
-        # link=None here only because no tenant resolves in this unit fixture;
-        # the kwarg must still be passed, since it is what carries the DM's way
-        # back into the app.
+        # link=None only because no tenant resolves here; the kwarg must still be passed.
         service.discord_service.send_dm_with_crew_buttons.assert_awaited_once_with(
             999, "msg", match.id, embed=None, link=None,
+            notice=MATCH_SCHEDULED.to(FOLLOWERS), broadcaster=False,
         )
+        assert MATCH_SCHEDULED.to(FOLLOWERS).default is NotificationMode.SILENT
 
     async def test_excludes_already_notified_discord_ids(self, service):
         match = MockMatch()
@@ -404,7 +468,6 @@ class TestNotifyTournamentSubscribersScheduled:
     async def test_swallows_exception_without_raising(self, service):
         match = MockMatch()
         with patch('application.repositories.TournamentNotificationRepository', side_effect=Exception("db error")):
-            # Should not raise
             await service.notify_tournament_subscribers_scheduled(match, "msg", [])
 
 
@@ -480,7 +543,6 @@ class TestNotifyMatchScheduled:
         assert subs_args[0] is match
         assert subs_args[2] == [111]
         service.notify_stream_candidate_subscribers.assert_not_called()
-        # Ack, crew, subscribers, plus the harder-settings offer.
         assert enqueue.call_count == 4
 
     async def test_stream_candidate_enqueued_when_flagged(self, service):
@@ -531,12 +593,12 @@ class TestCollectNotifiedDiscordIds:
         match = MockMatch()
         player = SimpleNamespace(user=SimpleNamespace(discord_id=111))
         commentator = SimpleNamespace(user=SimpleNamespace(discord_id=222))
-        # Tracker shares the commentator's id — should be deduped away.
         tracker = SimpleNamespace(user=SimpleNamespace(discord_id=222))
 
         with self._patch_query('application.services.match._match_recipients.MatchPlayers.filter', [player]), \
              self._patch_query('application.services.match._match_recipients.Commentator.filter', [commentator]), \
-             self._patch_query('application.services.match._match_recipients.Tracker.filter', [tracker]):
+             self._patch_query('application.services.match._match_recipients.Tracker.filter', [tracker]), \
+             self._patch_query('application.services.match._match_recipients.Broadcaster.filter', []):
             ids = await service._collect_notified_discord_ids(match)
 
         assert ids == [111, 222]
@@ -598,10 +660,11 @@ class TestNotifyMatchParticipants:
         with self._patch_query('application.services.match._match_recipients.MatchPlayers.filter', [player]), \
              self._patch_query('application.services.match._match_recipients.Commentator.filter', []), \
              self._patch_query('application.services.match._match_recipients.Tracker.filter', []), \
+             self._patch_query('application.services.match._match_recipients.Broadcaster.filter', []), \
              self._patch_query('application.services.match._match_recipients.MatchWatcher.filter', []):
-            await real_notify_service.notify_match_participants(match, "hello")
+            await real_notify_service.notify_match_participants(match, "hello", notice=MATCH_CHECKED_IN)
 
-        real_notify_service.discord_service.send_dm.assert_awaited_once_with(111, "hello", embed=None, link=None)
+        real_notify_service.discord_service.send_dm.assert_awaited_once_with(111, "hello", embed=None, link=None, notice=MATCH_CHECKED_IN.to(PLAYERS))
         real_notify_service.discord_service.send_dm_with_unwatch_button.assert_not_awaited()
 
     async def test_watcher_only_gets_unwatch_button_dm(self, real_notify_service):
@@ -611,11 +674,12 @@ class TestNotifyMatchParticipants:
         with self._patch_query('application.services.match._match_recipients.MatchPlayers.filter', []), \
              self._patch_query('application.services.match._match_recipients.Commentator.filter', []), \
              self._patch_query('application.services.match._match_recipients.Tracker.filter', []), \
+             self._patch_query('application.services.match._match_recipients.Broadcaster.filter', []), \
              self._patch_query('application.services.match._match_recipients.MatchWatcher.filter', [watcher]):
-            await real_notify_service.notify_match_participants(match, "hello")
+            await real_notify_service.notify_match_participants(match, "hello", notice=MATCH_CHECKED_IN)
 
         real_notify_service.discord_service.send_dm.assert_not_awaited()
-        real_notify_service.discord_service.send_dm_with_unwatch_button.assert_awaited_once_with(222, "hello", match.id, embed=None, link=None)
+        real_notify_service.discord_service.send_dm_with_unwatch_button.assert_awaited_once_with(222, "hello", match.id, embed=None, link=None, notice=MATCH_CHECKED_IN.to(WATCHERS))
 
     async def test_player_who_is_also_watcher_gets_unwatch_button(self, real_notify_service):
         match = MockMatch()
@@ -626,11 +690,50 @@ class TestNotifyMatchParticipants:
         with self._patch_query('application.services.match._match_recipients.MatchPlayers.filter', [player]), \
              self._patch_query('application.services.match._match_recipients.Commentator.filter', []), \
              self._patch_query('application.services.match._match_recipients.Tracker.filter', []), \
+             self._patch_query('application.services.match._match_recipients.Broadcaster.filter', []), \
              self._patch_query('application.services.match._match_recipients.MatchWatcher.filter', [watcher]):
-            await real_notify_service.notify_match_participants(match, "hello")
+            await real_notify_service.notify_match_participants(match, "hello", notice=MATCH_CHECKED_IN)
 
         real_notify_service.discord_service.send_dm.assert_not_awaited()
-        real_notify_service.discord_service.send_dm_with_unwatch_button.assert_awaited_once_with(333, "hello", match.id, embed=None, link=None)
+        real_notify_service.discord_service.send_dm_with_unwatch_button.assert_awaited_once_with(333, "hello", match.id, embed=None, link=None, notice=MATCH_CHECKED_IN.to(PLAYERS))
+
+    async def test_each_audience_gets_its_own_target_of_the_notice(self, real_notify_service):
+        match = MockMatch()
+        player = SimpleNamespace(user=SimpleNamespace(discord_id=111, dm_notifications=True))
+        watcher = SimpleNamespace(user=SimpleNamespace(discord_id=222, dm_notifications=True))
+
+        with self._patch_query('application.services.match._match_recipients.MatchPlayers.filter', [player]), \
+             self._patch_query('application.services.match._match_recipients.Commentator.filter', []), \
+             self._patch_query('application.services.match._match_recipients.Tracker.filter', []), \
+             self._patch_query('application.services.match._match_recipients.Broadcaster.filter', []), \
+             self._patch_query('application.services.match._match_recipients.MatchWatcher.filter', [watcher]):
+            await real_notify_service.notify_match_participants(match, "hello", notice=MATCH_STARTED)
+
+        real_notify_service.discord_service.send_dm.assert_awaited_once_with(
+            111, "hello", embed=None, link=None, notice=MATCH_STARTED.to(PLAYERS),
+        )
+        real_notify_service.discord_service.send_dm_with_unwatch_button.assert_awaited_once_with(
+            222, "hello", match.id, embed=None, link=None, notice=MATCH_STARTED.to(WATCHERS),
+        )
+        assert MATCH_STARTED.to(PLAYERS).default is NotificationMode.OFF
+        assert MATCH_STARTED.to(WATCHERS).default is NotificationMode.SILENT
+
+    async def test_a_player_copy_replaces_the_shared_dm_for_that_player(self, real_notify_service):
+        match = MockMatch()
+        player = SimpleNamespace(user=SimpleNamespace(discord_id=111, dm_notifications=True))
+        watcher = SimpleNamespace(user=SimpleNamespace(discord_id=222, dm_notifications=True))
+
+        with self._patch_query('application.services.match._match_recipients.MatchPlayers.filter', [player]), \
+             self._patch_query('application.services.match._match_recipients.Commentator.filter', []), \
+             self._patch_query('application.services.match._match_recipients.Tracker.filter', []), \
+             self._patch_query('application.services.match._match_recipients.Broadcaster.filter', []), \
+             self._patch_query('application.services.match._match_recipients.MatchWatcher.filter', [watcher]):
+            await real_notify_service.notify_match_participants(
+                match, "hello", notice=MATCH_CHECKED_IN, player_copies={111: ("your seat A1", None)},
+            )
+
+        real_notify_service.discord_service.send_dm.assert_awaited_once_with(111, "your seat A1", embed=None, link=None, notice=MATCH_CHECKED_IN.to(PLAYERS))
+        real_notify_service.discord_service.send_dm_with_unwatch_button.assert_awaited_once_with(222, "hello", match.id, embed=None, link=None, notice=MATCH_CHECKED_IN.to(WATCHERS))
 
     async def test_discord_off_still_reaches_send_dm(self, real_notify_service):
         match = MockMatch()
@@ -639,14 +742,15 @@ class TestNotifyMatchParticipants:
         with self._patch_query('application.services.match._match_recipients.MatchPlayers.filter', [opted_out]), \
              self._patch_query('application.services.match._match_recipients.Commentator.filter', []), \
              self._patch_query('application.services.match._match_recipients.Tracker.filter', []), \
+             self._patch_query('application.services.match._match_recipients.Broadcaster.filter', []), \
              self._patch_query('application.services.match._match_recipients.MatchWatcher.filter', []):
-            await real_notify_service.notify_match_participants(match, "hello")
+            await real_notify_service.notify_match_participants(match, "hello", notice=MATCH_CHECKED_IN)
 
         # Discord off only drops the Discord copy, inside send_dm; devices still need the call.
         real_notify_service.discord_service.send_dm.assert_awaited_once()
 
     async def test_each_recipient_gets_exactly_one_dm(self, real_notify_service):
-        match = MockMatch()
+        match = MockMatch(stage_id=1)
         player_user = SimpleNamespace(discord_id=111, dm_notifications=True)
         crew_user = SimpleNamespace(discord_id=222, dm_notifications=True)
         watcher_user = SimpleNamespace(discord_id=333, dm_notifications=True)
@@ -656,9 +760,10 @@ class TestNotifyMatchParticipants:
              self._patch_query('application.services.match._match_recipients.Commentator.filter',
                                [SimpleNamespace(user=crew_user)]), \
              self._patch_query('application.services.match._match_recipients.Tracker.filter', []), \
+             self._patch_query('application.services.match._match_recipients.Broadcaster.filter', []), \
              self._patch_query('application.services.match._match_recipients.MatchWatcher.filter',
                                [SimpleNamespace(user=watcher_user)]):
-            await real_notify_service.notify_match_participants(match, "msg")
+            await real_notify_service.notify_match_participants(match, "msg", notice=MATCH_CHECKED_IN)
 
         assert real_notify_service.discord_service.send_dm.await_count == 2
         assert real_notify_service.discord_service.send_dm_with_unwatch_button.await_count == 1

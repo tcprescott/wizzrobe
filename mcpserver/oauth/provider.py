@@ -63,8 +63,6 @@ class WizzrobeOAuthProvider(
     def __init__(self) -> None:
         self.service = McpAuthService()
 
-    # --- Client registration ---------------------------------------------
-
     async def get_client(self, client_id: str) -> Optional[OAuthClientInformationFull]:
         client = await self.service.get_client(client_id)
         if client is None:
@@ -75,11 +73,7 @@ class WizzrobeOAuthProvider(
             redirect_uris=list(client.redirect_uris or []),
             grant_types=list(client.grant_types or []),
             response_types=list(client.response_types or []),
-            # Every client is public: no secret is stored, PKCE binds the code.
-            # mcp 2.x refuses a secret-based client that has no stored secret,
-            # so reporting the registered method would 401 every /token call
-            # from a client (Claude's connectors) that registered with
-            # client_secret_post. Rows from before this fix still carry it.
+            # Keep 'none': mcp 2.x refuses a secret-based client with no stored secret, so every /token call would 401.
             token_endpoint_auth_method='none',
             scope=client.scope,
         )
@@ -99,18 +93,10 @@ class WizzrobeOAuthProvider(
             redirect_uris=[str(uri) for uri in client_info.redirect_uris],
             grant_types=list(client_info.grant_types or []),
             response_types=list(client_info.response_types or []),
-            # The SDK has already minted a secret and will echo it to the
-            # client, which may keep sending it; it is never checked.
             token_endpoint_auth_method='none',
-            # Both scopes, so a client that explicitly requests write is not
-            # rejected at /authorize by the SDK's registered-scope check. It
-            # decides nothing: the consent screen grants the scope, and a client
-            # that asked for write still gets a read-only token unless the user
-            # said otherwise.
+            # Register both scopes or the SDK rejects a write request at /authorize; the consent screen still decides.
             scope=client_info.scope or CLIENT_SCOPE,
         )
-
-    # --- Authorization ----------------------------------------------------
 
     async def authorize(
         self, client: OAuthClientInformationFull, params: AuthorizationParams
@@ -155,9 +141,7 @@ class WizzrobeOAuthProvider(
     async def exchange_authorization_code(
         self, client: OAuthClientInformationFull, authorization_code: AuthorizationCode
     ) -> OAuthToken:
-        # Re-load rather than trusting the object handed back: between the SDK's
-        # load and this call the code may have been consumed by a concurrent
-        # exchange, and the service's consumed check is what makes it single-use.
+        # Re-load, don't trust the SDK's object: a concurrent exchange may have consumed the code since.
         code = await self.service.load_code(client.client_id, authorization_code.code)
         if code is None:
             raise TokenError(
@@ -174,8 +158,6 @@ class WizzrobeOAuthProvider(
             scope=code.scope or DEFAULT_SCOPE,
             refresh_token=refresh,
         )
-
-    # --- Refresh ----------------------------------------------------------
 
     async def load_refresh_token(
         self, client: OAuthClientInformationFull, refresh_token: str
@@ -213,8 +195,6 @@ class WizzrobeOAuthProvider(
             scope=token.scope or DEFAULT_SCOPE,
             refresh_token=refresh,
         )
-
-    # --- Introspection / revocation ---------------------------------------
 
     async def load_access_token(self, token: str) -> Optional[AccessToken]:
         record = await self.service.load_access_token(token)

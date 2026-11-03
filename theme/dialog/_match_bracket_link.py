@@ -14,6 +14,7 @@ from typing import Optional
 
 from nicegui import app, background_tasks, ui
 
+from application.event_context import event_scope, get_current_event_id
 from application.services import get_user_from_session
 from application.tenant_context import require_tenant_id, tenant_scope
 
@@ -152,9 +153,10 @@ async def render_select(
 
     await render_matchup_panel(bracket_service, match_id)
     tenant_id = require_tenant_id()
+    event_id = get_current_event_id()
 
     async def current_options() -> dict:
-        with tenant_scope(tenant_id):
+        with tenant_scope(tenant_id), event_scope(event_id):
             return await build_options(
                 bracket_service, selected_tournament.value,
                 linked_id=linked_id, match_id=match_id,
@@ -173,8 +175,7 @@ async def render_select(
 
     async def repopulate():
         options = await current_options()
-        # Drop a stale selection before swapping the options, for the same
-        # ChoiceElement reason: a value absent from the new options is invalid.
+        # Drop a stale selection before swapping options: ChoiceElement rejects a value absent from them.
         if select.value not in options:
             select.value = None
         select.disable()

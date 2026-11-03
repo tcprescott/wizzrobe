@@ -1,4 +1,4 @@
-"""What the viewer currently has checked out, as a My Schedule section.
+"""What the viewer currently has checked out, as a card at the top of Profile.
 
 This module used to be Home's Equipment *tab*, carrying a full inventory browser
 alongside the viewer's own loans. The inventory left the player surface when Home
@@ -7,99 +7,45 @@ Equipment, while the way an attendee actually borrows something is scanning the
 QR code on the device itself, which lands on ``/equipment/<id>`` and checks out
 from there. What remained worth showing a player is the answer to "what am I
 still holding?", which is this.
+
+It sat on My Schedule for a while, where it read as out of place among the
+things you committed to, and an empty panel saying "you have nothing" sat at the
+bottom of every player's schedule. On Profile it draws nothing at all unless you
+are holding something.
 """
 
-from nicegui import app, ui
+from nicegui import ui
 
-from application.services import EquipmentService, get_user_from_session
+from application.services import EquipmentService
 from application.utils.timezone import format_local_display
+from models import User
 from theme.connection import REQUIRES_SOCKET_CLASS
-from theme.section import section_panel
-from theme.tables.preferences import TableKeys, customize_table, preferences_button
+from theme.help import help_icon
+from theme.links import link_button
 
-_MINE_COLUMNS: list[dict] = [
-    {'name': 'asset_number', 'label': '#', 'field': 'asset_number', 'align': 'left', 'sortable': True},
-    {'name': 'name', 'label': 'Name', 'field': 'name', 'align': 'left', 'sortable': True},
-    {'name': 'checked_out_at', 'label': 'Checked out', 'field': 'checked_out_at', 'align': 'left'},
-    {'name': 'actions', 'label': '', 'field': 'actions', 'align': 'right'},
-]
-
-# Desktop keeps the icon — a tooltip opens on a mouse, and the row has no space
-# for a label. The mobile card carries text, because this section is read on a
-# phone where a tooltip never opens. Both forms come from one spec so they cannot
-# drift, and each carries the offline guard's class (theme/connection.py):
-# View's navigation is a server round trip, not an <a href>.
-_VIEW = {'event': 'view', 'icon': 'open_in_new', 'color': 'primary', 'label': 'View',
-         'tooltip': 'View asset'}
-
-_VIEW_ICON_BTN = (
-    f'<q-btn dense flat round icon="{_VIEW["icon"]}" color="{_VIEW["color"]}"\n'
-    f'               aria-label="{_VIEW["tooltip"]}" class="{REQUIRES_SOCKET_CLASS}"\n'
-    f'               @click="$parent.$emit(\'{_VIEW["event"]}\', props.row)">'
-    f'<q-tooltip>{_VIEW["tooltip"]}</q-tooltip></q-btn>'
-)
-
-_VIEW_LABEL_BTN = (
-    f'<q-btn dense no-caps flat icon="{_VIEW["icon"]}" color="{_VIEW["color"]}"\n'
-    f'               label="{_VIEW["label"]}" class="{REQUIRES_SOCKET_CLASS}"\n'
-    f'               @click="$parent.$emit(\'{_VIEW["event"]}\', props.row)" />'
-)
+EQUIPMENT_SECTION_ID = 'equipment-yours'
 
 
-async def equipment_checkouts_section() -> None:
-    user = await get_user_from_session(app.storage.user)
-    if user is None:
+async def equipment_checkouts_section(user: User) -> None:
+    loans = await EquipmentService().my_checkouts(user)
+    if not loans:
         return
 
-    service = EquipmentService()
-
-    panel = await section_panel(
-        'Equipment you have out',
-        icon='inventory_2',
-        subtitle='Gear checked out to you and not yet returned.',
-        help_topics=['equipment-yours', 'equipment-return'],
-        user=user,
-    )
-    with panel.body:
-        loans = await service.my_checkouts(user)
-        if not loans:
-            ui.label('You have no equipment checked out.').classes('italic-note')
-            return
-
-        rows = [
-            {
-                'id': loan.equipment_id,
-                'asset_number': loan.equipment.asset_number,
-                'name': loan.equipment.name,
-                'checked_out_at': format_local_display(loan.checked_out_at),
-            }
-            for loan in loans
-        ]
-        table = ui.table(columns=_MINE_COLUMNS, rows=rows, row_key='id').classes(
-            'equipment-table equipment-table-container w-full'
-        ).props(':grid="Quasar.Screen.lt.md"')
-        table.add_slot('body-cell-actions',
-                       '<q-td :props="props">' + _VIEW_ICON_BTN + '</q-td>')
-        table.add_slot('item', '''<div class="q-pa-sm q-mb-sm equipment-grid-card" style="width: 100%; box-sizing: border-box;">
-            <div class="wiz-grid-fields">
-            <div class="wiz-grid-field">
-                <div class="wiz-grid-field__label text-grey-7 text-caption">#:</div>
-                <div class="wiz-grid-field__value">{{ props.row.asset_number }}</div>
-            </div>
-            <div class="wiz-grid-field">
-                <div class="wiz-grid-field__label text-grey-7 text-caption">Name:</div>
-                <div class="wiz-grid-field__value">{{ props.row.name }}</div>
-            </div>
-            <div class="wiz-grid-field">
-                <div class="wiz-grid-field__label text-grey-7 text-caption">Checked out:</div>
-                <div class="wiz-grid-field__value">{{ props.row.checked_out_at }}</div>
-            </div>
-            </div>
-            <div class="row items-center justify-end">''' + _VIEW_LABEL_BTN + '''</div>
-        </div>''')
-        customize_table(table, _MINE_COLUMNS, key=TableKeys.EQUIPMENT_MINE)
-        # In the panel header: on its own row above the table it was a lone icon
-        # floating in an otherwise empty band.
-        with panel.aside:
-            preferences_button(table)
-        table.on('view', lambda e: ui.navigate.to(f"/equipment/{e.args['id']}"))
+    with ui.card().classes('card-full-width wiz-equipment-out').props(f'id={EQUIPMENT_SECTION_ID}'):
+        with ui.row().classes('items-center gap-1 no-wrap wiz-help-row'):
+            ui.label('Equipment you have out').classes('section-title')
+            ui.badge(str(len(loans))).props('outline color=primary')
+            await help_icon('equipment-yours', 'equipment-return', user=user)
+        ui.label(
+            "Hand it back at the equipment desk when you're done."
+        ).classes('text-muted text-caption')
+        for loan in loans:
+            with ui.row().classes('wiz-equipment-out__row items-center no-wrap w-full gap-3'):
+                with ui.column().classes('gap-0 col min-w-0'):
+                    ui.label(loan.equipment.name).classes('text-weight-medium ellipsis')
+                    ui.label(
+                        f'#{loan.equipment.asset_number} · out since '
+                        f'{format_local_display(loan.checked_out_at)}'
+                    ).classes('text-muted text-caption')
+                link_button('View', f'/equipment/{loan.equipment_id}', new_tab=False).props(f'flat no-caps color=primary aria-label="View {loan.equipment.name}"') \
+                    .classes(REQUIRES_SOCKET_CLASS)

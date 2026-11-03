@@ -27,7 +27,6 @@ _AUTO_START_ICON = '''
             :color="props.row.auto_start_bool ? 'positive' : 'negative'" size="sm" />
 '''
 
-# (widget-attr, label) for the boolean room-setting switches.
 _BOOL_FIELDS = (
     ('invitational', 'Invitational'),
     ('unlisted', 'Unlisted'),
@@ -37,7 +36,6 @@ _BOOL_FIELDS = (
     ('allow_non_entrant_chat', 'Allow non-entrant chat'),
     ('streaming_required', 'Streaming required'),
 )
-# (widget-attr, label, default) for the integer timers.
 _INT_FIELDS = (
     ('chat_message_delay', 'Chat message delay (s)', 0),
     ('start_delay', 'Start delay (s)', 15),
@@ -176,5 +174,4 @@ async def admin_racetime_page() -> None:
 
 
 def _default_bool(attr: str) -> bool:
-    # Mirror the model defaults so a new profile pre-selects sensible switches.
     return attr in ('auto_start', 'allow_comments', 'allow_midrace_chat', 'allow_non_entrant_chat')

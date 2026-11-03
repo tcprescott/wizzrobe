@@ -39,7 +39,6 @@ async def main() -> None:
             ps = pstats.Stats(pr, stream=s).sort_stats('cumulative')
             ps.print_stats(45)
             out = s.getvalue()
-            # Trim the header noise, keep the ranked table.
             print('\n'.join(out.splitlines()[:70]))
 
             s2 = io.StringIO()

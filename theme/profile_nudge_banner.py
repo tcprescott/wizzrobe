@@ -83,8 +83,6 @@ async def render_profile_nudge_banner(user: User | None) -> None:
 
     with stack:
         for nudge in nudges:
-            # The note is the community's own words, so it gets the title slot
-            # when there is one: it's the reason this member is being asked.
             with banner(nudge.prompt, title=nudge.note, tone='danger') as actions:
                 path = profile_fix_path(nudge)
                 ui.button(nudge.action_label, on_click=lambda p=path: ui.navigate.to(p)) \

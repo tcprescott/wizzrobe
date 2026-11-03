@@ -31,7 +31,6 @@ async def test_payout_reads_are_isolated(two_tenants):
     repo = TournamentPayoutRepository()
     with tenant_scope(a.id):
         assert [p.id for p in await repo.list_for_tournament(ta.id)] == [pa.id]
-        # B's tournament id resolves to nothing here, rather than to B's split.
         assert await repo.list_for_tournament(tb.id) == []
         assert await repo.get_by_id(pb.id) is None
     with tenant_scope(b.id):

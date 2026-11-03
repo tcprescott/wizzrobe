@@ -23,8 +23,6 @@ DAY = date(2026, 10, 4)
 MIDNIGHT = datetime(2026, 10, 4, tzinfo=timezone.utc)
 
 
-# --- Pure layout ------------------------------------------------------------
-
 def _assignment(user_id, name, *, draft=False, checked_in_at=None, late_minutes=None, acked=False):
     return SimpleNamespace(
         id=user_id * 10, user_id=user_id, user=SimpleNamespace(preferred_name=name),
@@ -93,8 +91,6 @@ def test_coverage_chips_count_open_slots_and_drafts():
         ('3/4 slots filled', 'neutral'), ('1 open', 'pending'), ('1 draft', 'live'),
     ]
 
-
-# --- Service ------------------------------------------------------------------
 
 async def test_board_grid_is_staff_only_and_includes_drafts(db):
     staff = await _staff()

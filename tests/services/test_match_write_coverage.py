@@ -28,11 +28,10 @@ from models import (
     MatchAcknowledgment,
     MatchPlayers,
     Stage,
-    SystemConfiguration,
     TournamentPlayers,
     Tracker,
 )
-from tests.factories import utc
+from tests.factories import set_setting, utc
 from tests.services._match_service_setup import make_player, make_staff, make_tournament
 
 pytestmark = pytest.mark.usefixtures("stub_discord_queue")
@@ -51,11 +50,6 @@ def captured_events():
     token = event_bus.subscribe_sync(seen.append)
     yield seen
     event_bus.unsubscribe(token)
-
-
-# ---------------------------------------------------------------------------
-# create_match
-# ---------------------------------------------------------------------------
 
 
 class TestCreateMatch:
@@ -87,7 +81,6 @@ class TestCreateMatch:
 
         player_ids = {p.user_id for p in await MatchPlayers.filter(match=match)}
         assert player_ids == {alice.id, bob.id}
-        # fresh players are auto-enrolled in the tournament (covers enrollment branch)
         assert await TournamentPlayers.filter(tournament=t, user=alice).exists()
 
         comms = await Commentator.filter(match=match)
@@ -95,7 +88,6 @@ class TestCreateMatch:
         trks = await Tracker.filter(match=match)
         assert len(trks) == 1 and trks[0].user_id == tracker.id and trks[0].approved is True
 
-        # actor is not a player here, so nobody is auto-acked
         acks = await MatchAcknowledgment.filter(match=match)
         assert {a.user_id for a in acks} == {alice.id, bob.id}
         assert all(a.acknowledged_at is None for a in acks)
@@ -119,7 +111,6 @@ class TestCreateMatch:
         assert opp_ack.acknowledged_at is None
 
     async def test_tournament_admin_may_create_without_staff_role(self, service, db):
-        # non-staff actor that is a tournament admin exercises the else/ensure branch
         actor = await make_player("ta")
         t = await make_tournament()
         await t.admins.add(actor)
@@ -187,7 +178,7 @@ class TestCreateMatch:
             )
 
     async def test_within_configured_hours_succeeds(self, service, db):
-        await SystemConfiguration.create(
+        await set_setting(
             name=KEY_TOURNAMENT_HOURS,
             value=json.dumps({"2025-01-15": {"open": "00:00", "close": "23:00"}}),
         )
@@ -204,7 +195,7 @@ class TestCreateMatch:
         assert match.id is not None
 
     async def test_outside_configured_hours_raises(self, service, db):
-        await SystemConfiguration.create(
+        await set_setting(
             name=KEY_TOURNAMENT_HOURS,
             value=json.dumps({"2025-01-15": {"open": "20:00", "close": "23:00"}}),
         )
@@ -233,11 +224,6 @@ class TestCreateMatch:
             actor=actor,
         )
         assert await TournamentPlayers.filter(tournament=t, user=player).count() == 1
-
-
-# ---------------------------------------------------------------------------
-# update_match
-# ---------------------------------------------------------------------------
 
 
 async def _seed_match(service, actor, tournament, player_ids, **kwargs):
@@ -273,7 +259,7 @@ class TestUpdateMatch:
             match_id=match.id,
             scheduled_date="2025-01-16",
             scheduled_time="16:00",
-            player_ids=[alice.id, carol.id],  # drop bob, add carol
+            player_ids=[alice.id, carol.id],
             commentator_ids=[commentator.id],
             tracker_ids=[tracker.id],
             comment="updated",
@@ -289,7 +275,6 @@ class TestUpdateMatch:
         assert await TournamentPlayers.filter(tournament=t, user=carol).exists()
 
         assert EventType.MATCH_RESCHEDULED in [e.event_type for e in captured_events]
-        # The audit row names the same action the event does.
         rows = await AuditLog.filter(action=AuditActions.MATCH_RESCHEDULED)
         assert [json.loads(r.details)['match_id'] for r in rows] == [match.id]
 
@@ -314,7 +299,6 @@ class TestUpdateMatch:
         t = await make_tournament()
         player = await make_player()
         match = await _seed_match(service, actor, t, [player.id])
-        # stamp lifecycle fields directly so the clear_* flags have something to clear
         match.seated_at = utc(2025, 1, 15, 18)
         match.started_at = utc(2025, 1, 15, 18, 5)
         match.finished_at = utc(2025, 1, 15, 18, 30)
@@ -397,8 +381,6 @@ class TestUpdateMatch:
         assert (await Match.get(id=match.id)).tournament_id == other.id
 
     async def test_reassign_tournament_rejected_without_target_admin(self, service, db):
-        # A non-staff TA of the SOURCE tournament must not be able to move a
-        # match into a tournament they do not administer.
         source = await make_tournament(name="Source")
         target = await make_tournament(name="Target")
         ta = await make_player("srcadmin")
@@ -407,7 +389,6 @@ class TestUpdateMatch:
         match = await _seed_match(service, await make_staff(), source, [player.id])
         with pytest.raises(PermissionError, match="cannot move match into tournament"):
             await service.update_match(match_id=match.id, tournament_id=target.id, actor=ta)
-        # The reassignment was rejected before any write.
         assert (await Match.get(id=match.id)).tournament_id == source.id
 
     async def test_reassign_tournament_allowed_for_admin_of_both(self, service, db):
@@ -438,11 +419,6 @@ class TestUpdateMatch:
             await service.update_match(match_id=match.id, commentator_ids=[424242], actor=actor)
 
 
-# ---------------------------------------------------------------------------
-# admin-assigned crew is an approval
-# ---------------------------------------------------------------------------
-
-
 def _crew_ack_dms(captured):
     return [c for c in captured if c.cr_code.co_name == "send_dm_with_crew_acknowledgment_button"]
 
@@ -464,6 +440,7 @@ class TestAdminAssignedCrew:
         match = await _seed_match(
             service, actor, t, [player.id],
             commentator_ids=[commentator.id], tracker_ids=[tracker.id],
+            stage_id=(await Stage.create(name="Kraid")).id,
         )
 
         events = _approval_events(captured_events)
@@ -483,7 +460,10 @@ class TestAdminAssignedCrew:
         player = await make_player()
         kept = await make_player("kept", "Kept")
         added = await make_player("added", "Added")
-        match = await _seed_match(service, actor, t, [player.id], commentator_ids=[kept.id])
+        match = await _seed_match(
+            service, actor, t, [player.id], commentator_ids=[kept.id],
+            stage_id=(await Stage.create(name="Kraid")).id,
+        )
         captured_events.clear()
         for coro in stub_discord_queue:
             coro.close()
@@ -516,7 +496,10 @@ class TestAdminAssignedCrew:
         t = await make_tournament()
         player = await make_player()
         dropped = await make_player("dropped", "Dropped")
-        match = await _seed_match(service, actor, t, [player.id], tracker_ids=[dropped.id])
+        match = await _seed_match(
+            service, actor, t, [player.id], tracker_ids=[dropped.id],
+            stage_id=(await Stage.create(name="Kraid")).id,
+        )
         captured_events.clear()
         for coro in stub_discord_queue:
             coro.close()
@@ -529,10 +512,23 @@ class TestAdminAssignedCrew:
         assert removed[0].actor_id == actor.id
         assert [c.cr_code.co_name for c in stub_discord_queue] == ["send_dm"]
 
+    async def test_unstaged_match_records_crew_but_sends_no_dm(
+        self, service, db, captured_events, stub_discord_queue,
+    ):
+        """Crew hear about a match only once it's on a stage."""
+        actor = await make_staff()
+        t = await make_tournament()
+        player = await make_player()
+        commentator = await make_player("comm", "Comm")
 
-# ---------------------------------------------------------------------------
-# a player taken off the line-up is told
-# ---------------------------------------------------------------------------
+        match = await _seed_match(
+            service, actor, t, [player.id], commentator_ids=[commentator.id],
+        )
+        await service.update_match(match_id=match.id, commentator_ids=[], actor=actor)
+
+        assert len(_approval_events(captured_events)) == 1
+        assert _crew_ack_dms(stub_discord_queue) == []
+        assert "send_dm" not in [c.cr_code.co_name for c in stub_discord_queue]
 
 
 def _removed_player_dms(captured):

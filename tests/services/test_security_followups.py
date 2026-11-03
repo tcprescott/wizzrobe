@@ -11,6 +11,7 @@ import sentry_sdk
 from application.services.challonge_service import ChallongeService
 from application.services.crew_service import _signup_notice_due
 from application.services.user_service import UserService
+from discordbot._tenant import RowScope
 from middleware.auth import SESSION_HOST_KEY, session_host_matches
 from models import Role, Tenant, TenantMembership, User, UserRole
 from tests.api_helpers import create_community_member
@@ -31,8 +32,6 @@ class TestChallongeOverride:
         assert member.challonge_user_id == '2002'
 
     async def test_staff_cannot_link_someone_who_also_belongs_elsewhere(self, db):
-        # The id is global and every community's bracket sync resolves through
-        # it, so this would decide who that person is in the other community.
         staff = await _staff()
         shared = await create_community_member(username='shared')
         other = await Tenant.create(name='Elsewhere', slug='elsewhere', is_active=True)
@@ -49,7 +48,6 @@ class TestChallongeOverride:
         await TenantMembership.create(user=shared, tenant=other)
         with pytest.raises(PermissionError):
             await ChallongeService().set_player_username(shared, 'renamed', actor=staff)
-        # Saving the dialog with the name unchanged is not an edit, and passes.
         await ChallongeService().set_player_username(shared, None, actor=staff)
 
     async def test_a_non_staff_member_cannot_link_someone_else(self, db):
@@ -123,7 +121,7 @@ class TestDiscordButtonsRefuseDeactivatedAccounts:
             sent.append(message)
 
         async def resolve_tenant(_parsed):
-            return 1
+            return RowScope(1, 1)
 
         # _run_parsed tags the Sentry scope; keep that off the worker's scope.
         with sentry_sdk.isolation_scope():

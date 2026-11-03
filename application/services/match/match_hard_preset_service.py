@@ -47,11 +47,10 @@ point ``GeneratedSeeds.preset`` is the record of what was actually played, and a
 choice about settings that are already decided is not a choice.
 """
 
-import asyncio
 import logging
+from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set
-from weakref import WeakValueDictionary
 
 from application.errors import require_found
 from application.events import EventType
@@ -61,6 +60,7 @@ from application.repositories import (
 )
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
+from application.utils.shared_lock import shared_lock
 from models import Match, Preset, PresetOverride, User
 
 logger = logging.getLogger(__name__)
@@ -129,26 +129,14 @@ class HardPresetSnapshot:
     opted_in: Set[int] = field(default_factory=set)
 
 
-_agreement_locks: 'WeakValueDictionary[int, asyncio.Lock]' = WeakValueDictionary()
-
-
-def _agreement_lock(match_id: int) -> asyncio.Lock:
+def _agreement_lock(match_id: int) -> AbstractAsyncContextManager[None]:
     """Serialise one match's crossing of the unanimity line.
 
     Two players sending their last opt-in at the same moment would each read a
     set that is not yet complete, then each find it complete on the re-check,
-    and the agreement would be audited, published and DMed twice. The app runs
-    a single worker (docs/scaling-roadmap.md), so an in-process lock settles it;
-    a second process would need the transition to move into the database.
-
-    Weak values because the caller holds the lock for as long as it needs it,
-    which is exactly how long the registry should keep the entry.
+    and the agreement would be audited, published and DMed twice.
     """
-    lock = _agreement_locks.get(match_id)
-    if lock is None:
-        lock = asyncio.Lock()
-        _agreement_locks[match_id] = lock
-    return lock
+    return shared_lock('match.hard_preset_agreement', match_id)
 
 
 class MatchHardPresetService:
@@ -158,8 +146,6 @@ class MatchHardPresetService:
         self.repository = MatchHardPresetRepository()
         self.match_repository = MatchRepository()
         self.audit_service = AuditService()
-
-    # -- internals ---------------------------------------------------------
 
     async def _require_match(self, match_id: int) -> Match:
         match = require_found(
@@ -171,8 +157,6 @@ class MatchHardPresetService:
 
     @staticmethod
     def _player_ids(match: Match) -> Set[int]:
-        # Reverse relation and FK id column: mypy cannot see either on a
-        # dynamically built Tortoise model.
         return {p.user_id for p in match.players}  # type: ignore[attr-defined]
 
     async def _require_open_match(self, match_id: int, user: User) -> Match:
@@ -203,8 +187,6 @@ class MatchHardPresetService:
         opted_in = await self.repository.user_ids_for_match(match.id)
         return player_ids <= opted_in
 
-    # -- reads -------------------------------------------------------------
-
     async def my_state(self, match: Match, user: Optional[User]) -> HardPresetState:
         """What ``user`` may know about ``match``'s preset choice.
 
@@ -225,16 +207,13 @@ class MatchHardPresetService:
             standard_preset_name=standard.name if standard is not None else '',
         )
         if user is None or user.id not in self._player_ids(match):
-            # A spectator, or staff reading a player's board. They get the
-            # tournament's shape and the override, never anybody's opt-in.
             return base
 
         opted_in = await self.repository.has_opted_in(match.id, user.id)
         return HardPresetState(
             offered=True,
             opted_in=opted_in,
-            # Computed only for someone who opted in themselves, so the flag
-            # cannot become a way to ask about the other player.
+            # Only for the opted-in viewer, or the flag leaks the other player's opt-in.
             everyone_in=opted_in and await self._is_unanimous(match),
             locked=base.locked,
             override=base.override,
@@ -301,16 +280,13 @@ class MatchHardPresetService:
             return hard
         return standard
 
-    # -- player actions ----------------------------------------------------
-
     async def opt_in(self, match_id: int, user: User) -> HardPresetState:
         async with _agreement_lock(match_id):
             match = await self._require_open_match(match_id, user)
             was_unanimous = await self._is_unanimous(match)
             _, created = await self.repository.get_or_create(match=match, user=user)
             if created:
-                # write_log, not write_and_publish: see the module docstring. An
-                # event here would hand a lone opt-in to every webhook subscriber.
+                # write_log, not write_and_publish: an event would broadcast a lone opt-in to every webhook.
                 await self.audit_service.write_log(
                     user, AuditActions.MATCH_HARD_PRESET_OPTED_IN, {'match_id': match_id},
                 )
@@ -424,8 +400,7 @@ class MatchHardPresetService:
             when=match.scheduled_at,
             recipients=recipients,
             agreed=became,
-            # Empty for a staff edit, where naming the actor would credit their
-            # change to a player who did not back out of anything.
+            # Empty for a staff edit, or the change is credited to a player.
             actor_name=actor.preferred_name if actor_backed_out else '',
         ))
 
@@ -458,9 +433,7 @@ class MatchHardPresetService:
                 or match.generated_seed_id is not None  # type: ignore[attr-defined]
                 or match.preset_override is not None
             ):
-                # Same three refusals as ``_require_open_match``. Offering a
-                # choice whose button would be refused is worse than no DM:
-                # the reader is told they may decide something they may not.
+                # Keep in step with ``_require_open_match``: never offer a choice its button refuses.
                 return
             opted_in = await self.repository.user_ids_for_match(match.id)
             await notify_hard_preset_invite(
@@ -473,8 +446,6 @@ class MatchHardPresetService:
             )
         except Exception:
             logger.exception("send_offer unexpected error for match %s", match.id)
-
-    # -- staff action ------------------------------------------------------
 
     async def set_override(
         self, match_id: int, override: Optional[PresetOverride], actor: User,
@@ -489,10 +460,7 @@ class MatchHardPresetService:
         agreements staff never asked to destroy.
         """
         match = await self._require_match(match_id)
-        # The same gate ``update_match`` puts on editing this match. Without it
-        # the only thing standing between an actor and overruling two players'
-        # settings — and DMing them about it — is whichever page happens to call
-        # this, which is not a gate at all for the next caller.
+        # Not redundant with the page's check: this is the only gate for every other caller.
         await AuthService.ensure(
             await AuthService.can_crud_match(actor, match),
             f"User cannot set the preset override on match {match_id}",
@@ -543,8 +511,6 @@ class MatchHardPresetService:
             recipients=[p.user for p in players],
             forced=override is not None,
         ))
-
-    # -- roster maintenance ------------------------------------------------
 
     async def snapshot(self, match: Match) -> HardPresetSnapshot:
         """Capture the opt-in situation before an edit rewrites it.

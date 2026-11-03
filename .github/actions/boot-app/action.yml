@@ -1,0 +1,70 @@
+name: Boot the seeded app
+description: >-
+  Install Python, Poetry, Playwright (Chromium unless `browsers` says otherwise)
+  and axe-core, boot the app against the job's PostgreSQL service with every integration mocked, and seed it. The
+  calling job supplies the service and the DB_* / MOCK_* environment.
+
+inputs:
+  poetry-version:
+    description: Poetry version to install
+    required: true
+  browsers:
+    description: Playwright browsers to install, space-separated
+    required: false
+    default: chromium
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v7
+      with:
+        python-version: '3.12'
+
+    - name: Install Poetry
+      shell: bash
+      run: pipx install poetry==${{ inputs.poetry-version }}
+
+    - name: Cache Poetry virtualenv
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pypoetry/virtualenvs
+        key: poetry-full-3.12-${{ hashFiles('poetry.lock') }}
+
+    - name: Install dependencies
+      shell: bash
+      run: poetry install --no-interaction
+
+    - name: Install Playwright browsers
+      # Pinned: Playwright ships browser-behaviour changes in minor releases,
+      # and an unpinned bump would land as a mystery CI failure on an unrelated
+      # PR. 1.56.1 matches the version preinstalled in the dev sandbox, so a
+      # local /ui-validation run and this job drive the same browser.
+      # axe-core is pinned for the same reason: a new release adds rules, and
+      # a rule landing should be a deliberate bump, not a red unrelated PR.
+      shell: bash
+      run: |
+        npm install --no-save playwright@1.56.1 axe-core@4.10.3
+        npx playwright install --with-deps ${{ inputs.browsers }}
+
+    - name: Generate a session secret
+      shell: bash
+      run: echo "STORAGE_SECRET=$(python -c 'import secrets; print(secrets.token_urlsafe(32))')" >> "$GITHUB_ENV"
+
+    - name: Boot the app
+      shell: bash
+      run: |
+        setsid poetry run uvicorn main:app --workers 1 --log-level info \
+          --port 8000 --host 127.0.0.1 > /tmp/app.log 2>&1 < /dev/null &
+        # The FastAPI lifespan applies the migration chain on first boot, so
+        # readiness is the signal to wait for, not a fixed sleep. That boot is
+        # also the CI proof that the whole chain applies to an empty database.
+        for _ in $(seq 1 60); do
+          grep -q 'Application startup complete' /tmp/app.log && exit 0
+          sleep 2
+        done
+        echo "app did not become ready in 120s"; cat /tmp/app.log; exit 1
+
+    - name: Seed fixtures
+      shell: bash
+      run: poetry run python scripts/seed_dev.py

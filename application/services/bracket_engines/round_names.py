@@ -65,8 +65,6 @@ def round_label(
             return 'Losers Finals'
         return f'Losers Round {magnitude}'
     if max_winners_round is not None:
-        # In a double-elim winners bracket a grand final sits beyond the WB final,
-        # so the top WB round is "Winners Finals"; otherwise it's the "Final".
         if round_number == max_winners_round:
             return 'Winners Finals' if is_de else 'Final'
         if round_number == max_winners_round - 1:
@@ -104,11 +102,7 @@ def detect_finals_ids(
             break
 
     if grand_final is None:
-        # A 2-entrant double elim has no losers bracket (the WB final's loser
-        # drops straight into the grand final via loser_to), so the negative-feeder
-        # scan finds nothing. Fall back to the lowest-round positive match that is
-        # a loser_to target. (Single elim has no loser_to links, so this stays a
-        # no-op there.)
+        # A 2-entrant double elim has no losers bracket: fall back to the lowest positive loser_to target.
         loser_targets = {n.loser_to_id for n in nodes if n.loser_to_id is not None}
         candidates = [n for n in nodes if n.round > 0 and n.id in loser_targets]
         if candidates:

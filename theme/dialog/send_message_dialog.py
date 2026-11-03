@@ -1,6 +1,7 @@
 from nicegui import ui
 
 from application.services import DiscordService
+from theme.busy import busy_click
 from theme.dialog._helpers import dialog_actions, dialog_header, mobile_sheet, submit_on_enter
 
 
@@ -36,7 +37,7 @@ class SendMessageDialog:
 
             with dialog_actions().classes('justify-end'):
                 ui.button('Cancel', on_click=dialog.close).props('flat')
-                send_button = ui.button('Send', on_click=send_message).props('color=primary')
+                send_button = ui.button('Send', on_click=busy_click('Sending…', send_message)).props('color=primary')
                 send_button.bind_enabled_from(
                     message_input, 'value',
                     backward=lambda v: bool(v and v.strip()),

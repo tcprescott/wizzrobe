@@ -50,16 +50,11 @@ def mount(app: FastAPI) -> None:
     _mcp = build_server()
     endpoint = McpEndpoint(_mcp.session_manager)
     methods = ['POST', 'GET', 'DELETE']
-    # Both spellings are registered rather than relying on Starlette's
-    # redirect_slashes. In the full app NiceGUI is mounted at '/' and matches
-    # everything, so an unmatched '/mcp/' never reaches the redirect — it falls
-    # through to NiceGUI and 404s. A client that normalises URLs with a trailing
-    # slash would simply fail, with nothing in the logs to explain why.
+    # Register both spellings: NiceGUI at '/' catches '/mcp/' before redirect_slashes can, so it would 404 silently.
     for path in (MCP_PATH, f'{MCP_PATH}/'):
         app.router.routes.append(Route(path, endpoint=endpoint, methods=methods))
     register_wellknown(app)
-    # Imported here rather than at module scope so the OAuth provider (and the
-    # service graph behind it) is only constructed when the server is enabled.
+    # Lazy import so the OAuth provider and its service graph are built only when the server is enabled.
     from mcpserver.oauth import register_oauth_routes
 
     register_oauth_routes(app)

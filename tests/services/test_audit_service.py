@@ -31,11 +31,6 @@ def service():
     return svc
 
 
-# ---------------------------------------------------------------------------
-# _encode_details
-# ---------------------------------------------------------------------------
-
-
 class TestEncodeDetails:
     def test_none_returns_none(self):
         assert _encode_details(None) is None
@@ -46,14 +41,12 @@ class TestEncodeDetails:
         assert json.loads(encoded) == {'a': 1, 'b': 'two'}
 
     def test_keys_are_sorted(self):
-        # Sort order matters for deterministic queryability.
         encoded = _encode_details({'z': 1, 'a': 2, 'm': 3})
         assert encoded.index('"a"') < encoded.index('"m"') < encoded.index('"z"')
 
     def test_datetime_falls_back_to_str(self):
         dt = datetime(2025, 1, 15, 14, 30, tzinfo=timezone.utc)
         encoded = _encode_details({'when': dt})
-        # default=str renders datetimes as their str() representation.
         assert str(dt) in encoded
 
     def test_arbitrary_object_falls_back_to_str(self):
@@ -71,16 +64,9 @@ class TestEncodeDetails:
         assert decoded == {'outer': {'inner': [1, 2, 3]}}
 
     def test_accepts_any_mapping(self):
-        # Mapping protocol, not just dict.
         from collections import OrderedDict
         encoded = _encode_details(OrderedDict([('b', 1), ('a', 2)]))
-        # Still sorted
         assert encoded.index('"a"') < encoded.index('"b"')
-
-
-# ---------------------------------------------------------------------------
-# list_logs / count_logs — delegation to repository
-# ---------------------------------------------------------------------------
 
 
 class TestListLogs:
@@ -91,7 +77,7 @@ class TestListLogs:
             start=start, end=end, user_id=7, action_contains='match.', limit=50, offset=10,
         )
         service.repository.list.assert_awaited_once_with(
-            start=start, end=end, user_id=7, action_contains='match.', limit=50, offset=10,
+            start=start, end=end, user_id=7, event_id=None, action_contains='match.', limit=50, offset=10,
         )
 
     async def test_defaults_when_no_filters(self, service):
@@ -116,17 +102,12 @@ class TestCountLogs:
         start = datetime(2025, 1, 1, tzinfo=timezone.utc)
         await service.count_logs(start=start, user_id=3, action_contains='user.')
         service.repository.count.assert_awaited_once_with(
-            start=start, end=None, user_id=3, action_contains='user.',
+            start=start, end=None, user_id=3, event_id=None, action_contains='user.',
         )
 
     async def test_returns_repository_count(self, service):
         service.repository.count = AsyncMock(return_value=42)
         assert await service.count_logs() == 42
-
-
-# ---------------------------------------------------------------------------
-# write_log — actor required, calls AuditLog.create
-# ---------------------------------------------------------------------------
 
 
 class TestWriteLog:
@@ -149,8 +130,6 @@ class TestWriteLog:
         kwargs = create_mock.await_args.kwargs
         assert kwargs['user'] is user
         assert kwargs['action'] == 'match.created'
-        # details should be JSON-encoded, with the actor identity snapshotted
-        # in so attribution survives a later user deletion (FK is SET_NULL).
         import json
         assert json.loads(kwargs['details']) == {
             'match_id': 99,
@@ -170,14 +149,8 @@ class TestWriteLog:
         }
 
 
-# ---------------------------------------------------------------------------
-# AuditActions — sanity checks on the constants
-# ---------------------------------------------------------------------------
-
-
 class TestAuditActionsConstants:
     def test_namespaced_format(self):
-        # Each action should be 'verb.object' lowercase with a dot.
         for name in dir(AuditActions):
             if name.startswith('_'):
                 continue
@@ -187,7 +160,6 @@ class TestAuditActionsConstants:
             assert value == value.lower(), f'{name}={value} should be lowercase'
 
     def test_known_actions_exist(self):
-        # Spot-check action names that callers across the codebase reference.
         assert AuditActions.MATCH_CREATED == 'match.created'
         assert AuditActions.USER_ROLE_GRANTED == 'user.role_granted'
         assert AuditActions.SYSTEM_CONFIG_UPDATED == 'system_config.updated'

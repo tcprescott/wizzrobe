@@ -19,6 +19,13 @@ class MatchCreateRequest(BaseModel):
     tracker_ids: Optional[List[int]] = Field(
         None, description="User IDs to assign as trackers, already approved. Each is DMed to confirm."
     )
+    broadcaster_ids: Optional[List[int]] = Field(
+        None,
+        description=(
+            "User IDs to assign as broadcasters, already approved. Each is DMed to confirm. "
+            "Refused in an event without broadcasters."
+        ),
+    )
     is_stream_candidate: bool = Field(
         False, description="Mark the match as a candidate for stream, which alerts people who follow stream candidates."
     )
@@ -58,12 +65,30 @@ class MatchUpdateRequest(BaseModel):
     tracker_ids: Optional[List[int]] = Field(
         None, description="The full new list of tracker user IDs, replacing the current one. Omit to keep it."
     )
+    broadcaster_ids: Optional[List[int]] = Field(
+        None, description="The full new list of broadcaster user IDs, replacing the current one. Omit to keep it."
+    )
     comment: Optional[str] = Field(None, description="New free-text note. Omit to keep the current one.")
     clear_seated: bool = Field(False, description="Clear the check-in time.")
     clear_started: bool = Field(False, description="Clear the start time.")
     clear_finished: bool = Field(False, description="Clear the finish time.")
     clear_confirmed: bool = Field(False, description="Clear the confirmation time.")
     clear_seed: bool = Field(False, description="Remove the rolled seed so a new one can be rolled.")
+
+
+class SetGameTime(BaseModel):
+    scheduled_date: str = Field(..., description="Date in the community's timezone, YYYY-MM-DD")
+    scheduled_time: str = Field(..., description="Time in the community's timezone, HH:MM")
+
+
+class ExtendToSetRequest(BaseModel):
+    later_games: List[SetGameTime] = Field(
+        ..., min_length=2, max_length=6,
+        description="Games 2 and up, in order. Two entries make a best-of-3, four a best-of-5.",
+    )
+    allow_outside_round: bool = Field(
+        False, description="Book a game outside its stage's booking window anyway.",
+    )
 
 
 class StreamCandidateRequest(BaseModel):
@@ -112,7 +137,9 @@ class SetReviewRequest(BaseModel):
 
 
 class CrewSignupRequest(BaseModel):
-    role: str = Field(..., description="The crew role to sign up for: 'commentator' or 'tracker'.")
+    role: str = Field(
+        ..., description="The crew role to sign up for: 'commentator', 'tracker' or 'broadcaster'.",
+    )
 
 
 class SeedResultResponse(BaseModel):

@@ -21,7 +21,7 @@ def join_requested_dm(community_name: str, requester_name: str, message: str = '
     lines = [f'**{requester_name}** has asked to join **{community_name}**.']
     if message:
         lines.append(f'> {message}')
-    lines.append('Approve or deny it on the Users tab.')
+    lines.append('Approve or deny it on the Members tab.')
     return '\n\n'.join(lines)
 
 

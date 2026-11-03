@@ -326,6 +326,23 @@ A tournament uses a native bracket **or** a Challonge link, never both:
 Challonge-linked tournament, and the symmetric guard lives in
 `ChallongeService.link_tournament`.
 
+### The Challonge side of the seam
+
+- **Result push retries once** (`_challonge_results.py`, `push_result_if_linked`)
+  on a timeout, dropped connection, 429, 502–504 or Cloudflare's 520–524 origin
+  errors, which usually clear on the next request. It's safe because the push
+  re-reads the Challonge match and leaves an already-complete one alone, covering
+  a PUT that did land. Both attempts plus any `Retry-After` wait are capped to fit
+  the confirm flow's 90-second budget, and a failed post-push re-sync never undoes
+  the push.
+- **Self-signup spends quota** (`_challonge_signup.py`). Every sign-up or
+  withdrawal on a Challonge-managed roster costs one request of the community's
+  monthly Challonge quota, hence `ROSTER_CHANGES_PER_HOUR` (6 per player). Entrants
+  Wizzrobe adds carry `wizzrobe-user:<id>` in Challonge's `misc` field so a sync
+  maps them before the player accepts Challonge's invite. A withdrawal Challonge
+  answers with 404 (staff already removed the entry there) completes locally
+  rather than leaving a ghost entry.
+
 ## Lifecycle, audit & events
 
 Every write is Staff-gated (`AuthService.is_staff`), audits an
@@ -343,8 +360,8 @@ per-game `BRACKET_GAME_SCHEDULED` /
 existing `Match`, and `BRACKET_GAME_RELEASED` when a cancelled or deleted `Match`
 hands its slot back. Four actions are audit-only, with no event: `BRACKET_UPDATED`
 (stage config, round metadata, series length), `BRACKET_DELETED`, and the
-per-stage roster edits `BRACKET_ENTRY_ADDED` / `BRACKET_ENTRY_REMOVED`. Scheduling is the one write that is **not** Staff-only — see
-[Who may schedule](#who-may-schedule-and-the-manual-request-lockout). Method-level detail:
+per-stage roster edits `BRACKET_ENTRY_ADDED` / `BRACKET_ENTRY_REMOVED`. Two writes are **not** Staff-only: scheduling (see
+[Who may schedule](#who-may-schedule-and-the-manual-request-lockout)), and `advance_if_linked`, because a Proctor or the system user confirming a linked match must still advance the bracket, as `push_result_if_linked` does for Challonge. Method-level detail:
 [services.md → BracketService](../reference/services.md#bracket_servicepy--bracketservice).
 
 ## Notifications

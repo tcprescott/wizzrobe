@@ -38,7 +38,6 @@ def test_every_template_q_btn_has_a_name():
         if _NAMED.search(attrs):
             continue
         if not self_closing:
-            # Visible text inside the button (outside a tooltip) names it.
             visible = re.sub(r'<q-tooltip.*?</q-tooltip>', '', body, flags=re.S)
             visible = re.sub(r'<[^>]+>', '', visible)
             if visible.strip():

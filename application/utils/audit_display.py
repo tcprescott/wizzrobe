@@ -16,6 +16,8 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Any, Mapping, Optional, Sequence
 
+from application.utils.match_labels import and_join
+
 
 @dataclass(frozen=True)
 class AuditArea:
@@ -32,20 +34,26 @@ AREAS: tuple[AuditArea, ...] = (
     )),
     AuditArea('people', 'People', (
         'user.', 'role.', 'profile_nudge.', 'emergency_contact.', 'accommodation.', 'twitch.',
-        'racetime.', 'web_push.', 'notification_email.', 'notification_telegram.', 'tenant.member_', 'tenant.join_',
+        'racetime.', 'web_push.', 'device_push.', 'notification_email.', 'notification_telegram.', 'tenant.member_', 'tenant.join_',
     )),
     AuditArea('volunteers', 'Volunteers', ('volunteer.',)),
     AuditArea('check_in', 'Check-in', (
         'check_in_event.', 'check_in_tier.', 'check_in_entrant.', 'matcherino_login.',
     )),
     AuditArea('equipment', 'Equipment', ('equipment.',)),
+    AuditArea('tickets', 'Tickets', ('ticket_store.', 'ticket_type.', 'ticket_order.', 'ticket.')),
+    AuditArea('patreon', 'Patreon', ('patreon.',)),
     AuditArea('challonge', 'Challonge', ('challonge.',)),
-    AuditArea('community', 'Community', ('community_event.', 'feedback.')),
+    AuditArea('startgg', 'start.gg', ('startgg.',)),
+    AuditArea('community', 'Community', ('community_event.', 'feedback.', 'survey.')),
+    AuditArea('events', 'Events', ('event.',)),
     AuditArea('settings', 'Settings', (
-        'system_config.', 'theme.', 'timezone.', 'profile_nudges.', 'station.', 'stage.',
+        'system_config.', 'notification_setting.', 'notification_settings.', 'theme.', 'timezone.', 'profile_nudges.', 'station.', 'stage.',
+        'stream_layout.', 'stage_overlay.',
         'discord.', 'discord_role.', 'discord_event.', 'apitoken.', 'roomtoken.', 'log_level.',
+        'oauth_app.', 'oauth_grant.', 'browser_monitoring.', 'browser_ignore_rule.',
         'racetime_bot.', 'race_room_profile.', 'sg_sync.', 'feature_flag.', 'feature_group.',
-        'webhook.', 'tenant.', 'platform.',
+        'webhook.', 'personal_webhook.', 'tenant.', 'platform.', 'ai_provider.',
     )),
 )
 _AREAS_BY_KEY = {a.key: a for a in AREAS}
@@ -63,17 +71,18 @@ def area_by_key(key: Optional[str]) -> Optional[AuditArea]:
 
 
 ACTION_LABELS: dict[str, str] = {
-    # Matches
     'match.created': 'Created a match',
     'match.updated': 'Edited a match',
     'match.rescheduled': 'Rescheduled a match',
     'match.deleted': 'Deleted a match',
     'match.cancelled': 'Called off a match',
+    'match.set_extended': 'Turned a match into a best-of set',
     'match.requested': 'Requested a match',
     'match.seated': 'Seated a match',
     'match.started': 'Started a match',
     'match.finished': 'Finished a match',
     'match.confirmed': 'Confirmed a match result',
+    'match.forfeited': 'Decided a match by forfeit',
     'match.acknowledged': 'Acknowledged a match',
     'match.result_recorded': 'Recorded a match result',
     'match.seed_rolled': 'Rolled a seed',
@@ -92,6 +101,10 @@ ACTION_LABELS: dict[str, str] = {
     'match.stream_volunteer_withdrawn': 'Withdrew a match from stream',
     'match.comment_added': 'Commented on a match',
     'match.comment_deleted': 'Deleted a match comment',
+    'match.player_running_late': 'Said they are running late for a match',
+    'match.player_late_cleared': 'Took back running late for a match',
+    'match.player_seed_ready': 'Said they are ready for the seed',
+    'match.player_seed_not_ready': 'Took back ready for the seed',
     'match.hard_preset_opted_in': 'Opted in to the hard preset',
     'match.hard_preset_withdrawn': 'Withdrew from the hard preset',
     'match.hard_preset_agreed': 'Agreed to the hard preset',
@@ -107,22 +120,30 @@ ACTION_LABELS: dict[str, str] = {
     'crew.signup_removed': 'Removed a crew signup',
     'crew.approval_changed': 'Changed crew approval',
     'crew.acknowledged': 'Acknowledged a crew slot',
+    'crew.moved_to_booking': 'Moved crew signups onto a booked bracket match',
+    'crew.partner_invited': 'Invited a commentary partner',
+    'crew.partner_invite_answered': 'Answered a commentary partner invite',
+    'crew.partner_invite_cancelled': 'Cancelled a commentary partner invite',
     'race_room.created': 'Created a race room',
     'race_room.opened': 'Opened a race room',
     'race_room.started': 'Race room started',
     'race_room.finished': 'Race room finished',
     'race_room.cancelled': 'Cancelled a race room',
     'race_room.result_recorded': 'Recorded a race room result',
-    # Tournaments
+    'race_room.result_held': 'Held a race room result for a check',
+    'race_room.fpa_called': 'Called a fair play pause in a race room',
     'tournament.created': 'Created a tournament',
     'tournament.updated': 'Edited a tournament',
     'tournament.deleted': 'Deleted a tournament',
+    'tournament.player_dropped': 'Dropped a player from a tournament',
     'tournament.admin_granted': 'Made someone a tournament admin',
     'tournament.admin_revoked': 'Removed a tournament admin',
     'tournament.crew_coordinator_granted': 'Made someone a crew coordinator',
     'tournament.crew_coordinator_revoked': 'Removed a crew coordinator',
     'tournament.prize_pool_updated': 'Updated a prize pool',
     'tournament.payout_updated': 'Updated a payout',
+    'tournament.sglive_link_updated': 'Linked a prize pool to sglive',
+    'tournament.round_schedule_updated': 'Changed a round schedule',
     'bracket.created': 'Created a bracket',
     'bracket.updated': 'Edited a bracket',
     'bracket.deleted': 'Deleted a bracket',
@@ -155,6 +176,8 @@ ACTION_LABELS: dict[str, str] = {
     'rom_patch.deleted': 'Deleted a ROM patch',
     'randomizer_credential.set': 'Saved a randomizer login',
     'randomizer_credential.cleared': 'Removed a randomizer login',
+    'ai_provider.set': 'Saved the AI provider',
+    'ai_provider.cleared': 'Removed the AI provider',
     'triforce_text.submitted': 'Submitted a triforce text',
     'triforce_text.approved': 'Approved a triforce text',
     'triforce_text.rejected': 'Rejected a triforce text',
@@ -185,7 +208,6 @@ ACTION_LABELS: dict[str, str] = {
     'async_qualifier.live_race_cancelled': 'Cancelled a qualifier live race',
     'async_qualifier.live_race_recorded': 'Recorded a qualifier live race',
     'async_qualifier.live_race_recorded_manually': 'Recorded a live race by hand',
-    # People
     'user.created': 'Added a member',
     'user.provisioned': 'Set up a member account',
     'user.profile_updated': 'Edited a profile',
@@ -198,6 +220,8 @@ ACTION_LABELS: dict[str, str] = {
     'user.password_removed': 'Removed a password',
     'user.password_signed_in': 'Signed in with a password',
     'user.timezone_updated': 'Changed their time zone',
+    'user.hour_cycle_updated': 'Changed their 12/24-hour clock',
+    'user.messaged': 'Sent a member a direct message',
     'role.discord_sync_granted': 'Gave a role from Discord',
     'role.discord_sync_revoked': 'Took away a role from Discord',
     'role.discord_sync_bulk': 'Synced roles from Discord',
@@ -220,16 +244,18 @@ ACTION_LABELS: dict[str, str] = {
     'web_push.subscribed': 'Turned on phone notifications',
     'web_push.unsubscribed': 'Turned off phone notifications',
     'web_push.rotated': 'Refreshed phone notifications',
+    'device_push.registered': 'Turned on notifications in the Wizzrobe app',
+    'device_push.removed': 'Turned off notifications in the Wizzrobe app',
     'notification_email.confirmed': 'Confirmed a notification email',
     'notification_email.removed': 'Removed their notification email',
     'notification_telegram.linked': 'Connected Telegram',
     'notification_telegram.unlinked': 'Disconnected Telegram',
     'tenant.member_added': 'Added a member to the community',
     'tenant.member_removed': 'Removed a member from the community',
+    'tenant.members_imported': 'Imported members from Discord',
     'tenant.join_requested': 'Asked to join the community',
     'tenant.join_approved': 'Approved a join request',
     'tenant.join_denied': 'Turned down a join request',
-    # Volunteers
     'volunteer.position_created': 'Created a volunteer position',
     'volunteer.position_updated': 'Edited a volunteer position',
     'volunteer.position_deleted': 'Deleted a volunteer position',
@@ -242,6 +268,8 @@ ACTION_LABELS: dict[str, str] = {
     'volunteer.checked_in': 'Checked in for a shift',
     'volunteer.check_in_undone': 'Undid a shift check-in',
     'volunteer.running_late': 'Said they are running late',
+    'volunteer.called_off': "Called off a volunteer's shift (still counts as worked)",
+    'volunteer.call_off_undone': 'Put a volunteer back on a called-off shift',
     'volunteer.availability_updated': 'Updated volunteer availability',
     'volunteer.draft_generated': 'Drafted the volunteer schedule',
     'volunteer.draft_cleared': 'Cleared the schedule draft',
@@ -250,9 +278,9 @@ ACTION_LABELS: dict[str, str] = {
     'volunteer.shifts_reset': 'Reset volunteer shifts',
     'volunteer.qualifications_updated': 'Updated volunteer qualifications',
     'volunteer.data_exported': 'Exported volunteer data',
+    'tournament.data_exported': 'Exported tournament data',
     'volunteer.role_mapping_added': 'Linked a volunteer position to a role',
     'volunteer.role_mapping_removed': 'Unlinked a volunteer position from a role',
-    # Check-in
     'check_in_event.created': 'Created a check-in event',
     'check_in_event.updated': 'Edited a check-in event',
     'check_in_event.deleted': 'Deleted a check-in event',
@@ -267,13 +295,11 @@ ACTION_LABELS: dict[str, str] = {
     'matcherino_login.set': 'Saved the Matcherino login',
     'matcherino_login.cleared': 'Removed the Matcherino login',
     'matcherino_login.alerts_updated': 'Changed Matcherino login alerts',
-    # Equipment
     'equipment.created': 'Added equipment',
     'equipment.updated': 'Edited equipment',
     'equipment.deleted': 'Deleted equipment',
     'equipment.checked_out': 'Checked out equipment',
     'equipment.checked_in': 'Returned equipment',
-    # Challonge
     'challonge.connected': 'Connected Challonge',
     'challonge.disconnected': 'Disconnected Challonge',
     'challonge.community_removed': 'Removed the Challonge connection',
@@ -284,23 +310,50 @@ ACTION_LABELS: dict[str, str] = {
     'challonge.tournament_unlinked': 'Unlinked a Challonge bracket',
     'challonge.bracket_synced': 'Synced a Challonge bracket',
     'challonge.result_pushed': 'Sent a result to Challonge',
+    'challonge.result_skipped': "Didn't send a result: Challonge already had one",
+    'challonge.result_push_failed': "Couldn't send a result to Challonge",
+    'challonge.auto_sync_updated': 'Changed how often Challonge brackets sync',
     'challonge.participant_assigned': 'Matched a Challonge entrant to a member',
     'challonge.participant_unassigned': 'Unmatched a Challonge entrant',
     'challonge.participant_signed_up': 'Signed up on Challonge',
     'challonge.participant_withdrawn': 'Withdrew on Challonge',
     'challonge.stage_advanced': 'Advanced a Challonge stage',
     'challonge.webhook_synced': 'Challonge sent an update',
-    # Community
-    'community_event.submitted': 'Submitted a community event',
-    'community_event.updated': 'Edited a community event',
-    'community_event.approved': 'Approved a community event',
-    'community_event.rejected': 'Rejected a community event',
-    'community_event.cancelled': 'Cancelled a community event',
+    'challonge.match_linked': 'Linked a match to its Challonge matchup',
+    'startgg.linked': 'Linked a start.gg account',
+    'startgg.unlinked': 'Unlinked a start.gg account',
+    'startgg.event_linked': 'Linked a start.gg event',
+    'startgg.event_unlinked': 'Unlinked a start.gg event',
+    'startgg.event_synced': 'Synced a start.gg event',
+    'startgg.bookable_phase_set': 'Changed which start.gg phase players book',
+    'startgg.entrant_assigned': 'Matched a start.gg entrant to a member',
+    'startgg.entrant_unassigned': 'Unmatched a start.gg entrant',
+    'startgg.suggestion_dismissed': 'Dismissed a start.gg match suggestion',
+    'startgg.reporting_set': 'Changed start.gg result reporting',
+    'startgg.result_reported': 'Sent a result to start.gg',
+    'startgg.set_linked': 'Linked a match to its start.gg matchup',
+    'startgg.connected': 'Connected start.gg',
+    'startgg.disconnected': 'Disconnected start.gg',
+    'community_event.submitted': 'Submitted a meetup',
+    'community_event.updated': 'Edited a meetup',
+    'community_event.approved': 'Approved a meetup',
+    'community_event.rejected': 'Rejected a meetup',
+    'community_event.cancelled': 'Cancelled a meetup',
     'feedback.submitted': 'Sent feedback',
     'feedback.reviewed': 'Reviewed feedback',
     'feedback.reopened': 'Reopened feedback',
-    # Settings
+    'survey.created': 'Created a survey',
+    'survey.updated': 'Edited a survey',
+    'survey.deleted': 'Deleted a survey',
+    'survey.sent': 'Sent a survey',
+    'survey.reminded': 'Sent a survey reminder',
+    'survey.closed': 'Closed a survey',
+    'survey.questions_suggested': 'Asked the AI for survey questions',
+    'survey.comment_tag_created': 'Added a survey comment tag',
+    'survey.comment_tag_deleted': 'Deleted a survey comment tag',
     'system_config.updated': 'Changed a setting',
+    'notification_setting.changed': 'Changed how a notification is sent',
+    'notification_settings.reset': 'Reset notification settings to defaults',
     'theme.updated': 'Changed the colours',
     'theme.logo_updated': 'Uploaded a logo',
     'theme.logo_removed': 'Removed the logo',
@@ -312,11 +365,21 @@ ACTION_LABELS: dict[str, str] = {
     'stage.created': 'Added a stage',
     'stage.updated': 'Edited a stage',
     'stage.deleted': 'Deleted a stage',
+    'stream_layout.created': 'Added a stream layout',
+    'stream_layout.updated': 'Edited a stream layout',
+    'stream_layout.deleted': 'Deleted a stream layout',
+    'stage_overlay.updated': "Changed a stage's overlay layout",
+    'stage_overlay.pinned': 'Pinned a match to a stage overlay',
+    'stage_overlay.unpinned': 'Set a stage overlay back to automatic',
+    'stage_overlay.link_renewed': "Replaced a stage's OBS link",
     'discord.server_linked': 'Linked a Discord server',
     'discord.server_unlinked': 'Unlinked the Discord server',
     'discord.login_panel_posted': 'Posted the Discord sign-in panel',
     'discord_role.mapping_added': 'Linked a Discord role',
     'discord_role.mapping_removed': 'Unlinked a Discord role',
+    'discord_role.rule_set': 'Set a Discord role Wizzrobe gives',
+    'discord_role.rule_cleared': 'Turned off a Discord role Wizzrobe gives',
+    'discord_role.rules_reset': 'Removed every Discord role Wizzrobe gave',
     'discord_event.created': 'Created a Discord event',
     'discord_event.updated': 'Updated a Discord event',
     'discord_event.cancelled': 'Cancelled a Discord event',
@@ -325,10 +388,24 @@ ACTION_LABELS: dict[str, str] = {
     'discord_event.settings_updated': 'Changed Discord event settings',
     'apitoken.created': 'Created an API token',
     'apitoken.revoked': 'Revoked an API token',
+    'oauth_app.created': 'Registered an app',
+    'oauth_app.updated': 'Edited an app',
+    'oauth_app.secret_rotated': "Replaced an app's secret",
+    'oauth_app.deleted': 'Deleted an app',
+    'oauth_app.disabled': 'Disabled an app',
+    'oauth_app.enabled': 'Re-enabled an app',
+    'oauth_app.blocked': 'Blocked an app in this community',
+    'oauth_app.unblocked': 'Unblocked an app in this community',
+    'oauth_grant.created': 'Connected an app',
+    'oauth_grant.revoked': 'Disconnected an app',
+    'oauth_grant.refresh_reused': 'Cut off an app after a reused sign-in token',
     'roomtoken.created': 'Created a room link',
     'roomtoken.revoked': 'Revoked a room link',
     'log_level.set': 'Changed the log level',
     'log_level.cleared': 'Reset the log level',
+    'browser_monitoring.updated': 'Changed browser error reporting',
+    'browser_ignore_rule.added': 'Ignored a browser error',
+    'browser_ignore_rule.removed': 'Stopped ignoring a browser error',
     'racetime_bot.created': 'Added a racetime bot',
     'racetime_bot.updated': 'Edited a racetime bot',
     'racetime_bot.deleted': 'Deleted a racetime bot',
@@ -363,11 +440,39 @@ ACTION_LABELS: dict[str, str] = {
     'webhook.updated': 'Edited a webhook',
     'webhook.deleted': 'Deleted a webhook',
     'webhook.secret_regenerated': 'Made a new webhook secret',
+    'personal_webhook.created': 'Added a personal webhook',
+    'personal_webhook.updated': 'Edited a personal webhook',
+    'personal_webhook.deleted': 'Deleted a personal webhook',
+    'personal_webhook.secret_regenerated': 'Made a new personal webhook secret',
+    'event.created': 'Created an event',
+    'event.updated': 'Edited an event',
+    'event.went_live': 'Put an event live',
+    'event.archived': 'Archived an event',
+    'event.unarchived': 'Brought an event back from the archive',
+    'event.default_changed': 'Changed the default event',
+    'event.deleted': 'Deleted a draft event',
+    'event.setup_copied': "Copied an event's setup",
     'tenant.created': 'Created the community',
     'tenant.updated': 'Edited the community',
     'tenant.deleted': 'Deleted the community',
     'platform.super_admin_granted': 'Made someone a platform admin',
     'platform.super_admin_revoked': 'Removed a platform admin',
+    'ticket_store.connected': 'Connected a ticket store',
+    'ticket_store.disconnected': 'Disconnected a ticket store',
+    'ticket_type.created': 'Added a badge type',
+    'ticket_type.updated': 'Edited a badge type',
+    'ticket_type.deleted': 'Deleted a badge type',
+    'ticket_order.paid': 'Badge order paid',
+    'ticket_order.refunded': 'Refunded a badge order',
+    'ticket.claimed': 'Claimed a badge',
+    'ticket.comp_refunded': 'Refunded a comped badge',
+    'patreon.connected': 'Connected the Patreon campaign',
+    'patreon.disconnected': 'Disconnected the Patreon campaign',
+    'patreon.tiers_updated': 'Changed the Patreon badge labels',
+    'patreon.linked': 'Linked a Patreon account',
+    'patreon.unlinked': 'Unlinked a Patreon account',
+    'patreon.badge_granted': 'Patron badge turned on',
+    'patreon.badge_revoked': 'Patron badge turned off',
 }
 
 
@@ -396,11 +501,9 @@ def actions_matching(text: str) -> list[str]:
     return [key for key, label in ACTION_LABELS.items() if needle in label.lower()]
 
 
-# --- Describing one row --------------------------------------------------------
-
 HIDDEN_KEYS = frozenset({'actor_discord_id', 'actor_username', 'tenant_id'})
 _USER_KEYS = frozenset({'user_id', 'target_user_id', 'winner_id', 'borrower_id', 'volunteer_id'})
-_USER_LIST_KEYS = frozenset({'player_ids', 'commentator_ids', 'tracker_ids', 'user_ids'})
+_USER_LIST_KEYS = frozenset({'player_ids', 'commentator_ids', 'tracker_ids', 'broadcaster_ids', 'user_ids'})
 _SUBJECT_NAME_KEYS = ('display_name', 'name', 'challonge_username', 'title')
 _BOOL_TEXT = {'true': 'Yes', 'false': 'No'}
 
@@ -419,11 +522,14 @@ FIELD_LABELS: dict[str, str] = {
     'player_ids': 'players',
     'commentator_ids': 'commentators',
     'tracker_ids': 'trackers',
+    'broadcaster_ids': 'broadcasters',
     'matcherino_user_id': 'Matcherino ID',
     'matcherino_username': 'Matcherino username',
     'challonge_user_id': 'Challonge ID',
     'challonge_username': 'Challonge username',
     'challonge_participant_id': 'Challonge entrant ID',
+    'startgg_user_id': 'start.gg ID',
+    'startgg_username': 'start.gg username',
     'stream_url': 'stream URL',
     'seed_url': 'seed',
     'is_active': 'active',
@@ -570,12 +676,6 @@ def _diff(label: str, old: Any, new: Any) -> list[AuditChange]:
     return [AuditChange(label, _plain(old), _plain(new))]
 
 
-def _join_words(words: list[str]) -> str:
-    if len(words) <= 1:
-        return ''.join(words)
-    return ', '.join(words[:-1]) + ' and ' + words[-1]
-
-
 def describe(
     action: str,
     details: Any,
@@ -648,13 +748,13 @@ def describe(
             c = changes[0]
             parts.append(f'{c.field}: {c.before} → {c.after}' if c.before is not None else f'{c.field}: {c.after}')
         else:
-            parts.append(f'{len(changes)} changes: ' + _join_words([c.field for c in changes[:3]])
+            parts.append(f'{len(changes)} changes: ' + and_join([c.field for c in changes[:3]])
                          + ('…' if len(changes) > 3 else ''))
     elif no_op:
         what = field_label(str(shown['key'])) if 'key' in shown else 'Value'
         parts.append(f'{what}: saved unchanged')
     elif changed_fields:
-        parts.append('Changed ' + _join_words(changed_fields))
+        parts.append('Changed ' + and_join(changed_fields))
     else:
         extras = [f'{k}: {v}' for k, v in facts if v != subject and not k.endswith(' ID')
                   and not v.startswith('#') and v not in ('(empty)', '(none)', '0')]

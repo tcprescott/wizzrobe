@@ -59,8 +59,7 @@ async def render_accommodation_section(user: User) -> None:
         details_block.set_visibility(shown['ticked'])
 
     def show(ticked: bool) -> None:
-        # Setting the value fires on_change again, as a scheduled task; recording
-        # what the box should show first lets that echo recognise itself.
+        # Setting the value fires on_change again: record what the box should show first so the echo recognises itself.
         shown['ticked'] = ticked
         requested_box.value = ticked
 
@@ -75,9 +74,6 @@ async def render_accommodation_section(user: User) -> None:
             shown['ticked'] = e.value
             await apply_toggle()
             return
-        # Unticking throws away the details and whatever staff arranged, so the
-        # box stays ticked until the member says so; dismissing the dialog
-        # leaves the request as it was.
         show(True)
         ConfirmationDialog(
             title='Withdraw your request?',

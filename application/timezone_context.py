@@ -47,29 +47,22 @@ from application.tenant_context import (
     set_tenant_id,
 )
 
-# The zone used when nothing else resolves: no tenant, no user, no browser hint.
-# Matches the app's historical hardcoded zone so an unresolvable context renders
-# exactly as it did before timezones became dynamic.
+# Don't change: matches the app's historical hardcoded zone.
 FALLBACK_TIMEZONE = 'America/New_York'
 
-# Cookie the browser-side detector writes with the device's IANA zone. Read by
-# ``TimezoneService.resolve`` as the lowest-priority signal, and only when the
-# tenant leaves the choice to the user and the user has set no preference.
 TZ_COOKIE = 'wiz_tz'
 
-# None means "unresolved" — read back as FALLBACK_TIMEZONE by current_timezone_name().
+HOUR_CYCLE_COOKIE = 'wiz_hc'
+HOUR_CYCLES = ('12', '24')
+
 _tz_var: ContextVar[Optional[str]] = ContextVar('wizzrobe_display_tz', default=None)
 
-# The zone the *browser* reported for this request, read from the TZ_COOKIE by
-# ``TenantMiddleware``. Kept separate from the resolved zone above because it is
-# an input to resolution, not its answer: a pinned community ignores it entirely,
-# and a user with a saved preference outranks it.
 _browser_tz_var: ContextVar[Optional[str]] = ContextVar('wizzrobe_browser_tz', default=None)
 
-# ZoneInfo construction hits the filesystem; the set of live zones per process is
-# tiny (one per tenant/user in play), so cache them. ZoneInfo is immutable and
-# thread-safe, and ZoneInfo itself caches too — this also memoizes the *failures*,
-# which is what keeps a bad stored name from stat-ing the tzdata tree per render.
+_hour12_var: ContextVar[Optional[bool]] = ContextVar('wizzrobe_hour12', default=None)
+_browser_hour_cycle_var: ContextVar[Optional[str]] = ContextVar('wizzrobe_browser_hour_cycle', default=None)
+
+# Also memoizes failures, so a bad stored name doesn't stat the tzdata tree per render.
 _zone_cache: dict[str, ZoneInfo] = {}
 
 
@@ -220,6 +213,86 @@ def stash_client_timezone(name: Optional[str]) -> None:
         pass
 
 
+def read_hour_cycle_cookie(raw: Optional[str]) -> Optional[str]:
+    """``'12'`` or ``'24'`` from a ``wiz_hc`` cookie, or None for anything else."""
+    return raw if raw in HOUR_CYCLES else None
+
+
+def set_browser_hour_cycle(value: Optional[str]) -> Token:
+    """Record the clock the browser reported, returning a token to reset it."""
+    return _browser_hour_cycle_var.set(value)
+
+
+def reset_browser_hour_cycle(token: Token) -> None:
+    """Restore the value the matching :func:`set_browser_hour_cycle` replaced."""
+    _browser_hour_cycle_var.reset(token)
+
+
+def get_browser_hour_cycle() -> Optional[str]:
+    """The clock the browser reported for this request: contextvar, then client stash."""
+    value = _browser_hour_cycle_var.get()
+    if value is not None:
+        return value
+    stash = client_stash()
+    return stash.get('browser_hour_cycle') if stash is not None else None
+
+
+def pick_hour12(user_hour_cycle: Optional[str], browser_hour_cycle: Optional[str]) -> bool:
+    """Whether a viewer reads 12-hour times: their saved choice, else the browser's, else 12-hour.
+
+    The last fallback covers a first visit before the browser has reported and a
+    browser whose cookie is blocked, and matches what output with no viewer gets.
+    """
+    for value in (user_hour_cycle, browser_hour_cycle):
+        if value in HOUR_CYCLES:
+            return value == '12'
+    return True
+
+
+def bind_hour12(hour12: bool) -> None:
+    """Make ``hour12`` the clock for this page build and this connection.
+
+    Both halves for the same reason as the zone: the contextvar serves the rest
+    of the request, the client stash every later websocket handler. The
+    browser's own report is stashed too, so a Profile change back to Detect can
+    re-resolve without a reload.
+    """
+    _hour12_var.set(hour12)
+    try:
+        from nicegui import app
+    except Exception:
+        return
+    try:
+        app.storage.client['hour12'] = hour12
+        app.storage.client['browser_hour_cycle'] = _browser_hour_cycle_var.get()
+    except Exception:
+        pass
+
+
+def _get_hour12() -> Optional[bool]:
+    value = _hour12_var.get()
+    if value is not None:
+        return value
+    stash = client_stash()
+    return stash.get('hour12') if stash is not None else None
+
+
+def uses_12_hour() -> bool:
+    """Whether times render as ``9:30 PM`` rather than ``21:30``. Never raises."""
+    value = _get_hour12()
+    return True if value is None else value
+
+
+@contextmanager
+def hour_cycle_scope(hour12: Optional[bool]) -> Iterator[None]:
+    """Bind the clock for a block; ``True`` forces 12-hour for output with no single viewer."""
+    token = _hour12_var.set(hour12)
+    try:
+        yield
+    finally:
+        _hour12_var.reset(token)
+
+
 @contextmanager
 def tz_scope(name: Optional[str]) -> Iterator[None]:
     """Bind ``name`` as the ambient display zone for the duration of the block.
@@ -245,7 +318,7 @@ def tz_scope(name: Optional[str]) -> Iterator[None]:
 
 @contextmanager
 def pin_client_context() -> Iterator[None]:
-    """Bind the tenant, host mode and zones the current UI handler resolves.
+    """Bind the tenant, host mode, zones and clock the current UI handler resolves.
 
     A websocket handler finds them through the NiceGUI client's slot stack, which
     is per asyncio task, so a child task (``asyncio.gather``) sees none of them
@@ -257,10 +330,14 @@ def pin_client_context() -> Iterator[None]:
         set_host_mode(is_host_mode()),
         _tz_var.set(get_current_timezone_name()),
         _browser_tz_var.set(get_browser_timezone()),
+        _hour12_var.set(_get_hour12()),
+        _browser_hour_cycle_var.set(get_browser_hour_cycle()),
     )
     try:
         yield
     finally:
+        _browser_hour_cycle_var.reset(tokens[5])
+        _hour12_var.reset(tokens[4])
         _browser_tz_var.reset(tokens[3])
         _tz_var.reset(tokens[2])
         reset_host_mode(tokens[1])

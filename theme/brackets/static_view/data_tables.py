@@ -89,8 +89,6 @@ def _standings_html(
             cells.append(_tag('div', 'c-tb', _esc(txt)))
         rows.append(_tag('div', classes, ''.join(cells)))
 
-    # The wrapper is the size container the columns respond to — see
-    # .bracket-standings-wrap in brackets.css and the interactive twin.
     return _tag(
         'div', 'bracket-standings-wrap',
         _tag('div', 'bracket-standings', ''.join(rows)),
@@ -327,8 +325,6 @@ def _swiss_html(
     default_round = max(open_rounds) if open_rounds else max(rounds)
 
     out += _tag('div', 'bracket-section-title', 'Pairings')
-    # Tabs need client state; the static view stacks the rounds as disclosures
-    # instead, with the round in play opened.
     for r in rounds:
         opened = ' open' if r == default_round else ''
         out += (

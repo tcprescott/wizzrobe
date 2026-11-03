@@ -16,14 +16,13 @@ from typing import Any, Dict, List, Optional
 
 from mcp.server.mcpserver import MCPServer
 
+from application.api_scopes import ApiScope
 from application.services import AnalyticsService, ReportsService
-from mcpserver.auth import Gate
+from mcpserver.auth import Gate, current_actor
 from mcpserver.registry import register
 from mcpserver.schemas import TenantArg
-from mcpserver.tools._args import clamp, parse_ts, window
+from mcpserver.tools._args import Bucket, clamp, parse_ts, window
 
-# How many busiest intervals a forecast reports. Enough to see the shape of a
-# day's peak; short enough that the answer is still readable.
 FORECAST_PEAKS = 5
 
 
@@ -42,7 +41,7 @@ async def capacity_forecast(
     start_dt, end_dt = window(start, end)
     service = ReportsService()
     raw = await service.generate_capacity_forecast(
-        start=start_dt, end=end_dt, tournament_id=tournament_id,
+        start=start_dt, end=end_dt, tournament_id=tournament_id, actor=current_actor().user,
     )
     intervals = raw['intervals']
     counts = raw['player_counts']
@@ -82,7 +81,7 @@ async def stage_utilization(
     start_dt, end_dt = window(start, end)
     raw = await ReportsService().stage_utilization(
         start=start_dt, end=end_dt,
-        tournament_id=tournament_id, stage_id=stage_id,
+        tournament_id=tournament_id, stage_id=stage_id, actor=current_actor().user,
     )
     return {
         'stages': [
@@ -113,7 +112,7 @@ async def tournament_health(
     """
     start_dt, end_dt = window(start, end)
     report = await AnalyticsService().tournament_health(
-        start=start_dt, end=end_dt, tournament_id=tournament_id,
+        start=start_dt, end=end_dt, tournament_id=tournament_id, actor=current_actor().user,
     )
     return report['rows']
 
@@ -122,7 +121,7 @@ async def crew_participation_trends(
     start: str,
     end: str,
     tenant: TenantArg = None,
-    bucket: str = 'week',
+    bucket: Bucket = 'week',
     tournament_id: Optional[int] = None,
 ) -> Dict[str, Any]:
     """Commentator and tracker signups versus approvals over time.
@@ -132,7 +131,7 @@ async def crew_participation_trends(
     """
     start_dt, end_dt = window(start, end)
     return await AnalyticsService().crew_participation_trends(
-        start=start_dt, end=end_dt, bucket=bucket, tournament_id=tournament_id,
+        start=start_dt, end=end_dt, bucket=bucket, tournament_id=tournament_id, actor=current_actor().user,
     )
 
 
@@ -140,7 +139,7 @@ async def activity_trends(
     start: str,
     end: str,
     tenant: TenantArg = None,
-    bucket: str = 'week',
+    bucket: Bucket = 'week',
 ) -> Dict[str, Any]:
     """Audit-log volume over time, grouped by action namespace.
 
@@ -149,7 +148,7 @@ async def activity_trends(
     """
     start_dt, end_dt = window(start, end)
     return await AnalyticsService().activity_trends(
-        start=start_dt, end=end_dt, bucket=bucket,
+        start=start_dt, end=end_dt, bucket=bucket, actor=current_actor().user,
     )
 
 
@@ -168,7 +167,7 @@ async def matches_active_at(
     if moment is None:
         raise ValueError('instant must be an ISO 8601 timestamp')
     matches = await ReportsService().matches_active_at(
-        instant=moment, tournament_id=tournament_id,
+        instant=moment, tournament_id=tournament_id, actor=current_actor().user,
     )
     return [
         {
@@ -183,15 +182,17 @@ async def matches_active_at(
 
 
 def register_tools(mcp: MCPServer) -> None:
-    register(mcp, capacity_forecast, gate=Gate.ADMIN, title='Capacity forecast')
+    register(mcp, capacity_forecast, gate=Gate.ADMIN, scope=ApiScope.STAFF_READ, title='Capacity forecast', event=True)
     register(
-        mcp, stage_utilization, gate=Gate.ADMIN,
+        mcp, stage_utilization, gate=Gate.ADMIN, scope=ApiScope.STAFF_READ,
         title='Stage utilization',
+        event=True,
     )
-    register(mcp, tournament_health, gate=Gate.ADMIN, title='Tournament health')
+    register(mcp, tournament_health, gate=Gate.ADMIN, scope=ApiScope.STAFF_READ, title='Tournament health', event=True)
     register(
-        mcp, crew_participation_trends, gate=Gate.ADMIN,
+        mcp, crew_participation_trends, gate=Gate.ADMIN, scope=ApiScope.STAFF_READ,
         title='Crew participation trends',
+        event=True,
     )
-    register(mcp, activity_trends, gate=Gate.ADMIN, title='Activity trends')
-    register(mcp, matches_active_at, gate=Gate.ADMIN, title='Matches active at')
+    register(mcp, activity_trends, gate=Gate.ADMIN, scope=ApiScope.STAFF_READ, title='Activity trends', event=True)
+    register(mcp, matches_active_at, gate=Gate.ADMIN, scope=ApiScope.STAFF_READ, title='Matches active at', event=True)

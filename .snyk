@@ -1,0 +1,10 @@
+# Snyk (https://docs.snyk.io/manage-risk/policies/the-.snyk-file)
+# tests/ and scripts/ hold test fixtures and dev seeders, whose placeholder
+# credentials and paths drown out real findings in Snyk Code scans.
+version: v1.25.0
+ignore: {}
+patch: {}
+exclude:
+  global:
+    - tests/**
+    - scripts/**

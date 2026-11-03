@@ -23,7 +23,6 @@ from theme.dialog.confirmation_dialog import ConfirmationDialog
 from theme.notify import notify_error
 from theme.page_header import page_header
 
-# label, config key, helper caption for each editable brand colour.
 _FIELDS = [
     ('Primary', 'primary', 'Buttons, links, and the selected menu item (deep tone for light mode).'),
     ('Secondary', 'secondary', 'Secondary accents and ember highlights.'),
@@ -87,8 +86,7 @@ def _logo_section(logo: str | None, can_edit: bool) -> None:
         ui.notify('Logo removed', color='positive')
         ui.navigate.reload()
 
-    # Quasar's uploader card fails axe (an unnamed file input, a nameless nested
-    # button), so it stays hidden and a plain named button opens its picker.
+    # Kept hidden behind a plain named button: Quasar's uploader card fails axe.
     uploader = ui.upload(
         auto_upload=True,
         max_file_size=MAX_UPLOAD_BYTES,
@@ -131,8 +129,6 @@ async def admin_theme_page() -> None:
 
         inputs: dict[str, ui.color_input] = {}
         warn_boxes: dict[str, ui.column] = {}
-        # With a logo uploaded the brand-mark colour is never drawn, so its
-        # contrast is moot.
         skip = {'header'} if colors.get('logo') else set()
 
         def revalidate() -> None:
@@ -147,8 +143,6 @@ async def admin_theme_page() -> None:
                             ui.icon('warning', size='1rem').classes('text-warning').props('aria-hidden=true')
                             ui.label(issue).classes('text-caption text-warning')
 
-        # Preset picker: contrast-verified palettes; selecting one fills the
-        # fields below (which the user can then fine-tune before saving).
         preset_select = ui.select(
             options=list(THEME_PRESETS.keys()),
             label='Start from a preset',

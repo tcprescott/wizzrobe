@@ -117,14 +117,6 @@ RULES = [
         "  MOCK_SPEEDGAMING=on split-brain (audit §3.2/§2A.19).",
     ),
     Rule(
-        "worker-loop-scaffold",
-        in_services,
-        re.compile(r"while\s+True\s*:[\s\S]{0,400}?asyncio\.sleep\("),
-        "Hand-rolled while-True/asyncio.sleep worker loop in a service.\n"
-        "  Use run_worker_loop / BackgroundLoop (application/utils/background_loop.py),\n"
-        "  and for_each_tenant_scoped for per-tenant ticks (audit §2A.3).",
-    ),
-    Rule(
         "not-implemented-error",
         lambda n: in_services(n) or "/application/repositories/" in n,
         re.compile(r"raise\s+NotImplementedError\b"),

@@ -41,13 +41,9 @@ class MatchResultDialog:
         self.on_submit = on_submit
         self.mode = mode
         self.dialog = None
-        # Only set on the fallback path; the two-player path has no select, so
-        # everything that dereferences it must stay guarded.
+        # Only set on the fallback path; everything that dereferences it must stay guarded.
         self.winner_select = None
-        # The dispute flag, built only in 'record' mode — see open().
         self.review_flag = None
-        # Two-player path only: the winner picked but not yet recorded, and the
-        # refresh hook that swaps the picker between its two steps.
         self._pending_winner_id = None
         self._refresh_choice = None
         self._submitting = False
@@ -86,8 +82,6 @@ class MatchResultDialog:
         """
         self._render_heading(current_winner)
         for player in self.match.players:
-            # Correcting a result: the tap that *changes* something is the solid
-            # one, so the already-recorded winner cannot be mistaken for the action.
             props = 'color=primary size=lg no-caps'
             if current_winner is not None and player.id == current_winner.id:
                 props += ' outline'
@@ -124,12 +118,8 @@ class MatchResultDialog:
 
         current_winner = self._current_winner() if self.is_edit else None
 
-        # Named by its players, not its primary key — the dialog body already
-        # repeats the tournament, so with_context=False keeps the heading to the
-        # matchup.
         label = match_model_label(self.match, with_context=False)
         title = f'Change result — {label}' if self.is_edit else f'Enter match results — {label}'
-        # Record mode only, like the review flag the topic explains.
         help = await resolve_help([] if self.is_edit else ['proctor-result'])
         with form_dialog(title, card_classes='dialog-card dialog-card--sm', help=help) as self.dialog:
             with ui.column().classes('q-pa-md'):
@@ -147,13 +137,6 @@ class MatchResultDialog:
                     ui.label('No players assigned to this match').classes('text-grey-7')
                 else:
                     if len(self.match.players) == 2:
-                        # The overwhelmingly common case, and the one that happens
-                        # under time pressure: name and station on the button so it
-                        # can be checked against the room. Two steps, not one — the
-                        # first tap only *picks*. Recording a winner settles the
-                        # match and advances the bracket, and it was the single
-                        # irreversible step in the whole flow that committed on one
-                        # tap while check-in, start and confirm all ask first.
                         @ui.refreshable
                         def winner_choice() -> None:
                             pending = next(
@@ -183,20 +166,11 @@ class MatchResultDialog:
                         ).props('outlined required').classes('full-width')
 
                     if not self.is_edit:
-                        # Record mode only. This is the proctor saying "I wrote
-                        # down my best guess and an admin should look at it" —
-                        # the admin correcting a result in edit mode is already
-                        # the review, so offering the flag there would let them
-                        # raise a dispute with themselves. Clearing it is the
-                        # admin's own action (confirming, or the REST route).
                         ui.separator()
                         self.review_flag = ui.checkbox('Flag for admin review')
 
             with dialog_actions().classes('justify-end'):
                 ui.button('Cancel', on_click=self.dialog.close).props('flat')
-                # The two-player path submits from its own step-two button, which
-                # is where the winner it is about to record is named; a footer
-                # Submit would be a second, less specific way to do the same thing.
                 if self.winner_select is not None:
                     ui.button(
                         'Save result' if self.is_edit else 'Submit Results',

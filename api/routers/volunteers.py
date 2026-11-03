@@ -6,13 +6,15 @@ from typing import List
 from fastapi import APIRouter, Depends, Query, status
 
 from api._helpers import load_community_user_or_404
-from api.dependencies import ServiceErrorRoute, require_api_actor, require_write_actor
+from api.dependencies import ServiceErrorRoute, event_binding, require_api_actor, require_write_actor
 from api.schemas.volunteers import (
     AssignRequest,
     AssignResponse,
+    CallOffRequest,
     CoverageRow,
     ReleaseAssignmentRequest,
     SetAvailabilityRequest,
+    ShiftLateRequest,
     VolunteerAssignmentResponse,
     VolunteerAvailabilityResponse,
     VolunteerHoursResponse,
@@ -25,21 +27,21 @@ from api.schemas.volunteers import (
 )
 from application.errors import require_found
 from application.services.auth_service import AuthService
+from application.services.volunteer.volunteer_arrival_service import VolunteerArrivalService
 from application.services.volunteer.volunteer_availability_service import VolunteerAvailabilityService
+from application.services.volunteer.volunteer_call_off_service import VolunteerCallOffService
 from application.services.volunteer.volunteer_hours import VolunteerHoursService
 from application.services.volunteer.volunteer_position_service import VolunteerPositionService
 from application.services.volunteer.volunteer_schedule_service import VolunteerScheduleService
-from models import User
+from models import User, VolunteerAssignment, VolunteerPosition, VolunteerShift
 
 router = APIRouter(
     prefix="/volunteers",
     tags=["Volunteers"],
     route_class=ServiceErrorRoute,
-    dependencies=[Depends(require_api_actor)],
+    dependencies=[Depends(event_binding(position_id=VolunteerPosition, shift_id=VolunteerShift, assignment_id=VolunteerAssignment)), Depends(require_api_actor)],
 )
 
-
-# --- response builders ----------------------------------------------------
 
 _assignment_resp = VolunteerAssignmentResponse.from_row
 
@@ -47,21 +49,20 @@ _assignment_resp = VolunteerAssignmentResponse.from_row
 _shift_resp = VolunteerShiftResponse.from_row
 
 
-# --- Positions ------------------------------------------------------------
-
 @router.get(
     "/positions",
     response_model=List[VolunteerPositionResponse],
     summary="List volunteer positions",
     description=(
         "Returns this community's volunteer positions (the roles shifts are grouped under), in display order.\n\n"
-        "**Who can call this:** Any member."
+        "**Who can call this:** Anyone the Volunteer page admits: Staff, Volunteer coordinator, Proctor or Volunteer."
     ),
 )
-async def list_positions(active_only: bool = Query(False, description="Return only active positions.")):
-    service = VolunteerPositionService()
-    positions = await (service.list_active() if active_only else service.list_all())
-    return positions
+async def list_positions(
+    active_only: bool = Query(False, description="Return only active positions."),
+    actor: User = Depends(require_api_actor),
+):
+    return await VolunteerPositionService().list_for_viewer(actor, active_only=active_only)
 
 
 @router.post(
@@ -92,10 +93,7 @@ async def create_position(payload: VolunteerPositionCreate, actor: User = Depend
 async def update_position(position_id: int, payload: VolunteerPositionUpdate, actor: User = Depends(require_write_actor)):
     service = VolunteerPositionService()
     position = require_found(await service.get(position_id), "Position")
-    fields = payload.model_dump(exclude_unset=True)
-    if not fields:
-        return position
-    return await service.update(actor, position, **fields)
+    return await service.update(actor, position, **payload.model_dump(exclude_unset=True))
 
 
 @router.delete(
@@ -113,15 +111,13 @@ async def delete_position(position_id: int, actor: User = Depends(require_write_
     await service.delete(actor, position)
 
 
-# --- Shifts ---------------------------------------------------------------
-
 @router.get(
     "/shifts",
     response_model=List[VolunteerShiftResponse],
     summary="List shifts in a window",
     description=(
         "Returns every shift overlapping the window, with its assignments. Draft assignments (an unpublished auto-fill) are left out unless you can manage volunteers.\n\n"
-        "**Who can call this:** Any member."
+        "**Who can call this:** Anyone the Volunteer page admits: Staff, Volunteer coordinator, Proctor or Volunteer."
     ),
 )
 async def list_shifts(
@@ -129,7 +125,7 @@ async def list_shifts(
     end: datetime = Query(..., description="Window end (UTC ISO 8601)"),
     actor: User = Depends(require_api_actor),
 ):
-    shifts = await VolunteerScheduleService().list_shifts_for_window(start, end)
+    shifts = await VolunteerScheduleService().shifts_for_viewer(actor, start, end)
     include_drafts = await AuthService.can_manage_volunteers(actor)
     return [_shift_resp(s, include_drafts=include_drafts) for s in shifts]
 
@@ -140,11 +136,11 @@ async def list_shifts(
     summary="Get a shift",
     description=(
         "Returns one shift with its assignments. Draft assignments are left out unless you can manage volunteers.\n\n"
-        "**Who can call this:** Any member."
+        "**Who can call this:** Anyone the Volunteer page admits: Staff, Volunteer coordinator, Proctor or Volunteer."
     ),
 )
 async def get_shift(shift_id: int, actor: User = Depends(require_api_actor)):
-    shift = require_found(await VolunteerScheduleService().get_shift(shift_id), "Shift")
+    shift = require_found(await VolunteerScheduleService().shift_for_viewer(actor, shift_id), "Shift")
     return _shift_resp(shift, include_drafts=await AuthService.can_manage_volunteers(actor))
 
 
@@ -161,13 +157,8 @@ async def get_shift(shift_id: int, actor: User = Depends(require_api_actor)):
 )
 async def create_shift(payload: VolunteerShiftCreate, actor: User = Depends(require_write_actor)):
     service = VolunteerScheduleService()
-    await service.create_shift(actor, **payload.model_dump())
-    # Re-fetch with relations for a complete response.
-    shifts = await service.list_shifts_for_window(payload.starts_at, payload.ends_at)
-    created = next((s for s in shifts if s.position_id == payload.position_id
-                    and s.starts_at == payload.starts_at), None)
-    # create_shift has already required can_manage_volunteers.
-    return _shift_resp(created or shifts[-1], include_drafts=True)
+    shift = await service.create_shift(actor, **payload.model_dump())
+    return _shift_resp(require_found(await service.get_shift(shift.id), "Shift"), include_drafts=True)
 
 
 @router.patch(
@@ -187,8 +178,7 @@ async def update_shift(shift_id: int, payload: VolunteerShiftUpdate, actor: User
     for key in ('label', 'notes'):
         if key in fields:
             fields[key] = (fields[key] or '').strip() or None
-    if fields:
-        await service.update_shift(actor, shift, **fields)
+    await service.update_shift(actor, shift, **fields)
     return _shift_resp(require_found(await service.get_shift(shift_id), "Shift"), include_drafts=True)
 
 
@@ -207,8 +197,6 @@ async def delete_shift(shift_id: int, actor: User = Depends(require_write_actor)
     await service.delete_shift(actor, shift)
 
 
-# --- Assignments ----------------------------------------------------------
-
 @router.post(
     "/shifts/{shift_id}/assignments",
     response_model=AssignResponse,
@@ -224,7 +212,7 @@ async def assign(shift_id: int, payload: AssignRequest, actor: User = Depends(re
     shift = require_found(await service.get_shift(shift_id), "Shift")
     target = await load_community_user_or_404(payload.user_id, actor)
     assignment, warnings = await service.assign(actor, shift, target)
-    assignment.user = target  # for the response name
+    assignment.user = target
     return AssignResponse(assignment=_assignment_resp(assignment), warnings=warnings)
 
 
@@ -272,7 +260,60 @@ async def check_in(assignment_id: int, actor: User = Depends(require_write_actor
     return _assignment_resp(assignment)
 
 
-# --- Coverage -------------------------------------------------------------
+@router.post(
+    "/assignments/{assignment_id}/call-off",
+    response_model=VolunteerAssignmentResponse,
+    summary="Call off one volunteer's shift (coordinators and staff)",
+    description=(
+        "Tells the volunteer by DM they don't need to come (or can head out, if the shift has started). "
+        "The shift skips check-in and still counts as fully worked for their hours, comps and attendance. "
+        "Calling off twice changes nothing.\n\n"
+        "Fails with 400 for an unpublished draft or a finished shift.\n\n"
+        "**Who can call this:** Staff or Volunteer coordinator."
+    ),
+)
+async def call_off(
+    assignment_id: int, body: CallOffRequest = CallOffRequest(),
+    actor: User = Depends(require_write_actor),
+):
+    assignment = await VolunteerCallOffService().call_off(assignment_id, actor, body.note)
+    return _assignment_resp(assignment)
+
+
+@router.delete(
+    "/assignments/{assignment_id}/call-off",
+    response_model=VolunteerAssignmentResponse,
+    summary="Undo a call-off (coordinators and staff)",
+    description=(
+        "Puts the volunteer back on the shift and DMs them that they're needed after all. "
+        "Doing it when the shift isn't called off changes nothing.\n\n"
+        "Fails with 400 once the shift has finished.\n\n"
+        "**Who can call this:** Staff or Volunteer coordinator."
+    ),
+)
+async def undo_call_off(assignment_id: int, actor: User = Depends(require_write_actor)):
+    assignment = await VolunteerCallOffService().undo_call_off(assignment_id, actor)
+    return _assignment_resp(assignment)
+
+
+@router.post(
+    "/shifts/{shift_id}/call-off",
+    response_model=List[VolunteerAssignmentResponse],
+    summary="Call off everyone on a shift (coordinators and staff)",
+    description=(
+        "Calls off every published assignment on the shift that isn't already called off, with a DM to each. "
+        "Drafts are left alone. Returns the assignments newly called off.\n\n"
+        "Fails with 400 when the shift has finished or nobody is left to call off.\n\n"
+        "**Who can call this:** Staff or Volunteer coordinator."
+    ),
+)
+async def call_off_shift(
+    shift_id: int, body: CallOffRequest = CallOffRequest(),
+    actor: User = Depends(require_write_actor),
+):
+    done = await VolunteerCallOffService().call_off_shift(shift_id, actor, body.note)
+    return [_assignment_resp(a) for a in done]
+
 
 @router.get(
     "/coverage",
@@ -280,17 +321,16 @@ async def check_in(assignment_id: int, actor: User = Depends(require_write_actor
     summary="Per-shift coverage in a window",
     description=(
         "Returns filled and needed slot counts for every shift overlapping the window. `filled` counts draft assignments too.\n\n"
-        "**Who can call this:** Any member."
+        "**Who can call this:** Anyone the Volunteer page admits: Staff, Volunteer coordinator, Proctor or Volunteer."
     ),
 )
 async def coverage(
     start: datetime = Query(..., description="Window start (UTC ISO 8601)"),
     end: datetime = Query(..., description="Window end (UTC ISO 8601)"),
+    actor: User = Depends(require_api_actor),
 ):
-    return await VolunteerScheduleService().coverage(start, end)
+    return await VolunteerScheduleService().coverage_for_viewer(actor, start, end)
 
-
-# --- Hours ----------------------------------------------------------------
 
 def _hours_resp(summary) -> VolunteerHoursResponse:
     return VolunteerHoursResponse(
@@ -317,11 +357,7 @@ async def hours(
     end: date | None = Query(None, description="Last event day to count (local date)"),
     actor: User = Depends(require_api_actor),
 ):
-    await AuthService.ensure(
-        await AuthService.can_manage_volunteers(actor),
-        "Only volunteer coordinators can read the volunteer hours roster.",
-    )
-    summaries = await VolunteerHoursService().roster(start=start, end=end)
+    summaries = await VolunteerHoursService().roster(actor=actor, start=start, end=end)
     return [_hours_resp(s) for s in summaries]
 
 
@@ -341,8 +377,6 @@ async def my_hours(
 ):
     return _hours_resp(await VolunteerHoursService().for_user(actor, start=start, end=end))
 
-
-# --- Self-service: availability, assignments ---------------------
 
 @router.get(
     "/me/availability",
@@ -388,6 +422,52 @@ async def my_assignments(
     after = datetime.now(timezone.utc) if upcoming_only else None
     assignments = await VolunteerScheduleService().assignments_for_user(actor, upcoming_after=after)
     return [_assignment_resp(a) for a in assignments]
+
+
+@router.post(
+    "/me/assignments/{assignment_id}/arrival",
+    response_model=VolunteerAssignmentResponse,
+    summary="Say you're here for your shift",
+    description=(
+        "Checks you in for one of your shifts, from 30 minutes before it starts until it ends. "
+        "Doing it twice keeps the first time.\n\n"
+        "Fails with 400 when check-in isn't open yet, the shift was called off, or it isn't yours.\n\n"
+        "**Who can call this:** Yourself only."
+    ),
+)
+async def arrive(assignment_id: int, actor: User = Depends(require_write_actor)):
+    return _assignment_resp(await VolunteerArrivalService().check_in_self(assignment_id, actor))
+
+
+@router.delete(
+    "/me/assignments/{assignment_id}/arrival",
+    response_model=VolunteerAssignmentResponse,
+    summary="Take back your check-in",
+    description=(
+        "Undoes a check-in you made yourself, until the shift ends. A coordinator's check-in "
+        "stays.\n\n"
+        "**Who can call this:** Yourself only."
+    ),
+)
+async def undo_arrival(assignment_id: int, actor: User = Depends(require_write_actor)):
+    return _assignment_resp(await VolunteerArrivalService().undo_check_in(assignment_id, actor))
+
+
+@router.post(
+    "/me/assignments/{assignment_id}/running-late",
+    response_model=VolunteerAssignmentResponse,
+    summary="Tell the coordinators you're running late",
+    description=(
+        "Keeps the shift and DMs the volunteer coordinators how late you expect to be: 10, 20 "
+        "or 30 minutes.\n\n"
+        "Fails with 400 for another number, or once you're checked in or the shift is over.\n\n"
+        "**Who can call this:** Yourself only."
+    ),
+)
+async def running_late(
+    assignment_id: int, body: ShiftLateRequest, actor: User = Depends(require_write_actor),
+):
+    return _assignment_resp(await VolunteerArrivalService().report_late(assignment_id, actor, body.minutes))
 
 
 @router.delete(

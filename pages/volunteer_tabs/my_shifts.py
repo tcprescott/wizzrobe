@@ -1,25 +1,15 @@
-"""Volunteer My Shifts tab."""
+"""Shared pieces of a volunteer's own shifts: titles, actions, give-back, hours."""
 
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Awaitable, Callable, Optional
 
-from nicegui import app, ui
+from nicegui import ui
 
-from application.services import (
-    SystemConfigService,
-    VolunteerArrivalService,
-    get_user_from_session,
-)
-from application.services.volunteer import can_self_check_in, can_undo_check_in, describe_late
-from application.services.volunteer.volunteer_hours import VolunteerHoursService
 from application.services.volunteer.volunteer_schedule_service import VolunteerScheduleService
-from application.utils.timezone import format_local_display, format_local_time
+from application.utils.timezone import format_local_display
 from theme.dialog._helpers import dialog_actions, form_dialog
-from theme.empty_state import empty_state
-from theme.help import help_icon, resolve_help
+from theme.help import resolve_help
 from theme.notify import notify_error
-from theme.page_header import page_header
-from theme.shift_arrival_banner import arrival_changed, on_arrival_change
 
 
 def release_warning(starts_at: datetime, lead_minutes: int) -> Optional[str]:
@@ -62,233 +52,78 @@ def hours_message(summary) -> str:
     return line
 
 
-def release_link_target(raw: Optional[str]) -> tuple[Optional[int], bool]:
-    """Parse ``?release=``: (assignment id, whether the param was malformed)."""
-    if raw is None or raw == '':
-        return None, False
-    if raw.isdecimal():
-        return int(raw), False
-    return None, True
-
-
 def shift_actions(assignment, now: datetime) -> tuple[bool, bool]:
     """(show Acknowledge, show "Can't make this") for one assignment card.
 
     Module-level and pure so the rule is testable. Both mirror what the service
-    will accept: nothing on a finished shift, and no giving back a shift you
-    are already checked in for.
+    will accept: nothing on a finished or called-off shift, and no giving back
+    a shift you are already checked in for.
     """
-    finished = assignment.shift.ends_at <= now
+    finished = assignment.shift.ends_at <= now or assignment.called_off_at is not None
     can_ack = assignment.acknowledged_at is None and not finished
     can_release = assignment.checked_in_at is None and not finished
     return can_ack, can_release
 
 
-async def my_shifts_tab(release: Optional[str] = None) -> None:
-    user = await get_user_from_session(app.storage.user)
-    if user is None:
-        ui.label('You must be logged in.').classes('text-error')
-        return
-
-    service = VolunteerScheduleService()
-    arrival_service = VolunteerArrivalService()
-    hours_service = VolunteerHoursService()
-    state = {'upcoming_only': True}
-    lead_minutes = await SystemConfigService.get_volunteer_reminder_lead_minutes()
-
-    with ui.column().classes('page-container'):
-        with page_header('My Shifts'):
-            await help_icon(('my-shifts', 'Your shifts'), 'shift-release')
-            ui.space()
+def shift_title(shift) -> str:
+    position = shift.position.name if shift.position else 'Volunteer'
+    return position + (f' — {shift.label}' if shift.label else '')
 
 
-        @ui.refreshable
-        async def hours_panel() -> None:
-            try:
-                summary = await hours_service.for_user(user)
-            except ValueError:
-                return
-            ui.label(hours_message(summary)).classes('text-body2 q-mb-sm')
+def render_shift_brief(assignment) -> None:
+    """What the shift actually involves — the two fields the coordinator
+    writes — and who else is on it."""
+    shift = assignment.shift
+    description = getattr(shift.position, 'description', None) if shift.position else None
+    if description:
+        ui.label(description).classes('text-body2 q-mt-sm wiz-free-text')
+    if shift.notes:
+        with ui.column().classes('q-mt-sm q-pa-sm gap-0') \
+                .style('border: 1px solid var(--q-primary); border-radius: 4px;'):
+            ui.label('For this shift').classes('text-caption text-weight-medium')
+            ui.label(shift.notes).classes('text-body2 wiz-free-text')
+    # Drafts excluded: naming someone who hasn't been told would leak the draft.
+    others = sorted(
+        a.user.preferred_name
+        for a in shift.assignments
+        if a.user_id != assignment.user_id and not a.auto_generated and a.user
+    )
+    ui.label(
+        f"With: {', '.join(others)}" if others
+        else 'You are the only one scheduled for this slot.'
+    ).classes('text-caption text-grey q-mt-sm')
 
-        await hours_panel()
 
-        async def confirm_release(assignment) -> None:
-            shift = assignment.shift
-            position = shift.position.name if shift.position else 'Volunteer'
-            help = await resolve_help(['shift-release'])
-            with form_dialog('Give this shift back?', card_classes='dialog-card dialog-card--sm', help=help) as dialog:
-                with ui.column().classes('q-pa-md gap-2 full-width'):
-                    ui.label(
-                        position + (f' — {shift.label}' if shift.label else '')
-                    ).classes('text-body2 text-weight-medium')
-                    ui.label(
-                        f'{format_local_display(shift.starts_at)} → '
-                        f'{format_local_display(shift.ends_at)}'
-                    ).classes('text-caption')
-                    warning = release_warning(shift.starts_at, lead_minutes)
-                    if warning:
-                        ui.label(warning).classes('text-caption text-warning')
-                    reason_input = ui.textarea('Reason (optional)').classes('full-width')
-                    reason_input.props('hint="Your coordinator sees this."')
-
-                async def do_release() -> None:
-                    dialog.close()
-                    try:
-                        await service.release(assignment.id, user, reason_input.value)
-                    except (ValueError, PermissionError) as e:
-                        notify_error(e)
-                        return
-                    ui.notify('Shift released. Your coordinator has been told.', color='info')
-                    hours_panel.refresh()
-                    shift_list.refresh()
-
-                with dialog_actions().classes('justify-end'):
-                    ui.button('Keep it', on_click=dialog.close).props('flat')
-                    ui.button('Give it back', on_click=do_release).props('color=negative')
-            dialog.open()
-
-        async def arrive(assignment) -> None:
-            try:
-                await arrival_service.check_in_self(assignment.id, user)
-            except (ValueError, PermissionError) as e:
-                notify_error(e)
-                return
-            ui.notify("You're checked in. Thanks!", color='positive')
-            await arrival_changed()
-
-        async def undo(assignment) -> None:
-            try:
-                await arrival_service.undo_check_in(assignment.id, user)
-            except (ValueError, PermissionError) as e:
-                notify_error(e)
-                return
-            ui.notify('Check-in taken back.', color='info')
-            await arrival_changed()
-
-        def _render_brief(assignment) -> None:
-            """What the shift actually involves — the two fields the coordinator
-            writes and nothing used to render."""
-            shift = assignment.shift
-            description = getattr(shift.position, 'description', None) if shift.position else None
-            if description:
-                ui.label(description).classes('text-body2 q-mt-sm wiz-free-text')
-            if shift.notes:
-                with ui.column().classes('q-mt-sm q-pa-sm gap-0') \
-                        .style('border: 1px solid var(--q-primary); border-radius: 4px;'):
-                    ui.label('For this shift').classes('text-caption text-weight-medium')
-                    ui.label(shift.notes).classes('text-body2 wiz-free-text')
-            # Drafts are excluded: naming someone who has not been told would leak
-            # the draft invariant out sideways.
-            others = sorted(
-                a.user.preferred_name
-                for a in shift.assignments
-                if a.user_id != assignment.user_id and not a.auto_generated and a.user
-            )
+async def open_release_dialog(
+    assignment, user, lead_minutes: int, on_released: Callable[[], Awaitable[None]],
+) -> None:
+    """The "Give this shift back?" confirm, shared by My Shifts and My Schedule."""
+    shift = assignment.shift
+    help = await resolve_help(['shift-release'])
+    with form_dialog('Give this shift back?', card_classes='dialog-card dialog-card--sm', help=help) as dialog:
+        with ui.column().classes('q-pa-md gap-2 full-width'):
+            ui.label(shift_title(shift)).classes('text-body2 text-weight-medium')
             ui.label(
-                f"With: {', '.join(others)}" if others
-                else 'You are the only one scheduled for this slot.'
-            ).classes('text-caption text-grey q-mt-sm')
+                f'{format_local_display(shift.starts_at)} → '
+                f'{format_local_display(shift.ends_at)}'
+            ).classes('text-caption')
+            warning = release_warning(shift.starts_at, lead_minutes)
+            if warning:
+                ui.label(warning).classes('text-caption text-warning')
+            reason_input = ui.textarea('Reason (optional)').classes('full-width')
+            reason_input.props('hint="Your coordinator sees this."')
 
-        @ui.refreshable
-        async def shift_list() -> None:
-            after = datetime.now(timezone.utc) if state['upcoming_only'] else None
-            assignments = await service.assignments_for_user(
-                user, upcoming_after=after, with_shiftmates=True,
-            )
-            if not assignments:
-                msg = 'You have no upcoming shifts.' if state['upcoming_only'] else 'You have no assigned shifts.'
-                empty_state(msg)
+        async def do_release() -> None:
+            dialog.close()
+            try:
+                await VolunteerScheduleService().release(assignment.id, user, reason_input.value)
+            except (ValueError, PermissionError) as e:
+                notify_error(e)
                 return
-            for assignment in assignments:
-                shift = assignment.shift
-                position = shift.position.name if shift.position else 'Volunteer'
-                acked = assignment.acknowledged_at is not None
-                checked_in = assignment.checked_in_at is not None
-                now = datetime.now(timezone.utc)
-                can_ack, can_release = shift_actions(assignment, now)
-                late = describe_late(assignment)
-                with ui.card().classes('full-width q-pa-md q-mb-sm'):
-                    with ui.column().classes('gap-0 full-width'):
-                        title = position + (f' — {shift.label}' if shift.label else '')
-                        ui.label(title).classes('text-subtitle1')
-                        ui.label(
-                            f'{format_local_display(shift.starts_at)} → '
-                            f'{format_local_display(shift.ends_at)}'
-                        ).classes('text-caption')
-                        assigned_by = assignment.assigned_by
-                        provenance = 'Scheduled'
-                        if assigned_by is not None:
-                            provenance = f'Scheduled by {assigned_by.preferred_name}'
-                        provenance += f' · {format_local_display(assignment.created_at)}'
-                        if assignment.acknowledged_at:
-                            provenance += (
-                                f' · you acknowledged '
-                                f'{format_local_display(assignment.acknowledged_at)}'
-                            )
-                        ui.label(provenance).classes('text-caption text-grey')
-                        if late:
-                            ui.label(late).classes('text-caption st-pending')
-                        _render_brief(assignment)
-                    # Negative left, positive right in every state: a status that
-                    # replaces Acknowledge takes its slot rather than shifting
-                    # "Can't make it" across.
-                    with ui.element('div').classes('wiz-shift-actions'):
-                        # Offered whether or not it is acknowledged — agreeing to a
-                        # shift is not a commitment you cannot revise.
-                        if can_release:
-                            ui.button("Can't make it", icon='event_busy',
-                                      on_click=lambda a=assignment: confirm_release(a)) \
-                                .props('outline color=negative')
-                        if checked_in:
-                            if can_undo_check_in(assignment, user, now):
-                                ui.button('Undo check-in', on_click=lambda a=assignment: undo(a)) \
-                                    .props('flat no-caps') \
-                                    .tooltip("Take back your check-in if you tapped by mistake")
-                            with ui.element('div').classes('wiz-shift-status st-live'):
-                                ui.icon('how_to_reg')
-                                ui.label(f'Arrived {format_local_time(assignment.checked_in_at)}')
-                            # Arriving says more than acknowledging, so it takes the slot.
-                            continue
-                        if can_self_check_in(assignment, now):
-                            ui.button("I'm here", icon='place',
-                                      on_click=lambda a=assignment: arrive(a)) \
-                                .props('color=primary')
-                            continue
-                        if acked:
-                            with ui.element('div').classes('wiz-shift-status st-ok'):
-                                ui.icon('check')
-                                ui.label('Acknowledged')
-                        elif can_ack:
-                            async def ack(a_id=assignment.id) -> None:
-                                try:
-                                    await service.acknowledge(a_id, user)
-                                    ui.notify('Shift acknowledged. Thanks!', color='positive')
-                                except (ValueError, PermissionError) as e:
-                                    notify_error(e)
-                                shift_list.refresh()
-                            ui.button('Acknowledge', icon='check', on_click=ack) \
-                                .props('color=primary')
+            ui.notify('Shift released. Your coordinator has been told.', color='info')
+            await on_released()
 
-        def on_toggle(e) -> None:
-            state['upcoming_only'] = not e.value
-            shift_list.refresh()
-
-        ui.switch('Show all shifts', on_change=on_toggle)
-        with ui.element('div').classes('wiz-tile-grid'):
-            await shift_list()
-        on_arrival_change(shift_list.refresh)
-
-        release_id, malformed = release_link_target(release)
-        if malformed:
-            ui.notify("That link is broken. Your shifts are below.", color='warning')
-        elif release_id is not None:
-            target = await service.find_own_assignment(release_id, user)
-            if target is None:
-                ui.notify("That shift isn't on your list any more.", color='warning')
-            elif not shift_actions(target, datetime.now(timezone.utc))[1]:
-                ui.notify(
-                    "That shift can't be given back here: it's finished or you're "
-                    "checked in. Talk to your coordinator.", color='warning',
-                )
-            else:
-                await confirm_release(target)
+        with dialog_actions().classes('justify-end'):
+            ui.button('Keep it', on_click=dialog.close).props('flat')
+            ui.button('Give it back', on_click=do_release).props('color=negative')
+    dialog.open()

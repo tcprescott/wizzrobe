@@ -3,6 +3,7 @@ from typing import List, Optional
 
 from tortoise.exceptions import IntegrityError
 
+from application.repositories._save import save_fields
 from models import User, WebPushSubscription
 
 
@@ -29,10 +30,6 @@ class WebPushRepository:
         auth: str,
         user_agent: Optional[str],
     ) -> WebPushSubscription:
-        # A browser can re-subscribe with an endpoint we already hold (page
-        # reload, or a different account logging in on the same device) — the
-        # endpoint uniquely identifies the device subscription, so the row is
-        # reassigned rather than duplicated.
         subscription = await self.get_by_endpoint(endpoint)
         if subscription is None:
             try:
@@ -40,8 +37,7 @@ class WebPushRepository:
                     user=user, endpoint=endpoint, p256dh=p256dh, auth=auth, user_agent=user_agent
                 )
             except IntegrityError:
-                # Lost a check-then-insert race on the unique endpoint
-                # (double-click subscribing) — update the row that won.
+                # Lost a check-then-insert race on the unique endpoint; update the row that won.
                 subscription = await self.get_by_endpoint(endpoint)
                 if subscription is None:
                     raise
@@ -49,7 +45,7 @@ class WebPushRepository:
         subscription.p256dh = p256dh
         subscription.auth = auth
         subscription.user_agent = user_agent
-        await subscription.save()
+        await save_fields(subscription, 'user', 'p256dh', 'auth', 'user_agent')
         return subscription
 
     async def rotate(
@@ -63,16 +59,14 @@ class WebPushRepository:
     ) -> WebPushSubscription:
         """Move a device's row onto the endpoint its push service reissued."""
         if endpoint != subscription.endpoint:
-            # The reissued endpoint can collide with a row we already hold — a
-            # stale row for this same device the push service has now recycled.
-            # The row being rotated is the live one, so the other loses.
+            # A recycled endpoint can collide with a stale row; the row being rotated is the live one, so the other goes.
             await WebPushSubscription.filter(endpoint=endpoint).exclude(id=subscription.id).delete()
         subscription.endpoint = endpoint
         subscription.p256dh = p256dh
         subscription.auth = auth
         if user_agent:
             subscription.user_agent = user_agent
-        await subscription.save()
+        await save_fields(subscription, 'endpoint', 'p256dh', 'auth', 'user_agent')
         return subscription
 
     async def delete(self, subscription: WebPushSubscription) -> None:

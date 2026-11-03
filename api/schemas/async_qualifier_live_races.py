@@ -8,8 +8,6 @@ from pydantic import BaseModel, ConfigDict, Field
 from api.schemas.async_qualifiers import AsyncQualifierRunResponse
 from models import AsyncQualifierLiveRaceStatus, AsyncQualifierRunStatus
 
-# A live-race run and an async-qualifier run are the same row; serialize them the
-# same way. ``RunResponse`` is retained as the name this router imports.
 RunResponse = AsyncQualifierRunResponse
 
 
@@ -42,9 +40,6 @@ class LiveRaceResponse(BaseModel):
         None,
         description='The SpeedGaming episode this race stands in for, or null.',
     )
-    # Racetime handles the last capture could not turn into a run — no linked user,
-    # or a finish racetime reported with no time. Staff's to-do list, and the reason
-    # a racer can be missing from the results.
     unmatched_handles: Optional[List[str]] = Field(
         None,
         description=(
@@ -90,9 +85,6 @@ class ManualResultRequest(BaseModel):
         ...,
         description="The racer's outcome: `finished`, `forfeit` or `disqualified`.",
     )
-    # Required for a finisher, ignored for a forfeit or a disqualification — neither
-    # has a time to score, and keeping one would put a scoreable-looking number on a
-    # zero run.
     elapsed_seconds: Optional[int] = Field(
         None,
         description=(

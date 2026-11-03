@@ -58,7 +58,6 @@ class TestSignup:
             name='Last Season', signups_close_at=now_local() - timedelta(days=1),
         )
         async with client_for(app, raw) as c:
-            # ValueError from the service -> 400, not a silent enrolment.
             assert (await c.post(f'/api/tournaments/{tournament.id}/signup')).status_code == 400
 
     async def test_a_non_member_is_refused(self, db, app):

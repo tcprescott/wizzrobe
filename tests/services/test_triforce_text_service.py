@@ -158,10 +158,10 @@ async def test_list_for_moderation_filters_by_status(db):
     await svc.moderate(a.id, True, admin)
     await svc.moderate(r.id, False, admin)
 
-    pending = await svc.list_for_moderation(t.id, status='pending')
-    approved = await svc.list_for_moderation(t.id, status='approved')
-    rejected = await svc.list_for_moderation(t.id, status='rejected')
-    all_rows = await svc.list_for_moderation(t.id)
+    pending = await svc.list_for_moderation(t.id, status='pending', actor=admin)
+    approved = await svc.list_for_moderation(t.id, status='approved', actor=admin)
+    rejected = await svc.list_for_moderation(t.id, status='rejected', actor=admin)
+    all_rows = await svc.list_for_moderation(t.id, actor=admin)
 
     assert [x.id for x in pending] == [p.id]
     assert [x.id for x in approved] == [a.id]
@@ -176,8 +176,6 @@ async def test_balanced_selection_weights_users_equally(db):
     admin = await _make_user(3, 'mod')
     t = await _make_tournament([admin])
 
-    # Alice submits 5 approved texts; Bob submits 1. Balanced selection
-    # should not let alice's 5 dominate.
     for i in range(5):
         e = await svc.submit(t.id, [f'alice {i}', '', ''], alice)
         await svc.moderate(e.id, True, admin)
@@ -226,7 +224,6 @@ async def test_balanced_selection_includes_orphaned_texts(db):
     admin = await _make_user(2, 'mod')
     t = await _make_tournament([admin])
 
-    # Approved text whose submitter is later deleted (FK becomes NULL).
     orphan = await svc.submit(t.id, ['orphan', '', ''], submitter)
     await svc.moderate(orphan.id, True, admin)
     await submitter.delete()
@@ -259,3 +256,13 @@ async def test_delete_removes_row_and_audits(db):
     assert await TriforceText.filter(id=entry.id).exists() is False
     actions = await AuditLog.all().values_list('action', flat=True)
     assert AuditActions.TRIFORCE_TEXT_DELETED in actions
+
+
+async def test_list_for_moderation_refuses_a_non_moderator(db):
+    """The service makes the moderator check itself, so a caller that forgets it
+    (a new page, tool or handler) can't list another tournament's pool."""
+    svc = TriforceTextService()
+    alice = await _make_user(11, 'alice')
+    t = await _make_tournament([])
+    with pytest.raises(PermissionError):
+        await svc.list_for_moderation(t.id, actor=alice)

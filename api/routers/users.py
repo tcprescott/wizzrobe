@@ -12,6 +12,7 @@ from api.dependencies import (
     require_write_actor,
 )
 from api.schemas.detail import DetailResponse
+from api.schemas.member_details import MemberDetailsResponse
 from api.schemas.user_actions import (
     RoleRequest,
     TournamentEnrollmentUpdate,
@@ -21,9 +22,16 @@ from api.schemas.user_actions import (
     UserSelfUpdate,
 )
 from api.schemas.users import UserDetailResponse, UserListItem
-from application.services import TenantMembershipService, TournamentService, UserService
+from application.services import (
+    EventService,
+    FeatureFlagService,
+    MemberDetailsService,
+    TenantMembershipService,
+    TournamentService,
+    UserService,
+)
 from application.services.auth_service import AuthService
-from models import Role, User
+from models import FeatureFlag, Role, User
 
 router = APIRouter(prefix="/users", tags=["Users"], route_class=ServiceErrorRoute)
 
@@ -58,9 +66,7 @@ async def list_users(
     role: Optional[Role] = Query(None, description="Filter to users holding this role in this community"),
     actor: User = Depends(require_staff),
 ):
-    # Community members, not every account on the platform. A token belongs to
-    # one tenant, so returning the platform's whole user table was a leak; there
-    # is deliberately no ?scope=all, which would re-open it behind a parameter.
+    # Community members only; don't add a ?scope=all, it would re-open the platform-wide leak.
     return await UserService().get_community_people(role=role)
 
 
@@ -93,7 +99,21 @@ async def get_user(user_id: int, actor: User = Depends(require_api_actor)):
     return await _to_detail(await load_community_user_or_404(user_id, actor))
 
 
-# --- Writes -----------------------------------------------------------------
+@router.get(
+    "/{user_id}/details",
+    response_model=MemberDetailsResponse,
+    summary="Get everything about a member",
+    description=(
+        "The data behind clicking a name on Admin → Members, for troubleshooting: roles, tournaments, "
+        "upcoming matches and shifts, how DMs reach them, every message they can get with the community's "
+        "setting, their own choice and what they actually get, and the last DMs sent to them here. "
+        "Someone outside the community reads as not found. Email is reported as a state, never the "
+        "address, and the emergency contact is not included.\n\n"
+        "**Who can call this:** Staff."
+    ),
+)
+async def get_member_details(user_id: int, actor: User = Depends(require_staff)):
+    return MemberDetailsResponse.build(await MemberDetailsService().get(user_id, actor=actor))
 
 
 @router.post(
@@ -136,6 +156,10 @@ async def update_me(body: UserSelfUpdate, actor: User = Depends(require_write_ac
         display_name=body.display_name,
         pronouns=body.pronouns,
         dm_notifications=body.dm_notifications,
+        matcherino_username=(
+            body.matcherino_username
+            if await FeatureFlagService().is_enabled(FeatureFlag.PAYOUTS) else None
+        ),
     )
     return await _to_detail(actor)
 
@@ -196,8 +220,6 @@ async def update_user_tournaments(
     if not await AuthService.is_staff(actor):
         if actor.id != user_id:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Staff access required")
-        # A player editing their own list goes through the same signup rules
-        # as the Tournaments tab: window, active, Challonge-managed rosters.
         wanted = set(body.tournament_ids)
         current = {
             tp.tournament_id  # type: ignore[attr-defined]
@@ -223,14 +245,15 @@ async def update_user_tournaments(
     description=(
         "Gives the person a role in this community and makes them a member if they weren't "
         "one. A join request they have waiting is closed as approved, and they get a DM saying "
-        "they're in. super_admin is refused with 403: it's a platform role, granted only on "
-        "the platform.\n\n"
+        "they're in. A per-event role (proctor, volunteer and the other on-site roles) is "
+        "granted in `event`, by default the community's default event. super_admin is refused "
+        "with 403: it's a platform role, granted only on the platform.\n\n"
         "**Who can call this:** Staff."
     ),
 )
 async def grant_role(user_id: int, body: RoleRequest, actor: User = Depends(require_write_actor)):
     target = await load_user_or_404(user_id)
-    await UserService().grant_role(target, body.role, actor=actor)
+    await UserService().grant_role(target, body.role, actor=actor, event_id=await EventService.id_for_slug(body.event))
     return {"detail": f"Granted {body.role.value}"}
 
 
@@ -239,14 +262,19 @@ async def grant_role(user_id: int, body: RoleRequest, actor: User = Depends(requ
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Revoke a community role (Staff only)",
     description=(
-        "Takes a role away in this community. The person stays a member. super_admin is "
+        "Takes a role away in this community. The person stays a member. A per-event role "
+        "is taken away in `event`, by default the community's default event. super_admin is "
         "refused with 403: it's a platform role, revoked only on the platform.\n\n"
         "**Who can call this:** Staff."
     ),
 )
-async def revoke_role(user_id: int, role: Role, actor: User = Depends(require_write_actor)):
+async def revoke_role(
+    user_id: int, role: Role,
+    event: Optional[str] = Query(None, description="Event slug, for a per-event role. Default: the default event."),
+    actor: User = Depends(require_write_actor),
+):
     target = await load_user_or_404(user_id)
-    await UserService().revoke_role(target, role, actor=actor)
+    await UserService().revoke_role(target, role, actor=actor, event_id=await EventService.id_for_slug(event))
 
 
 @router.post(

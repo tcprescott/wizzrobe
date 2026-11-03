@@ -9,7 +9,7 @@ reordered list, a stored width, and a non-default page size — so the
 run only ever sees the defaults, which is the path that already works.
 """
 
-from models import User, UserTablePreference
+from models import User, UserFriend, UserTablePreference
 
 TABLE_PREFERENCE_SPECS: dict[str, dict[str, dict]] = {
     'staff_user': {
@@ -43,6 +43,23 @@ async def seed_table_preferences(users: dict[str, User]) -> None:
                 user=user, table_key=table_key, defaults={'config': config},
             )
     print('  table preferences ok (global)')
+
+
+FRIEND_SPECS: dict[str, list[str]] = {
+    'proctor_user': ['player_two', 'player_three'],
+    'player_one': ['racer_07'],
+}
+
+
+async def seed_friends(users: dict[str, User]) -> None:
+    """Give two fixtures a friends list. Global like the model. Idempotent."""
+    for username, friends in FRIEND_SPECS.items():
+        user = users.get(username)
+        for friend_name in friends:
+            friend = users.get(friend_name)
+            if user is not None and friend is not None:
+                await UserFriend.get_or_create(user=user, friend=friend)
+    print('  friends lists ok (global)')
 
 
 async def seed_notification_channels(users: dict[str, User]) -> None:

@@ -15,20 +15,36 @@ Every datetime is UTC, as stored. Tools do not localize; the model is told once,
 in the server instructions, rather than per field.
 """
 
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+# Import the module, not the class, or the snowflake-id test scans it as an MCP model.
+from api.schemas import member_details as rest_member_details
 from mcpserver.snowflake import Snowflake
 
-# Declared once and shared, so every community-scoped tool describes its tenant
-# argument identically. The description is the only place the model learns where
-# a slug comes from, so it earns its keep in the schema of all ~20 tools.
 TenantArg = Annotated[
     Optional[str],
     Field(description='Community slug, as returned by list_tenants. Required.'),
+]
+
+EventArg = Annotated[
+    Optional[str],
+    Field(description=(
+        "Event slug, as returned by list_events. Leave it out for the community's default event. "
+        "A call about one row (a match, a shift) works in that row's event, and naming another "
+        "event answers not_found."
+    )),
+]
+
+EventFilterArg = Annotated[
+    Optional[str],
+    Field(description=(
+        "Only records from this event, by slug (see list_events). Leave it out for the whole "
+        "community: every event, plus records that belong to none."
+    )),
 ]
 
 
@@ -42,6 +58,17 @@ class OperationResult(BaseModel):
 
     ok: bool = True
     detail: str = Field(description='What changed, in one line.')
+
+
+class EventInfo(BaseModel):
+    """One of a community's events."""
+
+    slug: str = Field(description="Pass this as the `event` argument of event-day tools.")
+    name: str
+    status: str = Field(description="draft (staff only until it goes live), live, or archived (read-only).")
+    is_default: bool = Field(description="The event a tool uses when `event` is left out.")
+    starts_on: Optional[date] = None
+    ends_on: Optional[date] = None
 
 
 class TenantInfo(BaseModel):
@@ -62,6 +89,10 @@ class TenantInfo(BaseModel):
             "feature absent here reports not_found, so check this before calling."
         ),
     )
+    events: List[EventInfo] = Field(
+        default_factory=list,
+        description="The community's events you can see, the default first.",
+    )
 
 
 class WhoAmI(BaseModel):
@@ -80,6 +111,18 @@ class WhoAmI(BaseModel):
     tenants: List[TenantInfo] = Field(
         description="Communities the caller holds a role in, or all of them for a super admin."
     )
+
+
+class ServerVersion(BaseModel):
+    """Which build of Wizzrobe is answering."""
+
+    version: str = Field(
+        description="Release tag when built from one, else the commit's UTC date as YYYY.MM.DD; `dev` for a local checkout."
+    )
+    commit: Optional[str] = Field(None, description="Full git commit hash the build came from; null for a local checkout.")
+    commit_short: Optional[str] = Field(None, description="First seven characters of `commit`.")
+    commit_date: Optional[datetime] = Field(None, description="When that commit was made (UTC).")
+    source_url: str = Field(description="The source code at that commit.")
 
 
 class TournamentSummary(BaseModel):
@@ -153,7 +196,8 @@ class PayoutEntry(BaseModel):
     """One placement's share of a prize pool, with the money worked out."""
 
     place: int
-    percentage: Decimal
+    percentage: Optional[Decimal] = Field(None, description='Share of the total; null on a fixed-amount line.')
+    is_fixed: bool = Field(False, description='True when the line pays a fixed amount that does not move with the pool.')
     amount: Decimal
     entrant_name: Optional[str] = None
     matcherino_username: Optional[str] = None
@@ -210,6 +254,7 @@ class MatchCrew(BaseModel):
     match_id: int
     commentators: List[CrewMemberInfo] = Field(default_factory=list)
     trackers: List[CrewMemberInfo] = Field(default_factory=list)
+    broadcasters: List[CrewMemberInfo] = Field(default_factory=list)
 
 
 class StageBlock(BaseModel):
@@ -242,6 +287,7 @@ class MyShift(BaseModel):
     ends_at: Optional[datetime] = None
     acknowledged_at: Optional[datetime] = None
     checked_in_at: Optional[datetime] = None
+    called_off_at: Optional[datetime] = None
 
 
 class AuditEntry(BaseModel):
@@ -259,6 +305,48 @@ class AuditPage(BaseModel):
     items: List[AuditEntry] = Field(default_factory=list)
 
 
+class SentMessageInfo(BaseModel):
+    """One DM Wizzrobe sent, and what happened to it."""
+
+    id: int
+    recipient_id: Optional[int] = None
+    recipient_name: Optional[str] = None
+    discord_id: Snowflake = Field(..., description="Discord user ID it went to, as a string.")
+    title: Optional[str] = None
+    body: str
+    link_label: Optional[str] = None
+    link_url: Optional[str] = None
+    silent: bool
+    notice_key: Optional[str] = None
+    audience: Optional[str] = None
+    status: str = Field(..., description="delivered, discord_off, blocked, failed or pending.")
+    error: Optional[str] = None
+    push_devices: Optional[int] = None
+    email_sent: Optional[bool] = None
+    telegram_sent: Optional[bool] = None
+    created_at: datetime
+
+
+class MemberDetailsInfo(rest_member_details.MemberDetailsResponse):
+    """Everything this community knows about one member, as staff see it on Admin → Members."""
+
+    discord_id: Optional[Snowflake] = Field(None, description="Their Discord ID, as a string.")
+    recent_messages: List[SentMessageInfo] = Field(  # type: ignore[assignment]
+        default_factory=list, description="The last DMs sent to them here, newest first.",
+    )
+
+
+class SentMessagePage(BaseModel):
+    total: int
+    limit: int
+    offset: int
+    counts: Dict[str, int] = Field(
+        default_factory=dict,
+        description="sent, silent, off_or_blocked and failed over the time window.",
+    )
+    items: List[SentMessageInfo] = Field(default_factory=list)
+
+
 class MatchSummary(BaseModel):
     """One match, at the detail level a scheduling question needs."""
 
@@ -269,6 +357,37 @@ class MatchSummary(BaseModel):
     players: List[str] = Field(default_factory=list)
     stage: Optional[str] = None
     restream_url: Optional[str] = None
+
+
+class UnbookedMatchupInfo(BaseModel):
+    """One open bracket matchup nobody has booked, as Match Schedule's "Not booked yet" view lists it.
+
+    ``source`` is ``challonge``, ``startgg`` or ``bracket`` (native) and ``key``
+    that source's row id. ``ready`` is false while ``unlinked`` names a player
+    with no Wizzrobe account, which blocks booking. ``same_player_match_ids`` are
+    hand-made matches with the same two players that could be linked instead.
+    """
+
+    source: str
+    key: int
+    tournament_id: int
+    tournament: str
+    round: str
+    players: List[str]
+    ready: bool
+    unlinked: List[str] = Field(default_factory=list)
+    window: Optional[str] = None
+    same_player_match_ids: List[int] = Field(default_factory=list)
+
+
+class UnbookedMatchups(BaseModel):
+    """The "Not booked yet" list: totals over every matchup, rows up to ``limit``."""
+
+    total: int
+    ready: int
+    needs_account: int
+    by_tournament: Dict[str, int]
+    matchups: List[UnbookedMatchupInfo]
 
 
 class AvailabilityWindow(BaseModel):
@@ -321,7 +440,10 @@ class EquipmentDetail(EquipmentSummary):
     """
 
     description: Optional[str] = None
-    loans: List[LoanRecord] = Field(default_factory=list)
+    loans: List[LoanRecord] = Field(
+        default_factory=list, description='The most recent checkouts, newest first.',
+    )
+    loan_count: int = Field(0, description='Checkouts ever recorded; more than `loans` when it is cut short.')
 
 
 class PresetSummary(BaseModel):
@@ -500,7 +622,8 @@ class LoopStall(BaseModel):
 
     started_at: float = Field(description='Unix time, UTC')
     seconds: float
-    culprit: str = Field(description='Innermost app frame on the loop thread while it was blocked')
+    culprit: str = Field(description="Innermost app frame while blocked, or 'garbage collection (gen N, Xs)'")
+    gc_seconds: float = Field(0.0, description='How much of the stall was garbage collection')
 
 
 class EventLoopStats(BaseModel):
@@ -515,18 +638,50 @@ class EventLoopStats(BaseModel):
     recent_stalls: List[LoopStall]
 
 
+class GcStats(BaseModel):
+    """CPython garbage collection since start-up. A full (gen 2) pass stops the event loop while it runs."""
+
+    installed: bool = Field(description='Whether collections are being timed')
+    thresholds: List[int]
+    pending: List[int] = Field(description='Allocations / younger passes counted toward each generation')
+    frozen_objects: Optional[int] = Field(description='Objects frozen out of collection now; null if not frozen')
+    refreeze: Dict[str, int] = Field(default_factory=dict, description='refreezes (full-pass survivors frozen), thaws (every GC_THAW_MINUTES)')
+    by_generation: Dict[str, Dict[str, float]] = Field(description='passes, total_seconds, max_seconds per generation')
+    slowest_recent: List[Dict[str, float]] = Field(
+        description='Slowest recent passes of 10ms or more: generation, seconds, collected, ago_seconds',
+    )
+
+
 class WorkerStats(BaseModel):
     """Timing of one background worker loop."""
 
     name: str
+    enabled: bool = Field(description='False when switched off by config, so not running is expected')
     running: bool
+    stalled: bool = Field(description='Enabled but overdue for a tick, or stuck in one past its time limit')
     interval_seconds: float
+    tick_timeout_seconds: float = Field(description='A tick running longer than this is cancelled')
     ticks: int
-    failures: int
+    failures: int = Field(description='Ticks that raised or timed out')
+    timeouts: int
+    restarts: int = Field(description='Times the loop ended unexpectedly and was restarted')
     last_started_at: Optional[float]
     last_tick_seconds: Optional[float]
+    tick_running_seconds: Optional[float] = Field(description='How long the current tick has run; null between ticks')
     max_tick_seconds: float
     last_failed_at: Optional[float]
+
+
+class QueueWorkerStats(BaseModel):
+    """One in-memory work queue (Discord DMs, event dispatch, webhook delivery)."""
+
+    name: str
+    running: bool
+    stalled: bool = Field(description='One call stuck past its time limit, or the worker gone')
+    depth: int = Field(description='Calls waiting')
+    item_running_seconds: Optional[float] = Field(description='How long the current call has run; null when idle')
+    timeouts: int
+    restarts: int
 
 
 class ClientCounts(BaseModel):
@@ -558,7 +713,9 @@ class RuntimeStats(BaseModel):
     clients: ClientCounts
     db_pool: DbPoolStats
     event_loop: EventLoopStats
+    gc: GcStats
     workers: List[WorkerStats]
+    queue_workers: List[QueueWorkerStats]
     watch_pages_by_tenant_id: Dict[str, WatchPageAudience]
 
 
@@ -569,6 +726,9 @@ class WebhookInfo(BaseModel):
     name: str
     url: str
     event_types: List[str] = Field(default_factory=list)
+    events: Optional[List[str]] = Field(
+        None, description="Slugs of the events whose updates it sends; null sends every event's.",
+    )
     is_active: bool = True
 
 
@@ -599,9 +759,6 @@ class FeedbackEntry(BaseModel):
 
 # StageBlock forward-references MatchSummary, which is declared after it.
 StageBlock.model_rebuild()
-
-
-# --- Platform (super admin) ---------------------------------------------------
 
 
 class PlatformCommunity(BaseModel):

@@ -57,11 +57,11 @@ async def test_link_guild_requires_authorization(monkeypatch, tenant, db):
     with pytest.raises(PermissionError):
         await DiscordLinkService.link_guild(nobody, tenant, 555)
     await tenant.refresh_from_db()
-    assert tenant.discord_guild_id is None  # nothing was written
+    assert tenant.discord_guild_id is None
 
 
 async def test_link_guild_rejects_non_admin_of_guild(monkeypatch, super_admin, tenant, db):
-    _stub_authority(monkeypatch, True, False)  # user does not manage the guild
+    _stub_authority(monkeypatch, True, False)
     with pytest.raises(ValueError, match='Manage Server'):
         await DiscordLinkService.link_guild(super_admin, tenant, 555)
     await tenant.refresh_from_db()

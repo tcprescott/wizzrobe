@@ -57,7 +57,6 @@ async def _match(*, seated=False, started=False, scheduled=True, sg=False, allow
     p2 = await make_user(discord_id=9002, username='p2')
     await MatchPlayers.create(match=m, user=p1)
     await MatchPlayers.create(match=m, user=p2)
-    # Reloaded so ``match.players`` is prefetched the way the service reads it.
     return m, p1, p2
 
 
@@ -499,7 +498,6 @@ class TestBulkGateMatchesTheSingleGate:
         bulk = await service.list_requestable_match_ids(player)
 
         for m in [ok, *blocked]:
-            # Reloaded so the prefetch state matches what a page would hand in.
             fresh = await Match.get(id=m.id).prefetch_related('players')
             assert (m.id in bulk) is await service.can_request(fresh, player), (
                 f'match {m.id} disagrees between the bulk gate and can_request'

@@ -15,25 +15,27 @@ from datetime import date, datetime
 from typing import Optional
 from urllib.parse import urlencode
 
-# Admin tab slugs (theme.base.tab_slug of each tab's label).
+# Must equal theme.base.tab_slug of each tab's label.
 SCHEDULE = 'match-schedule'
 REPORTS = 'reports'
 VOL_SCHEDULE = 'volunteer-shifts'
 SHIFT_BOARD = 'shift-board'
-CHALLONGE = 'challonge'
+INTEGRATIONS = 'settings/integrations'
 USERS = 'members'
 QUALIFIERS = 'qualifiers'
 CHECK_IN = 'check-in-roster'
 COMMUNITY_EVENTS = 'community-events'
+NOTIFICATIONS = 'notifications'
+TOURNAMENTS = 'tournaments'
 
-# Home tab slugs.
 HOME_PLAYER = 'player'
+HOME_MY_SCHEDULE = 'my-schedule'
 HOME_SCHEDULE = 'schedule'
 HOME_MY_CREW = 'my-crew'
 HOME_TOURNAMENTS = 'tournaments'
 
-# Volunteer hub tab slugs.
 VOLUNTEER_MY_SHIFTS = 'my-shifts'
+VOLUNTEER_CHECK_IN = 'check-in-desk'
 
 
 def _query(params: dict) -> str:
@@ -54,6 +56,11 @@ def _query(params: dict) -> str:
 def admin_url(section: Optional[str] = None, **params) -> str:
     """Build ``/admin[/<section>][?…]``, dropping empty params."""
     return f"{'/admin/' + section if section else '/admin'}{_query(params)}"
+
+
+def admin_match_comments_url(match_id: int) -> str:
+    """The admin Schedule board narrowed to one match, its sheet open on the comments."""
+    return admin_url(SCHEDULE, comments=match_id)
 
 
 def admin_qualifier_queue_url(qualifier_id: int) -> str:
@@ -89,13 +96,18 @@ def home_url(section: Optional[str] = None, **params) -> str:
 
 
 def volunteer_my_shifts_url() -> str:
-    """My Shifts, where the volunteer's "I'm here" and give-back live."""
-    return f'/volunteer/{VOLUNTEER_MY_SHIFTS}'
+    """My Schedule scrolled to your shifts, where "I'm here" and give-back live."""
+    return home_url(HOME_MY_SCHEDULE, shifts=1)
 
 
 def volunteer_release_url(assignment_id: int) -> str:
-    """My Shifts with one assignment's "Give this shift back?" dialog open."""
-    return f'/volunteer/{VOLUNTEER_MY_SHIFTS}{_query({"release": assignment_id})}'
+    """My Schedule with one assignment's "Give this shift back?" dialog open."""
+    return home_url(HOME_MY_SCHEDULE, release=assignment_id)
+
+
+def volunteer_check_in_url(event_id: Optional[int | str] = None) -> str:
+    """Volunteer → Check-in Desk, on one check-in event when given."""
+    return f'/volunteer/{VOLUNTEER_CHECK_IN}{_query({"event": event_id})}'
 
 
 def player_match_comments_url(match_id: int) -> str:
@@ -111,6 +123,14 @@ def player_schedule_url(bracket_match_id: int) -> str:
     there left them at a dialog whose sole button was Close.
     """
     return home_url(HOME_PLAYER, schedule=bracket_match_id)
+
+
+def player_startgg_schedule_url(startgg_set_id: int) -> str:
+    """The Player tab with the schedule dialog for one start.gg set open.
+
+    Its own param for the reason Challonge has one: the ids index a different table.
+    """
+    return home_url(HOME_PLAYER, startgg=startgg_set_id)
 
 
 def player_challonge_schedule_url(challonge_match_id: int) -> str:
@@ -207,3 +227,35 @@ def admin_community_event_url(event_id: int) -> str:
 def admin_check_in_url() -> str:
     """Admin → Check-in, whose first control is the Matcherino login card."""
     return admin_url(CHECK_IN)
+
+
+def survey_url(survey_id: int) -> str:
+    """One survey's page, where the person it was sent to answers it."""
+    return f'/survey/{survey_id}'
+
+
+def survey_preview_url(survey_id: int) -> str:
+    """A staff-only preview of a draft survey: every part, nothing saved."""
+    return f'/survey/{survey_id}/preview'
+
+
+MY_MESSAGES = '/messages'
+
+
+def my_message_url(message_id: Optional[int] = None) -> str:
+    """Messages sent to you, opened on one message (and its Off/Silent/Ping switch)."""
+    return f'{MY_MESSAGES}{_query({"message": message_id})}'
+
+
+ITEM_TRACKER = '/tracker/{match_id}'
+ITEM_TRACKER_OVERLAY = '/tracker/overlay/{token}'
+
+
+def item_tracker_path(match_id: int) -> str:
+    """The crew's ALTTP item tracker for one match."""
+    return ITEM_TRACKER.format(match_id=match_id)
+
+
+def item_tracker_overlay_path(token: str) -> str:
+    """One runner's transparent board, for an OBS browser source."""
+    return ITEM_TRACKER_OVERLAY.format(token=token)

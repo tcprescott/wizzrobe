@@ -158,7 +158,7 @@ class TestJoinRequests:
         async with mcp_session() as client:
             names = {t['name'] for t in await list_tools(client, raw)}
             is_error, payload = await call_tool(client, raw, 'list_join_requests', tenant=TENANT)
-        assert 'list_join_requests' in names  # listing is per-connection, not per-community
+        assert 'list_join_requests' in names
         assert is_error and 'forbidden:' in payload, payload
 
 

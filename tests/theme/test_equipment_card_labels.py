@@ -11,11 +11,9 @@ Edit and, under a divider, Delete.
 import re
 
 from pages.admin_tabs.admin_equipment import _ACTIONS_CELL, _GRID_CARD, _ROW_ACTIONS
-from pages.home_tabs.equipment import _VIEW_ICON_BTN, _VIEW_LABEL_BTN
 
 
 def _labels(template: str) -> set:
-    # Visible labels only: aria-label names an icon button without drawing text.
     return set(re.findall(r'(?<![-\w])label="([^"]+)"', template))
 
 
@@ -47,18 +45,3 @@ class TestRegisterActions:
         before_delete = _ROW_ACTIONS[:_ROW_ACTIONS.index(items[-1])]
         assert before_delete.rstrip().endswith('<q-separator />')
 
-
-class TestHomeCheckoutsSection:
-    """Home keeps only "what am I still holding", so View is the only action.
-
-    Checking out and back in moved to the admin register and the QR-scan detail
-    page when Home came down to four tabs; the card rules are unchanged, there
-    is just one button left to apply them to.
-    """
-
-    def test_the_card_form_is_labelled(self):
-        assert _labels(_VIEW_LABEL_BTN) == {'View'}
-
-    def test_the_desktop_form_is_not(self):
-        assert _labels(_VIEW_ICON_BTN) == set()
-        assert '<q-tooltip>' in _VIEW_ICON_BTN

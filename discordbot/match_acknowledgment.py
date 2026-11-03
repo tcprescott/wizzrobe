@@ -51,10 +51,10 @@ async def handle_match_acknowledgment_interaction(interaction: discord.Interacti
     Responds ephemerally so only the clicking user sees the result.
     """
     from application.services import MatchService
-    from discordbot._tenant import match_tenant_id
+    from discordbot._tenant import match_scope
 
     async def resolve_tenant(match_id: int):
-        return await match_tenant_id(match_id)
+        return await match_scope(match_id)
 
     async def handle(inter: discord.Interaction, match_id: int, user, send: SendFn) -> None:
         match_service = MatchService()

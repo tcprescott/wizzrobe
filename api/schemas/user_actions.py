@@ -42,6 +42,13 @@ class UserSelfUpdate(BaseModel):
     dm_notifications: Optional[bool] = Field(
         None, description="Whether to get notifications as Discord DMs. Omit to leave it unchanged.",
     )
+    matcherino_username: Optional[str] = Field(
+        None,
+        description=(
+            "Your Matcherino handle, including the number after the hash, where prize money goes. "
+            "An empty string clears it. Ignored where the community doesn't run payouts."
+        ),
+    )
 
 
 class UserProfileUpdate(BaseModel):
@@ -77,6 +84,15 @@ class RoleRequest(BaseModel):
         description=(
             "The community role to grant. One of: staff, proctor, stream_manager, triforce_submitter, volunteer_coordinator, equipment_manager, volunteer, check_in_desk, preset_manager, sync_admin, qualifier_admin. "
             "super_admin is refused here."
+        ),
+    )
+    event: Optional[str] = Field(
+        None,
+        description=(
+            "The event slug a per-event role is granted in (proctor, stream_manager, "
+            "triforce_submitter, volunteer_coordinator, equipment_manager, volunteer, "
+            "check_in_desk). Omitted, it's the community's default event. Ignored for "
+            "staff and the online admin roles, which cover every event."
         ),
     )
 

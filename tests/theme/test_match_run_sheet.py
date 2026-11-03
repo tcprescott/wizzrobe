@@ -4,8 +4,14 @@ import time
 
 from theme.dialog.match_sheet import seed_rollable
 from theme.tables.match_run_sheet import (
+    CREW_NAMES,
+    PROCTOR_RUN_SHEET_COLUMNS,
     RUN_SHEET_COLUMNS,
+    _body_slot,
+    _item_slot,
     arrange_run_sheet,
+    crew_names,
+    run_sheet_crew,
     run_sheet_status,
 )
 
@@ -25,7 +31,7 @@ class TestStatus:
 
     def test_late_only_before_check_in(self):
         assert run_sheet_status(_row(1, 'Scheduled', is_overdue=True)) == ('Late', 'pending')
-        assert run_sheet_status(_row(1, 'Checked In', is_overdue=True)) == ('Checked in', 'neutral')
+        assert run_sheet_status(_row(1, 'Checked In', is_overdue=True)) == ('Checked in', 'info')
 
     def test_a_match_without_players_says_so(self):
         assert run_sheet_status(dict(_row(1, 'Scheduled'), players=[]))[0] == 'Waiting for players'
@@ -54,7 +60,6 @@ class TestArrange:
         assert row['_day'] == 'Today'
 
     def test_columns_are_not_sortable(self):
-        # The groups are the order; a header sort would scatter them.
         assert not any(c.get('sortable') for c in RUN_SHEET_COLUMNS)
 
 
@@ -100,6 +105,12 @@ class TestCrew:
         assert arrange_run_sheet([row])[0]['_crew'][0]['short'] is False
 
 
+    def test_no_need_means_no_needs_crew_but_still_to_approve(self):
+        row = _row(1, 'Scheduled', crew_wanted={'commentators': True},
+                   crew_required={'commentators': 0}, commentators=[{'approved': False}])
+        crew = arrange_run_sheet([row])[0]['_crew'][0]
+        assert (crew['count'], crew['short'], crew['unapproved']) == ('1', False, True)
+
 class TestReadiness:
     def _items(self, **extra):
         from theme.dialog.match_sheet import readiness
@@ -120,6 +131,13 @@ class TestReadiness:
         assert item['ready'] is False
         assert item['detail'] == 'Player One 4 · Player Two has none'
 
+    def test_a_stage_match_needs_no_stations(self):
+        assert 'stations' not in self._items(stage='Main Stage')
+        players = [{'name': 'Player One', 'station': 4}, {'name': 'Player Two'}]
+        item = self._items(stage='Main Stage', players=players)['stations']
+        assert item['ready'] is None
+        assert item['detail'] == 'Player One 4'
+
     def test_no_stage_is_information_not_a_gap(self):
         assert self._items()['stage']['ready'] is None
 
@@ -137,3 +155,98 @@ class TestReadiness:
         assert items['seed']['detail'] == 'Rolling… 15:57'
         items = self._items(tournament_seed_generator='alttpr', seed_rolling_since='2026-10-13T15:00:00Z')
         assert items['seed']['detail'] == 'Rolling…'
+
+
+def test_no_column_points_at_a_list():
+    # NiceGUI patches in its own body-cell slot for any column whose field holds a list.
+    row = arrange_run_sheet([_row(1, 'Scheduled', commentators=[], trackers=[{'name': 'T'}])])[0]
+    for col in RUN_SHEET_COLUMNS + PROCTOR_RUN_SHEET_COLUMNS:
+        assert not isinstance(row.get(col['field']), (list, set, tuple)), col['name']
+
+
+class TestQuickApprove:
+    """Approve beside a waiting crew name on the admin run sheet."""
+
+    def _crew(self, state):
+        row = _row(1, state, crew_wanted={'commentators': True},
+                   commentators=[{'name': 'Fry', 'approved': True, 'id': 7},
+                                 {'name': 'tsigma6', 'approved': False, 'id': 8}])
+        return run_sheet_crew(row)[0]
+
+    def test_people_carry_their_crew_id(self):
+        assert [p['id'] for p in self._crew('Scheduled')['people']] == [7, 8]
+
+    def test_only_unfinished_matches_take_approvals(self):
+        assert self._crew('Started')['approvable']
+        assert not self._crew('Finished')['approvable']
+
+    def test_no_button_unless_the_board_asks(self):
+        assert 'approve_crew' not in CREW_NAMES
+        assert CREW_NAMES == crew_names()
+        assert 'approve_crew' not in _body_slot(False) + _item_slot(False)
+
+    def test_one_tap_and_the_viewers_gate(self):
+        names = crew_names('[3].includes(props.row.tournament_id)')
+        assert "$parent.$emit('approve_crew'" in names
+        assert '_arm' not in names
+        assert '[3].includes(props.row.tournament_id)' in names
+        assert 'p.note && !(' in names
+
+    def test_phone_card_is_a_div_when_it_holds_winner_buttons(self):
+        slot = _item_slot(False, run='true')
+        assert '<div v-if="!props.row._folded" class="run-sheet__card"' in slot
+        assert "report_winner" in slot
+        assert "report_winner" in _body_slot(False, run='true')
+        assert "report_winner" not in _body_slot(False) + _item_slot(False)
+
+    def test_phone_card_stops_being_a_button_when_it_holds_one(self):
+        assert '<button v-if="!props.row._folded" type="button" class="run-sheet__card"' in _item_slot(False)
+        slot = _item_slot(False, approve='true')
+        assert '<div v-if="!props.row._folded" class="run-sheet__card"' in slot
+        assert 'class="run-sheet__who run-sheet__open"' in slot
+        assert "approve_crew" in _body_slot(False, approve='true')
+
+
+class TestWinnerButtons:
+    """A live head-to-head offers both names; anything else keeps Finish."""
+
+    @staticmethod
+    def _live(**extra):
+        row = {'id': 9, 'state': 'Started', 'players': [
+            {'id': 41, 'name': 'Andy'}, {'id': 42, 'name': 'Benny'}]}
+        row.update(extra)
+        return row
+
+    def test_two_players_live_get_both_names(self):
+        from theme.tables.run_sheet_winners import winner_choices
+        assert winner_choices(self._live()) == [{'id': 41, 'name': 'Andy'}, {'id': 42, 'name': 'Benny'}]
+
+    def test_not_live_or_not_two_or_played_elsewhere_get_none(self):
+        from theme.tables.run_sheet_winners import winner_choices
+        assert winner_choices(self._live(state='Checked In')) == []
+        assert winner_choices(self._live(players=[{'id': 1, 'name': 'A'}] * 3)) == []
+        assert winner_choices(self._live(is_racetime=True)) == []
+        assert winner_choices(self._live(played_on_site='challonge')) == []
+
+    def test_next_step_is_the_winner_pick_for_two_and_finish_for_more(self):
+        from theme.tables.match_run_sheet import next_step
+        assert next_step(self._live())['event'] == 'winner'
+        assert next_step(self._live(players=[{'id': i, 'name': str(i)} for i in range(3)]))['event'] == 'finish'
+
+    def test_a_held_result_shows_in_place_of_the_buttons(self):
+        import asyncio
+
+        from application import pending_actions
+        from theme.tables.run_sheet_winners import stamp_winners
+
+        async def run():
+            async def commit():
+                return None
+            token = pending_actions.hold(('result', 9), 'Andy wins', commit, seconds=5)
+            row = self._live()
+            stamp_winners(row)
+            pending_actions.cancel(token)
+            return row
+
+        row = asyncio.run(run())
+        assert row['_pending_result'] == 'Andy wins'

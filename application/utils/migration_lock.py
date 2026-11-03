@@ -26,14 +26,9 @@ from typing import AsyncIterator
 
 logger = logging.getLogger('wizzrobe.migrations')
 
-# Arbitrary but fixed: any process that changes this stops excluding the ones
-# that did not. Advisory-lock keys share one namespace per database, so the
-# value only has to be unlikely to collide with another application's.
+# Never change: a process on a different key stops excluding the ones on the old key.
 MIGRATION_LOCK_KEY = 0x5A11_0B00
 
-# A wait this long means another process is stuck mid-migration, not merely
-# slow. Failing startup is the right answer — the alternative is migrating
-# alongside it, which is the exact race the lock exists to prevent.
 LOCK_TIMEOUT_SECONDS = 300
 
 
@@ -62,8 +57,7 @@ async def migration_lock(dsn: str, acquire_timeout: float = LOCK_TIMEOUT_SECONDS
 
     conn = await asyncpg.connect(dsn)
     try:
-        # Logged before the wait, not after: a boot queued behind another
-        # process's migration would otherwise sit silent for up to the timeout.
+        # Log before the wait, or a boot queued behind another migration sits silent for up to the timeout.
         logger.info('Waiting for the migration lock (key=%s)...', MIGRATION_LOCK_KEY)
         wait_started = time.perf_counter()
         try:

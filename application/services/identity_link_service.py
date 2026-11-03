@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, Optional
 
+from application.repositories._save import save_fields
 from application.services.audit_service import AuditService
 from application.utils.environment import get_base_url
 from models import User
@@ -60,9 +61,6 @@ class IdentityLinkService:
         self.provider = provider
         self.audit_service = AuditService()
 
-    # ------------------------------------------------------------------
-    # OAuth configuration / URLs
-    # ------------------------------------------------------------------
     def _redirect_uri(self) -> str:
         return os.getenv(self.provider.redirect_uri_env) or f"{get_base_url()}{self.provider.callback_path}"
 
@@ -92,9 +90,6 @@ class IdentityLinkService:
             client_secret=os.getenv(self.provider.client_secret_env, ''),
         )
 
-    # ------------------------------------------------------------------
-    # Player identity linking (called by the provider OAuth callback)
-    # ------------------------------------------------------------------
     async def exchange_player_code(self, client: Any, code: str) -> Dict[str, Any]:
         """Exchange a user's authorization code and return their identity.
 
@@ -129,7 +124,7 @@ class IdentityLinkService:
         setattr(user, f'{prefix}_user_id', pid)
         setattr(user, f'{prefix}_username', username)
         setattr(user, f'{prefix}_linked_at', datetime.now(timezone.utc))
-        await user.save()
+        await save_fields(user, f'{prefix}_user_id', f'{prefix}_username', f'{prefix}_linked_at')
         await self.audit_service.write_log(
             actor, self.provider.linked_action,
             {'user_id': user.id, f'{prefix}_user_id': pid, f'{prefix}_username': username},
@@ -140,7 +135,7 @@ class IdentityLinkService:
         setattr(user, f'{prefix}_user_id', None)
         setattr(user, f'{prefix}_username', None)
         setattr(user, f'{prefix}_linked_at', None)
-        await user.save()
+        await save_fields(user, f'{prefix}_user_id', f'{prefix}_username', f'{prefix}_linked_at')
         await self.audit_service.write_log(
             actor, self.provider.unlinked_action, {'user_id': user.id},
         )

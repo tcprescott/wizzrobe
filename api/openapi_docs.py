@@ -8,6 +8,8 @@ those by hand on 268 routes is how they drifted, so they are derived here and
 each route's own ``description=`` carries only what it does and who may call it.
 """
 
+import asyncio
+import logging
 from typing import Any, Callable, Dict, Iterable, List, Optional, Set
 
 from fastapi import FastAPI
@@ -17,16 +19,21 @@ from fastapi.routing import APIRoute, RouteContext, iter_route_contexts
 from pydantic import BaseModel, Field
 
 from api.dependencies import (
+    require_identity,
     require_staff_write,
     require_super_admin_write,
     require_write_actor,
     resolve_token,
 )
 from api.rate_limit import limit_per_minute
+from api.scopes import PAT_ONLY, scope_for
+from application.api_scopes import CONSENT_WORDING, ApiScope
 from application.events import EventType
 from application.feature_flags import spec_for
 from application.services.webhook_service import WebhookService
 from models import FeatureFlag
+
+logger = logging.getLogger(__name__)
 
 API_PREFIX = '/api'
 
@@ -56,6 +63,10 @@ Click **Authorize** above and paste it to try endpoints from this page.
   data answers `403`.
 - Tokens can expire, and you can revoke one at any time from the same card.
 
+A personal token is for your own scripts. An app someone else wrote signs you
+in with OAuth instead, and gets only the **scopes** you approve. Each endpoint
+lists the scope an app needs to call it; a few say apps can't call them at all.
+
 ## Conventions
 
 - **Times are UTC**, in ISO 8601 (`2026-10-16T18:00:00Z`). Convert to local
@@ -64,7 +75,7 @@ Click **Authorize** above and paste it to try endpoints from this page.
 - **Errors** come back as JSON with a `detail` message:
   `{"detail": "Staff access required"}`. `400` means a rule refused the
   request (the message says which), `401` a missing or expired token, `403` no
-  permission or a read-only token, `404` nothing with that id in your
+  permission, a read-only token or a scope the app wasn't given, `404` nothing with that id in your
   community or a feature your community hasn't turned on, `422` a malformed
   request.
 - **Rate limit:** {rate_limit} requests a minute per token, and the same
@@ -72,6 +83,12 @@ Click **Authorize** above and paste it to try endpoints from this page.
   with a `Retry-After` header giving the seconds to wait.
 - Some sections only work when the community has turned the feature on
   (Admin → Features). Those endpoints say so.
+- **Events.** A community runs events (one weekend each). Event-day
+  endpoints work in the community's default event unless you add
+  `?event=<slug>`; `GET /api/events` lists the slugs. A call about one row (a
+  match, a shift) works in that row's event whatever you pass, and naming a
+  different event answers `404`. An archived event is read-only: writes to it
+  answer `409`.
 
 ## Recipes
 
@@ -107,7 +124,6 @@ check the signature, is under **Webhooks** at the bottom of this page.
 """
 
 
-
 def api_description() -> str:
     return _API_DESCRIPTION.replace('{rate_limit}', str(limit_per_minute()))
 
@@ -115,34 +131,65 @@ def api_description() -> str:
 # Swagger lists sections in this order. ReDoc also reads ``x-tagGroups``.
 TAG_GROUPS: List[tuple[str, List[tuple[str, str]]]] = [
     ('Event day', [
+        ('My schedule', "A player's own Home and Schedule: next match, what's waiting on them, and picking a time."),
+        ('Event', "The app's Event tab: what's on each stage, the run sheet, and Watch."),
+        ('Admin shell', "Which admin areas and settings panes the caller may open, for the app's admin menu."),
+        ('Community settings', "A community's own settings, one group per pane of Admin → Settings: colours and logo, clock, joining, profile reminders, Watch page, volunteers, meetups, features and connected apps."),
+        ('Discord settings', "The Discord pane of Admin → Settings: the linked server, its role mappings with labels, adding several at once, syncing everyone, and the events mirror per tournament."),
+        ('Integration settings', "The Integrations pane of Admin → Settings: the Challonge and start.gg sign-ins, webhooks with their delivery health, randomizer keys, and the AI provider for survey suggestions."),
+        ('Event settings', "One event's own settings, one group per pane of Admin → Event settings: dates and daily hours, capacity, clock, broadcasters, volunteer reward tiers, and the venue's stations and room screens."),
         ('Matches', 'The schedule, and running a match from seating to a confirmed result.'),
-        ('Crew', 'Commentator and tracker signups, approval and acknowledgement.'),
+        ('Admin: Match Schedule', "The staff run sheet as the app's admin Match Schedule draws it: grouped rows and one match's pane."),
+        ('Crew', 'Commentator, tracker and broadcaster signups, approval and acknowledgement.'),
         ('Reschedule requests', 'Players asking to move or call off a match, and staff answering.'),
+        ('Match comments', 'Notes on a match: players to staff, staff notes, and staff to players.'),
         ('Volunteers', 'Volunteer positions, shifts, assignments, availability and hours.'),
         ('Check-in', 'The event check-in desk: roster, check-in, walk-ups and account matching.'),
         ('Equipment', 'Lending equipment out and getting it back.'),
+        ('Admin: equipment', 'The app\'s Admin → Equipment screen: the owner and borrower picker and QR label sheets.'),
+        ('Admin: check-in', 'The app\'s Admin → Check-in Roster screen: check-in events, badge lanyards and the Matcherino login.'),
         ('Stages', 'Stages (streams and setups) that matches are assigned to.'),
         ('Triforce texts', 'Player-submitted triforce texts and their moderation.'),
         ('Feedback', 'Feedback people send from inside the app.'),
+        ('Surveys', 'Post-event surveys: build one and read what came back. Only the Wizzrobe app can send, remind and close.'),
     ]),
     ('People', [
         ('Users', 'People in this community, their profiles and roles.'),
         ('Membership', 'Requests to join the community, and answering them.'),
+        ('Admin: members', 'The app\'s Admin → Members screen: the member table, adding and importing members, ADA requests, emergency contacts and messaging a member.'),
+        ('Admin: meetups', 'The app\'s Admin → Meetups screen: reviewing the meetups attendees want to run.'),
         ('Player availability', 'When players say they can and can\'t play.'),
-        ('Notifications', 'Which Discord and push notifications you receive.'),
+        ('Work', 'The app\'s Work tab for people who run the event: your areas and the volunteer schedule grid.'),
+        ('My profile', 'Your own profile as the app\'s Me screen shows it: clock, connected accounts, staff alerts, accommodation and emergency contact.'),
+        ('My notifications', 'Where your notifications reach you: Discord DMs, devices, email and Telegram.'),
+        ('My surveys', 'Surveys sent to you: open one, save each part, and send your answers.'),
+        ('Notifications', 'Which messages reach you and whether they ping, and the tournaments you follow.'),
         ('API tokens', 'Your personal API tokens.'),
+        ('My developer tools', 'OAuth apps you register and your personal webhooks.'),
     ]),
     ('Setup', [
+        ('Events', 'The community\'s events, from draft to live to archived, and each one\'s settings.'),
         ('Tournaments', 'Tournaments, their admins and crew coordinators, and signing up.'),
+        ('Admin: tournaments', "The app's Tournaments board: players, dropping a player, bracket entrants, sync and link, and the round schedule."),
+        ('Admin: qualifiers', "The app's Qualifiers screen: the review queue, the top of the leaderboard, pools and live races."),
+        ('Admin: payouts', "The app's Payouts screen: each tournament's pool and split, edited in place, and the sglive links."),
+        ('Admin: stream layouts', "The app's Stream Layouts screen: what each stage's overlay shows, pins, and the box editor."),
+        ('Admin: brackets', "The app's Brackets screen: each native stage's next step, its seeds, roster and open matchups."),
+        ('Admin: seed presets', "The app's Seed Presets screen: editor hints, checking a pasted value, test rolls and importing published presets."),
         ('Payouts', 'Prize pools and payouts per tournament.'),
+        ('Tickets', "Event badges sold through the community's own Stripe or PayPal account: stores, badge types, checkout, claims and refunds."),
+        ('Patreon', "The community's Patreon campaign, patron badges and tier labels, and linking your own Patreon account."),
         ('Webhooks', 'Outbound webhooks that POST to your server when events happen.'),
         ('Discord role mappings', 'Discord roles granted to people with a given Wizzrobe role.'),
         ('System config', 'Community settings stored as key/value pairs.'),
+        ('Notification settings', 'Which DMs the community sends, to whom, and whether they ping.'),
     ]),
     ('Reports', [
         ('Reports', 'Operational reports: stage use, crew coverage, tournament health and trends.'),
         ('Telemetry', 'Which parts of the app people use.'),
         ('Audit', 'The log of who changed what.'),
+        ('Sent messages', 'Every DM sent in the community, and whether it got there.'),
+        ('Exports', 'Tournament and volunteer data exports, built in the background.'),
     ]),
     ('Online tournaments', [
         ('Brackets', 'Brackets run inside Wizzrobe: entrants, matches, results and standings.'),
@@ -160,16 +207,23 @@ TAG_GROUPS: List[tuple[str, List[tuple[str, str]]]] = [
         ('Platform users', 'Every account on the platform, and switching one off.'),
         ('Feature groups', 'Tiers that decide which features a community may use.'),
         ('Log levels', 'How much each part of the server writes to its log.'),
+        ('Platform apps', 'Every app people registered to sign in with Wizzrobe, and switching one off.'),
+        ('Browser monitoring', 'Whether browsers report errors to Sentry, and the errors to ignore.'),
         ('Racetime bots', 'racetime.gg bot accounts shared across communities.'),
         ('Service health', 'Whether the outside services Wizzrobe depends on are up.'),
         ('Health', 'Liveness check for the server itself.'),
         ('Web push', 'Browser push subscription upkeep, called by the app\'s service worker.'),
     ]),
+    ('Reading', [
+        ('Help', 'How the app works: the help articles, search, and the snippets help icons show.'),
+        ('Event information', "A community's event handbook and its PDF guide."),
+        ('About the app', "What's new, the About page, the privacy policy, third-party notices and the facts."),
+    ]),
+    ('GraphQL', [
+        ('GraphQL', 'Read events, the schedule and brackets as one graph, in a single query.'),
+    ]),
 ]
 
-# Router tags written before there was a naming rule; renamed in the document
-# rather than in the routers so the five per-area documentation PRs don't all
-# touch the same ``APIRouter(...)`` lines.
 TAG_RENAMES: Dict[str, str] = {
     'health': 'Health',
     'Triforce Texts': 'Triforce texts',
@@ -208,7 +262,8 @@ _WRITE_GATES: Set[Callable] = {require_write_actor, require_staff_write, require
 _ERRORS = {
     '400': 'A rule refused the request. `detail` says which.',
     '401': 'No token, or the token is unknown, expired or revoked.',
-    '403': 'You don\'t have permission, the token is read-only, or your account or community is inactive.',
+    '403': 'You don\'t have permission, the token is read-only, an app\'s token lacks the scope, '
+           'or your account or community is inactive.',
     '404': 'Nothing with that id in your community, or the feature is turned off for your community.',
     '429': 'Over the rate limit. Wait the number of seconds in the `Retry-After` header.',
 }
@@ -229,15 +284,27 @@ def _feature_flag(calls: Iterable[Callable]) -> Optional[FeatureFlag]:
     return None
 
 
-def _access_notes(route: RouteContext) -> tuple[List[str], bool]:
+OAUTH_SCHEME = 'WizzrobeApps'
+
+
+def _scope(route: RouteContext, method: str):
+    return scope_for(method.upper(), (route.path_format or '').removeprefix(API_PREFIX))
+
+
+def _access_notes(route: RouteContext, method: str) -> tuple[List[str], bool]:
     """Notes derived from the route's dependencies, and whether it authenticates."""
     calls = list(_calls(route.dependant))
-    authenticated = resolve_token in calls
+    authenticated = resolve_token in calls or require_identity in calls
     notes: List[str] = []
     if not authenticated:
         notes.append('**Token:** not needed.')
     elif any(call in _WRITE_GATES for call in calls):
         notes.append('**Token:** needs a token that isn\'t read-only.')
+    scope = _scope(route, method)
+    if scope is PAT_ONLY:
+        notes.append('**Apps:** can\'t call this; it needs a personal API token.')
+    elif isinstance(scope, ApiScope):
+        notes.append(f'**App scope:** `{scope.value}`')
     flag = _feature_flag(calls)
     if flag is not None:
         notes.append(
@@ -252,7 +319,7 @@ def _error_ref() -> Dict[str, Any]:
 
 
 def _document_operation(operation: Dict[str, Any], route: RouteContext, method: str) -> None:
-    notes, authenticated = _access_notes(route)
+    notes, authenticated = _access_notes(route, method)
     if notes:
         description = (operation.get('description') or '').rstrip()
         operation['description'] = '\n\n'.join(filter(None, [description, '  \n'.join(notes)]))
@@ -267,6 +334,28 @@ def _document_operation(operation: Dict[str, Any], route: RouteContext, method: 
         codes.append('400')
     for code in sorted(codes):
         responses.setdefault(code, {'description': _ERRORS[code], 'content': _error_ref()})
+    scope = _scope(route, method)
+    if operation.get('security') and isinstance(scope, ApiScope):
+        operation['security'] = [*operation['security'], {OAUTH_SCHEME: [scope.value]}]
+
+
+def _oauth_scheme() -> Dict[str, Any]:
+    """Apps sign in at the ``/oauth`` issuer and are held to these scopes."""
+    return {
+        'type': 'oauth2',
+        'description': (
+            'For apps acting on someone\'s behalf. Authorization code flow with PKCE (S256); '
+            'the person picks one community and approves the scopes.'
+        ),
+        'flows': {
+            'authorizationCode': {
+                'authorizationUrl': '/oauth/authorize',
+                'tokenUrl': '/oauth/token',
+                'refreshUrl': '/oauth/token',
+                'scopes': {scope.value: wording for scope, wording in CONSENT_WORDING.items()},
+            },
+        },
+    }
 
 
 def _webhook_paths() -> Dict[str, Any]:
@@ -299,7 +388,7 @@ def _webhook_paths() -> Dict[str, Any]:
     for name in sorted(EventType.ALL):
         family = name.split('.', 1)[0]
         if family == 'service_health':
-            continue  # platform-level, no community, so never delivered to a webhook
+            continue
         families.setdefault(family, []).append(name)
     paths: Dict[str, Any] = {}
     for family, names in families.items():
@@ -346,6 +435,7 @@ def build_openapi(app: FastAPI) -> Dict[str, Any]:
             operation = operations.get(route.path_format, {}).get(method.lower())
             if operation is not None:
                 _document_operation(operation, route, method.lower())
+    schema.setdefault('components', {}).setdefault('securitySchemes', {})[OAUTH_SCHEME] = _oauth_scheme()
     components = schema.setdefault('components', {}).setdefault('schemas', {})
     components['ErrorResponse'] = ErrorResponse.model_json_schema()
     components['WebhookDelivery'] = WebhookDelivery.model_json_schema()
@@ -365,4 +455,21 @@ def install(app: FastAPI) -> None:
     app.openapi = lambda: build_openapi(app)  # type: ignore[method-assign]
 
 
-__all__ = ['TAG_GROUPS', 'WHO_CAN_CALL', 'api_description', 'build_openapi', 'install']
+def warm_openapi(app: FastAPI) -> None:
+    """Build the schema once at startup, off the event loop.
+
+    Sentry SGLMAN-17: the first ``/api/openapi.json`` after a deploy built it on
+    the loop and froze every page for over two seconds.
+    """
+    from nicegui import background_tasks
+
+    async def _warm() -> None:
+        try:
+            await asyncio.to_thread(build_openapi, app)
+        except Exception:
+            logger.warning('Building the OpenAPI schema at startup failed', exc_info=True)
+
+    background_tasks.create(_warm(), name='warm openapi schema')
+
+
+__all__ = ['TAG_GROUPS', 'WHO_CAN_CALL', 'api_description', 'build_openapi', 'install', 'warm_openapi']

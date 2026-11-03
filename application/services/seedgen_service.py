@@ -3,7 +3,7 @@ Seed Generation Service - Business Logic Layer
 
 Handles random seed generation for various randomizers.
 Supports: ALTTPR, ALTTPR Door Randomizer, AVIANART, FF1R, Z1R, Z2R, SMB3R, AoSR,
-SM, SMZ3, SMMAP, OOTR, DK64R, DASH, WWR, and Test.
+SM, SMZ3, SMMAP, OOTR, DK64R, DASH, VARIA, WWR, and Test.
 """
 
 import asyncio
@@ -19,6 +19,7 @@ from typing import ClassVar, Dict, List, Optional, Set
 import aiohttp
 import yaml
 from pyz3r import ALTTPR
+from pyz3r.exceptions import Pyz3rException
 
 import application.services._seedgen_codes as seed_codes
 import application.services._seedgen_local as local_rolls
@@ -43,7 +44,6 @@ from application.services._seedgen_dk64r import (
     DK64R_SITE_HOSTS,
     DK64RBackend,
 )
-from application.services._seedgen_ff1r import FF1R_HOST, ff1r_reference_url
 from application.services._seedgen_samus import generate_samus, samus_settings
 from application.services._seedgen_types import (
     AsyncRollPoll,
@@ -52,6 +52,7 @@ from application.services._seedgen_types import (
     RolledSeed,
     WWPermalinkInfo,
 )
+from application.services._seedgen_varia import VARIA_GENERATION_TIMEOUT, generate_varia, varia_settings
 from application.utils.mocks.mock_seedgen import is_mock_seedgen
 from application.utils.seed_provider import (
     PROVIDER_MAX_ATTEMPTS,
@@ -84,15 +85,13 @@ async def _read_bundled_preset(path: str) -> str:
     return await asyncio.to_thread(Path(path).read_text, encoding='utf-8')
 
 
-# The bare domain 308s to www, and the generate call is read without following
-# redirects, so it has to start on the host that answers it.
+# Must be www: the bare domain 308s and the generate call doesn't follow redirects.
 _DASH_BASE_URL = 'https://www.dashrando.net'
 
 
 class SeedGenerationService(DK64RBackend, DoorRandoBackend):
     """Service for generating seeds for various randomizers."""
 
-    # Available randomizers
     AVAILABLE_RANDOMIZERS: ClassVar[List[str]] = [
         'alttpr',
         'alttprdr',
@@ -107,12 +106,12 @@ class SeedGenerationService(DK64RBackend, DoorRandoBackend):
         'smmap',
         'ootr',
         'smdash',
+        'smvaria',
         'dk64r',
         'wwr',
         'test',
     ]
 
-    # What a person calls each one; the slug above is what the data stores.
     RANDOMIZER_NAMES: ClassVar[Dict[str, str]] = {
         'alttpr': 'A Link to the Past',
         'alttprdr': 'ALttP Door Randomizer',
@@ -127,61 +126,37 @@ class SeedGenerationService(DK64RBackend, DoorRandoBackend):
         'smmap': 'Super Metroid Map Rando',
         'ootr': 'Ocarina of Time',
         'smdash': 'Super Metroid DASH',
+        'smvaria': 'Super Metroid VARIA',
         'dk64r': 'Donkey Kong 64',
         'wwr': 'Wind Waker',
         'test': 'Test randomizer',
     }
 
-    # Randomizers registered for selection but whose generator is not yet
-    # wired to an upstream API — rolling one raises ``ValueError``.
     STUB_RANDOMIZERS: ClassVar[Set[str]] = set()
 
-    # Randomizers whose generator resolves a ``Preset`` (its settings feed the
-    # roll). Anything else ignores the preset and rolls hard-coded settings.
     PRESET_AWARE_RANDOMIZERS: ClassVar[Set[str]] = {
-        'alttpr', 'alttprdr', 'aosr', 'avianart', 'dk64r', 'ff1r', 'sm', 'smb3r', 'smdash', 'smz3', 'wwr', 'z1r',
-        'z2r',
+        'alttpr', 'alttprdr', 'aosr', 'avianart', 'dk64r', 'ff1r', 'sm', 'smb3r', 'smdash', 'smvaria', 'smz3',
+        'wwr', 'z1r', 'z2r',
     }
 
-    # Rolls that ``MOCK_SEEDGEN`` leaves alone. DK64R mocks one layer down (see
-    # ``generate_seed_call``); WWR, Z1R, Z2R, SMB3R and AoSR are built locally
-    # with no upstream to stand in for, and most of their seeds are plain strings
-    # rather than URLs, which is exactly what the dev environment needs to show
-    # for the copy card to be seen.
     MOCK_EXEMPT_RANDOMIZERS: ClassVar[Set[str]] = {'aosr', 'dk64r', 'smb3r', 'wwr', 'z1r', 'z2r'}
 
-    # Backends whose roll is a task queue rather than a request: submit now,
-    # collect minutes later. These do not return a seed from one call, so every
-    # surface that rolls one has to decide what to do with a task instead —
-    # ``MatchScheduleService`` queues a ``ProviderTask``, REST answers 202, and
-    # qualifier batch rolls refuse until that path is converted.
+    # No seed from one call: every surface that rolls one must handle a task instead.
     ASYNC_RANDOMIZERS: ClassVar[Set[str]] = {'dk64r'}
 
-    # Randomizers whose generator can embed community triforce texts.
     TRIFORCE_TEXT_RANDOMIZERS: ClassVar[Set[str]] = {'alttpr'}
 
-    # Randomizers that publish their own preset catalogue over their API, so a
-    # community can pull the upstream's presets instead of hand-authoring the
-    # settings blob. The value is the catalogue's variants — DK64R publishes a
-    # separate list per branch — or an empty tuple where there is only one list.
     REMOTE_PRESET_BRANCHES: ClassVar[dict] = {
         'avianart': (),
         'dk64r': ('stable', 'dev'),
     }
 
-    # Per-provider overrides of the shared execution contract
-    # (``application.utils.seed_provider``). Anything absent takes the defaults.
-    #
-    # DK64R is the one that must differ on both axes: its upstream is a task
-    # queue whose *whole* roll (submit → poll → result) legitimately runs for
-    # minutes, so the outer budget has to exceed the poll deadline rather than
-    # cut it short — and re-running that roll would submit a second generation
-    # task, so it gets exactly one attempt. Retrying the individual requests
-    # inside it is safe and is handled within the generator.
+    # DK64R: the outer budget must exceed its poll deadline, and one attempt only (a retry submits a second task).
     PROVIDER_TIMEOUTS: ClassVar[dict] = {
         'alttprdr': DOOR_RANDO_TIMEOUT,
         'avianart': AVIANART_MAX_POLLS * AVIANART_POLL_INTERVAL + 30.0,
         'dk64r': DK64R_GENERATION_TIMEOUT + 60.0,
+        'smvaria': VARIA_GENERATION_TIMEOUT + 10.0,
     }
     PROVIDER_ATTEMPTS: ClassVar[dict] = {
         # The sidecar already retries a layout that fails to generate; a second
@@ -190,9 +165,10 @@ class SeedGenerationService(DK64RBackend, DoorRandoBackend):
         # AVIANART builds a game per generate call; its polls run inside the attempt.
         'avianart': 1,
         'dk64r': 1,
-        # DASH saves the seed upstream before answering, so a retry after a
-        # timeout mints a second seed and orphans the first.
+        # A retry after a timeout mints a second seed upstream.
         'smdash': 1,
+        # VARIA stores every seed it builds, so a retry orphans one.
+        'smvaria': 1,
     }
 
     @staticmethod
@@ -204,10 +180,10 @@ class SeedGenerationService(DK64RBackend, DoorRandoBackend):
         and one that isn't a permalink, or doesn't fit its vendored build, is
         refused with a ``ValueError`` rather than at the desk minutes before a race.
         FFR, AoSR and the flag-string games are built locally too, so theirs are
-        checked here as well, as are AVIANART preset names and samus.link settings.
+        checked here as well, as are AVIANART and VARIA preset names and samus.link settings.
         """
         if randomizer == 'ff1r':
-            return {'url': ff1r_reference_url(settings)}
+            return {'url': local_rolls.ff1r_reference_url(settings)}
         if randomizer == 'alttprdr':
             inner, spoiler = door_preset_settings(settings)
             return {'settings': inner, 'spoiler': spoiler}
@@ -219,6 +195,8 @@ class SeedGenerationService(DK64RBackend, DoorRandoBackend):
             return {'preset': avianart_preset_name(settings)}
         if randomizer in ('sm', 'smz3'):
             return samus_settings(randomizer, settings)
+        if randomizer == 'smvaria':
+            return varia_settings(settings)
         if randomizer != 'wwr':
             return settings
         permalink = settings.get('permalink')
@@ -261,8 +239,8 @@ class SeedGenerationService(DK64RBackend, DoorRandoBackend):
     @staticmethod
     def describe_ff1r_link(url: str) -> str:
         """The site version an FFR flags link pins, for the Presets tab, or ``ValueError``."""
-        host = urllib.parse.urlparse(ff1r_reference_url({'url': url})).hostname or ''
-        prefix = host.lower()[:-len(FF1R_HOST)].rstrip('.')
+        host = urllib.parse.urlparse(local_rolls.ff1r_reference_url({'url': url})).hostname or ''
+        prefix = host.lower()[:-len(local_rolls.FF1R_HOST)].rstrip('.')
         return prefix.replace('-', '.') if prefix and prefix != 'www' else 'latest'
 
     @staticmethod
@@ -388,6 +366,7 @@ class SeedGenerationService(DK64RBackend, DoorRandoBackend):
             'smmap': self._generate_smmap,
             'ootr': self._generate_ootr,
             'smdash': self._generate_smdash,
+            'smvaria': self._generate_smvaria,
             'dk64r': self._generate_dk64r,
             'wwr': self._generate_wwr,
             'test': self._generate_test,
@@ -396,11 +375,8 @@ class SeedGenerationService(DK64RBackend, DoorRandoBackend):
         if randomizer not in generator_map:
             raise ValueError(f"Unsupported randomizer: {randomizer}")
 
-        # DK64R opts out of the instant short-circuit and mocks one layer down,
-        # at its HTTP session: its roll is a minutes-long task queue, and a
-        # permalink returned immediately never puts the presentation layer into
-        # the waiting state that is the whole point of testing this backend.
-        # The Door Randomizer sidecar is ours, so a dev box that runs one rolls for real.
+        # DK64R mocks at its HTTP session instead, so the waiting state still gets exercised.
+        # The Door Randomizer service is ours, so a dev box that runs one rolls for real.
         mock_exempt = randomizer in self.MOCK_EXEMPT_RANDOMIZERS or (
             randomizer == 'alttprdr' and door_rando_configured()
         )
@@ -460,10 +436,17 @@ class SeedGenerationService(DK64RBackend, DoorRandoBackend):
         if triforce_text:
             settings.setdefault('texts', {})['end_triforce'] = "{NOBORDER}\n" + triforce_text
 
-        seed = await ALTTPR.generate(
-            settings=settings,
-            endpoint='/api/customizer',
-        )
+        try:
+            seed = await ALTTPR.generate(
+                settings=settings,
+                endpoint='/api/customizer',
+            )
+        except Pyz3rException as e:
+            # Terminal: pyz3r has already retried five times.
+            raise SeedProviderBadResponse(
+                "alttpr.com didn't make the seed. It may be down, so try again in a minute.",
+                provider='alttpr', operation='generate_seed',
+            ) from e
         return RolledSeed(
             url=seed.url, settings=settings, code=seed_codes.alttpr_code(seed.data.get('patch')),
         )
@@ -481,7 +464,7 @@ class SeedGenerationService(DK64RBackend, DoorRandoBackend):
         try:
             if preset is None:
                 raise ValueError('Final Fantasy needs a preset with a flags link. Add one on the Presets tab.')
-            reference = ff1r_reference_url(preset.settings)
+            reference = local_rolls.ff1r_reference_url(preset.settings)
         except ValueError as e:
             raise SeedProviderInvalidRequest(str(e), provider='ff1r', operation='generate_seed') from None
         seed = ('%008x' % random.randrange(16 ** 8)).upper()
@@ -516,6 +499,10 @@ class SeedGenerationService(DK64RBackend, DoorRandoBackend):
         """Generate a Super Metroid Randomizer seed on sm.samus.link."""
         return await generate_samus('sm', preset.settings if preset is not None else None)
 
+    async def _generate_smvaria(self, preset: Optional[Preset] = None) -> RolledSeed:
+        """Generate a Super Metroid VARIA Randomizer race seed."""
+        return await generate_varia(preset.settings if preset is not None else None)
+
     async def _generate_smz3(self, preset: Optional[Preset] = None) -> RolledSeed:
         """Generate an SMZ3 Combo Randomizer seed on samus.link."""
         return await generate_samus('smz3', preset.settings if preset is not None else None)
@@ -524,19 +511,16 @@ class SeedGenerationService(DK64RBackend, DoorRandoBackend):
         """
         Generate a Super Metroid Map Randomizer seed.
         """
-        # Never fall back to a committed default — a leaked spoiler token
-        # unlocks spoiler logs for race seeds.
+        # Never fall back to a committed default: a leaked spoiler token unlocks race spoiler logs.
         spoiler_token = await self._credential('smmap', 'spoiler_token')
         settings = await _read_bundled_preset("presets/smmap/community_race_s5.json")
 
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=120)) as session:
             with aiohttp.MultipartWriter('form-data') as mpwriter:
                 mpwriter.append(spoiler_token).set_content_disposition('form-data', name='spoiler_token')
                 mpwriter.append(settings).set_content_disposition('form-data', name='settings')
             async with session.post('https://maprando.com/randomize', data=mpwriter) as resp:
-                # Read the status before the body: an error page is HTML, and
-                # parsing it as JSON would report a parse failure instead of the
-                # 503 that caused it.
+                # Status before body: an error page is HTML and would report as a parse failure.
                 await raise_for_status(resp, provider='smmap', operation='generate_seed')
                 data = await resp.json()
 
@@ -546,8 +530,7 @@ class SeedGenerationService(DK64RBackend, DoorRandoBackend):
                 'Map Rando returned no seed URL.',
                 provider='smmap', operation='generate_seed',
             )
-        # The spoiler token is a credential and is deliberately not part of the
-        # snapshot — settings only.
+        # Settings only: the spoiler token is a credential.
         return RolledSeed(
             url=f"https://maprando.com{seed_url}", settings=json.loads(settings),
             code=seed_codes.smmap_code(data.get('seed_hash')),
@@ -559,8 +542,7 @@ class SeedGenerationService(DK64RBackend, DoorRandoBackend):
         """
         settings = json.loads(await _read_bundled_preset("presets/ootr/sgl2026.json"))
 
-        # The OOTR API authenticates via a ``key`` query parameter; guard
-        # against silently sending key=None when it is not configured.
+        # Guard against silently sending key=None when no key is configured.
         api_key = await self._credential('ootr', 'api_key')
 
         async with aiohttp.request(
@@ -607,8 +589,7 @@ class SeedGenerationService(DK64RBackend, DoorRandoBackend):
                 'A DASH preset needs a "preset" key naming one of dashrando.net\'s presets, e.g. "sgl26".'
             )
 
-        # race=1 makes the seed page hand out a protected ROM; leaving spoiler
-        # unset means upstream never generates a spoiler log for this seed.
+        # race=1 and no spoiler param: upstream then never builds a spoiler log.
         async with aiohttp.request(
             method='get',
             url=f"{_DASH_BASE_URL}/generate/{tag}",
@@ -658,10 +639,6 @@ class SeedGenerationService(DK64RBackend, DoorRandoBackend):
             result = await self._dk64r_poll(session, task_id, params)
 
         return self._dk64r_seed(result, branch, {'branch': branch, **settings_dict})
-
-    # ------------------------------------------------------------------
-    # Asynchronous (task-queue) rolls — the persisted path
-    # ------------------------------------------------------------------
 
     async def submit_async_roll(
         self, randomizer: str, preset: Optional[Preset] = None,
@@ -713,15 +690,9 @@ class SeedGenerationService(DK64RBackend, DoorRandoBackend):
             branch = 'stable'
         return AsyncRollPoll(
             seed=self._dk64r_seed(result, branch, settings),
-            # The five-icon verification hash racers compare before starting.
-            # The ~9 MB base64 ``patch`` beside it is deliberately dropped here:
-            # nothing downstream reads it, and the permalink patches in-browser.
+            # The ~9 MB base64 ``patch`` is dropped on purpose: nothing downstream reads it.
             verification_hash=result.get('hash'),
         )
-
-    # ------------------------------------------------------------------
-    # Upstream preset catalogues
-    # ------------------------------------------------------------------
 
     async def list_remote_presets(
         self, randomizer: str, *, branch: Optional[str] = None,
@@ -776,10 +747,7 @@ class SeedGenerationService(DK64RBackend, DoorRandoBackend):
                 raise ValueError('Wind Waker needs a preset with a permalink. Paste one on the Presets tab.')
             version = wwr_permalinks.decode_permalink(reference).version
         except ValueError as e:
-            # Raised as the envelope's "will never roll" error so the proctor
-            # reads why, rather than the blanket "check the server logs".
             raise SeedProviderInvalidRequest(str(e), provider='wwr', operation='generate_seed') from None
-        # The first roll for a build reads its word lists from disk.
         seed_name = await asyncio.to_thread(wwr_permalinks.make_seed_name, version=version)
         return RolledSeed(
             url=wwr_permalinks.reseed(reference, seed_name),
@@ -793,5 +761,5 @@ class SeedGenerationService(DK64RBackend, DoorRandoBackend):
         The deliberate sleep exercises the UI's in-progress state; it is not a
         provider call and has no settings to snapshot.
         """
-        await asyncio.sleep(5)  # Simulate processing time
+        await asyncio.sleep(5)
         return RolledSeed(url="https://example.com/test-seed-url")

@@ -45,8 +45,6 @@ async def _enable(tenant_id: int, flag: FeatureFlag) -> None:
     )
 
 
-# --- 1. authority carries into a tenant with no grants ----------------------
-
 async def test_is_staff_true_for_super_admin_in_a_tenant_they_have_no_roles_in(
     super_admin, fresh_tenant,
 ):
@@ -77,7 +75,6 @@ async def test_gated_helpers_grant_super_admin_in_a_foreign_tenant(
 ):
     with tenant_scope(fresh_tenant.id):
         assert await getattr(AuthService, helper)(super_admin) is True
-        # Same call, ordinary user: proves the fixture tenant really grants nothing.
         assert await getattr(AuthService, helper)(nobody) is False
 
 
@@ -100,8 +97,6 @@ async def test_super_admin_may_edit_and_crud_another_tenants_tournament(
         assert await AuthService.can_edit_tournament(nobody, tournament) is False
 
 
-# --- 2. authority does not bypass feature flags -----------------------------
-
 async def test_can_view_volunteer_false_for_super_admin_when_feature_off(
     super_admin, fresh_tenant,
 ):
@@ -123,13 +118,14 @@ async def test_can_view_volunteer_true_for_super_admin_once_feature_enabled(
     (Role.VOLUNTEER, True),
     (Role.PROCTOR, True),
     (Role.STAFF, True),
+    (Role.VOLUNTEER_COORDINATOR, True),
     (Role.EQUIPMENT_MANAGER, False),
     (None, False),
 ])
 async def test_can_view_volunteer_matches_the_pages_role_gate(
     db, fresh_tenant, role, expected,
 ):
-    """Mirrors ``roles=[VOLUNTEER, PROCTOR, STAFF]`` on the page decorator — an
+    """Mirrors the volunteer roles in the page decorator's ``roles=`` — an
     unrelated admin role must not surface the link, or it dead-ends on a 403."""
     await _enable(fresh_tenant.id, FeatureFlag.VOLUNTEERS)
     user = await User.create(discord_id=91000, username='u')
@@ -155,3 +151,73 @@ async def test_volunteer_role_in_another_tenant_does_not_surface_the_link(
         assert await AuthService.can_view_volunteer(user) is False
     with tenant_scope(other.id):
         assert await AuthService.can_view_volunteer(user) is True
+
+
+@pytest.mark.parametrize('volunteers_on', [False, True])
+async def test_proctor_keeps_proctor_station_whatever_volunteers_says(
+    db, fresh_tenant, volunteers_on,
+):
+    """``can_run_match`` admits a proctor with no flag, so their one screen for
+    it must not vanish when the community turns volunteer shifts off."""
+    if volunteers_on:
+        await _enable(fresh_tenant.id, FeatureFlag.VOLUNTEERS)
+    proctor = await User.create(discord_id=92000, username='proctor')
+    await UserRole.create(user=proctor, role=Role.PROCTOR, tenant_id=fresh_tenant.id)
+    with tenant_scope(fresh_tenant.id):
+        assert await AuthService.can_open_proctor_station(proctor) is True
+
+
+@pytest.mark.parametrize('volunteers_on', [False, True])
+async def test_staff_proctor_station_still_follows_volunteers(super_admin, fresh_tenant, volunteers_on):
+    if volunteers_on:
+        await _enable(fresh_tenant.id, FeatureFlag.VOLUNTEERS)
+    with tenant_scope(fresh_tenant.id):
+        assert await AuthService.can_open_proctor_station(super_admin) is volunteers_on
+
+
+@pytest.mark.parametrize('role', [Role.VOLUNTEER, Role.VOLUNTEER_COORDINATOR, None])
+async def test_proctor_station_refuses_everyone_else(db, fresh_tenant, role):
+    await _enable(fresh_tenant.id, FeatureFlag.VOLUNTEERS)
+    user = await User.create(discord_id=92001, username='u')
+    if role is not None:
+        await UserRole.create(user=user, role=role, tenant_id=fresh_tenant.id)
+    with tenant_scope(fresh_tenant.id):
+        assert await AuthService.can_open_proctor_station(user) is False
+    assert await AuthService.can_open_proctor_station(None) is False
+
+
+@pytest.mark.parametrize('volunteers_on', [False, True])
+async def test_broadcast_tech_gets_a_stage_only_proctor_station(db, fresh_tenant, volunteers_on):
+    """``can_run_match`` admits a Broadcast Tech for a match on a stage, flag or
+    no flag, so they get the board, narrowed to those matches."""
+    if volunteers_on:
+        await _enable(fresh_tenant.id, FeatureFlag.VOLUNTEERS)
+    tech = await User.create(discord_id=92002, username='tech')
+    await UserRole.create(user=tech, role=Role.STREAM_MANAGER, tenant_id=fresh_tenant.id)
+    with tenant_scope(fresh_tenant.id):
+        assert await AuthService.can_open_proctor_station(tech) is True
+        assert await AuthService.proctor_station_on_stage_only(tech) is True
+
+
+async def test_broadcast_tech_who_proctors_keeps_the_whole_room(db, fresh_tenant):
+    user = await User.create(discord_id=92003, username='both')
+    await UserRole.create(user=user, role=Role.STREAM_MANAGER, tenant_id=fresh_tenant.id)
+    await UserRole.create(user=user, role=Role.PROCTOR, tenant_id=fresh_tenant.id)
+    with tenant_scope(fresh_tenant.id):
+        assert await AuthService.proctor_station_on_stage_only(user) is False
+
+
+async def test_proctor_and_staff_boards_are_not_narrowed(db, fresh_tenant, super_admin):
+    proctor = await User.create(discord_id=92004, username='proctor-only')
+    await UserRole.create(user=proctor, role=Role.PROCTOR, tenant_id=fresh_tenant.id)
+    with tenant_scope(fresh_tenant.id):
+        assert await AuthService.proctor_station_on_stage_only(proctor) is False
+        assert await AuthService.proctor_station_on_stage_only(super_admin) is False
+
+
+async def test_broadcast_tech_elsewhere_gets_no_proctor_station_here(db, fresh_tenant):
+    other = await Tenant.create(name='Elsewhere', slug='elsewhere')
+    tech = await User.create(discord_id=92005, username='tech-elsewhere')
+    await UserRole.create(user=tech, role=Role.STREAM_MANAGER, tenant_id=other.id)
+    with tenant_scope(fresh_tenant.id):
+        assert await AuthService.can_open_proctor_station(tech) is False

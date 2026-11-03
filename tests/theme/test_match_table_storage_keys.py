@@ -14,6 +14,7 @@ it with ``__new__`` and set only the attributes under test.
 
 import ast
 import inspect
+from datetime import time, timedelta
 from pathlib import Path
 
 from theme.tables.match import MatchTableView
@@ -21,8 +22,6 @@ from theme.tables.match_filters import DEFAULT_STATE_FILTER
 
 REPO = Path(__file__).resolve().parents[2]
 
-# Every construction site, and the storage_key it must pass. A board missing
-# from this map is a board sharing someone else's filters.
 CONSTRUCTION_SITES = {
     'pages/admin_tabs/admin_schedule.py': 'admin_schedule',
     'pages/volunteer_tabs/proctor_station.py': 'proctor',
@@ -31,11 +30,11 @@ CONSTRUCTION_SITES = {
 }
 
 
-def _view(storage_key='match', default_state_filter=None):
+def _view(storage_key='match', default_state_filter=None, default_day_scope='All dates'):
     view = MatchTableView.__new__(MatchTableView)
     view.storage_key = storage_key
     view.default_state_filter = default_state_filter
-    # The badge reads every filter widget; an unbuilt view has none.
+    view.default_day_scope = default_day_scope
     view.tournament_filter = None
     view.stage_filter = None
     view.state_filter = None
@@ -102,8 +101,6 @@ def test_the_four_storage_keys_are_distinct():
     assert len(set(keys)) == len(keys)
 
 
-# --- default_state_filter ----------------------------------------------------
-
 def test_default_state_filter_is_used_when_nothing_is_stored(monkeypatch):
     stored = {}
     monkeypatch.setattr('theme.tables.match_filters.tenant_session_get',
@@ -136,8 +133,6 @@ def test_another_boards_stored_value_does_not_leak(monkeypatch):
     assert _view('proctor')._stored_or_default_states() == list(DEFAULT_STATE_FILTER)
 
 
-# --- the mobile filter-count badge ------------------------------------------
-
 class _FakeSelect:
     def __init__(self, value):
         self.value = value
@@ -159,11 +154,6 @@ def test_badge_counts_a_state_filter_moved_off_the_boards_default():
     assert view._active_filter_count() == 1
 
 
-# --- The Day filter --------------------------------------------------------
-#
-# The board had no day or now anchor, so an operator standing at a venue
-# scrolled ~8 screenfuls of phone to find a match by eye.
-
 def test_all_dates_is_the_default_and_narrows_nothing():
     """Nothing may be hidden until the operator asks for it."""
     from theme.tables.match_filters import ALL_DAYS, DAY_SCOPES, day_scope_window
@@ -174,10 +164,15 @@ def test_all_dates_is_the_default_and_narrows_nothing():
 
 
 def test_today_is_one_local_day_wide():
+    """Local midnight to local midnight, which is 23 or 25 hours on a DST change day."""
+    from application.utils.timezone import combine_local, today_local
     from theme.tables.match_filters import day_scope_window
 
     start, end = day_scope_window('Today')
-    assert (end - start) == 24 * 3600
+    today = today_local()
+    assert start == combine_local(today, time(0)).timestamp()
+    assert end == combine_local(today + timedelta(days=1), time(0)).timestamp()
+    assert (end - start) in (23 * 3600, 24 * 3600, 25 * 3600)
 
 
 def test_tomorrow_starts_where_today_ends():
@@ -190,12 +185,17 @@ def test_tomorrow_starts_where_today_ends():
 
 
 def test_the_week_scope_starts_today_and_runs_seven_days():
+    from datetime import timedelta
+
+    from application.utils.timezone import local_day_bounds, today_local
     from theme.tables.match_filters import day_scope_window
 
     today_start, _today_end = day_scope_window('Today')
     week_start, week_end = day_scope_window('Next 7 days')
     assert week_start == today_start
-    assert (week_end - week_start) == 7 * 24 * 3600
+    # Seven local days, not 7 * 24h: a week across a DST change is 167h or 169h.
+    _start, seventh_end = local_day_bounds(today_local() + timedelta(days=6), today_local() + timedelta(days=6))
+    assert week_end == seventh_end.timestamp()
 
 
 def test_the_day_filter_counts_toward_the_mobile_badge():
@@ -214,17 +214,28 @@ def test_the_day_filter_counts_toward_the_mobile_badge():
     assert view._active_filter_count() == 1
 
 
+def test_the_admin_board_opens_on_today_and_today_is_not_a_custom_filter():
+    """Thomas's pick: All dates sent all ~1,300 rows on every open. Opening on
+    Today must not light the badge, but switching to All dates must."""
+    from types import SimpleNamespace
+
+    src = (REPO / 'pages/admin_tabs/admin_schedule.py').read_text()
+    assert "default_day_scope='Today'" in src
+
+    view = _view('admin_schedule', DEFAULT_STATE_FILTER, default_day_scope='Today')
+    view.state_filter = SimpleNamespace(value=list(DEFAULT_STATE_FILTER))
+    view.day_filter = SimpleNamespace(value='Today')
+    assert view._active_filter_count() == 0
+    view.day_filter = SimpleNamespace(value='All dates')
+    assert view._active_filter_count() == 1
+
+
 def test_a_deep_link_suspends_the_day_filter():
     """Same reason it suspends the State filter: a link to one match must not
     land on an empty board."""
     src = inspect.getsource(MatchTableView.refresh)
     assert 'None if self.match_ids else day_scope_window' in src
 
-
-# --- The board's tournament scope ------------------------------------------
-#
-# A TA's or crew coordinator's authority is per tournament. The scope is a hard
-# bound on the rows; the Tournament filter is their choice *within* it.
 
 def _scoped_view(scope, filter_value=None):
     from types import SimpleNamespace
@@ -285,3 +296,57 @@ def test_the_resolution_matches_the_one_refresh_uses():
     src = inspect.getsource(MatchTableView.refresh)
     assert 'self.scope_tournament_ids is not None' in src
     assert '_MATCHES_NOTHING' in src
+
+
+def _filtered_view(monkeypatch):
+    from types import SimpleNamespace
+
+    monkeypatch.setattr('theme.tables.match_filters.PageTimer', lambda *a, **k: None)
+    view = _view('admin_schedule', DEFAULT_STATE_FILTER, default_day_scope='Today')
+    view.day_filter = SimpleNamespace(value='Tomorrow')
+    view.tournament_filter = SimpleNamespace(value=[3, 4])
+    view.stage_filter = SimpleNamespace(value=None)
+    view.state_filter = SimpleNamespace(value=['Finished'])
+    view.filter_badge = None
+    view.filter_reset_desk = None
+    view._reset_undo = None
+    view.filters_card = _NullContext()
+    view.refreshes = 0
+
+    async def refresh():
+        view.refreshes += 1
+    view.refresh = refresh
+    view._bg = lambda coro: coro.close()
+    return view
+
+
+class _NullContext:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+def test_reset_puts_every_filter_back_to_the_boards_own_defaults(monkeypatch):
+    view = _filtered_view(monkeypatch)
+    assert view._active_filter_count() == 3
+
+    view._on_reset_chip()
+
+    assert view._active_filter_count() == 0
+    assert view.day_filter.value == 'Today'
+    assert view.tournament_filter.value is None
+    assert view.state_filter.value == list(DEFAULT_STATE_FILTER)
+    assert view._initializing is False
+
+
+def test_a_second_tap_undoes_the_reset(monkeypatch):
+    view = _filtered_view(monkeypatch)
+    view._on_reset_chip()
+    view._on_reset_chip()
+
+    assert view.day_filter.value == 'Tomorrow'
+    assert view.tournament_filter.value == [3, 4]
+    assert view.state_filter.value == ['Finished']
+    assert view._reset_undo is None

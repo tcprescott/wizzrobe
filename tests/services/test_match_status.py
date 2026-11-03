@@ -23,7 +23,7 @@ from application.services.match.match_status import (
 )
 from models import BracketMatchGameState, BracketMatchState, RaceRoomStatus
 
-T = 'a timestamp'  # truthy; resolve only tests for presence
+T = 'a timestamp'
 
 
 def make_match(**stamps):
@@ -45,8 +45,6 @@ class TestTimestampLadder:
          MatchStatus.AWAITING_RESULT),
         ({'seated_at': T, 'started_at': T, 'finished_at': T, 'confirmed_at': T},
          MatchStatus.COMPLETE),
-        # Out-of-order stamps: the newest still wins, which is what makes the
-        # racetime path (finish without a recorded check-in) read correctly.
         ({'finished_at': T}, MatchStatus.AWAITING_RESULT),
         ({'confirmed_at': T}, MatchStatus.COMPLETE),
         ({'started_at': T}, MatchStatus.LIVE),
@@ -59,14 +57,12 @@ class TestGameStatePrecedence:
     """A settled or cancelled game state outranks the match timestamps."""
 
     def test_complete_game_wins_over_an_unconfirmed_match(self):
-        # Staff forced the result on the bracket; the Match never got confirmed.
         assert resolve(
             match=make_match(started_at=T, finished_at=T),
             game_state=BracketMatchGameState.COMPLETE,
         ) == MatchStatus.COMPLETE
 
     def test_cancelled_game_wins_over_a_scheduled_match(self):
-        # A clinched series cancels game 3 whose Match is still sitting there.
         assert resolve(
             match=make_match(),
             game_state=BracketMatchGameState.CANCELLED,
@@ -171,6 +167,4 @@ class TestLabelsAndTones:
         }
 
     def test_legacy_label_defaults_to_scheduled(self):
-        # Statuses the schedule table cannot reach (a row there always has a
-        # Match) still have to render something the filter understands.
         assert legacy_label(MatchStatus.PENDING) == 'Scheduled'

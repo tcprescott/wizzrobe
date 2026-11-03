@@ -23,10 +23,9 @@ from typing import Any, Dict
 
 from theme.tables.hard_preset_rows import HARD_PRESET_ROW_FIELDS
 
-# Per-update effects rather than viewer state: carrying one would replay it.
+# Not carried across updates: carrying one would replay it.
 TRANSIENT_ROW_FIELDS = frozenset({'_flash'})
 
-# Viewer-specific but changed by other people's actions: recomputed per update.
 RESTAMPED_ROW_FIELDS = frozenset(
     {'_can_reschedule', '_reschedule_pending', *HARD_PRESET_ROW_FIELDS}
 )

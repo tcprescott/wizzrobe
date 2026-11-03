@@ -8,6 +8,11 @@ from pydantic import BaseModel, ConfigDict, Field
 _EVENT_TYPES = (
     "Event names this webhook receives, such as `match.created`, or `*` for every event."
 )
+_EVENT_IDS = (
+    "Ids of the community's events (see `GET /api/events`) whose updates it sends, or null for every "
+    "event's, including events added later. Community-wide updates (members, OAuth grants) are sent "
+    "either way."
+)
 
 
 class WebhookResponse(BaseModel):
@@ -19,6 +24,7 @@ class WebhookResponse(BaseModel):
     name: str = Field(..., description="Label shown in the admin list.")
     url: str = Field(..., description="Endpoint that receives each delivery as a POST.")
     event_types: List[str] = Field(..., description=_EVENT_TYPES)
+    event_ids: Optional[List[int]] = Field(None, description=_EVENT_IDS)
     is_active: bool = Field(..., description="Whether the webhook is receiving deliveries. Paused webhooks get none.")
     created_at: datetime = Field(..., description="When the webhook was created (UTC).")
     updated_at: datetime = Field(..., description="When the webhook was last changed (UTC).")
@@ -53,6 +59,7 @@ class WebhookCreate(BaseModel):
         ..., description="Event names to deliver, such as `match.created`, or `[\"*\"]` for every event. At least one."
     )
     is_active: bool = Field(True, description="Whether the webhook starts receiving deliveries straight away.")
+    event_ids: Optional[List[int]] = Field(None, description=_EVENT_IDS + " Leave it out for every event.")
 
 
 class WebhookUpdate(BaseModel):
@@ -62,6 +69,9 @@ class WebhookUpdate(BaseModel):
         None, description="Replacement list of event names, or `[\"*\"]` for every event. Omit to keep the current list."
     )
     is_active: Optional[bool] = Field(None, description="Pause (`false`) or resume (`true`) deliveries. Omit to leave as is.")
+    event_ids: Optional[List[int]] = Field(
+        None, description=_EVENT_IDS + " Send null for every event; omit to keep the current filter.",
+    )
 
 
 class WebhookDeliveryResponse(BaseModel):

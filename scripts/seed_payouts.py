@@ -10,11 +10,11 @@ One of the four winners deliberately has no Matcherino handle, which is what
 makes the export's missing-handle line visible in a running app.
 """
 
+from datetime import datetime, timezone
 from decimal import Decimal
 
 from models import Tenant, Tournament, TournamentPayout, TournamentPlayers, User
 
-#: place -> (percentage, index into the players list). Two rows at place 3.
 _ARCHIVED_SPLIT = [
     (1, Decimal('50.00'), 0),
     (2, Decimal('30.00'), 1),
@@ -22,9 +22,13 @@ _ARCHIVED_SPLIT = [
     (3, Decimal('10.00'), 3),
 ]
 
-#: Who carries a handle. player_three is left without one on purpose — they are
-#: a third place in the split above, so the export renders its missing-handle
-#: branch every time someone opens it.
+_FIXED_SPLIT = [
+    (1, Decimal('400.00'), 0),
+    (2, Decimal('200.00'), 1),
+    (3, Decimal('135.00'), 3),
+]
+
+# player_three has no handle on purpose: it keeps the export's missing-handle branch covered.
 MATCHERINO_HANDLES = {
     'player_one': 'jemgold#100234',
     'player_two': 'blueshell#204871',
@@ -63,14 +67,31 @@ async def seed_payouts_for_tenant(
                 defaults={'percentage': percentage},
             )
 
-    # The drafting state: money announced, nobody placed. Its rows stay absent
-    # rather than sitting at place 1 with no name — an empty split is what the
-    # tab shows before the bracket finishes.
     active = await Tournament.get_or_none(
         name='Wizzrobe Dev Tournament', tenant=tenant,
     )
     if active is not None and active.prize_pool is None:
         active.prize_pool = Decimal('500.00')
         await active.save()
+    if active is not None and active.sglive_slug is None:
+        active.sglive_slug = 'wwr'
+        active.prize_pool_synced_at = datetime.now(timezone.utc)
+        await active.save()
 
-    print(f'    [{tenant.slug}] payouts ok (one paid out, one still drafting)')
+    # Fixed dollars: no two-decimal percentage reproduces $400/$200/$135 of $735 to the cent.
+    fixed = await Tournament.get_or_none(name='Wizzrobe Archive Cup', tenant=tenant)
+    if fixed is not None:
+        if fixed.prize_pool is None:
+            fixed.prize_pool = Decimal('735.00')
+            await fixed.save()
+        for place, amount, index in _FIXED_SPLIT:
+            entrant = players[index]
+            await TournamentPlayers.get_or_create(
+                tournament=fixed, user=entrant, tenant=tenant,
+            )
+            await TournamentPayout.get_or_create(
+                tournament=fixed, place=place, entrant=entrant, tenant=tenant,
+                defaults={'amount': amount},
+            )
+
+    print(f'    [{tenant.slug}] payouts ok (one paid out, one in fixed dollars, one still drafting, one synced from sglive)')

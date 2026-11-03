@@ -21,6 +21,8 @@ from urllib.parse import quote
 
 import aiohttp
 
+_TIMEOUT = aiohttp.ClientTimeout(total=20)
+
 
 def opt_str(value: Any) -> Optional[str]:
     """Coerce a present value to ``str`` while preserving ``None``."""
@@ -80,7 +82,7 @@ class OAuthIdentityClient:
             'grant_type': 'authorization_code',
             'redirect_uri': redirect_uri,
         }
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(timeout=_TIMEOUT) as session:
             async with session.post(self.config.token_url, data=data) as resp:
                 payload = await resp.json()
                 if resp.status >= 400:
@@ -95,7 +97,7 @@ class OAuthIdentityClient:
             'Authorization': f'Bearer {access_token}',
             **self.config.userinfo_headers(self.client_id),
         }
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(timeout=_TIMEOUT) as session:
             async with session.get(self.config.userinfo_url, headers=headers) as resp:
                 text = await resp.text()
                 if resp.status >= 400:

@@ -16,9 +16,12 @@ from application.services import FeatureFlagService, UserService
 from application.tenant_context import tenant_scope
 from models import BracketEntryStatus, BracketState, FeatureFlag
 from theme.brackets import state_color, state_label
+from theme.busy import busy_click
 from theme.dialog._helpers import dialog_actions, form_dialog, submit_on_enter
 from theme.dialog.confirmation_dialog import ConfirmationDialog
 from theme.notify import notify_error
+from theme.pickers import member_select
+from theme.steady import steady_refreshable
 from theme.tables.admin_crud import current_actor
 
 from .draw_preview import render_draw_preview
@@ -31,26 +34,19 @@ async def open_manage(row, client, *, service, tenant_id, tournament_id, on_chan
     tid = tournament_id
     with client:
         actor = await current_actor()
-        # Fetched once for the whole dialog: the link picker is rebuilt on every
-        # refresh, and re-reading the user list per refresh would be a query per
-        # entrant added.
-        users = await UserService().get_community_people()
+        users = await UserService().get_community_people_summaries()
         user_names = {u.id: u.preferred_name or u.username for u in users}
         with tenant_scope(tenant_id):
             qualifiers_live = await FeatureFlagService().is_enabled(
                 FeatureFlag.ASYNC_QUALIFIERS
             )
-        # Survives a body refresh, unlike the widgets: filtering the roster must
-        # not reset every time an entrant is added.
+        # Outside the refresh on purpose, or filtering resets every time an entrant is added.
         view: Dict[str, object] = {'search': '', 'show_dropped': False}
 
-        # form_dialog, not a bare ui.dialog: it brings the house chrome — a
-        # full-screen sheet on a phone plus a sticky header — and the action bar
-        # below is sticky with it. Hand-rolled, this dialog put 'Start bracket'
-        # and 'Close' ~1200-4400px below the fold.
+        # form_dialog, not a bare ui.dialog: hand-rolled, the action bar lands far below the fold on a phone.
         with form_dialog(f"Manage — {row['name']} · {row['stage']}", card_classes='dialog-card dialog-card--lg') as dialog:
 
-            @ui.refreshable
+            @steady_refreshable
             async def body() -> None:
                 with tenant_scope(tenant_id):
                     bracket = await service.get_bracket(bracket_id)
@@ -103,9 +99,7 @@ async def open_manage(row, client, *, service, tenant_id, tournament_id, on_chan
                 )
 
                 async def save_seeds() -> None:
-                    # A blanked box submits None — the documented "clears the
-                    # seed" contract, which the old filter made unreachable, so
-                    # blanking one appeared to work and silently kept the value.
+                    # A blanked box must submit None (clears the seed); don't filter it out.
                     seeds = {
                         entry_id: (int(w.value) if w.value is not None else None)
                         for entry_id, w in seed_widgets.items()
@@ -156,6 +150,7 @@ async def open_manage(row, client, *, service, tenant_id, tournament_id, on_chan
 
                     confirm = ConfirmationDialog(
                         message, on_confirm=confirmed, confirm_text='Start bracket',
+                        busy_text='Starting…',
                     )
                     confirm.open()
 
@@ -168,11 +163,7 @@ async def open_manage(row, client, *, service, tenant_id, tournament_id, on_chan
                         ui.button('Start bracket', icon='play_arrow', on_click=start) \
                             .props('color=primary')
 
-            # Both containers exist before anything fills them, so the DOM order
-            # is body-then-actions while the action bar still sits *outside* the
-            # refreshable: the sheet CSS scopes the sticky footer to a
-            # direct child of the card, which a nested refresh container is not —
-            # inside, the bar rendered as a floating strip on a phone.
+            # The action bar must stay outside the refreshable: the sticky-footer CSS only matches a direct child of the card.
             body_container = ui.column().classes('w-full gap-2')
             actions = dialog_actions().classes('justify-end')
             with body_container:
@@ -199,8 +190,8 @@ def _render_roster(
     async def link_user(entrant) -> None:
         """Attach (or detach) one entrant's user account."""
         with form_dialog(f'Link user — {entrant.display_name}', card_classes='dialog-card dialog-card--sm') as link_dialog:
-            picker = ui.select(
-                user_names, value=entrant.user_id, label='User', with_input=True,
+            picker = member_select(
+                user_names, value=entrant.user_id, label='User',
             ).props('clearable').classes('w-full')
             ui.label(
                 'A linked entrant can be scheduled, DMed their matchup and joined '
@@ -243,7 +234,7 @@ def _render_roster(
 
     with ui.row().classes('items-center gap-2 w-full'):
         ui.label('Add entrant to tournament').classes('section-title col min-w-0')
-        ui.button('Import roster', icon='group_add', on_click=import_roster) \
+        ui.button('Import roster', icon='group_add', on_click=busy_click('Importing…', import_roster)) \
             .props('flat dense color=primary').tooltip(
                 "Adds every player enrolled in this tournament who isn't already "
                 'an entrant, each linked to their account'
@@ -251,11 +242,8 @@ def _render_roster(
 
     with ui.row().classes('items-end gap-2 w-full'):
         name_in = ui.input('Display name').classes('col-12 col-sm')
-        # A picker over preferred names, not the raw User.id this field used to
-        # ask for: that id is displayed by no screen in the app, so only someone
-        # with database access could fill it.
-        user_in = ui.select(
-            user_names, label='User (optional)', with_input=True,
+        user_in = member_select(
+            user_names, value=None, label='User (optional)',
         ).props('clearable').classes('col-12 col-sm')
 
         async def add_entrant() -> None:
@@ -273,7 +261,7 @@ def _render_roster(
             ui.notify('Entrant added', color='positive')
             await body.refresh()
 
-        ui.button('Add', icon='person_add', on_click=add_entrant).props('color=primary')
+        ui.button('Add', icon='person_add', on_click=add_entrant).props('color=primary').classes('wiz-write')
     ui.label(
         'Entrants belong to the tournament, not to this stage — the same entrant '
         'carries into every stage they are enrolled in.'
@@ -316,8 +304,6 @@ def _render_roster(
         view['show_dropped'] = bool(value)
         roster_list.refresh()
 
-    # Unbounded and unsearchable is fine at 8 entrants and unusable at 64 — the
-    # volunteer picker has had both since it existed.
     with ui.row().classes('items-center gap-2 w-full'):
         ui.input(
             'Filter roster', value=view['search'],
@@ -338,8 +324,6 @@ def _roster_row(
     """One roster line: who they are, whether they are linked, their way in."""
     dropped = entrant.status.value == 'dropped'
     with ui.row().classes('items-center gap-2 w-full no-wrap'):
-        # `col min-w-0 ellipsis`: a long display name otherwise pushed the seed
-        # field and Enroll onto a second line on every phone-width row.
         label = ui.label(entrant.display_name).classes('text-bold col min-w-0 ellipsis')
         if dropped:
             label.classes('text-grey')
@@ -357,8 +341,6 @@ def _roster_row(
         if entrant.id in enrolled_entrant_ids:
             ui.badge('enrolled', color='positive')
         elif dropped:
-            # A dropped entrant kept a live Enroll button, which is an invitation
-            # to put someone back into a field they have withdrawn from.
             ui.badge('retired', color='grey')
         else:
             seed_in = ui.number('Seed', min=1, precision=0) \

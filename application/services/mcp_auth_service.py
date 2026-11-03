@@ -22,9 +22,18 @@ import logging
 import secrets
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, FrozenSet, Iterable, List, Optional, Tuple
 from urllib.parse import urlsplit
 
+from application.api_scopes import (
+    ALL_SCOPES,
+    READ_SCOPES,
+    STAFF_SCOPES,
+    WRITE_SCOPES,
+    ApiScope,
+    format_scope,
+    parse_scope,
+)
 from application.errors import NotFoundError
 from application.repositories.api_token_repository import ApiTokenRepository
 from application.repositories.mcp_auth_repository import McpAuthRepository
@@ -33,12 +42,15 @@ from application.services.api_token_service import (
     MCP_TOKEN_PREFIX,
 )
 from application.services.audit_service import AuditActions, AuditService
+from application.services.auth_service import AuthService
+from application.services.tenant_service import TenantService
+from application.tenant_context import tenant_scope
+from application.utils.parked_requests import prune_parked
 from models import ApiToken, ApiTokenOrigin, McpAuthorizationCode, McpOAuthClient, User
 
 logger = logging.getLogger(__name__)
 
-# The consent page sends the browser to the redirect URI from the app's own
-# origin, so a script-bearing scheme there runs as the signed-in person.
+# The consent page redirects from our origin, so a script scheme here runs as the user.
 _REFUSED_REDIRECT_SCHEMES = frozenset({
     'javascript', 'data', 'vbscript', 'file', 'blob', 'about', 'filesystem',
 })
@@ -60,27 +72,17 @@ def is_allowed_redirect_uri(uri: str) -> bool:
         return (parts.hostname or '').lower() in _LOOPBACK_HOSTS
     return True
 
-# Short enough that a code left in a browser history or a proxy log is dead by
-# the time anyone finds it; long enough for a human to finish a consent screen.
 CODE_TTL = timedelta(minutes=5)
 ACCESS_TOKEN_TTL = timedelta(hours=1)
 REFRESH_TOKEN_TTL = timedelta(days=30)
-# A consent screen the user never completes should not pin memory forever.
 PENDING_TTL = timedelta(minutes=15)
 
 READ_SCOPE = 'wizzrobe:read'
 WRITE_SCOPE = 'wizzrobe:write'
-# Kept under the old name because the SDK provider falls back to it wherever a
-# scope is absent, and read is the floor every grant carries.
+# Don't rename: the SDK provider falls back to it wherever a scope is absent.
 DEFAULT_SCOPE = READ_SCOPE
-# What a dynamically-registered client is allowed to *ask* for. Asking is not
-# getting: the granted scope is decided on the consent screen (see
-# :func:`granted_scope`), so a client that requests write still gets a read-only
-# token unless the person approving it ticks the box.
 CLIENT_SCOPE = f'{READ_SCOPE} {WRITE_SCOPE}'
 
-# Typed by the person approving before a grant may carry write. A checkbox alone
-# is one click a hurried user makes without reading; typing a sentence is not.
 WRITE_CONFIRMATION_PHRASE = 'this is dangerous'
 
 
@@ -90,17 +92,31 @@ def write_confirmation_matches(text: Optional[str]) -> bool:
 
 
 def granted_scope(*, allow_write: bool) -> str:
-    """The scope a consent decision grants.
+    """Every read area, plus every write area when ``allow_write``: the grant a
+    connection gets when nobody narrows it. Scripts and tests mint with it."""
+    return format_scope(ALL_SCOPES if allow_write else READ_SCOPES)
 
-    Derived from the human's answer alone, never from what the client requested.
-    Read is unconditional — it is what the surface is for, and a grant that
-    carried only write would be a credential nobody asked for.
+
+def grant_scopes(scope: Optional[str]) -> FrozenSet[ApiScope]:
+    """The area scopes a connection's stored scope string reaches.
+
+    Grants made before connections were scoped carry only ``wizzrobe:read``
+    and/or ``wizzrobe:write``. Either one reaches every area: what the old
+    read-only grant could not do was write, and ``ApiToken.read_only`` still
+    refuses that, so nobody has to reconnect and nothing they could call goes
+    away.
     """
-    return CLIENT_SCOPE if allow_write else READ_SCOPE
+    names = (scope or '').split()
+    if READ_SCOPE in names or WRITE_SCOPE in names:
+        return ALL_SCOPES
+    return parse_scope(scope)
 
 
 def scope_allows_write(scope: Optional[str]) -> bool:
-    return WRITE_SCOPE in (scope or '').split()
+    names = (scope or '').split()
+    if READ_SCOPE in names or WRITE_SCOPE in names:
+        return WRITE_SCOPE in names
+    return bool(parse_scope(scope) & WRITE_SCOPES)
 
 
 def _hash(value: str) -> str:
@@ -115,19 +131,12 @@ class PendingAuthorization:
     redirect_uri: str
     redirect_uri_provided_explicitly: bool
     code_challenge: str
-    # What the client asked for. Recorded rather than honoured: the granted
-    # scope comes from the consent screen, so this is only ever context for the
-    # person deciding.
     scopes: List[str]
     state: Optional[str]
     resource: Optional[str]
     created_at: datetime
 
 
-# In-process, like the existing cross-host OAuth handoff nonce store, and for
-# the same reason: these live for seconds, are meaningless after a restart (the
-# user simply reconnects), and the deployment is single-worker by requirement.
-# Persisting them would buy nothing and cost a table.
 _pending: Dict[str, PendingAuthorization] = {}
 
 
@@ -138,8 +147,6 @@ class McpAuthService:
         self.repository = McpAuthRepository()
         self.token_repository = ApiTokenRepository()
         self.audit_service = AuditService()
-
-    # --- Clients ---------------------------------------------------------
 
     async def register_client(
         self,
@@ -177,8 +184,6 @@ class McpAuthService:
     async def get_client(self, client_id: str) -> Optional[McpOAuthClient]:
         return await self.repository.get_client(client_id)
 
-    # --- Authorization request -> consent --------------------------------
-
     def begin_authorization(self, pending: PendingAuthorization) -> str:
         """Park an authorization request and return its transaction id.
 
@@ -187,7 +192,7 @@ class McpAuthService:
         session, and the code it produces is bound to the client's PKCE
         challenge — so a leaked id cannot be exchanged for anything.
         """
-        self._sweep_pending()
+        self._sweep_pending(room_for=1)
         txn_id = secrets.token_urlsafe(24)
         _pending[txn_id] = pending
         return txn_id
@@ -205,13 +210,34 @@ class McpAuthService:
         _pending.pop(txn_id, None)
 
     @staticmethod
-    def _sweep_pending() -> None:
-        cutoff = datetime.now(timezone.utc) - PENDING_TTL
-        for key in [k for k, v in _pending.items() if v.created_at < cutoff]:
-            del _pending[key]
+    def _sweep_pending(room_for: int = 0) -> None:
+        prune_parked(_pending, PENDING_TTL, room_for=room_for)
+
+    async def offered_scopes(self, user: User) -> List[ApiScope]:
+        """The areas the consent screen offers ``user``, in display order.
+
+        An MCP grant is platform-wide, so the staff areas are offered to anyone
+        with an admin-side role in at least one community they belong to. Each
+        call still checks their role in the community it names.
+        """
+        if await self._may_use_staff_scopes_somewhere(user):
+            return list(ApiScope)
+        return [scope for scope in ApiScope if scope not in STAFF_SCOPES]
+
+    @staticmethod
+    async def _may_use_staff_scopes_somewhere(user: User) -> bool:
+        if await AuthService.is_super_admin(user):
+            return True
+        for tenant in await TenantService.list_tenants():
+            if not tenant.is_active or not await TenantService.is_member(user.id, tenant.id):
+                continue
+            with tenant_scope(tenant.id):
+                if await AuthService.can_use_staff_scopes(user):
+                    return True
+        return False
 
     async def approve(
-        self, txn_id: str, user: User, *, allow_write: bool = False,
+        self, txn_id: str, user: User, *, scopes: Iterable[ApiScope],
         write_confirmation: Optional[str] = None,
     ) -> Tuple[str, str, Optional[str]]:
         """Consume a pending request and mint its authorization code.
@@ -220,20 +246,23 @@ class McpAuthService:
         makes approval single-use, so a re-submitted consent form cannot mint a
         second code for the same request.
 
-        ``allow_write`` defaults to False and is the only thing that decides
-        whether the resulting token may change anything. It is a keyword with a
-        safe default on purpose: a caller that forgets it grants a read-only
-        connection, which is the outcome nobody has to be warned about.
-
-        A writing grant also needs ``write_confirmation`` to match
-        :data:`WRITE_CONFIRMATION_PHRASE`. It is checked before the pending
-        request is consumed, so a typo leaves the consent screen usable.
+        ``scopes`` are the areas the person ticked, and are the only thing that
+        decides what the connection may do: what the client asked for is never
+        read. They must sit inside :meth:`offered_scopes`. A grant with any
+        write area also needs ``write_confirmation`` to match
+        :data:`WRITE_CONFIRMATION_PHRASE`. Both are checked before the pending
+        request is consumed, so a mistake leaves the consent screen usable.
         """
         pending = self.get_pending(txn_id)
-        if allow_write and not write_confirmation_matches(write_confirmation):
+        chosen = frozenset(scopes)
+        if not chosen:
+            raise ValueError('Tick at least one thing it may do.')
+        if chosen - set(await self.offered_scopes(user)):
+            raise ValueError('You can only allow what your roles let you do.')
+        if chosen & WRITE_SCOPES and not write_confirmation_matches(write_confirmation):
             raise ValueError(
                 f'Type "{WRITE_CONFIRMATION_PHRASE}" to let it make changes, '
-                'or untick the box to connect read-only.'
+                'or untick the changes to connect read-only.'
             )
         self.discard_pending(txn_id)
         if not is_allowed_redirect_uri(pending.redirect_uri):
@@ -252,16 +281,14 @@ class McpAuthService:
             redirect_uri_provided_explicitly=pending.redirect_uri_provided_explicitly,
             code_challenge=pending.code_challenge,
             expires_at=datetime.now(timezone.utc) + CODE_TTL,
-            scope=granted_scope(allow_write=allow_write),
+            scope=format_scope(chosen),
             resource=pending.resource,
         )
         logger.info(
-            'MCP authorization approved: user=%s client=%s write=%s',
-            user.id, client.client_id, allow_write,
+            'MCP authorization approved: user=%s client=%s scope=%s',
+            user.id, client.client_id, format_scope(chosen),
         )
         return raw_code, pending.redirect_uri, pending.state
-
-    # --- Code / token exchange -------------------------------------------
 
     async def load_code(self, client_id: str, raw_code: str) -> Optional[McpAuthorizationCode]:
         """Fetch a live, unconsumed code belonging to ``client_id``.
@@ -290,9 +317,6 @@ class McpAuthService:
 
         access_raw = MCP_TOKEN_PREFIX + secrets.token_urlsafe(32)
         refresh_raw = MCP_REFRESH_PREFIX + secrets.token_urlsafe(32)
-        # The scope on the code is the consent decision, carried forward. Writing
-        # it onto the token as ``read_only`` is what the MCP tool gate actually
-        # reads, so the two can never disagree.
         write_allowed = scope_allows_write(code.scope)
         await self.token_repository.create_oauth_token(
             user=code.user,
@@ -313,6 +337,7 @@ class McpAuthService:
                 'client': code.client.client_name,
                 'origin': ApiTokenOrigin.OAUTH.value,
                 'write': write_allowed,
+                'scope': code.scope,
             },
         )
         return access_raw, refresh_raw, int(ACCESS_TOKEN_TTL.total_seconds())

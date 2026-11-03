@@ -93,6 +93,15 @@ class TestBadges:
         assert 'example.com' not in stored and '555-0100' not in stored and 'Main St' not in stored
         assert 'transactions' not in badge.source_data
 
+    async def test_a_purchase_listed_twice_syncs_as_one_badge(self, service, client, staff, event):
+        twice = mock_purchase(100, 'Twice', tier=BASE, purchase_id=1)
+        client.set([twice, twice], tiers=[BASE])
+
+        result = await service.sync_event(staff, event.id)
+
+        assert (result.total, result.badges) == (1, 1)
+        assert await CheckInPass.filter(event=event).count() == 1
+
     async def test_a_refund_withdraws_a_buyer_with_nothing_left(self, service, client, staff, event):
         client.set([mock_purchase(100, 'Refunded', purchase_id=1),
                     mock_purchase(200, 'Keeps one', purchase_id=2),
@@ -197,10 +206,10 @@ class TestComps:
 
     @pytest.fixture
     async def window(self, db):
-        from models import SystemConfiguration
+        from tests.factories import set_setting
         for key, value in (('event_start_date', '2026-10-09'), ('event_end_date', '2026-10-11'),
                            ('volunteer_comp_tiers', '8, 12, 16')):
-            await SystemConfiguration.create(name=key, value=value, tenant_id=DEFAULT_TEST_TENANT_ID)
+            await set_setting(name=key, value=value, tenant_id=DEFAULT_TEST_TENANT_ID)
 
     async def _hours(self, user, hours, *, auto_generated=False):
         from datetime import datetime, timezone

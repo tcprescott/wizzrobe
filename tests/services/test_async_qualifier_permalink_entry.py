@@ -37,11 +37,9 @@ async def _pool(service, staff, *, preset_id=None):
     return await service.create_pool(staff, q.id, name='Pool A', preset_id=preset_id)
 
 
-# ============================================================== the pure rule
-
 @pytest.mark.parametrize('url', [
     'https://alttpr.com/en/h/AbCdEf1234',
-    'http://localhost:8000/seed/1',            # a dev generator, and http is fine
+    'http://localhost:8000/seed/1',
     'https://example.test/x?with=query#frag',
 ])
 def test_a_real_link_is_accepted(url):
@@ -53,7 +51,7 @@ def test_a_real_link_is_accepted(url):
     ('', 'required'),
     ('   ', 'required'),
     ('not-a-url-at-all', 'http://'),
-    ('alttpr.com/en/h/AbCdEf', 'http://'),     # the commonest real paste
+    ('alttpr.com/en/h/AbCdEf', 'http://'),
     ('ftp://weird/x', 'http://'),
     ('javascript:alert(1)', 'http://'),
     ('data:text/html,<b>x', 'http://'),
@@ -68,12 +66,9 @@ def test_what_cannot_be_a_permalink(url, expected):
 def test_the_refusal_quotes_the_line_but_not_all_of_it():
     error = rules.permalink_url_error('x' * 200)
     assert error is not None
-    # Long enough to recognise the line, short enough to fit one notification.
     assert len(error) < 120
     assert '…' in error
 
-
-# ======================================================= the three entry paths
 
 async def test_add_permalink_refuses_a_non_url(db):
     service = AsyncQualifierService()
@@ -104,16 +99,14 @@ async def test_bulk_takes_the_good_lines_and_numbers_the_rest(db):
 
     result = await service.add_permalinks_bulk(staff, pool.id, urls=[
         'https://example.test/a',
-        '',                             # a blank line is skipped, not rejected
+        '',
         'ftp://weird/x',
-        '  https://example.test/b  ',   # whitespace from the paste is stripped
+        '  https://example.test/b  ',
         'javascript:alert(1)',
     ])
     assert [p.url for p in result.created] == [
         'https://example.test/a', 'https://example.test/b',
     ]
-    # Numbered by input position, blanks included, so "line 3" means line 3 of
-    # what was pasted rather than the third thing that failed.
     assert [n for n, _, _ in result.rejected] == [3, 5]
     assert 'line 3' in result.summary and 'line 5' in result.summary
     assert 'Added 2' in result.summary
@@ -140,8 +133,6 @@ async def test_bulk_where_every_line_is_bad_creates_nothing(db):
     assert len(result.rejected) == 2
     assert await AsyncQualifierPermalink.filter(pool_id=pool.id).count() == 0
 
-
-# ========================================================= the roll refusal
 
 async def test_roll_refusal_reads_the_same_answer_the_service_enforces(db):
     """The page asks this before offering the button; the service asks it again."""

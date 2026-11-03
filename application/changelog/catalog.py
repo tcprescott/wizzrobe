@@ -55,13 +55,10 @@ CHANGES_DIR = Path(__file__).parent / 'changes'
 
 CHANGE_FILE_RE = re.compile(r'^(?P<date>\d{4}-\d{2}-\d{2})-[a-z0-9]+(?:-[a-z0-9]+)*\.md$')
 
-#: The headline of a week no ``changelog.md`` heading has named yet.
 UNTITLED_WEEK = 'Updates'
 
-#: Every category a line can be filed under, in the order the page shows them.
 CATEGORIES = ('New', 'Improved', 'Fixed', 'Security', 'Behind the scenes')
 
-#: Where a line with no recognised category heading lands, after every category.
 UNSORTED = 'More changes'
 
 CATEGORY_HEADING_RE = re.compile(r'^### (?P<name>\S.*?)\s*$')

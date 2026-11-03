@@ -2,6 +2,10 @@
 
 <!-- What changed, and why. One or two sentences is usually enough. -->
 
+## Acceptance
+
+<!-- Built from a spec in docs/specs/? Copy its acceptance items here and tick each one with how it was checked. A PR doesn't leave draft with an unticked item. Delete this section otherwise. -->
+
 ## Testing
 
 <!-- How you verified this: commands run, pages exercised, what you checked by hand. -->

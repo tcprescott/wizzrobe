@@ -11,7 +11,6 @@ from application.services.seedgen_service import SeedGenerationService
 from application.utils.seed_provider import SeedProviderInvalidRequest
 from models import Preset
 
-# The SGL 2026 rules doc's permalink (build dev_tanjo3.1.10.7.3, seed "A").
 SGL26 = (
     'eJxLSS2LL0nMy8o31jPUMzTQM9czjk8xNkgxMk9mcGS4//1Tc+mHA/HnJOY/kNiv9INfkeHfX/4/wgYMDA5PT/3n/K/J/ceehUGg4Ub9f3v/'
     'nE32d0rsjf//L663/v+fg5UBBBy8liYysDEJKDRdnfGzJYFHgIGJkYkFIsUgzODAWMCgxMMBAMVjLfw='

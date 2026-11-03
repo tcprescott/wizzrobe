@@ -16,20 +16,16 @@ def _local(hour, day=15, month=1):
 
 
 def make_match(scheduled_hour=10, player_count=2, duration_min=90, tournament_duration=None,
-               user_ids=None, match_id=None, day=15):
-    t = SimpleNamespace(average_match_duration=tournament_duration, name='Test')
+               user_ids=None, match_id=None, day=15, in_room=True, stage_id=None):
+    t = SimpleNamespace(average_match_duration=tournament_duration, name='Test', uses_tournament_room=in_room)
     ids = list(user_ids) if user_ids is not None else [None] * player_count
     return SimpleNamespace(
         id=match_id,
         scheduled_at=_local(scheduled_hour, day).astimezone(timezone.utc),
         players=[SimpleNamespace(user_id=uid) for uid in ids],
         tournament=t,
+        stage_id=stage_id,
     )
-
-
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
 
 
 @pytest.fixture
@@ -40,14 +36,9 @@ def service():
     return svc
 
 
-# ---------------------------------------------------------------------------
-# _round_up_to_interval (static)
-# ---------------------------------------------------------------------------
-
-
 class TestRoundUpToInterval:
     def test_already_on_boundary(self):
-        dt = _local(10, 15)  # 10:00 -> on boundary
+        dt = _local(10, 15)
         result = MatchSuggestionService._round_up_to_interval(dt)
         assert result == dt.replace(second=0, microsecond=0)
 
@@ -61,11 +52,6 @@ class TestRoundUpToInterval:
         result = MatchSuggestionService._round_up_to_interval(dt)
         assert result.hour == 11
         assert result.minute == 0
-
-
-# ---------------------------------------------------------------------------
-# _peak_load (static)
-# ---------------------------------------------------------------------------
 
 
 def _bookings(*matches, duration=timedelta(minutes=90)):
@@ -91,24 +77,17 @@ class TestPeakLoad:
         assert _bookings(match) == []
 
 
-# ---------------------------------------------------------------------------
-# _generate_candidates
-# ---------------------------------------------------------------------------
-
-
 class TestGenerateCandidates:
     def test_returns_candidates_within_event_window(self, service):
         from datetime import date
         event_start = date(2026, 1, 15)
         event_end = date(2026, 1, 15)
-        from_dt = _local(10)  # 10:00 Eastern on Jan 15
+        from_dt = _local(10)
         hours_map = {}
         candidates = service._generate_candidates(
             from_dt, None, hours_map, timedelta(hours=2),
             event_start, event_end, EASTERN_TZ,
         )
-        # Without configured hours, every event day is open all day
-        # from 10:00 we should have many 30-min slots throughout the rest of the day
         assert len(candidates) > 0
 
     def test_slots_at_30min_intervals(self, service):
@@ -135,7 +114,6 @@ class TestGenerateCandidates:
             from_dt, None, {}, timedelta(hours=2),
             event_start, event_end, EASTERN_TZ,
         )
-        # All candidates should start on the event date
         for slot_start, _ in candidates:
             assert slot_start.date() == event_start
 
@@ -158,8 +136,6 @@ class TestGenerateCandidatesHardEnd:
         assert all(slot_end <= _local(14) for _, slot_end in candidates)
 
     def test_match_must_fit_wholly_inside(self, service):
-        # 10:00–11:00 window, 90-minute match: nothing fits, even though the
-        # window is open at 10:00.
         assert self._generate(service, _local(11), timedelta(minutes=90)) == []
 
     def test_window_end_clamps_multi_day_search(self, service):
@@ -173,11 +149,6 @@ class TestGenerateCandidatesHardEnd:
 
     def test_none_leaves_search_unbounded(self, service):
         assert len(self._generate(service, None)) > len(self._generate(service, _local(14)))
-
-
-# ---------------------------------------------------------------------------
-# _round_window
-# ---------------------------------------------------------------------------
 
 
 class TestRoundWindow:
@@ -245,11 +216,6 @@ class TestRoundWindow:
         assert await svc._round_window(7, EASTERN_TZ) == (None, None)
 
 
-# ---------------------------------------------------------------------------
-# _best_candidate
-# ---------------------------------------------------------------------------
-
-
 class TestBestCandidate:
     def test_returns_none_when_no_candidates(self, service):
         result = service._best_candidate([], [], {}, [], timedelta(hours=2))
@@ -263,8 +229,6 @@ class TestBestCandidate:
         assert result.astimezone(EASTERN_TZ).hour == 10
 
     def test_keeps_headroom_before_filling_to_the_cap(self, service):
-        # 28 players on the floor at 10:00. Two more is 30, at the 75% line of
-        # a 40 cap, so 10:00 is fine; 30 already there pushes to the free 12:00.
         duration = timedelta(hours=2)
         candidates = [(_local(10), _local(12)), (_local(12), _local(14))]
         at_line = [make_match(10, player_count=28)]
@@ -290,6 +254,30 @@ class TestBestCandidate:
             [(_local(10), _local(12))], [1, 2], {}, full, duration, capacity=40,
         )
         assert result is None
+
+    def test_matches_played_outside_the_room_take_no_room(self, service):
+        duration = timedelta(hours=2)
+        elsewhere = [make_match(10, player_count=39, in_room=False)]
+        result = service._best_candidate(
+            [(_local(10), _local(12))], [1, 2], {}, elsewhere, duration, capacity=40,
+        )
+        assert result.astimezone(EASTERN_TZ).hour == 10
+
+    def test_a_stage_match_outside_the_room_still_counts(self, service):
+        duration = timedelta(hours=2)
+        on_stage = [make_match(10, player_count=39, in_room=False, stage_id=1)]
+        result = service._best_candidate(
+            [(_local(10), _local(12))], [1, 2], {}, on_stage, duration, capacity=40,
+        )
+        assert result is None
+
+    def test_a_booking_outside_the_room_ignores_the_cap(self, service):
+        duration = timedelta(hours=2)
+        full = [make_match(10, player_count=39)]
+        result = service._best_candidate(
+            [(_local(10), _local(12))], [1, 2], {}, full, duration, capacity=40, takes_room=False,
+        )
+        assert result.astimezone(EASTERN_TZ).hour == 10
 
     def test_never_double_books_a_player(self, service):
         duration = timedelta(minutes=90)
@@ -385,3 +373,20 @@ class TestBestCandidate:
         )
         assert result is not None
         assert result.astimezone(EASTERN_TZ).hour == 14
+
+
+class TestInStageHours:
+    def test_keeps_only_slots_inside_daily_hours(self):
+        from datetime import time
+
+        from application.services.round_windows import RoundWindow
+
+        window = RoundWindow(daily_from=time(18), daily_until=time(23))
+        hour = timedelta(hours=1)
+        slots = [(_local(h), _local(h) + hour) for h in (12, 18, 22, 23)]
+        kept = MatchSuggestionService._in_stage_hours(slots, window, hour, EASTERN_TZ)
+        assert [s.hour for s, _ in kept] == [18, 22]
+
+    def test_no_window_keeps_everything(self):
+        slots = [(_local(12), _local(13))]
+        assert MatchSuggestionService._in_stage_hours(slots, None, timedelta(hours=1), EASTERN_TZ) == slots

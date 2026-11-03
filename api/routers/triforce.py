@@ -2,19 +2,18 @@
 
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query, status
 
-from api.dependencies import ServiceErrorRoute, require_api_actor, require_write_actor
+from api.dependencies import ServiceErrorRoute, event_binding, require_api_actor, require_write_actor
 from api.schemas.triforce import (
     TriforceModerateRequest,
     TriforceSubmitRequest,
     TriforceTextResponse,
 )
 from application.services import TriforceTextService
-from application.services.auth_service import AuthService
-from models import User
+from models import TriforceText, User
 
-router = APIRouter(prefix="/triforce-texts", tags=["Triforce Texts"], route_class=ServiceErrorRoute)
+router = APIRouter(prefix="/triforce-texts", tags=["Triforce Texts"], route_class=ServiceErrorRoute, dependencies=[Depends(event_binding(text_id=TriforceText))])
 
 
 @router.get(
@@ -52,18 +51,9 @@ async def list_for_moderation(
     ),
     actor: User = Depends(require_api_actor),
 ):
-    is_moderator = await AuthService.is_staff(actor) or await AuthService.is_tournament_admin(
-        actor, tournament_id
+    return await TriforceTextService().list_for_moderation(
+        tournament_id, status=status_filter, actor=actor,
     )
-    if not is_moderator:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You do not have permission to moderate this pool",
-        )
-    return await TriforceTextService().list_for_moderation(tournament_id, status=status_filter)
-
-
-# --- Writes -----------------------------------------------------------------
 
 
 @router.post(

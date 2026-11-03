@@ -6,13 +6,14 @@ Handles database operations for stages.
 
 from typing import List, Optional
 
-from application.repositories._base import TenantScopedRepository
-from application.repositories._tenant import current_tenant_id, scoped
+from application.repositories._base import EventScopedRepository
+from application.repositories._event import current_event_id, event_scoped
+from application.repositories._tenant import current_tenant_id
 from models import Stage
 
 
-class StageRepository(TenantScopedRepository[Stage]):
-    """Repository for stage data access."""
+class StageRepository(EventScopedRepository[Stage]):
+    """Repository for stage data access: the current event's stages."""
 
     model = Stage
 
@@ -24,12 +25,12 @@ class StageRepository(TenantScopedRepository[Stage]):
         Returns:
             List of Stage objects
         """
-        return await scoped(Stage.all()).order_by('name')
+        return await event_scoped(Stage.all()).order_by('name')
     
     @staticmethod
     async def any_exists() -> bool:
-        """Whether this tenant has any stage at all."""
-        return await scoped(Stage.all()).exists()
+        """Whether the current event has any stage at all."""
+        return await event_scoped(Stage.all()).exists()
 
     @staticmethod
     async def get_all_as_dict() -> dict[int, str]:
@@ -40,11 +41,11 @@ class StageRepository(TenantScopedRepository[Stage]):
         Returns:
             Dict mapping stage ID to name
         """
-        stages = await scoped(Stage.all())
+        stages = await event_scoped(Stage.all())
         return {sr.id: sr.name for sr in stages}
     
     @staticmethod
-    async def create(
+    async def create(  # type: ignore[override]
         name: str,
         stream_url: Optional[str] = None,
         is_active: bool = True
@@ -62,11 +63,20 @@ class StageRepository(TenantScopedRepository[Stage]):
         """
         return await Stage.create(
             tenant_id=current_tenant_id(),
+            event_id=current_event_id(),
             name=name,
             stream_url=stream_url,
             is_active=is_active
         )
     
+    @staticmethod
+    async def name_taken(name: str, exclude_id: Optional[int] = None) -> bool:
+        """Whether another of the current event's stages already has this name."""
+        query = event_scoped(Stage.filter(name=name))
+        if exclude_id is not None:
+            query = query.exclude(id=exclude_id)
+        return await query.exists()
+
     @staticmethod
     async def count_matches(stage: Stage) -> int:
         """Return how many matches reference this stage."""

@@ -8,13 +8,16 @@ their old URLs, which DM buttons already sent carry.
 """
 
 import ast
+import hashlib
+import re
 from pathlib import Path
 
 from theme.base import HOME_SECTIONS, BaseLayout
 from theme.nav_badges import NAV_ICON_NAMES, nav_icon
 
 ROOT = Path(__file__).resolve().parents[2]
-TAB_SOURCES = ('pages/admin.py', 'pages/home.py', 'pages/volunteer.py', 'theme/base.py')
+TAB_SOURCES = ('pages/admin.py', 'pages/home.py', 'pages/volunteer.py', 'theme/base.py',
+               'theme/drawer_help.py')
 
 
 def _nav_icon_literals() -> set[str]:
@@ -42,10 +45,22 @@ def test_every_nav_icon_is_in_the_subset_font():
 
 
 def test_the_subset_font_is_shipped_and_declared():
-    assert (ROOT / 'static/fonts/material-symbols-outlined-nav.woff2').stat().st_size > 0
+    font = ROOT / 'static/fonts/material-symbols-outlined-nav.woff2'
+    assert font.stat().st_size > 0
     css = (ROOT / 'static/css/styles.css').read_text()
-    assert "url('/static/fonts/material-symbols-outlined-nav.woff2')" in css
+    match = re.search(r"url\('/static/fonts/material-symbols-outlined-nav\.woff2\?v=([0-9a-f]+)'\)", css)
+    assert match, 'the subset font URL must carry a ?v= stamp'
     assert '.q-drawer .q-item--active .material-symbols-outlined' in css
+
+
+def test_the_subset_font_stamp_matches_the_file():
+    font = ROOT / 'static/fonts/material-symbols-outlined-nav.woff2'
+    css = (ROOT / 'static/css/styles.css').read_text()
+    stamp = re.search(r'material-symbols-outlined-nav\.woff2\?v=([0-9a-f]+)', css).group(1)
+    assert stamp == hashlib.sha256(font.read_bytes()).hexdigest()[:12], (
+        'static/fonts/material-symbols-outlined-nav.woff2 changed: set its ?v= in styles.css '
+        'to the first 12 hex digits of its sha256'
+    )
 
 
 def test_nav_icon_prefixes_plain_names_only():
@@ -70,3 +85,21 @@ def test_admin_aliases_cover_every_renamed_slug():
     source = (ROOT / 'pages/admin.py').read_text()
     for alias in ('schedule', 'users', 'check-in', 'presets', 'vol-roster', 'vol-schedule'):
         assert f"'aliases': ('{alias}',)" in source, alias
+
+
+def test_nav_section_matches_its_own_pages_only():
+    from theme.nav_section import nav_section_matches
+
+    assert nav_section_matches('/', '/')
+    assert nav_section_matches('/', '/home/my-schedule')
+    assert not nav_section_matches('/', '/volunteer')
+    assert nav_section_matches('/volunteer', '/volunteer')
+    assert nav_section_matches('/admin', '/admin/settings/general')
+    assert not nav_section_matches('/live', '/liveness')
+    assert not nav_section_matches('/admin', '/')
+
+
+def test_current_section_has_its_own_highlight():
+    css = (ROOT / 'static/css/styles.css').read_text()
+    assert '.q-drawer .q-item.wiz-nav-section--active {' in css
+    assert '.q-drawer .wiz-nav-section--active .material-symbols-outlined' in css

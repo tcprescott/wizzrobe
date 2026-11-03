@@ -23,8 +23,8 @@ async def _asset(asset_number=1, name='Console', **kwargs):
 
 
 class TestReads:
-    async def test_list_is_open_to_any_member(self, db, app):
-        _, raw = await create_user_token(username='plain')
+    async def test_list_is_for_equipment_managers(self, db, app):
+        _, raw = await create_user_token(username='em', roles=[Role.EQUIPMENT_MANAGER])
         await _asset(1, 'CRT')
         await _asset(2, 'SNES')
         async with client_for(app, raw) as c:
@@ -32,12 +32,18 @@ class TestReads:
             assert resp.status_code == 200
             assert {a['name'] for a in resp.json()} == {'CRT', 'SNES'}
 
+    async def test_list_is_refused_to_a_plain_member(self, db, app):
+        """The register is the admin tab's; members look one asset up from its QR page."""
+        _, raw = await create_user_token(username='plain')
+        asset = await _asset(1, 'CRT')
+        async with client_for(app, raw) as c:
+            assert (await c.get('/api/equipment')).status_code == 403
+            assert (await c.get(f'/api/equipment/{asset.id}')).status_code == 200
+
     async def test_private_notes_are_hidden_from_a_plain_member(self, db, app):
         _, raw = await create_user_token(username='plain')
         asset = await _asset(1, 'CRT', private_notes='cracked case')
         async with client_for(app, raw) as c:
-            listed = (await c.get('/api/equipment')).json()
-            assert listed[0]['private_notes'] is None
             detail = (await c.get(f'/api/equipment/{asset.id}')).json()
             assert detail['private_notes'] is None
 
@@ -49,7 +55,7 @@ class TestReads:
             assert detail['private_notes'] == 'cracked case'
 
     async def test_status_filter_narrows_the_inventory(self, db, app):
-        _, raw = await create_user_token(username='plain')
+        _, raw = await create_user_token(username='staff', roles=[Role.STAFF])
         await _asset(1, 'CRT')
         await _asset(2, 'Retired CRT', status=EquipmentStatus.RETIRED)
         async with client_for(app, raw) as c:
@@ -135,7 +141,6 @@ class TestWrites:
             assert updated.status_code == 200
             assert updated.json()['name'] == 'CRT 20in'
             assert updated.json()['status'] == 'retired'
-            # Omitted optional fields are cleared — this is a replace, not a patch.
             assert updated.json()['private_notes'] is None
 
             assert (await c.delete(f"/api/equipment/{body['id']}")).status_code == 204
@@ -178,8 +183,6 @@ class TestWrites:
             resp = await c.post(
                 f'/api/equipment/{asset.id}/checkout', json={'borrower_id': other.id},
             )
-            # 403 rather than a 201 recorded against the caller: a loan booked on
-            # the wrong person is the failure that outlives the request.
             assert resp.status_code == 403
 
     async def test_a_member_with_no_roles_borrows_to_themselves(self, db, app):

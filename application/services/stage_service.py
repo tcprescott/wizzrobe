@@ -7,10 +7,10 @@ Handles stage-related operations including creation, updates, and validation.
 from typing import Optional
 
 from application.errors import require_found
+from application.event_context import event_scoped
 from application.repositories import StageRepository
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
-from application.tenant_context import require_tenant_id
 from application.utils.safe_url import normalize_http_url
 from models import Stage, User
 
@@ -36,6 +36,8 @@ class StageService:
 
         if not name or not name.strip():
             raise ValueError("Stage name is required")
+        if await self.repository.name_taken(name.strip()):
+            raise ValueError(f"A stage named '{name.strip()}' already exists.")
 
         stage = await self.repository.create(
             name=name.strip(),
@@ -69,6 +71,8 @@ class StageService:
 
         update_data = {}
         if name is not None:
+            if await self.repository.name_taken(name.strip(), exclude_id=stage.id):
+                raise ValueError(f"A stage named '{name.strip()}' already exists.")
             update_data['name'] = name.strip()
         if stream_url is not None:
             update_data['stream_url'] = normalize_http_url(stream_url, 'The stream link')
@@ -106,8 +110,8 @@ class StageService:
 
     async def get_all_stages(self, active_only: bool = False) -> list[Stage]:
         if active_only:
-            return await Stage.filter(is_active=True, tenant_id=require_tenant_id())
-        return await Stage.filter(tenant_id=require_tenant_id())
+            return await event_scoped(Stage.filter(is_active=True))
+        return await event_scoped(Stage.all())
 
     async def get_stage_by_id(self, stage_id: int) -> Optional[Stage]:
         return await self.repository.get_by_id(stage_id)

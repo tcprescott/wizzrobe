@@ -63,12 +63,9 @@ function findChrome(explicit) {
     ).toString().trim();
     if (hit) return hit;
   } catch (_) {}
-  return undefined; // let Playwright use its bundled browser
+  return undefined;
 }
 
-// Text a server-side render failure leaves on the page. The first is the tab
-// guard in theme/base.py (_build_tab catches, logs, and renders it); the rest
-// are what an unhandled page-level exception surfaces as.
 const DEFAULT_FAIL_MARKERS = [
   'This section failed to load',
   'Internal Server Error',
@@ -92,8 +89,6 @@ async function clickTab(page, name) {
   const loginAs = cfg.loginAs || 'staff_user';
   const outDir = cfg.outDir || '/tmp/ui-smoke';
   const targets = cfg.targets || [{ name: 'home', path: '/', selector: 'body' }];
-  // Tenant pages live under /t/<slug>/… . Prefix login + targets when a tenant
-  // is set; leave platform targets (or already-prefixed paths) untouched.
   const tprefix = cfg.tenant ? `/t/${cfg.tenant}` : '';
   const withTenant = (p, target) => {
     if (!tprefix || (target && target.platform) || p.startsWith('/t/')) return p;
@@ -111,9 +106,7 @@ async function clickTab(page, name) {
   page.on('pageerror', e => errors.push('PAGEERROR: ' + e.message));
   page.on('console', m => { if (m.type() === 'error') errors.push('CONSOLE.ERROR: ' + m.text().slice(0, 200)); });
 
-  // Mock login: click "Log in as" in the row for `loginAs`. The picker renders
-  // as a <table> on desktop and as `.wiz-grid-card` cards on a narrow (mobile)
-  // viewport (enable_mobile_grid), so match either container.
+  // The picker is a <table> on desktop and .wiz-grid-card cards on a phone: match either.
   await page.goto(`${baseUrl}${withTenant('/login')}`, { waitUntil: 'networkidle' });
   await page.waitForTimeout(800);
   const row = page.locator('tr, .wiz-grid-card', { hasText: loginAs }).first();
@@ -125,8 +118,7 @@ async function clickTab(page, name) {
   const failures = [];
 
   for (const t of targets) {
-    // A navigation that never resolves (server restart mid-run, hung request) is
-    // this target's failure, not the whole sweep's — record it and keep going.
+    // A hung navigation fails this target, not the whole sweep.
     let resp;
     try {
       resp = await page.goto(`${baseUrl}${withTenant(t.path, t)}`, { waitUntil: 'networkidle' });
@@ -138,8 +130,7 @@ async function clickTab(page, name) {
     if (resp && resp.status() >= 500) failures.push(`[${t.name}] HTTP ${resp.status()} on ${t.path}`);
     await page.waitForTimeout(1200);
     if (t.tab) {
-      // A tab that isn't there validates nothing — the screenshot would show
-      // whatever tab happened to be default. Report it instead of passing.
+      // A missing tab must fail: the screenshot would show the default tab instead.
       const clicked = await clickTab(page, t.tab);
       console.log(`  [${t.name}] tab "${t.tab}" clicked: ${clicked}`);
       if (!clicked) failures.push(`[${t.name}] tab "${t.tab}" not found on ${t.path}`);

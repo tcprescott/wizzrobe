@@ -11,8 +11,10 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from application.services.audit_service import AuditActions
 from application.services.challonge_service import ChallongeService
 from models import (
+    AuditLog,
     ChallongeConnection,
     ChallongeMatch,
     ChallongeMatchState,
@@ -39,16 +41,11 @@ async def make_user(discord_id: int, username: str = 'u', challonge_user_id=None
     )
 
 
-# ----------------------------------------------------------------------
-# parse_tournament_identifier (pure)
-# ----------------------------------------------------------------------
 def test_default_service_scopes_include_communities_manage(monkeypatch):
     from application.services.challonge_service import _service_scopes
     monkeypatch.delenv('CHALLONGE_SCOPES', raising=False)
     assert 'communities:manage' in _service_scopes().split()
-    # change_state (stage control) needs it.
     assert 'tournaments:write' in _service_scopes().split()
-    # Players signing themselves up for a bracket needs it.
     assert 'participants:write' in _service_scopes().split()
 
 
@@ -105,9 +102,6 @@ class TestParseIdentifier:
             ChallongeService.parse_tournament_identifier('   ')
 
 
-# ----------------------------------------------------------------------
-# get_valid_access_token
-# ----------------------------------------------------------------------
 class TestGetValidAccessToken:
     async def test_no_connection_raises(self, db):
         with pytest.raises(ValueError, match='not connected'):
@@ -142,9 +136,6 @@ class TestGetValidAccessToken:
             await make_service().get_valid_access_token(force_refresh=True)
 
 
-# ----------------------------------------------------------------------
-# sync_bracket
-# ----------------------------------------------------------------------
 class TestSyncBracket:
     async def test_mirrors_participants_and_matches(self, db):
         actor = await make_user(1, 'admin')
@@ -169,9 +160,9 @@ class TestSyncBracket:
         assert result == {'participants': 2, 'matches': 1}
 
         alice_p = await ChallongeParticipant.get(tournament=tournament, challonge_participant_id='9001')
-        assert alice_p.user_id == linked.id  # resolved by challonge_user_id
+        assert alice_p.user_id == linked.id
         bob_p = await ChallongeParticipant.get(tournament=tournament, challonge_participant_id='9002')
-        assert bob_p.user_id is None  # unlinked
+        assert bob_p.user_id is None
 
         cmatch = await ChallongeMatch.get(tournament=tournament, challonge_match_id='8001')
         assert cmatch.state == ChallongeMatchState.OPEN
@@ -215,7 +206,7 @@ class TestSyncBracket:
 
     async def test_requires_linked_tournament(self, db):
         actor = await make_user(1, 'admin')
-        tournament = await Tournament.create(name='T')  # no challonge id
+        tournament = await Tournament.create(name='T')
         with pytest.raises(ValueError, match='not linked'):
             await make_service().sync_bracket(tournament.id, actor)
 
@@ -231,19 +222,14 @@ class TestSyncBracket:
         service = make_service(api=api)
 
         await service.sync_bracket(tournament.id, actor)
-        # Second non-forced sync within the throttle window must not hit the API.
         result = await service.sync_bracket(tournament.id, actor)
         assert result.get('skipped') is True
         api.get_tournament_full.assert_awaited_once()
 
-        # Forcing overrides the throttle.
         await service.sync_bracket(tournament.id, actor, force=True)
         assert api.get_tournament_full.await_count == 2
 
 
-# ----------------------------------------------------------------------
-# schedule_challonge_match
-# ----------------------------------------------------------------------
 class TestScheduleChallongeMatch:
     async def _open_match(self, tournament, p1_user, p2_user):
         p1 = await ChallongeParticipant.create(
@@ -267,16 +253,16 @@ class TestScheduleChallongeMatch:
 
         created_match = await Match.create(tournament=tournament)
         fake_ms = MagicMock()
-        fake_ms.submit_match_request = AsyncMock(return_value=created_match)
+        fake_ms.book_from_bracket = AsyncMock(return_value=created_match)
         monkeypatch.setattr('application.services.challonge_service.MatchService', lambda: fake_ms)
 
         returned = await make_service().schedule_challonge_match(
             challonge_match_pk=cmatch.id, scheduled_date='2026-06-12', scheduled_time='14:30', actor=actor,
         )
         assert returned.id == created_match.id
-        fake_ms.submit_match_request.assert_awaited_once()
-        _, kwargs = fake_ms.submit_match_request.call_args
-        assert sorted(kwargs['player_ids']) == sorted([actor.id, opponent.id])
+        fake_ms.book_from_bracket.assert_awaited_once()
+        args, _ = fake_ms.book_from_bracket.call_args
+        assert sorted(args[3]) == sorted([actor.id, opponent.id])
 
         await cmatch.refresh_from_db()
         assert cmatch.match_id == created_match.id
@@ -284,7 +270,6 @@ class TestScheduleChallongeMatch:
     async def test_unlinked_opponent_raises(self, db):
         actor = await make_user(1, 'alice', challonge_user_id='1001')
         tournament = await Tournament.create(name='T', challonge_tournament_id='T1')
-        # participant2 has no user
         p1 = await ChallongeParticipant.create(
             tournament=tournament, challonge_participant_id='9001', name='P1',
             challonge_user_id='1001', user=actor,
@@ -315,9 +300,6 @@ class TestScheduleChallongeMatch:
             )
 
 
-# ----------------------------------------------------------------------
-# push_match_result
-# ----------------------------------------------------------------------
 class TestPushMatchResult:
     async def _setup(self, winner_rank_set=True):
         actor = await make_user(1, 'admin')
@@ -344,8 +326,8 @@ class TestPushMatchResult:
     async def test_pushes_winner_and_loser(self, db):
         actor, match, _ = await self._setup()
         api = MagicMock()
+        api.get_match = AsyncMock(return_value={'match_id': '8001', 'state': 'open'})
         api.update_match = AsyncMock()
-        # The push triggers a single post-push re-sync to mirror bracket advancement.
         api.get_tournament_full = AsyncMock(return_value={
             'tournament': {'id': 'T1', 'name': 'T', 'url': None, 'state': 'underway'},
             'participants': [], 'matches': [],
@@ -366,6 +348,7 @@ class TestPushMatchResult:
         tournament.challonge_community = 'speedgaming'
         await tournament.save()
         api = MagicMock()
+        api.get_match = AsyncMock(return_value={'match_id': '8001', 'state': 'open'})
         api.update_match = AsyncMock()
         api.get_tournament_full = AsyncMock(return_value={
             'tournament': {'id': 'T1', 'name': 'T', 'url': None, 'state': 'underway'},
@@ -374,6 +357,23 @@ class TestPushMatchResult:
         await make_service(api=api).push_match_result(match, actor)
         _, kwargs = api.update_match.call_args
         assert kwargs['community'] == 'speedgaming'
+
+    async def test_leaves_a_result_already_on_challonge(self, db):
+        actor, match, _ = await self._setup()
+        api = MagicMock()
+        api.get_match = AsyncMock(return_value={
+            'match_id': '8001', 'state': 'complete', 'winner_participant_id': '200',
+        })
+        api.update_match = AsyncMock()
+        api.get_tournament_full = AsyncMock(return_value={
+            'tournament': {'id': 'T1', 'name': 'T', 'url': None, 'state': 'underway'},
+            'participants': [], 'matches': [],
+        })
+        sent = await make_service(api=api).push_match_result(match, actor)
+        assert sent is False
+        api.update_match.assert_not_awaited()
+        api.get_tournament_full.assert_awaited_once()
+        assert await AuditLog.filter(action=AuditActions.CHALLONGE_RESULT_SKIPPED).count() == 1
 
     async def test_no_winner_recorded_raises(self, db):
         actor, match, _ = await self._setup(winner_rank_set=False)
@@ -395,9 +395,6 @@ class TestPushMatchResult:
         assert attempted is False
 
 
-# ----------------------------------------------------------------------
-# Player identity linking
-# ----------------------------------------------------------------------
 class TestPlayerLink:
     async def test_record_and_unlink(self, db):
         user = await make_user(1, 'alice')
@@ -422,7 +419,6 @@ class TestPlayerLink:
         await make_service().set_player_username(user, '  new_name  ', actor=user)
         await user.refresh_from_db()
         assert user.challonge_username == 'new_name'
-        # The stable account id is untouched by a username edit.
         assert user.challonge_user_id == '1001'
 
     async def test_set_username_blank_clears_it(self, db):
@@ -435,13 +431,13 @@ class TestPlayerLink:
         assert user.challonge_username is None
 
     async def test_set_username_requires_linked_account(self, db):
-        user = await make_user(1, 'alice')  # no challonge_user_id
+        user = await make_user(1, 'alice')
         with pytest.raises(ValueError):
             await make_service().set_player_username(user, 'whatever', actor=user)
 
     async def test_link_player_manually(self, db):
         admin = await make_user(1, 'admin')
-        user = await make_user(2, 'bob')  # not linked
+        user = await make_user(2, 'bob')
         await make_service().link_player_manually(user, ' 2002 ', ' bob_c ', actor=admin)
         await user.refresh_from_db()
         assert user.challonge_user_id == '2002'
@@ -464,10 +460,6 @@ class TestPlayerLink:
         assert user.challonge_user_id is None
 
     async def test_challonge_oauth_link_rejects_an_id_another_user_holds(self, db):
-        # The OAuth path was the only one of the three link paths with no
-        # pre-check against a unique=True column: it hit the index, raised
-        # IntegrityError, and the callback answered "Please try again." — advice
-        # that fails identically every time it is followed.
         await make_user(2, 'alice', challonge_user_id='4004')
         user = await make_user(3, 'bob')
         with pytest.raises(ValueError, match='already linked to alice'):
@@ -488,16 +480,12 @@ class TestPlayerLink:
         assert user.challonge_username == 'bob_c'
 
     async def test_relinking_the_same_id_to_the_same_user_is_allowed(self, db):
-        # The pre-check excludes the user themselves, so re-linking (a rebind to
-        # the identity already held) is not a collision with oneself.
         user = await make_user(2, 'bob', challonge_user_id='6006')
         await make_service().record_player_link(user, '6006', 'bob_renamed', actor=user)
         await user.refresh_from_db()
         assert user.challonge_username == 'bob_renamed'
 
     async def test_only_the_staff_override_audits_manual(self, db):
-        # Both paths now share one private helper; `manual` is the only thing that
-        # distinguishes their audit rows, so it has to survive the extraction.
         import json
 
         from application.services.audit_service import AuditActions
@@ -541,14 +529,11 @@ class TestParticipantTournamentIds:
         assert await make_service().participant_tournament_ids(user) == set()
 
 
-# ----------------------------------------------------------------------
-# ChallongeClient path building
-# ----------------------------------------------------------------------
 class TestClientPaths:
     def _client(self):
         from application.utils.clients.challonge_client import ChallongeClient
         client = ChallongeClient('id', 'secret', token_provider=AsyncMock(return_value='tok'))
-        client._authed_request = AsyncMock(return_value={'data': {}})
+        client._authed_request = AsyncMock(return_value={'data': {'id': '1'}})
         return client
 
     async def test_root_tournament_path(self):
@@ -574,9 +559,6 @@ class TestClientPaths:
         assert path == '/communities/speedgaming/tournaments/T1/matches/8001.json'
 
 
-# ----------------------------------------------------------------------
-# ChallongeClient participant identity (shapes captured from the live v2.1 API)
-# ----------------------------------------------------------------------
 def _included_participant(pid, username, user_rel):
     return {
         'id': pid, 'type': 'participant',
@@ -624,9 +606,6 @@ class TestClientParticipantIdentity:
         assert client._authed_request.await_count == 1
 
 
-# ----------------------------------------------------------------------
-# Manual participant -> user assignment
-# ----------------------------------------------------------------------
 class TestManualParticipantAssignment:
     async def _bracket(self):
         from models import TenantMembership
@@ -724,8 +703,6 @@ class TestManualParticipantAssignment:
 
 class TestFinalStageMatchShape:
     def test_players_come_from_points_when_relationships_are_absent(self):
-        # Captured from a live two-stage tournament right after the final stage
-        # started: no player1/player2 relationships at all.
         from application.utils.clients.challonge_client import _normalize_match
         resource = {
             'id': '474720405', 'type': 'match',

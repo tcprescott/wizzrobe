@@ -11,12 +11,9 @@ from typing import Iterator, Optional
 
 from nicegui import ui
 
-# Set while a page is rendered as one section of a bigger page (a Settings
-# pane holds Appearance and Timezone). The page still calls page_header() the
-# same way; it just comes out a level down, so the pane keeps a single title.
+from theme.anchors import anchor_id
+
 _nested: ContextVar[bool] = ContextVar('page_header_nested', default=False)
-# Set when a page_header() renders an h1, so a tab that never calls it can be
-# given a hidden one (see heading_fallback).
 _titled: ContextVar[bool] = ContextVar('page_header_titled', default=False)
 
 
@@ -50,12 +47,16 @@ def page_header(title: str, subtitle: Optional[str] = None) -> ui.row:
     with ui.column().classes('wiz-page-header' + (' wiz-page-header--nested' if nested else '')):
         with ui.row().classes('wiz-page-header__row') as row:
             heading = ui.label(title).classes('section-title' if nested else 'page-title')
-            # One h1 per page names it for screen-reader heading navigation.
             heading.tag = 'h2' if nested else 'h1'
+            if nested:
+                heading.props(f'id={anchor_id(title)}')
             if not nested:
                 _titled.set(True)
         if subtitle:
             ui.label(subtitle).classes('wiz-page-header__sub')
+    if not nested:
+        from theme.archived_banner import render_archived_banner
+        render_archived_banner()
     return row
 
 

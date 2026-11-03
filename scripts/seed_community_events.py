@@ -67,30 +67,24 @@ async def seed_community_events_for_tenant(
         events[title] = event
 
     for title, usernames in (
-        ('Board game night', ('player_two', 'player_three', 'staff_user')),
+        ('Board game night', ('player_one', 'player_two', 'player_three', 'staff_user')),
         ('Speedrun route Q&A', ('player_one',)),
     ):
         for username in usernames:
             await CommunityEventSubscription.get_or_create(
                 tenant=tenant, event=events[title], user=users[username],
             )
-    # Board game night takes RSVPs, capped, with two going and one only reminded.
     await CommunityEvent.filter(id=events['Board game night'].id).update(rsvp_enabled=True, rsvp_capacity=6)
     await CommunityEventSubscription.filter(
         event_id=events['Board game night'].id,
-        user_id__in=[users['player_two'].id, users['player_three'].id],
+        user_id__in=[users['player_one'].id, users['player_two'].id, users['player_three'].id],
     ).update(going=True)
-    # Speedrun trivia is capped at two and both places are taken, so everyone
-    # else sees the Full button.
     for username in ('player_two', 'player_three'):
         await CommunityEventSubscription.get_or_create(
             tenant=tenant, event=events['Speedrun trivia'], user=users[username],
         )
     await CommunityEvent.filter(id=events['Speedrun trivia'].id).update(rsvp_enabled=True, rsvp_capacity=2)
     await CommunityEventSubscription.filter(event_id=events['Speedrun trivia'].id).update(going=True)
-    # The coffee run went up two days ago, the rest just now. player_one last
-    # opened the listing yesterday, so the rest carry a New chip and count on
-    # their Event tab; staff_user never has, so everything is new to them.
     await CommunityEvent.filter(id=events['Morning coffee run'].id).update(
         reviewed_at=now_utc - timedelta(days=2),
     )

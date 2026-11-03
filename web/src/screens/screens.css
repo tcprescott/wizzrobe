@@ -1,0 +1,117 @@
+.center-page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+}
+.center-card {
+  width: min(420px, 100%);
+  padding: 28px 24px;
+  background: var(--surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  text-align: center;
+}
+.center-card h1 {
+  font-size: var(--text-xl);
+  margin-bottom: var(--space-2);
+}
+.center-card p {
+  margin: 0 0 var(--space-4);
+  color: var(--fg-secondary);
+}
+.center-card .btn {
+  width: 100%;
+}
+.center-card .brand__mark {
+  display: inline-block;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  margin-bottom: var(--space-3);
+}
+
+.list-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: 14px 16px;
+  border: 0;
+  border-bottom: 1px solid var(--border-subtle);
+  background: none;
+  color: var(--fg);
+  text-align: left;
+  text-decoration: none;
+  font-weight: 700;
+}
+.list-link:last-child {
+  border-bottom: 0;
+}
+.list-link:hover {
+  background: var(--surface-alt);
+}
+.list-link__sub {
+  display: block;
+  font-weight: 400;
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+}
+.list-link > .icon:last-child {
+  margin-left: auto;
+  color: var(--fg-muted);
+}
+
+.segmented {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+  gap: 2px;
+}
+.segmented label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  font-size: var(--text-sm);
+  color: var(--fg-secondary);
+  cursor: pointer;
+}
+.segmented input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.segmented input:checked + label {
+  background: var(--surface);
+  color: var(--fg);
+  box-shadow: var(--shadow-1);
+}
+.segmented input:focus-visible + label {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.field-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  width: 100%;
+}
+.field-row__label {
+  font-weight: 700;
+}
+
+.kit-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}

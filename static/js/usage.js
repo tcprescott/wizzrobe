@@ -1,16 +1,4 @@
-/*
- * Usage telemetry: which controls people use, reported to the server in
- * batches as the `wiz_usage` event (theme/usage_telemetry.py stores them).
- *
- * Records the *name* of what was used, never what was typed or selected:
- * - every click on a named control (button, link, menu item, tab, toggle,
- *   checkbox, chip, clickable list item, select), with the dialog, ⋮ menu or
- *   table it sat in;
- * - each dialog opening, and how it closed (the button pressed in it, or
- *   "dismissed" for Escape / a click outside);
- * - each form field whose value was changed, by its label.
- * Each row also notes phone / tablet / desktop from the viewport width.
- */
+/* Records the *name* of what was used, never what was typed or selected. */
 (function () {
   if (window.__wizUsage) return;
   window.__wizUsage = true;
@@ -62,6 +50,7 @@
     if (el.matches('.q-tab, [role=tab]')) return 'tab';
     if (el.closest('.q-menu')) return el.matches('[role=option]') ? 'option' : 'menu-item';
     if (el.matches('.q-chip--clickable')) return 'chip';
+    if (el.matches('[role=option]')) return 'option';
     if (el.matches('.q-item--clickable')) return 'item';
     if (el.matches('a[href]')) return 'link';
     return 'button';
@@ -72,9 +61,7 @@
     var aria = el.getAttribute('aria-label');
     if (aria) return clean(aria);
     if (el.matches('.q-btn')) {
-      // A labelled button's text includes its icon's ligature ("add Add match");
-      // the label span alone is the name. Icon-only buttons fall through to the
-      // ligature, which still says which button it was ("more_vert").
+      // A labelled button's text includes its icon ligature; the label span alone is the name.
       var label = el.querySelector('.q-btn__content .block');
       if (label) return clean(label.textContent);
     }
@@ -91,7 +78,21 @@
 
   function dialogTitle(dialog) {
     var title = dialog.querySelector('h1, h2, h3, .dialog-header .text-h6, .text-h6, .section-title');
-    return clean((title && title.textContent) || dialog.getAttribute('aria-label') || '');
+    var labelledBy = dialog.getAttribute('aria-labelledby');
+    var labelEl = labelledBy && document.getElementById(labelledBy);
+    return clean(
+      (title && title.textContent) || dialog.getAttribute('aria-label') ||
+      (labelEl && labelEl.textContent) || ''
+    );
+  }
+
+  function isPicker(dialog) {
+    return !!dialog.querySelector('.q-select__dialog');
+  }
+
+  function pickerName(dialog, opener) {
+    var label = dialog.querySelector('.q-select__dialog .q-field__label');
+    return clean((label && label.textContent.replace(/\s*\*\s*$/, '')) || '') || opener || 'Dropdown';
   }
 
   function push(event) {
@@ -115,20 +116,22 @@
     var kind = kindOf(el);
     var name = nameOf(el, kind);
     var table = el.closest('[data-wiz-table-key]');
-    // Row buttons name their row ("More for cc_user"); drop the row so every
-    // row's ⋮ counts as one control.
+    // Drop the row from the name so every row's ⋮ counts as one control.
     if (table) name = name.replace(/ for .*$/, '');
     if (!name) return;
     var event = { type: 'ui.click', kind: kind, target: name };
     var dialog = el.closest('[role=dialog]');
-    if (dialog) {
-      var info = openDialogs.get(dialog);
+    var info = dialog && openDialogs.get(dialog);
+    var inPicker = !!dialog && (info ? info.picker : isPicker(dialog));
+    if (inPicker) {
+      event.menu = info ? info.title : pickerName(dialog, lastMenuOpener);
+    } else if (dialog) {
       event.dialog = info ? info.title : dialogTitle(dialog);
       if (info) info.lastClick = name;
     }
     if (el.closest('.q-menu')) {
       if (lastMenuOpener) event.menu = lastMenuOpener;
-    } else {
+    } else if (!inPicker) {
       lastMenuOpener = name;
     }
     if (table) event.table = table.getAttribute('data-wiz-table-key');
@@ -138,21 +141,27 @@
   document.addEventListener('change', function (e) {
     var el = e.target;
     if (!el || !el.matches || !el.matches('input, textarea, select')) return;
-    if (el.matches('[type=checkbox], [type=radio]')) return;  // counted as clicks
+    if (el.matches('[type=checkbox], [type=radio]')) return;
     var name = fieldLabel(el);
     if (!name) return;
     var event = { type: 'ui.field_used', kind: el.getAttribute('type') || el.tagName.toLowerCase(), target: name };
     var dialog = el.closest('[role=dialog]');
-    if (dialog) event.dialog = (openDialogs.get(dialog) || {}).title || dialogTitle(dialog);
+    if (dialog && !isPicker(dialog)) event.dialog = (openDialogs.get(dialog) || {}).title || dialogTitle(dialog);
     push(event);
   }, true);
 
   function opened(dialog) {
     if (openDialogs.has(dialog)) return;
-    var info = { title: '', lastClick: null };
+    var info = { title: '', lastClick: null, picker: false };
+    var opener = lastMenuOpener;
     openDialogs.set(dialog, info);
     // Content is rendered a tick after the dialog shell.
     setTimeout(function () {
+      if (isPicker(dialog)) {
+        info.picker = true;
+        info.title = pickerName(dialog, opener);
+        return;
+      }
       info.title = dialogTitle(dialog) || '(untitled dialog)';
       push({ type: 'ui.dialog_opened', target: info.title });
     }, 50);
@@ -162,6 +171,7 @@
     var info = openDialogs.get(dialog);
     if (!info) return;
     openDialogs.delete(dialog);
+    if (info.picker || isPicker(dialog)) return;
     push({ type: 'ui.dialog_closed', target: info.title || '(untitled dialog)', via: info.lastClick || 'dismissed' });
   }
 

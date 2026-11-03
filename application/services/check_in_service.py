@@ -71,6 +71,7 @@ from application.utils.clients.matcherino_client import (
     VenueSales,
     get_matcherino_client,
 )
+from application.utils.shared_lock import shared_lock
 from models import (
     CheckInEntrant,
     CheckInEntrantSource,
@@ -102,16 +103,6 @@ class VenuePreview:
     tiers: List[MatcherinoTier]
 
 
-# One sync per event at a time. The app runs as a single process
-# (docs/scaling-roadmap.md), so an in-process lock serialises the worker's poll,
-# a staff Sync and every desk phone's Sync for the same event.
-_sync_locks: Dict[int, asyncio.Lock] = {}
-
-
-def _sync_lock(event_id: int) -> asyncio.Lock:
-    return _sync_locks.setdefault(event_id, asyncio.Lock())
-
-
 class CheckInService:
     """Check-in events, the Matcherino sync, and the desk's actions."""
 
@@ -130,8 +121,6 @@ class CheckInService:
         if self._client is not None:
             return self._client
         return get_matcherino_client(await self.login_service.resolve())
-
-    # --- Events (staff) ---
 
     @staticmethod
     def _clean_event_fields(
@@ -293,8 +282,6 @@ class CheckInService:
     async def has_open_event(self) -> bool:
         return await self.events.exists_with_status(CheckInEventStatus.OPEN)
 
-    # --- Matcherino sync ---
-
     @requires_feature(FeatureFlag.EVENT_CHECK_IN)
     async def sync_event(self, actor: User, event_id: int, *, audit: bool = True) -> SyncResult:
         """Mirror the venue's badge sales and the event's comps into the roster.
@@ -306,7 +293,7 @@ class CheckInService:
         the domain event, but writes no audit row every few minutes.
         """
         await AuthService.ensure(await AuthService.can_run_check_in_desk(actor), _DESK_DENIED)
-        async with _sync_lock(event_id):
+        async with shared_lock('check_in.sync', event_id):
             event = await ensure_desk_sees(actor, require_found(await self.events.get_by_id(event_id), 'Check-in event'))
             if event.matcherino_venue_id is None and not has_comp_rules(event):
                 raise ValueError(
@@ -355,8 +342,7 @@ class CheckInService:
                 raise MatcherinoAPIError('Matcherino returned no badges for a venue that had some')
         except MatcherinoAPIError as e:
             await self.login_service.note_sync_result(e)
-            # updated_at marks when it failed: the desk shows it and the
-            # worker backs off from it.
+            # updated_at marks the failure: the desk shows it and the worker backs off from it.
             await self.events.record_sync(
                 event, last_sync_error=str(e)[:1000], updated_at=datetime.now(timezone.utc),
             )
@@ -461,8 +447,7 @@ class CheckInService:
         result.auto_linked = len(linked)
 
         tiers = await apply_tiers(self.tiers, event, sales)
-        # bulk_create doesn't hand back primary keys on every backend, so the
-        # badges look their buyer's row up again.
+        # bulk_create doesn't return primary keys on every backend, so look the rows up again.
         rows = await self.entrants.matcherino_rows_by_user_id(event)
         await apply_badges(self.passes, event, sales.purchases, stored, tiers, rows, now)
         return result
@@ -489,8 +474,6 @@ class CheckInService:
             taken.add(match[0].id)
             matches.append((row, *match))
         return matches
-
-    # --- Roster reads ---
 
     @requires_feature(FeatureFlag.EVENT_CHECK_IN)
     async def roster(self, event: CheckInEvent) -> List[CheckInEntrant]:
@@ -552,8 +535,9 @@ class CheckInService:
         if not target:
             return []
         taken = await self._taken_user_ids(entrant.event, for_link=True)
-        candidates = suggestion_candidates(await UserRepository.get_community_people(), taken)
-        return suggested_users(target, candidates, limit)
+        candidates = suggestion_candidates(await UserRepository.get_community_people_summaries(), taken)
+        picks = await asyncio.to_thread(suggested_users, target, candidates, limit)
+        return await UserRepository.get_in_order([pick.id for pick in picks])
 
     @requires_feature(FeatureFlag.EVENT_CHECK_IN)
     async def suggestion_counts(
@@ -564,7 +548,7 @@ class CheckInService:
         if all(e.user_id is not None for e in entrants):
             return {}
         taken = await self._taken_user_ids(event, for_link=True)
-        candidates = suggestion_candidates(await UserRepository.get_community_people(), taken)
+        candidates = suggestion_candidates(await UserRepository.get_community_people_summaries(), taken)
         return await asyncio.to_thread(count_suggestions, entrants, candidates, limit)
 
     @requires_feature(FeatureFlag.EVENT_CHECK_IN)
@@ -583,22 +567,20 @@ class CheckInService:
             return []
         taken = await self._taken_user_ids(event, for_link=for_link)
         matches = [
-            user for user in await UserRepository.get_community_people()
-            if user.id not in taken and any(
+            person.id for person in await UserRepository.get_community_people_summaries()
+            if person.id not in taken and any(
                 needle in norm_name(name)
-                for name in (user.username, user.display_name, user.twitch_username,
-                             user.matcherino_username)
+                for name in (person.username, person.display_name, person.twitch_username,
+                             person.matcherino_username)
             )
         ]
-        return matches[:limit]
+        return await UserRepository.get_in_order(matches[:limit])
 
     async def _taken_user_ids(self, event: CheckInEvent, *, for_link: bool) -> set[int]:
         taken = await self.entrants.linked_user_ids(event)
         if for_link:
             taken -= set(await self.entrants.comp_rows_by_user_id(event))
         return taken
-
-    # --- Desk actions ---
 
     async def _entrant_for_desk(self, actor: User, entrant_id: int) -> CheckInEntrant:
         await AuthService.ensure(await AuthService.can_run_check_in_desk(actor), _DESK_DENIED)
@@ -624,7 +606,6 @@ class CheckInService:
         ):
             current = await self.entrants.get_by_id(entrant_id) or entrant
             if current.checked_in_at is None and current.withdrawn_at is not None:
-                # Withdrawn by a sync between the read above and the claim.
                 raise ValueError(f"{current.display_name} doesn't hold a badge any more. {_WITHDRAWN_DENIED}")
             return CheckInOutcome(current, already=True)
         entrant.checked_in_at = now
@@ -666,7 +647,6 @@ class CheckInService:
         other = await self.entrants.get_for_user(entrant.event, user)
         absorbed: List[str] = []
         if other is not None and other.source == CheckInEntrantSource.COMP:
-            # They were comped before anyone matched this purchase to them.
             absorbed = absorb_comp_row(other, entrant)
             await self.entrants.delete(other)
         elif other is not None:

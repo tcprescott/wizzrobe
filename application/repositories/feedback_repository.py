@@ -6,6 +6,7 @@ Handles database operations for in-app feedback submissions.
 
 from typing import List, Optional
 
+from application.repositories._event import tagged_event_id
 from application.repositories._tenant import current_tenant_id, scoped
 from models import Feedback, FeedbackCategory, FeedbackStatus, User
 
@@ -22,6 +23,7 @@ class FeedbackRepository:
     ) -> Feedback:
         return await Feedback.create(
             tenant_id=current_tenant_id(),
+            event_id=tagged_event_id(),
             user=user,
             category=category,
             message=message,

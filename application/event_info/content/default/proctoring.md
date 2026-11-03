@@ -3,7 +3,7 @@ title: Running the tournament room
 slug: proctoring
 icon: sports_esports
 order: 40
-roles: VOLUNTEER, PROCTOR, STAFF
+roles: VOLUNTEER, PROCTOR, STREAM_MANAGER, STAFF
 summary: Dev fixture, a role-gated article, so the role filter is exercised in a local run.
 ---
 

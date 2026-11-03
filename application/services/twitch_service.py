@@ -27,8 +27,6 @@ from application.utils.clients.twitch_client import (
 from application.utils.mocks.mock_twitch import is_mock_twitch
 from models import User
 
-# Basic public identity (id / login / display name via helix/users) needs no
-# scope; an empty scope keeps the consent screen minimal.
 _PLAYER_SCOPES = ''
 
 _PROVIDER = IdentityLinkProvider(
@@ -58,9 +56,6 @@ class TwitchService:
         self._link = _LINK
         self.audit_service = _LINK.audit_service
 
-    # ------------------------------------------------------------------
-    # OAuth configuration / URLs
-    # ------------------------------------------------------------------
     @staticmethod
     def is_configured() -> bool:
         """True when the OAuth app credentials are present (or mock is on)."""
@@ -77,9 +72,6 @@ class TwitchService:
     def _oauth_client(self) -> TwitchClient:
         return self._link.build_oauth_client()
 
-    # ------------------------------------------------------------------
-    # Player identity linking (called by the Twitch OAuth callback)
-    # ------------------------------------------------------------------
     async def exchange_player_code(self, code: str) -> Dict[str, Any]:
         """Exchange a user's authorization code and return their identity.
 

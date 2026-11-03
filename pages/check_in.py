@@ -1,7 +1,8 @@
 """The event check-in desk — the page volunteers work from on their phones.
 
-``/checkin`` lists the open check-in events (and goes straight to the one when
-there is only one); ``/checkin/{event_id}`` is the desk itself: a search box
+It is a tab of the Volunteer hub (``/volunteer/check-in-desk``), which lists the
+open check-in events (and goes straight to the one when there is only one);
+``?event=<id>`` opens the desk itself: a search box
 pinned to the top, filter chips with counts (one per badge type too), and one
 card per person showing the badges they bought and a full-width Check in button.
 
@@ -19,19 +20,19 @@ hides what a viewer can't use (walk-ups and removal are staff-only) so nobody
 taps a button the service will refuse.
 """
 
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional
 
-from nicegui import app, background_tasks, context, ui
+from nicegui import background_tasks, context, ui
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
 
+from application.event_context import event_scope
 from application.events import check_in_live
 from application.services import (
     AuthService,
     CheckInDeskService,
     CheckInService,
-    TenantService,
-    get_user_from_session,
 )
 from application.services.check_in_rules import (
     DESK_FILTERS,
@@ -44,7 +45,8 @@ from application.services.check_in_rules import (
 )
 from application.table_preferences_context import table_prefs_scope
 from application.tenant_context import tenant_scope
-from application.timezone_context import tz_scope
+from application.timezone_context import hour_cycle_scope, tz_scope
+from application.utils.app_links import volunteer_check_in_url
 from application.utils.timezone import format_local_display, format_local_time
 from middleware.auth import protected_page
 from models import (
@@ -56,7 +58,6 @@ from models import (
     FeatureFlag,
     Role,
 )
-from theme.base import BaseLayout
 from theme.connection import REQUIRES_SOCKET_CLASS
 from theme.dialog import ConfirmationDialog
 from theme.dialog.check_in_dialogs import open_link_dialog, open_walk_up_dialog
@@ -69,6 +70,7 @@ from theme.tables.admin_crud import capture_render_context
 from theme.tables.export import csv_export_button
 from theme.tables.preferences import TableKeys, customize_table, search_input
 from theme.timer_teardown import PageTimer
+from theme.url_state import bind_url
 
 DESK_ROLES = [Role.STAFF, Role.CHECK_IN_DESK]
 
@@ -87,6 +89,18 @@ _DM_TEXT = {
     'opted_out': 'DMs off in Wizzrobe', 'failed': 'Not tested (Discord down)',
 }
 
+_DM_PENDING_GIVE_UP = timedelta(minutes=5)
+
+
+def _dm_status(entrant) -> str:
+    if not entrant.dm_status:
+        return ''
+    status = entrant.dm_status.value
+    if (status == 'pending' and entrant.dm_checked_at is not None
+            and datetime.now(timezone.utc) - entrant.dm_checked_at > _DM_PENDING_GIVE_UP):
+        return 'failed'
+    return status
+
 _FILTER_LABELS = {
     'all': 'All',
     'not_yet': 'Not yet',
@@ -96,13 +110,12 @@ _FILTER_LABELS = {
 }
 FILTERS = {key: _FILTER_LABELS[key] for key in DESK_FILTERS}
 
-# One colour per lanyard, matching nothing else on the desk so it reads at a glance.
 _LANYARD_COLORS = {
     'staff': 'red-8', 'volunteer': 'purple-7', 'vip': 'amber-8', 'base': 'blue-8', 'day_pass': 'teal-8',
 }
 
 
-# Desktop columns. The mobile card below is bespoke and does not read these.
+# Desktop columns only: the bespoke mobile card doesn't read these.
 _COLUMNS: list[dict] = [
     {'name': 'name', 'label': 'Name', 'field': 'name', 'align': 'left', 'sortable': True},
     {'name': 'lanyard', 'label': 'Lanyard', 'field': 'lanyard_rank', 'align': 'left', 'sortable': True},
@@ -111,7 +124,6 @@ _COLUMNS: list[dict] = [
     {'name': 'actions', 'label': '', 'field': 'actions', 'align': 'right'},
 ]
 
-# The whole roster export, not just the filtered view.
 _EXPORT_COLUMNS: list[dict] = [
     {'name': 'name', 'label': 'Name', 'field': 'name'},
     {'name': 'matcherino_id', 'label': 'Matcherino ID', 'field': 'matcherino_id'},
@@ -186,16 +198,12 @@ _CHECK_IN_BUTTON = f'''
            @click="$parent.$emit('checkin_anyway', props.row)" />
 '''
 
-# A refunded buyer, or a comp that lapsed, has nothing to check in with. Desk
-# volunteers send them to staff; staff can still let them in, deliberately.
 _WITHDRAWN_NOTE = '''
     <div v-if="props.row.withdrawn && !props.row.checked_in && !props.row.can_check_in_anyway"
          class="text-caption text-negative q-mt-sm">
         No badge to check in with. Send them to staff.</div>
 '''
 
-# The check-in test DM's result. Only a problem is loud: it's the volunteer's cue
-# to fix their Discord settings while they're still at the desk.
 _DM_NOTE = '''
     <div v-if="props.row.dm_status === 'pending'" class="text-caption text-grey-7 q-mt-xs">
         <q-spinner size="12px" class="q-mr-xs"/>Sending them a test DM…</div>
@@ -226,9 +234,6 @@ _ACTIONS_CELL = f'''<q-td :props="props" class="checkin-actions">
 </div>
 </q-td>'''
 
-# The lanyard is what the desk hands over, so it is the one loud thing on the
-# row. A buyer holding more than one badge (often one for a friend) gets a note,
-# since the extra badge needs its own lanyard.
 _LANYARD_CHIP = '''
     <q-chip v-if="props.row.lanyard" square :color="props.row.lanyard_color" :text-color="props.row.lanyard_text"
             icon="badge" class="q-ml-none text-weight-bold checkin-lanyard">{{ props.row.lanyard_label }}</q-chip>
@@ -241,8 +246,6 @@ _LANYARD_CELL = f'''<q-td :props="props">
     <span v-if="!props.row.lanyard" class="text-grey-7">—</span>
 </q-td>'''
 
-# "Not linked" opens the same link dialog as the ⋮ menu, and says up front
-# whether the dialog has anyone to suggest.
 _NOT_LINKED = f'''
     <q-btn flat dense no-caps no-wrap align="left" color="warning" icon="link"
            :label="props.row.link_label" class="{REQUIRES_SOCKET_CLASS} checkin-link-btn"
@@ -254,9 +257,6 @@ _ACCOUNT_CELL = f'''<q-td :props="props">
     <template v-else>{_NOT_LINKED}</template>
 </q-td>'''
 
-# Phone card: name and account up top, the state as badges, one thumb-sized
-# Check in button across the bottom. Link/Unlink/Undo/Remove sit behind the ⋮
-# menu so none of them is a stray tap away from the primary action.
 _GRID_CARD = f'''<div class="q-pa-xs col-12">
 <div class="checkin-grid-card q-pa-sm" :class="[props.row.checked_in ? 'checkin-grid-card--in' : '',
                                              props.row._flash ? 'wiz-row-flash' : '']">
@@ -309,8 +309,6 @@ def _row(entrant: CheckInEntrant, can_manage: bool, volunteers: set[int], sugges
     held = active_badges(all_badges)
     lanyard = lanyard_for(entrant, held, volunteer)
     lanyard_label = LANYARD_LABELS[lanyard] if lanyard else ''
-    # A second badge is someone else's (usually a friend the venue doesn't
-    # name): list every badge after the highest, which is taken as their own.
     badge_lanyards = sorted((b.tier.lanyard.value for b in held), key=LANYARDS.index)
     extra_badges = ', '.join(f'{LANYARD_LABELS[value]} badge' for value in badge_lanyards[1:])
     refunded = not held and any(b.refunded_at is not None for b in all_badges)
@@ -348,7 +346,7 @@ def _row(entrant: CheckInEntrant, can_manage: bool, volunteers: set[int], sugges
         'lanyard': lanyard or '',
         'lanyard_label': lanyard_label,
         'lanyard_color': _LANYARD_COLORS.get(lanyard or '', 'grey-7'),
-        # Amber is too light for white text (2:1); the VIP lanyard reads in ink.
+        # Amber is too light for white text, so the VIP lanyard reads in black.
         'lanyard_text': 'black' if lanyard == 'vip' else 'white',
         'lanyard_rank': LANYARDS.index(lanyard) if lanyard else len(LANYARDS),
         'extra_badges': extra_badges,
@@ -369,20 +367,16 @@ def _row(entrant: CheckInEntrant, can_manage: bool, volunteers: set[int], sugges
         'volunteer_text': 'Yes' if volunteer else '',
         'unlinked': user is None,
         'link_label': _link_label(suggestions) if user is None else '',
-        # A buyer with no account gets asked for one at check-in. Named walk-ups
-        # and rows staff unlinked on purpose were left unlinked deliberately.
         'prompt_link': (
             user is None and entrant.source == CheckInEntrantSource.MATCHERINO
             and entrant.link_method != CheckInLinkMethod.MANUAL
         ),
         'can_remove': walk_up and can_manage,
-        'dm_status': entrant.dm_status.value if entrant.dm_status else '',
-        'dm_text': _DM_TEXT.get(entrant.dm_status.value, '') if entrant.dm_status else '',
+        'dm_status': _dm_status(entrant),
+        'dm_text': _DM_TEXT.get(_dm_status(entrant), ''),
         'can_test_dm': checked_in and user is not None and bool(user.discord_id),
         'can_check_in_anyway': withdrawn and not checked_in and can_manage,
         'search': search,
-        # Everyone is under All, withdrawn rows too, so a search still finds
-        # someone whose badge was refunded (and says so).
         'filters': sorted((entrant_filters(entrant) & set(DESK_FILTERS)) | {'all'}),
         '_flash': False,
     }
@@ -419,89 +413,84 @@ def _sync_line(event: CheckInEvent) -> tuple[str, str]:
     )
 
 
-async def _desk_page_frame(title_suffix: str):
-    community = await TenantService.current_community_name() or 'Wizzrobe'
-    ui.page_title(f'{community} — {title_suffix}')
-    user = await get_user_from_session(app.storage.user)
-    await BaseLayout(user=user).render()
-    return user
+async def check_in_desk_tab(user, event: Optional[str] = None) -> None:
+    """Volunteer → Check-in Desk: the desk for one event, or a picker.
+
+    ``event`` is a check-in event id from the URL (``?event=``). Without one the
+    tab opens the only open event, or lists them when several are open.
+    """
+    service = CheckInService()
+    if event is not None and event.isdecimal():
+        current = await service.get_event(int(event))
+        if current is not None:
+            await _render_desk(service, user, current)
+            return
+        ui.notify("That check-in event doesn't exist any more.", color='warning')
+    open_events = await service.list_open_events()
+    if len(open_events) == 1:
+        await _render_desk(service, user, open_events[0])
+        return
+
+    with ui.column().classes('page-container-narrow w-full q-pa-md gap-3'):
+        with page_header('Check-in Desk'):
+            await help_icon('check-in-desk', user=user)
+        if not open_events:
+            empty_panel('No event is open for check-in right now.', icon='how_to_reg')
+            if await AuthService.can_manage_check_in(user):
+                ui.label('Open one from Admin → Check-in Roster.').classes('text-caption text-grey-7')
+            return
+        ui.label('Pick the event you are checking people in for.').classes('text-caption text-grey-7')
+        for item in open_events:
+            ui.button(item.name, icon='how_to_reg',
+                      on_click=lambda _, e=item: ui.navigate.to(volunteer_check_in_url(e.id))) \
+                .props('unelevated no-caps color=primary size=lg align=left').classes('w-full')
 
 
 def create() -> None:
     @protected_page('/checkin', roles=DESK_ROLES, feature=FeatureFlag.EVENT_CHECK_IN)
     async def check_in_index(request: Request):
-        service = CheckInService()
-        open_events = await service.list_open_events()
-        if len(open_events) == 1:
-            root_path = request.scope.get('root_path', '') or ''
-            return RedirectResponse(f'{root_path}/checkin/{open_events[0].id}')
-
-        user = await _desk_page_frame('Check-in')
-        with ui.column().classes('page-container-narrow w-full q-pa-md gap-3'):
-            page_header('Check-in')
-            if not open_events:
-                empty_panel('No event is open for check-in right now.', icon='how_to_reg')
-                if await AuthService.can_manage_check_in(user):
-                    ui.label('Open one from Admin → Check-in.').classes('text-caption text-grey-7')
-                return
-            ui.label('Pick the event you are checking people in for.').classes('text-caption text-grey-7')
-            for event in open_events:
-                ui.button(event.name, icon='how_to_reg',
-                          on_click=lambda _, e=event: ui.navigate.to(f'/checkin/{e.id}')) \
-                    .props('unelevated no-caps color=primary size=lg align=left').classes('w-full')
+        root_path = request.scope.get('root_path', '') or ''
+        return RedirectResponse(f'{root_path}{volunteer_check_in_url()}')
 
     @protected_page('/checkin/{event_id}', roles=DESK_ROLES, feature=FeatureFlag.EVENT_CHECK_IN)
-    async def check_in_desk(event_id: int):
-        user = await _desk_page_frame('Check-in desk')
-        service = CheckInService()
-        event = await service.get_event(event_id)
-        if event is None:
-            with ui.column().classes('page-container-narrow w-full q-pa-md gap-2'):
-                ui.label("That check-in event doesn't exist any more.").classes('text-body1')
-                ui.button('See open events', on_click=lambda: ui.navigate.to('/checkin')) \
-                    .props('flat no-caps color=primary')
-            return
-        await _render_desk(service, user, event)
+    async def check_in_desk(request: Request, event_id: str):
+        root_path = request.scope.get('root_path', '') or ''
+        return RedirectResponse(f'{root_path}{volunteer_check_in_url(event_id)}')
 
 
 async def _render_desk(service: CheckInService, user, event: CheckInEvent) -> None:
     can_manage = await AuthService.can_manage_check_in(user)
     render_context = capture_render_context()
     client = context.client
-    state: Dict = {'event': event, 'rows': [], 'filter': 'all', 'flash': set(), 'suggestions': (None, {})}
+    state: Dict = {'event': event, 'rows': [], 'filter': 'all', 'flash': set(), 'suggestions': (None, {}),
+                   'undo_timer': None}
 
     with ui.column().classes('page-container-narrow w-full gap-2 q-px-sm'):
+        with ui.row().classes('w-full items-center no-wrap gap-2 q-pt-sm'):
+            title = ui.label(event.name).classes('page-title col q-ma-none')
+            title.tag = 'h1'
+            with ui.row().classes('no-wrap items-center gap-0 wiz-help-row'):
+                await help_icon('check-in-desk', user=user)
+                sync_btn = ui.button(icon='sync').props('flat round color=primary') \
+                    .classes(REQUIRES_SOCKET_CLASS).tooltip('Sync badges and comps now')
+                if not _can_sync(event):
+                    sync_btn.set_visibility(False)
+                if can_manage:
+                    ui.button(icon='person_add', on_click=lambda: background_tasks.create(add_walk_up())) \
+                        .props('flat round color=primary').classes(REQUIRES_SOCKET_CLASS) \
+                        .tooltip('Add walk-up')
+        closed_notice = ui.label('This event is closed. You can still record late check-ins.') \
+            .classes('text-caption text-warning')
         with ui.column().classes('checkin-toolbar w-full gap-1 q-py-sm'):
-            with ui.row().classes('w-full items-center no-wrap gap-2'):
-                title = ui.label(event.name).classes('page-title col q-ma-none')
-                title.tag = 'h1'
-                with ui.row().classes('no-wrap items-center gap-0 wiz-help-row'):
-                    await help_icon('check-in-desk', user=user)
-                    sync_btn = ui.button(icon='sync').props('flat round color=primary') \
-                        .classes(REQUIRES_SOCKET_CLASS).tooltip('Sync badges and comps now')
-                    if not _can_sync(event):
-                        sync_btn.set_visibility(False)
-                    # In the sticky toolbar, not a floating button: a FAB sat on top of
-                    # the Check in button of whichever card scrolled under it.
-                    if can_manage:
-                        ui.button(icon='person_add', on_click=lambda: background_tasks.create(add_walk_up())) \
-                            .props('flat round color=primary').classes(REQUIRES_SOCKET_CLASS) \
-                            .tooltip('Add walk-up')
-            closed_notice = ui.label('This event is closed. You can still record late check-ins.') \
-                .classes('text-caption text-warning')
-            box_slot = ui.row().classes('w-full')
+            with ui.row().classes('w-full items-center no-wrap gap-2') as box_slot:
+                pass
             with ui.row().classes('w-full items-center no-wrap gap-2'):
                 progress = ui.linear_progress(value=0, show_value=False, size='8px').classes('col') \
                     .props('rounded color=positive aria-label="Checked in"')
-                counts_label = ui.label().classes('text-caption text-weight-medium')
-            # The app's segmented control (.wiz-segmented, as on the Event page).
-            chips = ui.toggle(FILTERS, value='all').props('no-caps dense unelevated') \
-                .classes('wiz-segmented checkin-filters')
+                counts_label = ui.label().classes('text-caption text-weight-medium checkin-counts')
             sync_label = ui.label().classes('text-caption')
 
-        # The five columns need about 920px beside the nav drawer, which a 1024px
-        # laptop doesn't have: below 1200px the desk gets the phone cards, so the
-        # Check in button is never scrolled off the side.
+        # Phone cards below 1200px, not md: the five columns don't fit a 1024px laptop beside the drawer.
         table = ui.table(columns=_COLUMNS, rows=[], row_key='id', pagination=0) \
             .classes('w-full checkin-table').props(':grid="Quasar.Screen.width < 1200" flat hide-pagination')
         table._props[':filter-method'] = _FILTER_METHOD
@@ -513,12 +502,15 @@ async def _render_desk(service: CheckInService, user, event: CheckInEvent) -> No
         table.add_slot('no-data', '''<div class="full-width text-center text-grey-7 q-pa-lg">
             {{ props.filter ? 'Nobody matches that search.' : 'Nobody here yet.' }}</div>''')
         # After the card slot, never before: the card must not follow a saved layout.
-        customize_table(table, _COLUMNS, key=TableKeys.CHECK_IN_DESK, page_size=0)
+        customize_table(table, _COLUMNS, key=TableKeys.CHECK_IN_DESK, pager=False)
         with box_slot:
-            box = search_input(table, placeholder='Search by name or badge code', width='w-full')
+            box = search_input(table, placeholder='Name or badge code', width='w-full')
             box.props('autofocus outlined').classes('col')
+            chips = ui.select(FILTERS, value='all').props('dense outlined options-dense behavior=menu') \
+                .props('aria-label="Show"').classes('checkin-filter')
+            with chips.add_slot('prepend'):
+                ui.icon('filter_list')
 
-        # Bottom padding so the last card scrolls clear of the undo bar.
         with ui.row().classes('w-full items-center gap-2 q-mt-sm checkin-footer'):
             csv_export_button('check-in', lambda: _EXPORT_COLUMNS, lambda: state['rows'], label='Export CSV')
 
@@ -529,25 +521,25 @@ async def _render_desk(service: CheckInService, user, event: CheckInEvent) -> No
         current = state['event']
         rows = state['rows']
         counts = {key: sum(1 for r in rows if _matches(r, key)) for key in FILTERS}
-        chips.options = {key: f'{label} {counts[key]}' for key, label in FILTERS.items()}
-        chips.update()
+        chips.set_options({key: f'{label} {counts[key]}' for key, label in FILTERS.items()}, value=state['filter'])
         visible = [dict(r, _flash=r['id'] in state['flash']) for r in rows if _matches(r, state['filter'])]
         table.rows = visible
         table.update()
-        # Withdrawn rows are listed under All but aren't expected at the door.
         total = counts['checked_in'] + counts['not_yet']
         progress.value = (counts['checked_in'] / total) if total else 0
-        counts_label.text = f"{counts['checked_in']} of {total} checked in"
         text, cls = _sync_line(current)
+        stale = cls != 'text-grey-7' or current.last_synced_at is None
+        synced = f' · synced {format_local_time(current.last_synced_at)}' \
+            if current.last_synced_at is not None and not stale else ''
+        counts_label.text = f"{counts['checked_in']} of {total} checked in{synced}"
         sync_label.text = text
         sync_label.classes(replace=f'text-caption {cls}')
+        sync_label.set_visibility(stale)
         title.text = current.name
         closed_notice.set_visibility(current.status == CheckInEventStatus.CLOSED)
         sync_btn.set_visibility(_can_sync(current))
 
     async def suggestion_counts(current: CheckInEvent, entrants) -> Dict[int, int]:
-        # Every check-in at any desk reloads the roster, but the counts only
-        # move when someone is linked, unlinked, added or renamed.
         key = (
             frozenset((e.id, e.display_name) for e in entrants if e.user_id is None),
             frozenset(e.user_id for e in entrants if e.user_id is not None),
@@ -586,6 +578,7 @@ async def _render_desk(service: CheckInService, user, event: CheckInEvent) -> No
         paint()
 
     chips.on_value_change(on_filter)
+    bind_url('show', chips, default='all', choices=FILTERS, history='replace')
 
     def show_undo(entrant_id: int, name: str, lanyard: str, extra: str) -> None:
         undo_bar.clear()
@@ -604,7 +597,9 @@ async def _render_desk(service: CheckInService, user, event: CheckInEvent) -> No
             ui.button('Undo', on_click=undo).props('flat no-caps color=yellow-4') \
                 .classes(REQUIRES_SOCKET_CLASS)
         undo_bar.set_visibility(True)
-        PageTimer(8.0, lambda: undo_bar.set_visibility(False), once=True)
+        if state['undo_timer'] is not None:
+            state['undo_timer'].cancel()
+        state['undo_timer'] = PageTimer(8.0, lambda: undo_bar.set_visibility(False), once=True)
 
     async def run(coro, success: Optional[str] = None) -> bool:
         try:
@@ -693,7 +688,7 @@ async def _render_desk(service: CheckInService, user, event: CheckInEvent) -> No
         ).open()
 
     async def add_walk_up() -> None:
-        with client, tenant_scope(render_context[0]), tz_scope(render_context[1]), \
+        with client, tenant_scope(render_context[0]), event_scope(render_context[4]), tz_scope(render_context[1]), hour_cycle_scope(render_context[3]), \
                 table_prefs_scope(render_context[2]):
             await open_walk_up_dialog(service, user, state['event'], on_done=reload)
 
@@ -721,7 +716,7 @@ async def _render_desk(service: CheckInService, user, event: CheckInEvent) -> No
 
     def bind(event_name: str, handler) -> None:
         async def run_in_context(args) -> None:
-            with client, tenant_scope(render_context[0]), tz_scope(render_context[1]), \
+            with client, tenant_scope(render_context[0]), event_scope(render_context[4]), tz_scope(render_context[1]), hour_cycle_scope(render_context[3]), \
                     table_prefs_scope(render_context[2]):
                 await handler(args)
         table.on(event_name, lambda e: background_tasks.create(run_in_context(e.args)))
@@ -738,14 +733,14 @@ async def _render_desk(service: CheckInService, user, event: CheckInEvent) -> No
     async def on_live_change(event_id: int, entrant_id: Optional[int], change_type: str) -> None:
         if event_id != state['event'].id:
             return
-        with tenant_scope(render_context[0]), tz_scope(render_context[1]), \
+        with tenant_scope(render_context[0]), event_scope(render_context[4]), tz_scope(render_context[1]), hour_cycle_scope(render_context[3]), \
                 table_prefs_scope(render_context[2]):
             await reload(flash=entrant_id if change_type == check_in_live.CHANGED else None)
 
     register_view(on_live_change, channel=check_in_live)
 
     async def reread() -> None:
-        with tenant_scope(render_context[0]), tz_scope(render_context[1]), \
+        with tenant_scope(render_context[0]), event_scope(render_context[4]), tz_scope(render_context[1]), hour_cycle_scope(render_context[3]), \
                 table_prefs_scope(render_context[2]):
             await reload()
 

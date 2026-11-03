@@ -14,7 +14,7 @@ driving the real app rather than by a test.
 
 Usage::
 
-    poetry run python scripts/run_worker_tick.py --list
+    poetry run python scripts/run_worker_tick.py --list    # placement + Cloud Scheduler cron
     poetry run python scripts/run_worker_tick.py seed_roll
     poetry run python scripts/run_worker_tick.py volunteer_reminder --tenant default
 
@@ -27,23 +27,16 @@ import asyncio
 import importlib
 import logging
 import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from tortoise import Tortoise
 
-# Worker name -> module holding `_tick`. Keep in step with the
-# `run_worker_loop(...)` call sites (`grep -rn run_worker_loop application/`).
-WORKERS = {
-    'discord_event': 'application.services.discord.discord_event_worker',
-    'seed_roll': 'application.services.seed_roll_worker',
-    'volunteer_reminder': 'application.services.volunteer.volunteer_reminder',
-    'async_qualifier': 'application.services.async_qualifier.async_qualifier_worker',
-    'speedgaming_sync': 'application.services.speedgaming_sync_worker',
-    'stage_reminder': 'application.services.match.stage_reminder',
-    'service_health': 'application.services.service_health_worker',
-    'race_room': 'application.services.race_room_worker',
-    'check_in_sync': 'application.services.check_in_sync_worker',
-    'community_event_reminder': 'application.services.community_event_reminder',
-}
+from application.worker_registry import WORKERS as _SPECS
+from application.worker_registry import cron_schedule
+
+WORKERS = {key: spec.module for key, spec in _SPECS.items()}
 
 
 async def run_tick(worker: str, tenant: str | None) -> None:
@@ -62,9 +55,6 @@ async def run_tick(worker: str, tenant: str | None) -> None:
                 f"changed and this runner needs updating."
             )
         if tenant:
-            # A worker normally discovers its own tenants and wraps each in
-            # tenant_scope. Pinning one is for reproducing a single tenant's
-            # behaviour, not for exercising the fan-out.
             from application.tenant_context import tenant_scope
             from models import Tenant
 
@@ -88,8 +78,9 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.list or not args.worker:
-        for name, module in sorted(WORKERS.items()):
-            print(f"{name:20} {module}")
+        for name, spec in sorted(_SPECS.items()):
+            schedule = cron_schedule(spec.loop().interval) if spec.placement == 'scheduled' else '-'
+            print(f"{name:26} {spec.placement:12} {schedule:16} {spec.module}")
         return
 
     logging.basicConfig(

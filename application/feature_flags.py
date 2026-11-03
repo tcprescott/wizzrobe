@@ -36,11 +36,6 @@ class FeatureFlagSpec:
     description: str
     category: str
     established: bool = False
-    #: Modules that must enforce the flag at the service layer, repo-relative
-    #: (e.g. ``'application/services/bracket_service.py'``) or a package prefix
-    #: (``'application/services/volunteer/'``) when the subsystem spans files.
-    #: The ``check_feature_flag_gating`` hook asserts each one actually guards the
-    #: flag, so a new gated subsystem cannot ship with UI-only hiding.
     service_modules: Tuple[str, ...] = field(default_factory=tuple)
 
 
@@ -70,8 +65,7 @@ def requires_feature(flag: FeatureFlag) -> Callable:
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
-            # Imported lazily: this module is pure metadata that repositories and
-            # pages import freely, while FeatureFlagService pulls in services.
+            # Lazy import: repositories and pages import this module freely, and the service pulls in services.
             from application.services.feature_flag_service import FeatureFlagService
 
             await FeatureFlagService().ensure_enabled(flag)
@@ -92,7 +86,7 @@ FEATURE_FLAG_REGISTRY: Dict[FeatureFlag, FeatureFlagSpec] = {
             'Self-paced permalink-pool qualifiers with their own leaderboard, '
             'run review, and optional live races.',
             'Online tournaments',
-            service_modules=('application/services/async_qualifier/',),
+            service_modules=('application/services/async_qualifier/', 'application/services/admin_qualifiers_service.py'),
         ),
         FeatureFlagSpec(
             FeatureFlag.RACETIME_ROOMS,
@@ -100,10 +94,7 @@ FEATURE_FLAG_REGISTRY: Dict[FeatureFlag, FeatureFlagSpec] = {
             'Automated racetime.gg race rooms driven from scheduled matches '
             '(open, attach seed, finish, record results).',
             'Online tournaments',
-            # The auto-open worker deliberately has no check of its own: every
-            # room it opens goes through RaceRoomService.auto_open_if_eligible,
-            # which enforces the flag. Declaring the worker too would only invite
-            # a redundant second read.
+            # The auto-open worker deliberately has no check: auto_open_if_eligible enforces the flag.
             service_modules=('application/services/race_room_service.py',),
         ),
         FeatureFlagSpec(
@@ -124,7 +115,10 @@ FEATURE_FLAG_REGISTRY: Dict[FeatureFlag, FeatureFlagSpec] = {
             established=True,
             service_modules=('application/services/challonge_service.py',
                              'application/services/_challonge_participants.py',
-                             'application/services/_challonge_stages.py'),
+                             'application/services/_challonge_stages.py',
+                             'application/services/_challonge_link.py',
+                             'application/services/_challonge_results.py',
+                             'application/services/_challonge_auto_sync.py'),
         ),
         FeatureFlagSpec(
             FeatureFlag.EQUIPMENT,
@@ -160,7 +154,7 @@ FEATURE_FLAG_REGISTRY: Dict[FeatureFlag, FeatureFlagSpec] = {
             'elimination, Swiss, round robin, and multi-stage chains) without '
             'the Challonge API.',
             'Online tournaments',
-            service_modules=('application/services/bracket_service.py',),
+            service_modules=('application/services/bracket_service.py', 'application/services/admin_brackets_service.py'),
         ),
         FeatureFlagSpec(
             FeatureFlag.FEEDBACK,
@@ -168,9 +162,6 @@ FEATURE_FLAG_REGISTRY: Dict[FeatureFlag, FeatureFlagSpec] = {
             'A feedback form in the sidebar, a staff review queue, and each '
             "person's own list of what they sent and whether it has been read.",
             'Community',
-            # Already in live use, so it backfills available+enabled rather than
-            # disappearing for communities currently collecting feedback
-            # (migration 51).
             established=True,
             service_modules=('application/services/feedback_service.py',),
         ),
@@ -183,12 +174,22 @@ FEATURE_FLAG_REGISTRY: Dict[FeatureFlag, FeatureFlagSpec] = {
             service_modules=('application/services/event_info_service.py',),
         ),
         FeatureFlagSpec(
+            FeatureFlag.ITEM_TRACKER,
+            'Item Tracker',
+            'Approved trackers mark what an ALTTPR runner collects on a board, '
+            'and a transparent page shows it on stream after a delay you set.',
+            'Operations',
+            service_modules=('application/services/item_tracker_service.py',),
+        ),
+        FeatureFlagSpec(
             FeatureFlag.PAYOUTS,
             'Prize Payouts',
             "Prize pool, placement splits and Matcherino handles for a "
             "tournament's winners, with an export for the payout run.",
             'Operations',
-            service_modules=('application/services/payout_service.py',),
+            service_modules=('application/services/payout_service.py',
+                             'application/services/admin_payouts_service.py',
+                             'application/services/sglive_pool_worker.py'),
         ),
         FeatureFlagSpec(
             FeatureFlag.ADA_ACCOMMODATIONS,
@@ -216,8 +217,48 @@ FEATURE_FLAG_REGISTRY: Dict[FeatureFlag, FeatureFlagSpec] = {
             service_modules=('application/services/notification_channel_service.py',),
         ),
         FeatureFlagSpec(
+            FeatureFlag.STARTGG,
+            'start.gg Brackets',
+            'Link a start.gg event to show its pools and bracket in Wizzrobe and '
+            'let players book their matches. Results are recorded on start.gg; each '
+            'tournament can opt in to reporting confirmed results back.',
+            'Community',
+            service_modules=(
+                'application/services/startgg_service.py',
+                'application/services/startgg_connection_service.py',
+            ),
+        ),
+        FeatureFlagSpec(
+            FeatureFlag.DISCORD_ROLE_SYNC,
+            'Discord Roles from Wizzrobe',
+            "Hand out roles in the community's Discord server to players, "
+            "people in a match right now, each tournament's entrants and badge "
+            'holders. Only roles Wizzrobe gave are ever taken back.',
+            'Community',
+            service_modules=('application/services/discord/discord_role_sync_service.py',),
+        ),
+        FeatureFlagSpec(
+            FeatureFlag.PERSONAL_WEBHOOKS,
+            'Personal Webhooks',
+            'Members can send what happens to them, or anything else they can see, '
+            'to a Discord channel or their own app from their profile. Three per '
+            'member; staff-only details are never sent.',
+            'Community',
+            service_modules=('application/services/personal_webhook_service.py',),
+        ),
+        FeatureFlagSpec(
+            FeatureFlag.STREAM_LAYOUTS,
+            'Stream Layouts',
+            'Design broadcast overlays for each event: upload the art, place '
+            'player names, round, commentators and more on it, and load each '
+            "stage's overlay in OBS on top of the video feeds.",
+            'Operations',
+            service_modules=('application/services/stream_layout_service.py',
+                             'application/services/admin_stream_layouts_service.py'),
+        ),
+        FeatureFlagSpec(
             FeatureFlag.COMMUNITY_EVENTS,
-            'Community Events',
+            'Meetups',
             'Members submit the meetups, panels and side events they are running '
             'during the event; staff approve them, and anyone can subscribe for a '
             'Discord reminder before one starts.',
@@ -234,6 +275,46 @@ FEATURE_FLAG_REGISTRY: Dict[FeatureFlag, FeatureFlagSpec] = {
                              'application/services/check_in_desk_service.py',
                              'application/services/check_in_sync_worker.py',
                              'application/services/matcherino_login_service.py'),
+        ),
+        FeatureFlagSpec(
+            FeatureFlag.THIRD_PARTY_APPS,
+            'Third-party Apps',
+            'Members can sign in to outside apps with their Wizzrobe account and '
+            'let them use the API on their behalf, limited to what they approve.',
+            'Community',
+            service_modules=('application/services/oauth_grant_service.py',),
+        ),
+        FeatureFlagSpec(
+            FeatureFlag.SURVEYS,
+            'Surveys',
+            'Send a short survey after an event by Discord DM. Each person only '
+            'gets the questions about what they did: the tournaments they played, '
+            'the positions they worked, and the rest.',
+            'Community',
+            service_modules=('application/services/survey/',),
+        ),
+        FeatureFlagSpec(
+            FeatureFlag.TICKET_SALES,
+            'Ticket Sales',
+            "Sell this event's badges in Wizzrobe through the community's own Stripe "
+            'or PayPal account. Buyers pay on the store\'s checkout page, extras go out '
+            'by claim link, and staff refund comped people with one press.',
+            'Operations',
+            service_modules=('application/services/ticket_service.py',
+                             'application/services/ticket_checkout_service.py',
+                             'application/services/ticket_comp_refund_service.py',
+                             'application/services/ticket_store_service.py'),
+        ),
+        FeatureFlagSpec(
+            FeatureFlag.PATREON,
+            'Patreon Patron Badges',
+            "Connect the community's Patreon campaign so members who link their "
+            'Patreon account get a Patron badge here. Wizzrobe never sees pledge amounts.',
+            'Community',
+            service_modules=('application/services/patron_service.py',
+                             'application/services/patreon_campaign_service.py',
+                             'application/services/patreon_link_service.py',
+                             'application/services/patreon_sync_worker.py'),
         ),
     )
 }

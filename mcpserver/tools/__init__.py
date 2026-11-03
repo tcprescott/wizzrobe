@@ -7,7 +7,13 @@ Each module exposes ``register_tools(mcp)`` and registers only through
 ``platform_writes`` are the modules that change data, kept
 apart from the read modules rather than filed by domain: whether a tool writes is the property that
 decides its annotation, its gate and whether a read-only connection is even
-shown it, so it is the property the layout should make obvious.
+shown it, so it is the property the layout should make obvious. ``exports`` is
+the one mixed module: queuing an export only writes the request row, never
+community data, so its two write tools sit beside the reads that poll them.
+``events`` is mixed too: the community's events and their lifecycle, read and
+run from one place as Admin → Events does. So is ``surveys``: building a survey
+and reading its results are one staff job, and nothing it writes reaches anyone
+until staff send it from the app.
 """
 
 from mcp.server.mcpserver import MCPServer
@@ -19,6 +25,8 @@ from mcpserver.tools import (
     competition,
     equipment,
     event_writes,
+    events,
+    exports,
     match_writes,
     matches,
     observability,
@@ -27,6 +35,7 @@ from mcpserver.tools import (
     people,
     platform,
     platform_writes,
+    surveys,
     tournament_writes,
     tournaments,
     volunteers,
@@ -36,6 +45,7 @@ from mcpserver.tools import (
 def register_all(mcp: MCPServer) -> None:
     """Register every tool module onto the server."""
     orientation.register_tools(mcp)
+    events.register_tools(mcp)
     tournaments.register_tools(mcp)
     matches.register_tools(mcp)
     people.register_tools(mcp)
@@ -52,3 +62,5 @@ def register_all(mcp: MCPServer) -> None:
     admin_writes.register_tools(mcp)
     platform.register_tools(mcp)
     platform_writes.register_tools(mcp)
+    exports.register_tools(mcp)
+    surveys.register_tools(mcp)

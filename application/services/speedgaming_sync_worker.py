@@ -41,9 +41,9 @@ async def _tick() -> None:
     async def _sync(link) -> None:
         interval = timedelta(minutes=link.sync_interval_minutes or 15)
         if link.last_synced_at is not None and now - link.last_synced_at < interval:
-            return  # not due yet on this link's cadence
+            return
         if not await FeatureFlagService().is_enabled(FeatureFlag.SPEEDGAMING_ETL):
-            return  # tenant has SpeedGaming sync disabled
+            return
         result = await etl.sync_event_link(link, actor=system_user, now=now)
         logger.info(
             'SG sync for link %s (%s): %s',
@@ -54,6 +54,7 @@ async def _tick() -> None:
         links,
         _sync,
         tenant_id_of=lambda link: link.tenant_id,
+        event_id_of=lambda link: link.tournament.event_id,
         logger=logger,
         describe=lambda link: f'event link {getattr(link, "id", None)}',
     )

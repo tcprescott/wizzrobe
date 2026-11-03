@@ -1,3 +1,4 @@
+
 """Reschedule-request notifications: who is told a request exists, and how it went.
 
 Split out of ``match_reschedule_service`` as pure code motion when that module
@@ -19,11 +20,13 @@ has already fanned the reschedule out to both players.
 
 import logging
 from datetime import datetime, timezone
-from typing import Optional, Sequence
+from typing import Optional, Sequence, Tuple
 
+from application.services.notification_catalog import CANCEL_APPROVED, PLAYERS, RESCHEDULE_DECLINED, RESCHEDULE_REQUEST
 from models import (
     Match,
     MatchRescheduleRequest,
+    NotificationRecipient,
     RescheduleRequestKind,
     StaffRequestKind,
     User,
@@ -87,8 +90,6 @@ class RescheduleNotificationMixin:
             community_name=community,
             description=staff_body,
         )
-        # The decision dialog itself, not the board: the reason and the proposed
-        # time are the whole message and they live in the dialog.
         staff_link = await notification_links.admin_reschedule_request(request.id)
         await staff_request_dms.send(
             StaffRequestKind.RESCHEDULE_REQUEST, request.id, await self._deciders(match),
@@ -96,9 +97,7 @@ class RescheduleNotificationMixin:
         )
 
         opponents = self._opponents(match, requester)
-        # One column records agreement, so it can only mean "the other player".
-        # A match with more than two players skips the signal entirely rather
-        # than recording one person's yes as if it were everyone's.
+        # Skip unless exactly one opponent: the single agreement column can't speak for several players.
         if len(opponents) != 1:
             return
         opponent = opponents[0]
@@ -115,13 +114,10 @@ class RescheduleNotificationMixin:
             community_name=community,
             description=opponent_body,
         )
-        # The request itself with its Agree button, not the board: the board has
-        # no Agree, and the web-push copy of this DM has no Discord button, so
-        # landing anywhere else asked for something the reader could not do.
         discord_queue.enqueue(service.send_dm_with_reschedule_agree_button(
             int(opponent.discord_id), opponent_body, request.id,
             embed=opponent_embed,
-            link=await notification_links.player_agree(request.id),
+            link=await notification_links.player_agree(request.id), notice=RESCHEDULE_REQUEST.to(PLAYERS),
         ))
 
     async def _mark_staff_dms(
@@ -169,7 +165,6 @@ class RescheduleNotificationMixin:
                     card = copy.reschedule_withdrawn(requester, tournament_name, cancel, when)
                 return staff_request_dms.card(card, color=color, community_name=community)
 
-            # An approved cancellation deleted the match, so there's nothing to open.
             link = (
                 None if outcome == 'approved' and cancel
                 else await notification_links.admin_match(request.match_id)  # type: ignore[attr-defined]
@@ -181,26 +176,21 @@ class RescheduleNotificationMixin:
             logger.exception('reschedule request %s: staff DM edit failed', request.id)
 
     @staticmethod
-    async def _deciders(match: Match) -> Sequence[User]:
-        """Everyone who could actually answer this: STAFF ∪ the tournament's admins.
+    async def _deciders(match: Match) -> Sequence[Tuple[User, NotificationRecipient]]:
+        """Whoever could answer this: the admin on duty and the tournament's admins.
 
-        ``_decidable`` gates on ``can_crud_match``, which admits the tournament's
-        own admin as well as the community's staff. DMing only STAFF meant that in a
-        community where a tournament is run by a TA, nobody who owns it was told
-        a request existed — it surfaced only if someone happened to open the
-        board.
+        A match alert (see ``StaffAlertService``), so it no longer pings every
+        staff member, only the on-duty admin and the tournament's own admins,
+        falling back to all staff when nobody is on duty. ``can_crud_match``
+        filters both halves, because ``_decidable`` gates on it: an on-duty
+        volunteer who cannot decide would be sent to a dialog that refuses.
         """
-        from application.repositories import UserRoleRepository
-        from models import Role
+        from application.services.auth_service import AuthService
+        from application.services.staff_alert_service import StaffAlertService
 
-        recipients = {
-            member.id: member
-            for member in await UserRoleRepository.list_users_with_role(Role.STAFF)
-        }
-        await match.fetch_related('tournament__admins')
-        for admin in match.tournament.admins:
-            recipients.setdefault(admin.id, admin)
-        return list(recipients.values())
+        return await StaffAlertService.tagged_match_alert_recipients(
+            match, can_act=AuthService.can_crud_match,
+        )
 
     @staticmethod
     def _opponents(match: Match, requester: User) -> Sequence[User]:
@@ -268,14 +258,12 @@ class RescheduleNotificationMixin:
             community_name=community,
             description=body,
         )
-        # Only a decline gets a button. "Ask again with a different time" is a
-        # real next step; an approval has nothing left for them to press.
         link = (
             None if approved
             else await notification_links.player_reschedule(request.match_id)  # type: ignore[attr-defined]
         )
         discord_queue.enqueue(
             DiscordService().send_dm(
-                int(requester.discord_id), body, embed=embed, link=link,
+                int(requester.discord_id), body, embed=embed, link=link, notice=(CANCEL_APPROVED if approved else RESCHEDULE_DECLINED).to(PLAYERS),
             )
         )

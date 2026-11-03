@@ -62,7 +62,7 @@ class TestRoleGates:
         for tenant in tenant_slugs():
             article = article_for_tenant(tenant, 'proctoring')
             assert article is not None, f'{tenant} ships no proctoring article'
-            assert set(article.roles) == {Role.VOLUNTEER, Role.PROCTOR, Role.STAFF}
+            assert set(article.roles) == {Role.VOLUNTEER, Role.PROCTOR, Role.STREAM_MANAGER, Role.STAFF}
 
     def test_the_reader_facing_articles_are_public(self):
         """The inverse, and the one that would leak: an article nobody meant to
@@ -184,8 +184,7 @@ class TestTheSlugMismatchWarning:
         with caplog.at_level('WARNING', logger='application.event_info.catalog'):
             articles_for_tenant('quiet-after-the-first')
             assert 'quiet-after-the-first' in caplog.text
-            # caplog accumulates across the whole test, so the second call's
-            # silence is only visible once the first call's record is dropped.
+            # caplog accumulates across the test: drop the first call's record to see the second call's silence.
             caplog.clear()
             articles_for_tenant('quiet-after-the-first')
         assert caplog.text == ''
@@ -236,3 +235,10 @@ def test_an_unsafe_slug_never_reaches_the_filesystem():
     from application.event_info import guide_pdf_for_tenant
 
     assert guide_pdf_for_tenant('../sgl26') is None
+
+
+@pytest.mark.parametrize('tenant,article', ALL_ARTICLES, ids=lambda v: getattr(v, 'slug', v))
+def test_no_article_takes_the_guide_viewers_path(tenant, article):
+    """``/event-info/guide`` is the in-app guide viewer, registered ahead of the
+    article route, so an article named ``guide`` could never be opened."""
+    assert article.slug != 'guide'

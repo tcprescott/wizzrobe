@@ -3,8 +3,8 @@
 
 from nicegui import app, background_tasks, context, ui
 
+from application.event_context import event_scoped
 from application.services import AuthService, StageService, get_user_from_session
-from application.tenant_context import require_tenant_id
 from application.utils.safe_url import http_url_or_empty
 from models import Tournament
 from theme.dialog import TournamentDialog
@@ -20,6 +20,7 @@ from theme.tables.tournament import TournamentTableView, tournament_columns
 async def admin_tournaments_page() -> None:
     actor = await get_user_from_session(app.storage.user)
     can_create = await AuthService.is_staff(actor)
+    own_ids = None if can_create else (await AuthService.tournament_scope(actor))[0]
 
     with ui.column().classes('page-container'):
         with page_header(
@@ -37,16 +38,17 @@ async def admin_tournaments_page() -> None:
             await dialog.open()
 
         def get_query():
-            return Tournament.filter(tenant_id=require_tenant_id())
+            query = event_scoped(Tournament.all())
+            return query if own_ids is None else query.filter(id__in=own_ids)
         
         table_view = TournamentTableView(
             columns=columns, get_query=get_query,
             submit_tournament_callback=add_tournament if can_create else None,
             table_key=TableKeys.ADMIN_TOURNAMENTS, searchable=True, can_delete=can_create,
+            can_sync=True, can_link=can_create,
         )
         
-        # Route through the view's _bg so the tab-switch refresh rebinds the
-        # tenant (the selected_tab handler runs in a detached task that lost it).
+        # Through the view's _bg, so the refresh rebinds the tenant the detached tab handler lost.
         def on_tab_selected():
             table_view._bg(table_view.refresh())
         ui.on('selected_tab', lambda e: on_tab_selected() if e.args == 'Tournaments' else None)
@@ -64,9 +66,6 @@ async def admin_stages_page() -> None:
         )
 
         columns: list[dict] = [
-            # No id column: the primary key was this table's only edit affordance
-            # ("click the 1 to rename Stage 1"), which is both a database value on
-            # screen and an unguessable control. The name carries the link now.
             {'name': 'name', 'label': 'Name', 'field': 'name', 'sortable': True},
             {'name': 'stream_url', 'label': 'Stream URL', 'field': 'stream_url'},
             {'name': 'is_active', 'label': 'Active', 'field': 'is_active'},
@@ -100,9 +99,7 @@ async def admin_stages_page() -> None:
                 await dialog.open()
 
         async def edit_stage(row, client):
-            # Runs in a background task (table 'edit' event → background_tasks.create),
-            # where the slot stack is empty; restore the captured client so ui.notify
-            # and the dialog have a slot context.
+            # Runs in a background task with an empty slot stack: restore the client for ui.notify and the dialog.
             with client:
                 stage = await StageService().get_stage_by_id(row['id'])
                 if not stage:
@@ -116,9 +113,8 @@ async def admin_stages_page() -> None:
         with table_container:
             with ui.row().classes('full-width'):
                 if can_manage:
-                    ui.button('Add Stage', icon='add', on_click=add_stage).props('color=primary')
+                    ui.button('Add Stage', icon='add', on_click=add_stage).props('color=primary').classes('wiz-write')
                 ui.space()
-                # Filled after the table exists; the toolbar is drawn first.
                 gear_slot = ui.row().classes('items-center')
                 refresh_button(refresh_table)
 

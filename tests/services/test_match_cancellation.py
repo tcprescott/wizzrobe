@@ -10,6 +10,7 @@ silently DMs nobody.
 import pytest
 
 from application.services.match.match_service import MatchService
+from application.services.notification_catalog import CREW, MATCH_CANCELLED, PLAYERS
 from application.services.race_room_service import RaceRoomService
 from models import (
     Commentator,
@@ -18,6 +19,7 @@ from models import (
     RaceRoomStatus,
     RacetimeBot,
     RacetimeRoom,
+    Stage,
     Tournament,
     User,
 )
@@ -35,6 +37,7 @@ async def _match_with_people() -> tuple[Match, User, User]:
     tournament = await Tournament.create(name='Cup')
     match = await Match.create(
         tournament=tournament, scheduled_at=utc(2026, 8, 1, 18, 0),
+        stage=await Stage.create(name='Kraid'),
     )
     player = await make_user(discord_id=101, username='player')
     commentator = await make_user(discord_id=202, username='commentator')
@@ -65,17 +68,19 @@ class TestCancelMatch:
         match, player, commentator = await _match_with_people()
         sent: list[tuple[int, str]] = []
         titles: dict[int, str] = {}
+        notices: dict[int, object] = {}
 
         class _Recorder:
-            async def send_dm(self, discord_id, message, embed=None):
+            async def send_dm(self, discord_id, message, embed=None, notice=None):
                 sent.append((discord_id, message))
                 titles[discord_id] = embed.title
+                notices[discord_id] = notice
                 return True, None
 
         await service.cancel_match(
             match.id, actor=await make_user(discord_id=1), reason='Series clinched 2-0.',
         )
-        assert await Match.filter(id=match.id).first() is None  # gone first
+        assert await Match.filter(id=match.id).first() is None
 
         queued = list(stub_discord_queue)
         assert queued, 'cancellation enqueued no notification'
@@ -89,9 +94,10 @@ class TestCancelMatch:
         body = sent[0][1]
         assert 'cancelled' in body
         assert 'Series clinched 2-0.' in body
-        # The commentator is told which slot they held; the player is not.
         assert titles[commentator.discord_id] == 'Match cancelled · your commentator slot'
         assert titles[player.discord_id] == 'Match cancelled'
+        assert notices[player.discord_id] == MATCH_CANCELLED.to(PLAYERS)
+        assert notices[commentator.discord_id] == MATCH_CANCELLED.to(CREW)
         by_id = dict(sent)
         assert "You're on this match as commentator." in by_id[commentator.discord_id]
 
@@ -109,7 +115,7 @@ class TestCancelMatch:
 
         await room.refresh_from_db()
         assert room.status == RaceRoomStatus.CANCELLED
-        assert room.match_id is None  # SET_NULL, but cancelled rather than orphaned OPEN
+        assert room.match_id is None
 
     async def test_a_finished_room_is_left_alone(self, service):
         match, _, _ = await _match_with_people()

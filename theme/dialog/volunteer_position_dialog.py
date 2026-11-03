@@ -24,6 +24,7 @@ class VolunteerPositionDialog:
         default_active = self.position.is_active if editing else True
         default_length = self.position.shift_length_minutes if editing else None
         default_stagger = self.position.stagger_minutes if editing else None
+        default_alerts = self.position.staff_alerts if editing else False
         title = 'Edit Position' if editing else 'Add Position'
 
         with ui.dialog() as dialog, ui.card().classes('dialog-card'):
@@ -35,6 +36,15 @@ class VolunteerPositionDialog:
                 desc_input = ui.input('Description', value=default_desc).classes('input-full-width')
                 order_input = ui.number('Display Order', value=default_order, format='%d').props('inputmode=numeric').classes('input-full-width')
                 active_checkbox = ui.checkbox('Active', value=default_active)
+                with ui.row().classes('items-center no-wrap gap-3 full-width'):
+                    with ui.column().classes('gap-0 col min-w-0'):
+                        ui.label('Staff alerts while on shift').classes('text-weight-bold')
+                        ui.label(
+                            "Whoever's on this shift gets player comments and reschedule "
+                            'requests. With nobody on shift, all staff get them.'
+                        ).classes('text-muted text-caption')
+                    alerts_switch = ui.switch(value=default_alerts) \
+                        .props('aria-label="Staff alerts while on shift"')
                 length_input = ui.number(
                     'Shift length (min)', value=default_length, format='%d',
                 ).props('inputmode=numeric').classes('input-full-width')
@@ -65,6 +75,7 @@ class VolunteerPositionDialog:
                             is_active=active_checkbox.value,
                             shift_length_minutes=length_value,
                             stagger_minutes=stagger_value,
+                            staff_alerts=alerts_switch.value,
                         )
                     else:
                         result = await self.service.create(
@@ -75,6 +86,7 @@ class VolunteerPositionDialog:
                             is_active=active_checkbox.value,
                             shift_length_minutes=length_value,
                             stagger_minutes=stagger_value,
+                            staff_alerts=alerts_switch.value,
                         )
                     dialog.close()
                     if self.on_submit:

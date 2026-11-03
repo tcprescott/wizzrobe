@@ -205,8 +205,6 @@ async def test_super_admins_cannot_have_or_use_a_password(admin, member):
     with pytest.raises(ValueError, match='Discord only'):
         await service.set_password(admin, admin, 'owner', PASSWORD)
 
-    # A password account later made a super-admin: sign-in refuses it, and the
-    # session it already had stops resolving.
     await service.set_password(admin, member, 'mvance', PASSWORD)
     await member.refresh_from_db()
     session = _password_session(member)

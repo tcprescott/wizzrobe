@@ -63,7 +63,6 @@ class TestPlayerLink:
 
     async def test_record_same_user_relink_is_allowed(self, db):
         user = await make_user(1, 'alice', twitch_user_id='20001')
-        # Re-linking the same account to the same user must not trip the guard.
         await make_service().record_player_link(user, '20001', 'AliceTV2', actor=user)
         await user.refresh_from_db()
         assert user.twitch_username == 'AliceTV2'

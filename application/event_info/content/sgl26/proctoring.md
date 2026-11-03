@@ -3,7 +3,7 @@ title: Running the tournament room
 slug: proctoring
 icon: sports_esports
 order: 40
-roles: VOLUNTEER, PROCTOR, STAFF
+roles: VOLUNTEER, PROCTOR, STREAM_MANAGER, STAFF
 summary: For proctors — the floor standard for a tournament room shift: looking after the room, game integrity, when to fetch an admin, and handing over.
 ---
 

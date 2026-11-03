@@ -2,7 +2,7 @@
 
 Each event names a Matcherino venue whose badge sales become the desk's
 roster. Opening an event puts it on the desk and starts the background sync;
-the desk itself lives at ``/checkin``.
+the desk itself is Volunteer → Check-in Desk.
 
 The Matcherino login card above the events (``theme.matcherino_login_card``)
 holds the refresh token the sync signs in with.
@@ -11,6 +11,7 @@ holds the refresh token the sync signs in with.
 from nicegui import background_tasks, context, ui
 
 from application.services import CheckInService
+from application.utils.app_links import volunteer_check_in_url
 from application.utils.timezone import format_local_display
 from models import CheckInEventStatus
 from theme.connection import REQUIRES_SOCKET_CLASS
@@ -21,6 +22,7 @@ from theme.matcherino_login_card import matcherino_login_card
 from theme.menu import SlotItem, slot_more_menu, slot_name_link, slot_row_button
 from theme.notify import notify_error
 from theme.page_header import page_header
+from theme.steady import steady_refreshable
 from theme.tables.admin_crud import current_actor, refresh_button
 from theme.tables.mobile_grid import enable_mobile_grid
 from theme.tables.preferences import TableKeys
@@ -91,11 +93,11 @@ async def admin_check_in_page() -> None:
                 await open_event_dialog(service, actor, on_done=_render_table.refresh)
 
             ui.button('New event', icon='add', on_click=add_event).props('color=primary') \
-                .classes(REQUIRES_SOCKET_CLASS)
+                .classes(f'{REQUIRES_SOCKET_CLASS} wiz-write')
             ui.space()
             refresh_button(lambda: _render_table.refresh(), tooltip='Refresh').classes(REQUIRES_SOCKET_CLASS)
 
-        @ui.refreshable
+        @steady_refreshable
         async def _render_table() -> None:
             events = await service.list_events()
             rows = [
@@ -153,7 +155,7 @@ async def admin_check_in_page() -> None:
                         on_confirm=do_delete, confirm_text='Delete',
                     ).open()
 
-            table.on('desk', lambda e: ui.navigate.to(f"/checkin/{e.args['id']}"))
+            table.on('desk', lambda e: ui.navigate.to(volunteer_check_in_url(e.args['id'])))
             table.on('edit', lambda e: background_tasks.create(handle_edit(e.args, context.client)))
             table.on('remove', lambda e: background_tasks.create(handle_remove(e.args, context.client)))
 

@@ -12,11 +12,11 @@ schedules at all. It gates for itself and routes privileged callers through
 scheduling fields (stage, crew) are rejected for an entrant.
 """
 
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from api.dependencies import ServiceErrorRoute, require_api_actor, require_write_actor
+from api.dependencies import ServiceErrorRoute, event_binding, require_api_actor, require_write_actor
 from api.schemas.brackets import (
     AdvanceStageRequest,
     BracketCreateRequest,
@@ -40,12 +40,9 @@ from api.schemas.brackets import (
 )
 from application.errors import require_found
 from application.services import BracketService
-from models import User
+from models import Bracket, BracketEntrant, BracketEntry, BracketMatch, Match, User
 
-router = APIRouter(prefix="/brackets", tags=["Brackets"], route_class=ServiceErrorRoute)
-
-
-# --- reads (any token; tenant-scoped in-service) --------------------------
+router = APIRouter(prefix="/brackets", tags=["Brackets"], route_class=ServiceErrorRoute, dependencies=[Depends(event_binding(bracket_id=Bracket, match_id=BracketMatch, entrant_id=BracketEntrant, entry_id=BracketEntry, scheduled_match_id=Match))])
 
 
 @router.get(
@@ -62,8 +59,6 @@ async def list_brackets(
     tournament_id: int = Query(..., description="The tournament whose stages to list."),
     actor: User = Depends(require_api_actor),
 ):
-    # Viewer-aware: DRAFT and CANCELLED stages are staff-only here exactly as
-    # on the public pages.
     return await BracketService().list_visible_brackets(actor, tournament_id)
 
 
@@ -81,8 +76,7 @@ async def list_entrants(
     tournament_id: int = Query(..., description="The tournament whose roster to list."),
     actor: User = Depends(require_api_actor),
 ):
-    # A tournament with nothing published has not been announced, and neither
-    # has its roster: same 404 as an unknown id, to everyone but staff.
+    # Same 404 as an unknown id for non-staff: an unpublished tournament hasn't been announced.
     service = BracketService()
     require_found(await service.get_visible_tournament(actor, tournament_id), "Tournament")
     return await service.list_entrants(tournament_id)
@@ -119,7 +113,7 @@ async def list_my_open_matches(
         "Shows which entries of a completed stage would move into the next stage, in the "
         "order they'd advance, without changing anything. Fails with 400 in the same cases as "
         "`POST /brackets/advance-stage`.\n\n"
-        "**Who can call this:** Any member."
+        "**Who can call this:** Staff."
     ),
 )
 async def advancing_preview(
@@ -131,7 +125,7 @@ async def advancing_preview(
     would advance, in advancement order. Writes nothing, and raises the same
     guards the real advance does.
     """
-    return await BracketService().get_advancing_preview(tournament_id, from_stage_order)
+    return await BracketService().preview_advance(actor, tournament_id, from_stage_order)
 
 
 @router.get(
@@ -139,13 +133,14 @@ async def advancing_preview(
     response_model=BracketMatchResponse,
     summary="Get one bracket match with its series games",
     description=(
-        "Returns one matchup with the games booked for its series.\n\n"
+        "Returns one matchup with the games booked for its series. A matchup in a draft or "
+        "cancelled stage is visible only to Staff; anyone else gets 404.\n\n"
         "**Who can call this:** Any member."
     ),
 )
 async def get_match(match_id: int, actor: User = Depends(require_api_actor)):
     return require_found(
-        await BracketService().get_match_with_games(match_id), "Bracket match"
+        await BracketService().get_visible_match_with_games(actor, match_id), "Bracket match"
     )
 
 
@@ -243,9 +238,6 @@ async def _with_status(service: BracketService, matches: list) -> list:
 async def list_entries(bracket_id: int, actor: User = Depends(require_api_actor)):
     require_found(await BracketService().get_visible_bracket(actor, bracket_id), "Bracket")
     return await BracketService().list_entries(bracket_id)
-
-
-# --- writes (reject read-only tokens; Staff-gated in-service) --------------
 
 
 @router.post(
@@ -488,8 +480,7 @@ async def report_result(match_id: int, body: ReportResultRequest, actor: User = 
         entry2_score=body.entry2_score,
         forfeit=body.forfeit,
     )
-    # Re-read with games loaded: the response embeds them, and report_result
-    # cancels any pending game, so the caller should see that.
+    # Re-read with games: report_result may have cancelled a pending game.
     return require_found(await service.get_match_with_games(match_id), "Bracket match")
 
 
@@ -558,7 +549,7 @@ async def schedule_game(
     400 rather than having it silently dropped.
     """
     service = BracketService()
-    extra = {} if body.stage_id is None else {'stage_id': body.stage_id}
+    extra: dict[str, Any] = {} if body.stage_id is None else {'stage_id': body.stage_id}
     await service.schedule_bracket_match(
         actor, match_id,
         scheduled_date=body.scheduled_date,

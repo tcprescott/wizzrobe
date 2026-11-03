@@ -69,10 +69,6 @@ class TwitchClient(OAuthIdentityClient):
     )
 
 
-# ----------------------------------------------------------------------
-# Mock client (MOCK_TWITCH) — a deterministic canned identity so local dev
-# can click through link/unlink without a real OAuth app.
-# ----------------------------------------------------------------------
 _MOCK_IDENTITIES = [
     {'user_id': '20001', 'username': 'mocktwitchone', 'display_name': 'MockTwitchOne'},
     {'user_id': '20002', 'username': 'mocktwitchtwo', 'display_name': 'MockTwitchTwo'},
@@ -91,7 +87,5 @@ class MockTwitchClient(TwitchClient):
         return {'access_token': 'mock-access', 'token_type': 'bearer', 'expires_in': 14400}
 
     async def get_me(self, access_token: str) -> Dict[str, Any]:
-        # Which canned identity the next link binds to, chosen via env hint so
-        # distinct dev users can link to distinct Twitch identities.
         idx = int(os.environ.get('MOCK_TWITCH_IDENTITY', '1'))
         return dict(_MOCK_IDENTITIES[(idx - 1) % len(_MOCK_IDENTITIES)])

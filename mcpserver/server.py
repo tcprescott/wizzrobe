@@ -15,8 +15,10 @@ from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import Tool as MCPTool
 
 from application.services.auth_service import AuthService
+from application.services.mcp_auth_service import grant_scopes
+from application.utils.build_info import build_info
 from mcpserver.auth import optional_actor
-from mcpserver.registry import platform_tool_names, write_tool_names
+from mcpserver.registry import platform_tool_names, tools_outside, write_tool_names
 from mcpserver.tools import register_all
 
 INSTRUCTIONS = """\
@@ -64,22 +66,13 @@ def start_transport(mcp: MCPServer) -> None:
     Every call mints a fresh manager, whose ``run()`` may be entered once.
     """
     mcp.streamable_http_app(
-        # CORRECTNESS, not scaling. In stateful mode the MCP server task is
-        # spawned once per session and snapshots the context of whichever request
-        # created it — so a second request on that session would run tools under
-        # the first request's identity. Stateless mode spawns a task per HTTP
-        # request, which inherits that request's actor. Do not change this.
+        # Do not change: stateful mode runs a session's later requests under the first request's identity.
         stateless_http=True,
-        # Plain JSON responses instead of SSE. The app's BaseHTTPMiddleware stack
-        # (security headers, fun facts) wraps /mcp, and BaseHTTPMiddleware around
-        # a long-lived SSE stream is a known source of hangs on client disconnect.
+        # JSON, not SSE: BaseHTTPMiddleware around a long-lived SSE stream hangs on client disconnect.
         json_response=True,
-        # We serve the path ourselves from mcpserver/__init__.py; leaving this at
-        # its '/mcp' default would put the real endpoint at '/mcp/mcp'.
+        # We serve the path ourselves; the '/mcp' default would put the endpoint at '/mcp/mcp'.
         streamable_http_path='/',
-        # Off because TLS and Host both terminate at the reverse proxy. The
-        # default would auto-enable it (host defaults to 127.0.0.1) and then
-        # reject every production request with 421 Invalid Host header.
+        # Off: TLS and Host terminate at the proxy, and the default rejects every production request with 421.
         transport_security=TransportSecuritySettings(
             enable_dns_rebinding_protection=False,
         ),
@@ -110,6 +103,7 @@ class WizzrobeMCP(MCPServer):
         hidden: Set[str] = set()
         if actor.token.read_only:
             hidden |= write_tool_names()
+        hidden |= tools_outside(grant_scopes(actor.token.scope))
         if not await AuthService.is_super_admin(actor.user):
             hidden |= platform_tool_names()
         return [tool for tool in tools if tool.name not in hidden]
@@ -117,7 +111,7 @@ class WizzrobeMCP(MCPServer):
 
 def build_server() -> MCPServer:
     """Construct the MCP server with every tool registered."""
-    mcp = WizzrobeMCP(name='Wizzrobe', instructions=INSTRUCTIONS)
+    mcp = WizzrobeMCP(name='Wizzrobe', instructions=INSTRUCTIONS, version=build_info().version)
     register_all(mcp)
     start_transport(mcp)
     return mcp

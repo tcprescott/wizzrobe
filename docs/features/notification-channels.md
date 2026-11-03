@@ -13,7 +13,7 @@ messages DMs do. Gated per community by `FeatureFlag.NOTIFICATION_CHANNELS`
 | DM fan-out | `_mirror_dm_to_channels` in `application/services/discord/discord_service.py` |
 | Email transport | `application/utils/clients/sendgrid_client.py` (SendGrid v3 Mail Send over `httpx`) |
 | Telegram transport | `application/utils/clients/telegram_client.py` (Bot API) |
-| Telegram bot | `application/services/telegram_bot_worker.py` (long polls `getUpdates`) |
+| Telegram bot | `application/services/telegram_bot_worker.py` (long polls `getUpdates`, or takes `POST /telegram/webhook` when `TELEGRAM_WEBHOOK_SECRET` is set) |
 | "Use my Discord email" | `application/services/discord/discord_email_service.py`, `pages/discord_email_oauth.py` |
 | One-click unsubscribe | `pages/email_unsubscribe.py` (`/notifications/email/unsubscribe`) |
 | Data | `User.email*`, `User.telegram_*`, `ContactVerification` |

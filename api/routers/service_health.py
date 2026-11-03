@@ -35,7 +35,7 @@ router = APIRouter(prefix="/service-health", tags=["Service health"], route_clas
     ),
 )
 async def tenant_health(actor: User = Depends(require_staff)):
-    results = await ServiceHealthService().tenant_subset(require_tenant_id())
+    results = await ServiceHealthService().tenant_subset(require_tenant_id(), actor=actor)
     return [r.as_dict() for r in results]
 
 

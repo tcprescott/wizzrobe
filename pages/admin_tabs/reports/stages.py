@@ -10,7 +10,6 @@ from nicegui import app, ui
 
 from application.services import AuthService, ReportsService, get_user_from_session
 from application.utils.timezone import format_local_display
-from pages.admin_tabs.links import SCHEDULE, admin_url
 from theme.section import section_panel
 from theme.tables.mobile_grid import enable_mobile_grid
 from theme.tables.preferences import TableKeys
@@ -32,6 +31,7 @@ from .shared import (
     report_filter_bar,
     report_jumps,
     report_page_shell,
+    schedule_drill,
     themed_chart_option,
     tournament_filter,
 )
@@ -47,7 +47,7 @@ async def stages_page(
     start_d, end_d = await default_date_range(start, end)
     stage_id_int = parse_int(stage_id)
     viewer = await get_user_from_session(app.storage.user)
-    can_open_board = await AuthService.can_view_schedule_board(viewer)
+    board_drill, can_open_board = schedule_drill(await AuthService.schedule_board_scope(viewer))
 
     def nav(**overrides) -> None:
         params: dict[str, Any] = {
@@ -82,7 +82,7 @@ async def stages_page(
         data = await ReportsService().stage_utilization(
             bounds_start, bounds_end,
             tournament_id=tournament_id,
-            stage_id=stage_id_int,
+            stage_id=stage_id_int, actor=viewer,
         )
         stages = data['stages']
 
@@ -144,6 +144,7 @@ async def stages_page(
                 match_rows = [
                     {
                         'match_id': m['match_id'],
+                        'tournament_id': m['tournament_id'],
                         'tournament': m['tournament_name'],
                         'scheduled_at': format_local_display(m['scheduled_at']),
                         'start': format_local_display(m['start']),
@@ -166,7 +167,7 @@ async def stages_page(
                 ).classes('full-width')
                 match_actions = enable_drill_link(
                     match_table, match_columns, match_rows,
-                    lambda r: admin_url(SCHEDULE, match_id=r['match_id']),
+                    board_drill,
                     enabled=can_open_board,
                     hint='Open on the schedule board',
                 )

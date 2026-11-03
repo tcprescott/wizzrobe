@@ -30,8 +30,7 @@ async def tasks_in_both(two_tenants):
                 provider='dk64r',
                 operation='generate_seed',
                 match_id=matches[tenant.id].id,
-                # A pollable task has an upstream handle; without one the worker
-                # scan skips it as a submit still in flight.
+                # Needs an upstream handle: without one the worker scan skips it as a submit in flight.
                 provider_task_id=f'up-{tenant.slug}',
             )
     return a, b, matches, tasks
@@ -52,7 +51,6 @@ async def test_active_for_match_does_not_cross_tenants(tasks_in_both):
     with tenant_scope(a.id):
         found = await ProviderTaskRepository.active_for_match(matches[a.id].id)
         assert found is not None and found.id == tasks[a.id].id
-        # Another community's match id must not resolve, even though the row exists.
         assert await ProviderTaskRepository.active_for_match(matches[b.id].id) is None
 
 
@@ -62,7 +60,6 @@ async def test_board_state_does_not_cross_tenants(tasks_in_both):
         rolling, failed = await ProviderTaskRepository.board_state_for_matches(
             [matches[a.id].id, matches[b.id].id],
         )
-        # Another community's match id is passed in and must contribute nothing.
         assert set(rolling) == {matches[a.id].id}
         assert failed == {}
 
@@ -77,9 +74,7 @@ async def test_create_stamps_the_ambient_tenant(two_tenants):
 
 
 async def test_worker_scan_is_cross_tenant_by_design(tasks_in_both):
-    # The counterpart to every assertion above: the poller must see the whole
-    # queue, or a restart would strand every community but the one whose request
-    # happened to be in flight. Scoping this query would be the bug.
+    # The poller must see the whole queue; scoping this query would be the bug.
     a, b, _, tasks = tasks_in_both
     with tenant_scope(a.id):
         due = await ProviderTaskRepository.due_for_poll()
@@ -90,8 +85,6 @@ async def test_claim_transitions_only_once(tasks_in_both):
     a, _, _, tasks = tasks_in_both
     task = tasks[a.id]
     assert await ProviderTaskRepository.claim(task, ProviderTaskStatus.SUCCEEDED) is True
-    # A second tick holding the same stale row loses the race and must not
-    # re-run the completion behind it.
     stale = await ProviderTask.filter(id=task.id).first()
     stale.status = ProviderTaskStatus.QUEUED
     assert await ProviderTaskRepository.claim(stale, ProviderTaskStatus.SUCCEEDED) is False

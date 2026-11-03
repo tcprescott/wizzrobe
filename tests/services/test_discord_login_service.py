@@ -117,7 +117,7 @@ async def test_only_staff_may_post_the_panel(tenant):
     with pytest.raises(PermissionError):
         await DiscordLoginService.authorize_panel(10, tenant)
     with pytest.raises(PermissionError):
-        await DiscordLoginService.authorize_panel(11, tenant)  # no account at all
+        await DiscordLoginService.authorize_panel(11, tenant)
 
     await UserRole.create(user=member, role=Role.STAFF, tenant=tenant)
     assert (await DiscordLoginService.authorize_panel(10, tenant)).id == member.id

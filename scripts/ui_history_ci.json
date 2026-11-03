@@ -1,0 +1,339 @@
+{
+  "_comment": [
+    "Back / Forward / reload / deep-link scenarios for in-page view switchers",
+    "(scripts/ui_history.js, theme/url_state.py). One scenario per kind of",
+    "switcher, not one per page: they all share the one helper."
+  ],
+  "loginAs": "staff_user",
+  "tenant": "default",
+  "outDir": "/tmp/ui-history-ci",
+  "browsers": [
+    "chromium"
+  ],
+  "scenarios": [
+    {
+      "name": "my-schedule-view",
+      "steps": [
+        {
+          "goto": "/home/my-schedule?view=list",
+          "expect": {
+            "url": "^/home/my-schedule$",
+            "title": "^My Schedule — ",
+            "pressed": "List"
+          }
+        },
+        {
+          "click": "Timeline",
+          "expect": {
+            "url": "^/home/my-schedule\\?view=timeline&day=[0-9-]+$",
+            "title": "^\\w+ \\d+ — Timeline — My Schedule — ",
+            "pressed": "Timeline"
+          }
+        },
+        {
+          "back": true,
+          "expect": {
+            "url": "^/home/my-schedule$",
+            "title": "^My Schedule — ",
+            "pressed": "List"
+          }
+        },
+        {
+          "forward": true,
+          "expect": {
+            "url": "view=timeline",
+            "title": "Timeline — My Schedule",
+            "pressed": "Timeline"
+          }
+        },
+        {
+          "reload": true,
+          "expect": {
+            "url": "view=timeline",
+            "title": "Timeline — My Schedule",
+            "pressed": "Timeline"
+          }
+        },
+        {
+          "click": "List",
+          "expect": {
+            "url": "^/home/my-schedule$",
+            "pressed": "List"
+          }
+        }
+      ]
+    },
+    {
+      "name": "home-tabs",
+      "steps": [
+        {
+          "goto": "/home/my-schedule?view=list",
+          "expect": {
+            "url": "^/home/my-schedule$"
+          }
+        },
+        {
+          "click": "Tournaments",
+          "expect": {
+            "url": "^/home/tournaments$",
+            "title": "^Tournaments — "
+          }
+        },
+        {
+          "back": true,
+          "expect": {
+            "url": "^/home/my-schedule$",
+            "title": "^My Schedule — ",
+            "pressed": "List"
+          }
+        },
+        {
+          "forward": true,
+          "expect": {
+            "url": "^/home/tournaments$",
+            "title": "^Tournaments — "
+          }
+        }
+      ]
+    },
+    {
+      "name": "event-views",
+      "steps": [
+        {
+          "goto": "/home/event",
+          "expect": {
+            "url": "^/home/event$",
+            "pressed": "Schedule"
+          }
+        },
+        {
+          "click": "Brackets",
+          "expect": {
+            "url": "^/home/event\\?view=brackets$",
+            "title": "^Brackets — Event — ",
+            "pressed": "Brackets"
+          }
+        },
+        {
+          "back": true,
+          "expect": {
+            "url": "^/home/event$",
+            "pressed": "Schedule"
+          }
+        },
+        {
+          "forward": true,
+          "expect": {
+            "url": "view=brackets",
+            "pressed": "Brackets"
+          }
+        }
+      ]
+    },
+    {
+      "name": "event-deep-link",
+      "steps": [
+        {
+          "goto": "/home/brackets",
+          "expect": {
+            "url": "^/home/event\\?view=brackets$",
+            "title": "^Brackets — Event — ",
+            "pressed": "Brackets"
+          }
+        },
+        {
+          "goto": "/home/event?view=community",
+          "expect": {
+            "pressed": "Meetups",
+            "title": "^Meetups — Event — "
+          }
+        }
+      ]
+    },
+    {
+      "name": "settings-pane",
+      "steps": [
+        {
+          "goto": "/admin/event-settings",
+          "expect": {
+            "url": "^/admin/event-settings$",
+            "title": "^Event settings — Admin — "
+          }
+        },
+        {
+          "expect": {
+            "url": "^/admin/event-settings/venue$",
+            "title": "^Venue — Event settings — Admin — "
+          },
+          "clickSelector": "[data-pane=venue]"
+        },
+        {
+          "back": true,
+          "expect": {
+            "url": "^/admin/event-settings$",
+            "title": "^Event settings — Admin — ",
+            "visible": ".wiz-settings-grid"
+          }
+        },
+        {
+          "forward": true,
+          "expect": {
+            "url": "^/admin/event-settings/venue$",
+            "hidden": ".wiz-settings-grid"
+          }
+        },
+        {
+          "reload": true,
+          "expect": {
+            "url": "^/admin/event-settings/venue$",
+            "title": "^Venue — Event settings"
+          }
+        }
+      ]
+    },
+    {
+      "name": "admin-tabs-and-subtabs",
+      "steps": [
+        {
+          "goto": "/admin/members",
+          "expect": {
+            "url": "^/admin/members$",
+            "title": "^Members — Admin — "
+          }
+        },
+        {
+          "clickSelector": ".q-tab[name=ada], .q-tab:has-text('ADA requests')",
+          "expect": {
+            "url": "^/admin/members\\?list=ada$",
+            "title": "^ADA requests — Members — "
+          }
+        },
+        {
+          "back": true,
+          "expect": {
+            "url": "^/admin/members$",
+            "title": "^Members — Admin"
+          }
+        },
+        {
+          "forward": true,
+          "expect": {
+            "url": "list=ada"
+          }
+        }
+      ]
+    },
+    {
+      "name": "volunteer-day",
+      "steps": [
+        {
+          "goto": "/volunteer/full-schedule",
+          "expect": {
+            "url": "^/volunteer/full-schedule\\?day=[0-9-]+$",
+            "title": " — Full Schedule — Volunteer — "
+          }
+        },
+        {
+          "clickSelector": ".wiz-vgrid-day[aria-pressed=false]",
+          "expect": {
+            "url": "day=[0-9-]+$",
+            "moved": true
+          }
+        },
+        {
+          "back": true,
+          "expect": {
+            "url": "day=[0-9-]+$",
+            "moved": true
+          }
+        },
+        {
+          "forward": true,
+          "expect": {
+            "url": "day=[0-9-]+$"
+          }
+        }
+      ]
+    },
+    {
+      "name": "match-sheet",
+      "steps": [
+        {
+          "goto": "/admin/match-schedule?view=booked",
+          "expect": {
+            "url": "^/admin/match-schedule$"
+          }
+        },
+        {
+          "clickSelector": ".run-sheet__row, .run-sheet__card",
+          "expect": {
+            "url": "^/admin/match-schedule\\?sheet=\\d+$",
+            "title": "^Match details — Match Schedule — ",
+            "visible": ".match-sheet"
+          }
+        },
+        {
+          "back": true,
+          "expect": {
+            "url": "^/admin/match-schedule$",
+            "hidden": ".match-sheet"
+          }
+        },
+        {
+          "forward": true,
+          "expect": {
+            "url": "sheet=\\d+",
+            "visible": ".match-sheet"
+          }
+        },
+        {
+          "reload": true,
+          "expect": {
+            "url": "sheet=\\d+",
+            "visible": ".match-sheet"
+          }
+        }
+      ]
+    },
+    {
+      "name": "section-anchor",
+      "steps": [
+        {
+          "goto": "/home/my-schedule?view=list#your-volunteer-shifts",
+          "expect": {
+            "inView": "#your-volunteer-shifts"
+          }
+        }
+      ]
+    },
+    {
+      "name": "dm-links-consumed",
+      "steps": [
+        {
+          "goto": "/admin/match-schedule?reschedule_request=999999",
+          "expect": {
+            "url": "^/admin/match-schedule$"
+          }
+        },
+        {
+          "reload": true,
+          "expect": {
+            "url": "^/admin/match-schedule$"
+          }
+        },
+        {
+          "goto": "/admin/match-schedule?comments=999999",
+          "expect": {
+            "url": "^/admin/match-schedule\\?match_id=999999$"
+          }
+        },
+        {
+          "goto": "/home/my-schedule?agree=999999",
+          "expect": {
+            "url": "^/home/my-schedule$"
+          }
+        }
+      ]
+    }
+  ]
+}

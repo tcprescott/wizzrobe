@@ -17,6 +17,7 @@ from application.services.discord import discord_role_mapping_service as drms
 from application.services.discord.discord_guild_ops import GuildMember
 from application.services.user_service import UserService
 from models import User
+from tests.conftest import DEFAULT_TEST_EVENT_ID
 
 
 @pytest.fixture
@@ -80,7 +81,7 @@ async def test_live_update_provisions_and_grants_against_real_db(db, monkeypatch
     from models import Role, Tenant, UserRole
 
     await tsvc.TenantService.set_discord_guild_id(await Tenant.get(id=1), 42)
-    await DiscordRoleMappingRepository.create(42, 111, 'Mods', Role.PROCTOR)
+    await DiscordRoleMappingRepository.create(42, 111, 'Mods', Role.PROCTOR, event_id=DEFAULT_TEST_EVENT_ID)
     monkeypatch.setattr(drms, 'DiscordService', lambda: SimpleNamespace(
         get_member_role_ids=AsyncMock(return_value=(True, {111})),
     ))
@@ -103,7 +104,6 @@ async def test_syncs_for_the_routed_tenant_when_user_known(monkeypatch, sync_spy
 
 
 async def test_syncs_every_tenant_sharing_the_guild(monkeypatch, sync_spy):
-    # A shared server backs several tenants; each one is synced for the user.
     a = SimpleNamespace(id=1, discord_guild_id=42)
     b = SimpleNamespace(id=2, discord_guild_id=42)
     _route_guild_to(monkeypatch, [a, b])
@@ -114,7 +114,6 @@ async def test_syncs_every_tenant_sharing_the_guild(monkeypatch, sync_spy):
 
 
 async def test_never_raises_on_internal_error(monkeypatch, sync_spy):
-    # A failure resolving the guild's tenants must be swallowed (best-effort).
     monkeypatch.setattr(
         tsvc.TenantService, 'list_tenants_for_guild',
         AsyncMock(side_effect=RuntimeError('db down')),

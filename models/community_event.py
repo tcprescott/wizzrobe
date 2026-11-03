@@ -1,3 +1,4 @@
+
 from tortoise import fields
 from tortoise.models import Model
 
@@ -22,6 +23,11 @@ class CommunityEvent(Model):
         'models.Tenant', related_name='community_events', on_delete=fields.CASCADE,
     )
     tenant_id: int
+    # Keep nullable: not every write path stamps it yet.
+    event: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Event', related_name='meetups', on_delete=fields.CASCADE,
+    )
+    event_id: int
     host: fields.ForeignKeyRelation = fields.ForeignKeyField(
         'models.User', related_name='hosted_community_events', on_delete=fields.CASCADE,
     )
@@ -34,15 +40,12 @@ class CommunityEvent(Model):
     status = fields.CharEnumField(
         CommunityEventStatus, default=CommunityEventStatus.PENDING, max_length=20,
     )
-    # SET_NULL: the decision outlives the reviewer's account; the audit row keeps who.
     reviewed_by: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
         'models.User', related_name='reviewed_community_events',
         null=True, on_delete=fields.SET_NULL,
     )
     reviewed_at = fields.DatetimeField(null=True)
-    # Why staff rejected or pulled it. Shown to the host, and sent in their DM.
     review_note = fields.TextField(null=True)
-    # The host opted in to RSVPs; ``rsvp_capacity`` caps them (null: no cap).
     rsvp_enabled = fields.BooleanField(default=False)
     rsvp_capacity = fields.IntField(null=True)
     created_at = fields.DatetimeField(auto_now_add=True)
@@ -90,7 +93,7 @@ class CommunityEventSubscription(Model):
 class CommunityEventSeen(Model):
     """When a member last opened the community events listing.
 
-    One row per member per community. An approved event listed after
+    One row per member per event. An approved event listed after
     ``seen_at`` is new to them, which is what the count on Home's Event tab
     shows; opening the listing moves ``seen_at`` to now. No row means they
     have never looked, so everything listed is new.
@@ -101,6 +104,11 @@ class CommunityEventSeen(Model):
         'models.Tenant', related_name='community_events_seen', on_delete=fields.CASCADE,
     )
     tenant_id: int
+    # Keep nullable: not every write path stamps it yet.
+    event: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Event', related_name='meetup_seen', on_delete=fields.CASCADE,
+    )
+    event_id: int
     user: fields.ForeignKeyRelation = fields.ForeignKeyField(
         'models.User', related_name='community_events_seen', on_delete=fields.CASCADE,
     )
@@ -109,4 +117,4 @@ class CommunityEventSeen(Model):
 
     class Meta:
         table = 'community_event_seen'
-        unique_together = (('tenant', 'user'),)
+        unique_together = (('tenant', 'event', 'user'),)

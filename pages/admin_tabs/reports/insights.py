@@ -9,9 +9,9 @@ import asyncio
 from datetime import date, timedelta
 from typing import List, Optional
 
-from nicegui import ui
+from nicegui import app, ui
 
-from application.services import AnalyticsService
+from application.services import AnalyticsService, get_user_from_session
 from application.timezone_context import pin_client_context
 from application.utils.timezone import now_local
 from theme.section import section_panel
@@ -40,23 +40,15 @@ from .shared import (
     tournament_filter,
 )
 
-# Fallback trailing window for a community with no history at all: trends need
-# history, so a single event weekend (the reports default) would collapse to one
-# bucket. When there *is* history the window comes from the data's own extent.
 DEFAULT_TREND_DAYS = 90
 
-# Below this a single-day extent would render as one bucket with nothing either
-# side of it — pad out to something that reads as a trend.
 MIN_TREND_DAYS = 28
-# And above it, three years of history should not open on 156 weekly buckets;
-# keep the most recent slice.
 MAX_TREND_DAYS = 400
-# Weekly buckets past this many days become unreadable; switch to monthly.
 WEEKLY_BUCKET_LIMIT_DAYS = 180
 
 
 async def _default_range(
-    analytics, start: Optional[str], end: Optional[str],
+    analytics, viewer, start: Optional[str], end: Optional[str],
     tournament_id: Optional[int] = None,
 ) -> tuple[date, date]:
     """The window to open on. Explicit dates win; otherwise follow the data.
@@ -73,7 +65,7 @@ async def _default_range(
         return s, e
 
     today = now_local().date()
-    first, last = await analytics.activity_extent(tournament_id=tournament_id)
+    first, last = await analytics.activity_extent(tournament_id=tournament_id, actor=viewer)
     if first is None or last is None:
         return today - timedelta(days=DEFAULT_TREND_DAYS), today
 
@@ -102,8 +94,8 @@ async def insights_page(
     **_unused,
 ) -> None:
     analytics = AnalyticsService()
-    start_d, end_d = await _default_range(analytics, start, end, tournament_id)
-    # Only *default* the bucket — an explicit choice is the operator's.
+    viewer = await get_user_from_session(app.storage.user)
+    start_d, end_d = await _default_range(analytics, viewer, start, end, tournament_id)
     bucket = _normalize_bucket(bucket) if bucket else _default_bucket(start_d, end_d)
     bounds_start, bounds_end = display_bounds(start_d, end_d)
 
@@ -123,8 +115,6 @@ async def insights_page(
         (label, today - timedelta(days=days), today)
         for days, label in ((30, 'Last 30 days'), (90, 'Last 90 days'), (365, 'Last year'))
     ]
-    # Explicit dates are the only thing that counts as narrowed: the default
-    # window follows the data, so there is no fixed range to compare against.
     active = int(bool(start or end)) + int(tournament_id is not None)
     with report_page_shell(
         'Insights & Trends',
@@ -141,11 +131,9 @@ async def insights_page(
             await tournament_filter(tournament_id, on_change=lambda t_id: nav(tournament_id=t_id))
             report_jumps(ranges, start_d, end_d, on_pick=lambda s, e: nav(start=s, end=e))
 
-        crew, hours, health, activity = await _load(analytics, bounds_start, bounds_end, bucket, tournament_id)
+        crew, hours, health, activity = await _load(analytics, viewer, bounds_start, bounds_end, bucket, tournament_id)
         palette = await chart_palette()
 
-        # Volunteer shifts and audit logs are not tournament-scoped in the data
-        # model, so the tournament filter only narrows the crew and health sections.
         scoped = tournament_id is not None
         _kpi_strip(crew, hours, health)
         await _crew_section(crew, start_d, end_d, palette)
@@ -154,17 +142,14 @@ async def insights_page(
         await _activity_section(activity, palette, scoped)
 
 
-async def _load(analytics, start, end, bucket, tournament_id):
+async def _load(analytics, viewer, start, end, bucket, tournament_id):
     with pin_client_context():
         return await asyncio.gather(
-            analytics.crew_participation_trends(start, end, bucket, tournament_id=tournament_id),
-            analytics.volunteer_hour_trends(start, end, bucket),
-            analytics.tournament_health(start, end, tournament_id=tournament_id),
-            analytics.activity_trends(start, end, bucket),
+            analytics.crew_participation_trends(start, end, bucket, tournament_id=tournament_id, actor=viewer),
+            analytics.volunteer_hour_trends(start, end, bucket, actor=viewer),
+            analytics.tournament_health(start, end, tournament_id=tournament_id, actor=viewer),
+            analytics.activity_trends(start, end, bucket, actor=viewer),
         )
-
-
-# --- KPI strip ------------------------------------------------------------
 
 
 def _kpi_strip(crew: dict, hours: dict, health: dict) -> None:
@@ -183,9 +168,6 @@ def _kpi_strip(crew: dict, hours: dict, health: dict) -> None:
                   f'{avg_health:.0f}' if avg_health is not None else '—',
                   'across scored tournaments',
                   color=_health_color(avg_health))
-
-
-# --- Crew participation ---------------------------------------------------
 
 
 async def _crew_section(crew: dict, start_d: date, end_d: date, palette: ChartPalette) -> None:
@@ -241,11 +223,8 @@ async def _crew_section(crew: dict, start_d: date, end_d: date, palette: ChartPa
         if not rows:
             ui.label('No crew contributors in this window.').classes('italic-note')
         else:
-            table = ui.table(columns=columns, rows=rows, pagination=15, row_key='name').classes('full-width')
+            table = ui.table(columns=columns, rows=rows, pagination=10, row_key='name').classes('full-width')
             enable_mobile_grid(table, columns, table_key=TableKeys.REPORTS_INSIGHTS_CREW)
-
-
-# --- Volunteer hours ------------------------------------------------------
 
 
 async def _volunteer_section(
@@ -303,11 +282,8 @@ async def _volunteer_section(
         if not rows:
             ui.label('No volunteer assignments in this window.').classes('italic-note')
         else:
-            table = ui.table(columns=columns, rows=rows, pagination=15, row_key='name').classes('full-width')
+            table = ui.table(columns=columns, rows=rows, pagination=10, row_key='name').classes('full-width')
             enable_mobile_grid(table, columns, table_key=TableKeys.REPORTS_INSIGHTS_PLAYERS)
-
-
-# --- Tournament health ----------------------------------------------------
 
 
 async def _health_section(health: dict, start_d: date, end_d: date) -> None:
@@ -383,9 +359,6 @@ async def _health_section(health: dict, start_d: date, end_d: date) -> None:
                                table_key=TableKeys.REPORTS_TOURNAMENT_HEALTH)
 
 
-# --- Admin activity -------------------------------------------------------
-
-
 async def _activity_section(activity: dict, palette: ChartPalette, scoped: bool = False) -> None:
     labels = activity['bucket_labels']
     categories = activity['categories']
@@ -397,8 +370,7 @@ async def _activity_section(activity: dict, palette: ChartPalette, scoped: bool 
         if activity['total'] == 0:
             ui.label('No audit activity in the selected window.').classes('italic-note q-mt-md')
         else:
-            # Palette holds three distinct series hues; keep the top three
-            # categories and fold the long tail into a neutral "Other" stack.
+            # The palette has three distinct series hues; the tail folds into "Other".
             top = categories[:3]
             colours = [palette.primary, palette.secondary, CHART_RED]
             series = []
@@ -430,9 +402,6 @@ async def _activity_section(activity: dict, palette: ChartPalette, scoped: bool 
             ui.echart(themed_chart_option(option)).classes('chart-height')
 
 
-# --- Small helpers --------------------------------------------------------
-
-
 def _has_signal(values: List) -> bool:
     return any(v for v in values)
 
@@ -441,18 +410,11 @@ def _pct(value: Optional[float]) -> str:
     return f'{value:.0f}%' if value is not None else '—'
 
 
-# The Tournament-health columns that are both **sortable** and **formatted**.
-# Quasar sorts the raw field value, so a column holding '9%' / '10%' / '100%'
-# sorts as text — '100%' first, '9%' last — which is silently wrong and reads as
-# a broken report rather than a broken column. So each of these keeps the number
-# in its own field (what Quasar sorts) and carries the formatted string beside it
-# in ``<name>_display`` (what the cell paints).
+# Quasar sorts the raw field: these keep the number there and the formatted string in <name>_display.
 HEALTH_SORTED_DISPLAY_FIELDS = (
     'health_score', 'completion_pct', 'on_time_pct', 'coverage_pct',
 )
 
-# One snippet per field, used for the desktop cell *and* the mobile card: both
-# Quasar scopes expose ``props.row``, so the two cannot drift.
 HEALTH_DISPLAY_CELLS = {
     name: '<span>{{ props.row.' + name + '_display }}</span>'
     for name in HEALTH_SORTED_DISPLAY_FIELDS

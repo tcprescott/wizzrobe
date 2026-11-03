@@ -2,6 +2,7 @@
 
 from nicegui import app, background_tasks, ui
 
+from application.event_context import event_scope, event_scoped, get_current_event_id
 from application.services import AuthService, TriforceTextService, get_user_from_session
 from application.tenant_context import require_tenant_id, tenant_scope
 from models import Tournament
@@ -30,12 +31,10 @@ async def admin_triforce_texts_page() -> None:
 
     is_staff = await AuthService.is_staff(actor)
     if is_staff:
-        tournaments = await Tournament.filter(
-            is_active=True, tenant_id=require_tenant_id()
-        ).order_by('name')
+        tournaments = await event_scoped(Tournament.filter(is_active=True)).order_by('name')
     else:
-        tournaments = await Tournament.filter(
-            is_active=True, admins__id=actor.id, tenant_id=require_tenant_id()
+        tournaments = await event_scoped(
+            Tournament.filter(is_active=True, admins__id=actor.id)
         ).distinct().order_by('name')
 
     if not tournaments:
@@ -50,6 +49,7 @@ async def admin_triforce_texts_page() -> None:
     }
     service = TriforceTextService()
     tenant_id = require_tenant_id()
+    event_id = get_current_event_id()
 
     with ui.column().classes('page-container-narrow'):
         page_header('Triforce Texts')
@@ -71,9 +71,7 @@ async def admin_triforce_texts_page() -> None:
             filter_badge.set_text(str(count))
             filter_badge.set_visibility(count > 0)
 
-        # Below 1024px the CSS collapses .match-filters-card until it carries
-        # .wiz-filters-open, so phones need this toggle (hidden on desktop) or
-        # the filters are unreachable.
+        # Phones need this toggle: below 1024px the CSS hides .match-filters-card until it has .wiz-filters-open.
         with ui.row().classes('wiz-filter-toggle full-width items-center'):
             ui.button('Filters', icon='filter_list', on_click=toggle_filters).props('flat color=primary')
             filter_badge = ui.badge('0').props('color=primary')
@@ -82,7 +80,7 @@ async def admin_triforce_texts_page() -> None:
         with ui.card().classes('match-filters-card match-filters-card--compact') as filters_card:
             with ui.row().classes('match-filter-row'):
                 tournament_select = ui.select(
-                    options={t.id: t.name for t in tournaments},
+                    options=Tournament.short_label_options(tournaments),
                     label='Tournament',
                     value=state['tournament_id'],
                 ).classes('match-filter-field').props('outlined dense options-dense')
@@ -98,13 +96,12 @@ async def admin_triforce_texts_page() -> None:
         def submissions_table() -> None:
             async def render():
                 table_container.clear()
-                # A background task started from a filter or moderation handler
-                # has no slot context, so the client's tenant stash is out of
-                # reach and the feature gate would read the tenant as missing.
-                with tenant_scope(tenant_id):
+                # A background task has no slot context, so without this the feature gate can't find the tenant.
+                with tenant_scope(tenant_id), event_scope(event_id):
                     rows = await service.list_for_moderation(
                         state['tournament_id'],
                         status=_to_status(state['status']),
+                        actor=actor,
                     )
                 with table_container:
                     if not rows:

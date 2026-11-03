@@ -80,6 +80,34 @@ class TestWrite:
         assert resp.status_code == 200
         assert [line['amount'] for line in resp.json()['lines']] == ['600.00', '400.00']
 
+    async def test_a_fixed_amount_line(self, db, app):
+        tournament = await _tournament(prize_pool=Decimal('1490.00'))
+        _, raw = await create_user_token(username='staff', roles=[Role.STAFF])
+
+        async with client_for(app, raw) as c:
+            resp = await c.put(
+                f'/api/tournaments/{tournament.id}/payouts',
+                json={'lines': [{'place': 1, 'amount': '650'},
+                                {'place': 2, 'percentage': '10'}]},
+            )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert [(line['amount'], line['is_fixed']) for line in body['lines']] == [
+            ('650.00', True), ('149.00', False),
+        ]
+        assert body['lines'][0]['percentage'] is None
+        assert body['allocated_amount'] == '799.00'
+
+    async def test_a_line_with_both_or_neither_is_422(self, db, app):
+        tournament = await _tournament()
+        _, raw = await create_user_token(username='staff', roles=[Role.STAFF])
+        async with client_for(app, raw) as c:
+            for line in ({'place': 1}, {'place': 1, 'percentage': '10', 'amount': '10'}):
+                assert (await c.put(
+                    f'/api/tournaments/{tournament.id}/payouts', json={'lines': [line]},
+                )).status_code == 422
+
     async def test_shares_over_the_pool_are_400(self, db, app):
         tournament = await _tournament()
         _, raw = await create_user_token(username='staff', roles=[Role.STAFF])

@@ -8,37 +8,37 @@ summary: Who makes which call, staff, volunteering and crew, and lost property.
 
 ## Finding someone
 
-**The proctor runs the room; an admin makes the calls.** A missing player,
-broken hardware, a dispute or anyone's conduct goes to an admin, and the fastest
-way to one is telling the proctor. The tournament room always has a proctor or
-the on-call admin in it.
+Proctors run the tournament room and admins make the calls. If an opponent is
+missing, gear breaks, there's a dispute or someone's behaving badly, an admin
+needs to know. The quickest way to reach one is to tell the proctor. There's
+always a proctor or the on-call admin in the room.
 
-Lanyards differ for attendees, volunteers and staff, so look for a staff
-lanyard.
+Staff wear a different lanyard from attendees and volunteers, so look for one of
+those.
 
-**SGLive 2026 staff** are adirondackrick, clifford, darkmoonex, dani3883,
-Felix_TC, hurfydurfy, jamevil, synack and tsigma6.
+SGLive 2026 staff: adirondackrick, clifford, darkmoonex, dani3883, Felix_TC,
+hurfydurfy, jamevil, synack and tsigma6.
 
-Can't find anyone? Ping **@Staff** in the
+Can't find anyone? Ping @Staff in the
 [event Discord](https://discord.com/invite/T6qzxNJ).
 
 ## Volunteering
 
-Volunteering is working shifts, like proctoring a room, and eight hours comps
-your badge. Once you're signed up you say when you're free and shifts are
-assigned in the app; see [Volunteering shifts](/help/volunteering). **Dani** is
-the volunteer coordinator and owns shifts and swaps (`Dani3883` on the Discord).
+Volunteers work shifts, like proctoring the tournament room, and eight hours
+covers your badge. Once you're signed up, you set when you're free in the app and
+shifts get assigned to you. [Volunteering shifts](/help/volunteering) has the
+details. Dani is the volunteer coordinator and handles shifts and swaps
+(Dani3883 on the Discord).
 
-Proctors: the floor standard, *Running the tournament room*, shows here once
-you hold the Proctor or Volunteer role. Ask Dani if it's missing.
+Proctors, your room guide, *Running the tournament room*, shows up here once you
+have the Proctor or Volunteer role. If it's not there, ask Dani.
 
 ## Crew
 
-Crew is commentating or tracking, per match rather than per shift: sign up for
-a match, staff approve you, and you confirm. See
-[Signing up as crew](/help/crew).
+Crew means commentating or tracking. You sign up match by match, staff approve
+you, and then you confirm. [Signing up as crew](/help/crew) walks you through it.
 
 ## Lost property
 
-Lost or found something? **The check-in desk.** The hotel's own lost and found
-at the front desk takes anything found outside the event space, so ask both.
+Lost something, or found something? Go to the check-in desk. Anything found
+outside the event space ends up at the hotel front desk, so check there too.

@@ -45,10 +45,10 @@ async def handle_reschedule_agree_interaction(interaction: discord.Interaction) 
     Responds ephemerally so only the clicking user sees the result.
     """
     from application.services import MatchRescheduleService
-    from discordbot._tenant import reschedule_request_tenant_id
+    from discordbot._tenant import reschedule_request_scope
 
     async def resolve_tenant(request_id: int):
-        return await reschedule_request_tenant_id(request_id)
+        return await reschedule_request_scope(request_id)
 
     async def handle(_interaction, request_id: int, user, send: SendFn) -> None:
         request = await MatchRescheduleService().record_opponent_agreement(request_id, user)

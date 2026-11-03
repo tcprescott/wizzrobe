@@ -21,7 +21,7 @@ class ProbeResultResponse(BaseModel):
     )
     status: str = Field(
         ...,
-        description="Health: `healthy`, `degraded`, `credential_warning` (working, but a credential is expiring or was rejected), `down` or `unknown`.",
+        description="Health: `healthy`, `mock` (the local mock stands in, so the real service wasn't contacted), `degraded`, `credential_warning` (working, but a credential is expiring or was rejected), `down` or `unknown`.",
     )
     message: str = Field(..., description="What the check found, in a sentence.")
     checked_at: datetime = Field(..., description="When the check ran (UTC).")

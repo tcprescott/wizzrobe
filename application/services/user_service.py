@@ -6,11 +6,13 @@ Coordinates user-related operations and enforces business rules.
 
 import re
 from datetime import datetime
-from typing import Dict, Iterable, List, Optional, Set
+from typing import Dict, Iterable, List, Optional, Set, Tuple
 
+from application.errors import require_found
+from application.repositories._save import save_fields
 from application.repositories.tenant_membership_repository import TenantMembershipRepository
 from application.repositories.tournament_repository import TournamentRepository
-from application.repositories.user_repository import UserRepository
+from application.repositories.user_repository import PersonSummary, UserRepository
 from application.repositories.user_role_repository import UserRoleRepository
 from application.services._tournament_signup import record_enrolment_change
 from application.services.audit_service import AuditActions, AuditService
@@ -41,10 +43,7 @@ def _reject_platform_role(role: Role, verb: str) -> None:
         )
 
 
-# A name is shown inside bot-authored Discord DMs and embeds, where a masked link
-# (``[Review the signup](https://…)``), a bare URL or a mention renders live. Any
-# member can set their own name and then trigger a DM to staff (a crew signup),
-# so a name carrying one would put an attacker's link in a message from the bot.
+# Names render live in bot DMs to staff: refuse links and mentions, or a member can plant one.
 _NAME_MARKUP = re.compile(r'\]\(|://|www\.|discord\.gg/|<[@#&!:]|@everyone|@here', re.IGNORECASE)
 
 
@@ -62,13 +61,18 @@ class UserService:
     def __init__(self) -> None:
         self.repository = UserRepository()
         self.role_repository = UserRoleRepository()
-        # Enrolment writes go through here rather than straight to the model:
-        # the repository is what stamps the tenant on a non-null FK.
+        # Through the repository, which stamps the tenant on the non-null FK.
         self.tournament_repository = TournamentRepository()
         self.audit_service = AuditService()
 
     async def get_user_by_discord_id(self, discord_id: str) -> Optional[User]:
         return await self.repository.get_by_discord_id(discord_id)
+
+    async def get_user_by_racetime_id(self, racetime_user_id: str) -> Optional[User]:
+        """The account that linked this racetime.gg user id, if any."""
+        if not racetime_user_id:
+            return None
+        return await self.repository.get_by_racetime_user_id(racetime_user_id)
 
     async def get_system_user(self) -> User:
         """Resolve the reserved system :class:`User` that automation acts as.
@@ -100,7 +104,7 @@ class UserService:
             return
         latest_user = await self.repository.get_by_id(user.id)
         if latest_user and latest_user.updated_at != initial_updated_at:
-            raise ValueError("This user has been modified by another admin. Please reload and try again.")
+            raise ValueError("Someone else on staff changed this member. Reload and try again.")
 
     async def get_all_users(
         self,
@@ -118,6 +122,11 @@ class UserService:
         people outside this community" toggle.
         """
         return await self.repository.get_all(role=role, has_discord=has_discord)
+
+    async def member_role_summary(self, tenant_id: int, event_id: Optional[int] = None):
+        """Roles, tournament-admin and crew-coordinator counts per user in ``tenant_id``,
+        for the members table: see :meth:`UserRepository.role_summary`."""
+        return await self.repository.role_summary(tenant_id, event_id)
 
     async def get_community_people(
         self,
@@ -148,6 +157,19 @@ class UserService:
             has_discord=has_discord,
             include_user_ids=include_user_ids,
             include_inactive=include_inactive,
+        )
+
+    async def get_community_people_summaries(
+        self,
+        *,
+        include_user_ids: Optional[List[int]] = None,
+        include_inactive: bool = False,
+    ) -> List[PersonSummary]:
+        """:meth:`get_community_people` as light rows (id, names, ``discord_id``,
+        ``is_active``, ``preferred_name``) for a picker: a 2,000-member community
+        costs milliseconds instead of a second of the shared event loop."""
+        return await self.repository.get_community_people_summaries(
+            include_user_ids=include_user_ids, include_inactive=include_inactive,
         )
 
     async def get_current_user_from_storage(self, storage_discord_id: Optional[str]) -> Optional[User]:
@@ -291,39 +313,39 @@ class UserService:
         same user (self-edit); permission check is performed at the page level
         via authentication.
         """
-        any_provided = False
+        provided: List[str] = []
         changed: Dict[str, object] = {}
         if display_name is not None:
-            any_provided = True
+            provided.append('display_name')
             new_value = _clean_name(display_name, 'Display name')
             if new_value != user.display_name:
                 changed['display_name'] = new_value
             user.display_name = new_value
         if pronouns is not None:
-            any_provided = True
+            provided.append('pronouns')
             new_value = _clean_name(pronouns, 'Pronouns')
             if new_value != user.pronouns:
                 changed['pronouns'] = new_value
             user.pronouns = new_value
         if dm_notifications is not None:
-            any_provided = True
+            provided.append('dm_notifications')
             if dm_notifications != user.dm_notifications:
                 changed['dm_notifications'] = dm_notifications
             user.dm_notifications = dm_notifications
         if dm_match_comments is not None:
-            any_provided = True
+            provided.append('dm_match_comments')
             if dm_match_comments != user.dm_match_comments:
                 changed['dm_match_comments'] = dm_match_comments
             user.dm_match_comments = dm_match_comments
         if matcherino_username is not None:
-            any_provided = True
+            provided.append('matcherino_username')
             new_value = matcherino_username.strip() or None
             if new_value != user.matcherino_username:
                 changed['matcherino_username'] = new_value
             user.matcherino_username = new_value  # type: ignore[assignment]
 
-        if any_provided:
-            await user.save()
+        if provided:
+            await save_fields(user, *provided)
         if changed:
             await self.audit_service.write_log(
                 actor,
@@ -359,17 +381,14 @@ class UserService:
                 await self.tournament_repository.enroll_player(tournament, user)
                 created_ids.append(tournament_id)
 
-        # One record per tournament rather than one batched row for the whole
-        # edit: a staff roster change is as much a roster change as a player's
-        # own signup, and a subscriber mirroring the roster has to hear about it
-        # at the same granularity or its copy drifts with nothing to show why.
+        # One record per tournament: a subscriber mirroring the roster needs that granularity.
         for tournament_id in sorted(removed_ids):
             await record_enrolment_change(
-                self.audit_service, actor, user, tournament_id, added=False,
+                self.audit_service, actor, user, tournament_id, added=False, notify=True,
             )
         for tournament_id in sorted(created_ids):
             await record_enrolment_change(
-                self.audit_service, actor, user, tournament_id, added=True,
+                self.audit_service, actor, user, tournament_id, added=True, notify=True,
             )
 
     async def create_user(
@@ -388,10 +407,7 @@ class UserService:
         if not username or not username.strip():
             raise ValueError("Enter a username.")
         if discord_id:
-            # Discord ids are global and login claims the row that carries one,
-            # so creating an account here decides how that person's first sign-in
-            # goes on every community. A deactivated one would lock them out of
-            # the whole platform before they ever arrived.
+            # Discord ids are global: a deactivated row would lock the person out of every community.
             if not is_active:
                 raise ValueError(
                     "An account with a Discord ID has to start active. Create it, "
@@ -406,9 +422,6 @@ class UserService:
             is_active=is_active,
             discord_id=discord_id,
         )
-        # Staff creating an account from their own admin area mean it for their
-        # own community — without this the new user would not appear in the very
-        # table they were created from.
         await TenantMembershipService.ensure_member(
             new_user, actor=actor, source=MembershipSource.STAFF,
         )
@@ -525,39 +538,60 @@ class UserService:
                 f'community instead.'
             )
 
-    async def grant_role(self, target: User, role: Role, actor: User) -> None:
+    @staticmethod
+    async def _grant_event_id(role: Role, event_id: Optional[int]) -> Optional[int]:
+        """The event a per-event ``role`` is granted in: ``event_id`` (one of
+        this community's) or the event in scope; None for a community-wide role."""
+        if not role.is_per_event:
+            return None
+        from application.event_context import require_event_id
+        from application.services.event_service import EventService
+
+        resolved = event_id if event_id is not None else require_event_id()
+        require_found(await EventService.ref(require_tenant_id(), resolved), 'Event')
+        return resolved
+
+    async def grant_role(self, target: User, role: Role, actor: User, *, event_id: Optional[int] = None) -> None:
+        """Grant ``role``; a per-event role lands in ``event_id``, by default the event in scope."""
         await AuthService.ensure(
             await AuthService.can_grant_roles(actor),
             "Only Staff can grant roles",
         )
         _reject_platform_role(role, 'granted')
-        await self.role_repository.add(target, role, granted_by=actor, source=RoleSource.MANUAL)
-        # A role in a tenant implies membership in it. Guarded on the role rather
-        # than on the ambient tenant: grant_role runs *inside* a tenant context,
-        # so without this a super-admin grant would make them a member of
-        # whichever community happened to grant it.
+        event_id = await self._grant_event_id(role, event_id)
+        await self.role_repository.add(
+            target, role, granted_by=actor, source=RoleSource.MANUAL, event_id=event_id,
+        )
+        # Guard on the role's tenant, not the ambient one, or a super-admin grant joins them to the granting community.
         closed = None
         if role is not Role.SUPER_ADMIN:
             closed = await TenantMembershipService.ensure_member(
                 target, actor=actor, source=MembershipSource.ROLE_GRANT,
             )
         details: dict = {'role': role.value, 'target_user_id': target.id}
+        if event_id is not None:
+            details['event_id'] = event_id
         if closed is not None:
             details['closed_request_id'] = closed.id
         await self.audit_service.write_log(actor, AuditActions.USER_ROLE_GRANTED, details)
 
-    async def revoke_role(self, target: User, role: Role, actor: User) -> None:
+    async def revoke_role(self, target: User, role: Role, actor: User, *, event_id: Optional[int] = None) -> None:
+        """Revoke ``role``; a per-event role from ``event_id``, by default the event in scope."""
         await AuthService.ensure(
             await AuthService.can_grant_roles(actor),
             "Only Staff can revoke roles",
         )
         _reject_platform_role(role, 'revoked')
-        await self.role_repository.remove(target, role)
-        await self.audit_service.write_log(
-            actor,
-            AuditActions.USER_ROLE_REVOKED,
-            {'role': role.value, 'target_user_id': target.id},
-        )
+        event_id = await self._grant_event_id(role, event_id)
+        await self.role_repository.remove(target, role, event_id=event_id)
+        details: dict = {'role': role.value, 'target_user_id': target.id}
+        if event_id is not None:
+            details['event_id'] = event_id
+        await self.audit_service.write_log(actor, AuditActions.USER_ROLE_REVOKED, details)
+
+    async def role_grants(self, user: User) -> List[Tuple[Role, Optional[int]]]:
+        """Every grant ``user`` holds here as ``(role, event id or None)``, archived events included."""
+        return [(row.role, row.event_id) for row in await self.role_repository.list_for_user(user)]  # type: ignore[attr-defined]
 
     async def manage_tournament_enrollments(
         self,
@@ -584,5 +618,5 @@ class UserService:
                     added.append(tournament_id)
             for tournament_id in sorted(added):
                 await record_enrolment_change(
-                    self.audit_service, actor, user, tournament_id, added=True,
+                    self.audit_service, actor, user, tournament_id, added=True, notify=True,
                 )

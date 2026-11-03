@@ -160,7 +160,6 @@ class TestWrites:
                 '/api/async-qualifiers/live-races',
                 json={'pool_id': 9999, 'match_title': 'Race'},
             )
-            # Missing referenced entity -> NotFoundError -> 404 (audit §2B.6).
             assert resp.status_code == 404
 
     async def test_open_room_missing_is_404(self, db, app):

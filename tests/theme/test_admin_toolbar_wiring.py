@@ -63,8 +63,6 @@ class TestHiddenColumnsAreActuallyHidden:
             {'name': 'name', 'label': 'Name', 'field': 'name'},
             {'name': 'actions', 'label': '', 'field': 'actions'},
         ]
-        # 'actions' must survive: it is a column like any other to Quasar, and
-        # dropping it from visible-columns would take the row buttons with it.
         assert visible_column_names(columns) == ['name', 'actions']
 
     def test_a_list_with_nothing_hidden_is_unchanged(self):
@@ -73,10 +71,6 @@ class TestHiddenColumnsAreActuallyHidden:
 
     def test_every_file_declaring_a_hidden_column_applies_the_visibility(self):
         """A ``hidden`` column in a file that never applies it renders anyway."""
-        # Either helper is fine: enable_mobile_grid applies it for you, and a
-        # bespoke :grid table calls apply_column_visibility directly. A page
-        # that hands its column list to a *TableView delegates the duty to it
-        # (theme/tables/tournament.py applies it there).
         applies = re.compile(r'enable_mobile_grid|apply_column_visibility|customize_table')
         delegates = re.compile(r'TableView\(\s*\n?\s*columns=')
         offenders = []
@@ -101,7 +95,6 @@ class TestHiddenColumnsAreActuallyHidden:
 
 
 class TestRefreshControlsCarryTheirContext:
-    # The shape the audit found dead on eleven tabs.
     _HAND_ROLLED = re.compile(
         r"icon=['\"]refresh['\"][^\n]*\n?[^\n]*background_tasks\.create", re.MULTILINE
     )
@@ -128,15 +121,10 @@ class TestRefreshControlsCarryTheirContext:
 
     def test_refresh_button_captures_the_context_at_build_time(self):
         body = _refresh_button_body()
-        # Captured in the builder, rebound in the click — not the other way
-        # round, which would capture nothing.
+        # Captured in the builder, rebound in the click, not the other way round.
         assert body.index('capture_render_context()') < body.index('on_click=')
         assert 'scoped_background(context' in body
 
-    # The sibling defect — a background coroutine reading ``context.client``
-    # from inside, where it raises — lives in ``check_slot_context.py`` now, so
-    # it fires on every edit rather than only with the suite. Its tests are in
-    # ``tests/test_hook_background_client.py``.
 
     def test_refresh_button_defers_the_call_into_the_task(self):
         """``refresh()`` must run *inside* the task, not when the button is built.

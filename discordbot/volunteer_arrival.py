@@ -1,5 +1,5 @@
 """
-The shift-start DM's buttons: I'm here, Running late, I can't make it.
+The shift-start DM's buttons: I'm here, Tell staff I'm late, I can't make it.
 
 custom_id formats:
   'vol_here:<assignment_id>'                  check in
@@ -22,7 +22,7 @@ from application.utils.discord_messages_volunteer import (
     volunteer_released_confirmation,
 )
 from discordbot._ack_common import DMInteractionError, SendFn, run_dm_interaction
-from discordbot._tenant import assignment_tenant_id
+from discordbot._tenant import assignment_scope
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +48,7 @@ def make_volunteer_arrival_view(assignment_id: int) -> discord.ui.View:
         custom_id=f'{HERE_PREFIX}:{assignment_id}',
     ))
     view.add_item(discord.ui.Button(
-        label='Running late', style=discord.ButtonStyle.secondary,
+        label="Tell staff I'm late", style=discord.ButtonStyle.secondary,
         custom_id=f'{LATE_PREFIX}:{assignment_id}',
     ))
     view.add_item(discord.ui.Button(
@@ -106,7 +106,7 @@ async def _run(interaction: discord.Interaction, *, log_label: str, parse, handl
         interaction,
         log_label=log_label,
         parse=parse,
-        resolve_tenant=lambda parsed: assignment_tenant_id(
+        resolve_tenant=lambda parsed: assignment_scope(
             parsed[0] if isinstance(parsed, tuple) else parsed
         ),
         not_found_message='That shift no longer exists.',

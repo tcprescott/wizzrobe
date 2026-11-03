@@ -28,6 +28,7 @@ from theme.dialog._helpers import dialog_actions, form_dialog
 from theme.empty_state import no_data_slot
 from theme.help import help_icon
 from theme.notify import notify_error
+from theme.steady import steady_refreshable
 from theme.tables.admin_crud import current_actor, refresh_button
 from theme.tables.export import csv_export_button
 from theme.tables.mobile_grid import enable_mobile_grid
@@ -70,7 +71,7 @@ def _row(r: AccommodationRequest) -> dict[str, Any]:
         'updated_at': format_local_display(r.updated_at),
         'user': r.user.preferred_name,
         'status': r.status.value,
-        # The export reads this column, so the flag rides in its text too.
+        # The export reads this column, so the flag must stay in its text.
         'status_label': status_label + (' (changed since arranged)' if r.changed_since_arranged else ''),
         'status_name': status_label,
         'status_chip': STATUS_CHIP[r.status],
@@ -190,7 +191,7 @@ async def render_accommodation_panel(
             row = _row(request)
         await open_editor(row)
 
-    @ui.refreshable
+    @steady_refreshable
     async def _render_table() -> None:
         actor = await current_actor()
         try:

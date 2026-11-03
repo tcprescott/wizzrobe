@@ -11,7 +11,9 @@ from application.services import (
     SeedGenerationService,
     get_user_from_session,
 )
+from application.services.admin_presets_service import PASTE_FIELDS as _PASTE_FIELDS
 from application.utils.discord_messages import is_seed_link
+from theme.busy import busy_click
 from theme.clipboard import copy_to_clipboard
 from theme.dialog._helpers import dialog_actions, form_dialog
 from theme.dialog.confirmation_dialog import ConfirmationDialog
@@ -20,50 +22,13 @@ from theme.help import help_icon
 from theme.menu import menu_action
 from theme.notify import notify_error
 from theme.page_header import page_header
+from theme.pickers import CHIP_PROPS
 from theme.tables.admin_crud import current_actor, refresh_button, wire_tab_refresh
 from theme.waiting import waiting_panel
-
-# Randomizers whose settings are one string copied out of the randomizer:
-# (settings key, field label, placeholder, hint under the field).
-_PASTE_FIELDS = {
-    'wwr': (
-        'permalink', 'Permalink', "Paste the permalink from the randomizer's Permalink box",
-        'Each roll keeps the build and settings and only changes the seed.',
-    ),
-    'ff1r': (
-        'url', 'Flags link', 'https://4-9-7.finalfantasyrandomizer.com/?s=00000000&f=…',
-        "Copy the link from the randomizer's address bar after setting the flags. "
-        'Each roll keeps the flags and site version and only changes the seed.',
-    ),
-    'z1r': (
-        'flags', 'Flags', 'The flag string from the randomizer',
-        'Each roll adds a fresh seed number to these flags.',
-    ),
-    'z2r': (
-        'flags', 'Flags', 'The flag string from the randomizer',
-        'Each roll adds a fresh seed number to these flags.',
-    ),
-    'smb3r': (
-        'flags', 'Flags', 'The flag string from the randomizer',
-        'Each roll adds a fresh seed number to these flags.',
-    ),
-    'aosr': (
-        'url', 'Randomizer link', 'https://aosrando.surge.sh/?…',
-        'The aosrando.surge.sh link with your options in it. Each roll keeps the options and only changes the seed.',
-    ),
-    'avianart': (
-        'preset', 'AVIANART preset', 'crosskeys',
-        'The preset name from avianart.games, or owner/name for a user preset. '
-        'Import → From a randomizer… lists the published ones.',
-    ),
-}
 
 
 async def admin_presets_page() -> None:
     service = PresetService()
-    # Randomizers whose API key this community has not configured are dropped from
-    # the create/edit select (mirrors the tournament dialog); a stored preset on
-    # such a randomizer stays valid and editable (its value is re-added below).
     configured = await RandomizerCredentialService().configured_randomizers()
     available_randomizers = SeedGenerationService.available_randomizers(configured)
 
@@ -81,11 +46,8 @@ async def admin_presets_page() -> None:
             return await get_user_from_session(app.storage.user)
 
         async def refresh_table():
-            # Re-read the configured set, not just the rows: the admin tabs are
-            # built once per page load, so a key entered on the Randomizer Keys
-            # tab would otherwise not reach this select until a full reload —
-            # and "set the key, then author the preset" is the expected flow.
-            # ``wire_tab_refresh`` runs this on every switch back to this tab.
+            # Re-read the configured set too: tabs build once per page load, so a key added on
+            # Randomizer Keys wouldn't reach this select until a reload.
             nonlocal available_randomizers
             available_randomizers = SeedGenerationService.available_randomizers(
                 await RandomizerCredentialService().configured_randomizers()
@@ -146,7 +108,7 @@ async def admin_presets_page() -> None:
                 if row['description']:
                     desc.props['title'] = row['description']
                 ui.label(used_by(row)).classes('preset-list__used')
-                # No tooltip: it opened over the menu's first item.
+                # No tooltip: it opens over the menu's first item.
                 menu_button = ui.button(icon='more_vert', color=None).props('flat round dense') \
                     .classes('preset-list__menu')
                 menu_button.props['aria-label'] = f"More for {row['name']}"
@@ -213,8 +175,7 @@ async def admin_presets_page() -> None:
             background_tasks.create(run_test_roll(row, body, context.client))
 
         async def run_test_roll(row, body, client):
-            # Same shape as the handlers above: the actor and the tenant both
-            # resolve from the client's context, so the whole roll runs inside it.
+            # The whole roll must run inside `client`: the actor and tenant resolve from it.
             with client:
                 try:
                     result = await service.test_roll(await _current(), row['id'])
@@ -339,9 +300,6 @@ async def admin_presets_page() -> None:
                             return
 
                         picker = ui.select(
-                            # Description in the option label so the search box
-                            # matches on it too — "sprint" finds the sprint
-                            # rulesets whatever they happen to be called.
                             {
                                 name: (f'{name} — {entry.description}'
                                        if entry.description else name)
@@ -350,7 +308,7 @@ async def admin_presets_page() -> None:
                             label='Presets to import',
                             multiple=True, with_input=True, clearable=True,
                             value=sorted(selected),
-                        ).classes('w-full').props('use-chips')
+                        ).classes('w-full').props(CHIP_PROPS)
 
                         def on_pick(event) -> None:
                             selected.clear()
@@ -363,13 +321,13 @@ async def admin_presets_page() -> None:
                             note += f', {already} already imported'
                         ui.label(note).classes('text-caption text-grey')
 
-                    fetch_button = ui.button(
-                        'Fetch presets', icon='cloud_download', on_click=lambda: fetch(),
+                    ui.button(
+                        'Fetch presets', icon='cloud_download',
+                        on_click=busy_click('Fetching…', lambda: fetch()),
                     ).props('flat color=primary')
                     results()
 
                     async def fetch() -> None:
-                        fetch_button.disable()
                         try:
                             catalogue = await service.list_remote_presets(
                                 await _current(), randomizer_input.value,
@@ -378,8 +336,6 @@ async def admin_presets_page() -> None:
                         except (ValueError, PermissionError) as e:
                             notify_error(e)
                             return
-                        finally:
-                            fetch_button.enable()
                         selected.clear()
                         catalogue_state['entries'] = catalogue
                         results.refresh()
@@ -403,7 +359,7 @@ async def admin_presets_page() -> None:
                     with dialog_actions().classes('justify-end'):
                         ui.button('Cancel', on_click=dialog.close).props('flat')
                         ui.button(
-                            'Import', icon='download', on_click=do_import,
+                            'Import', icon='download', on_click=busy_click('Importing…', do_import),
                         ).props('color=primary')
 
                     on_randomizer_change()
@@ -432,9 +388,6 @@ async def admin_presets_page() -> None:
                         'Settings (JSON)',
                         value=existing['settings'] if is_edit else '{}',
                     ).classes('w-full font-mono').props('rows=12')
-                    # Settings that are one string copied out of the randomizer (a
-                    # permalink, flags, a link, a preset name) get a field for that
-                    # instead of JSON.
                     existing_paste = ''
                     if is_edit and existing['randomizer'] in _PASTE_FIELDS:
                         key = _PASTE_FIELDS[existing['randomizer']][0]

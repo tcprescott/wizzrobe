@@ -1,6 +1,7 @@
 """The write surface: match management and your own participation.
 
-Scoped to exactly what ``api/routers/match_actions.py`` exposes, tool for tool.
+Scoped to exactly what ``api/routers/match_actions.py`` (and crew approval from
+``api/routers/crew.py``) exposes, tool for tool.
 That is the whole rule, and it is worth stating because the alternative — adding
 whichever writes seemed useful — leaves two surfaces that drift apart and a
 question with no answer when the next one is proposed. A write that belongs here
@@ -30,15 +31,17 @@ from `list_matches`, user ids from `list_users`, and `winner_id` from
 user.
 """
 
-from typing import Callable, Dict, List, Literal, Optional
+from typing import Any, Callable, Dict, List, Literal, Optional
 
 from mcp.server.mcpserver import MCPServer
 
 from api._match_view import load_match_response
-from api.schemas.match_actions import SeedResultResponse
+from api.schemas.match_actions import ExtendToSetRequest, SeedResultResponse, SetGameTime
 from api.schemas.matches import MatchResponse
+from application.api_scopes import ApiScope
 from application.errors import require_found
 from application.services import (
+    BracketSetService,
     CrewService,
     MatchScheduleService,
     MatchService,
@@ -50,9 +53,8 @@ from mcpserver.auth import Gate, current_actor
 from mcpserver.registry import register
 from mcpserver.schemas import OperationResult, TenantArg
 
-# In the schema rather than only the prose, so the model reads the two legal
-# values off the tool definition instead of a docstring it may skim.
-CrewRole = Literal['commentator', 'tracker']
+# A Literal so the legal values are in the tool schema, not just the docstring.
+CrewRole = Literal['commentator', 'tracker', 'broadcaster']
 
 
 async def _load_match(match_id: int):
@@ -81,9 +83,6 @@ async def _match_response(match_id: int) -> MatchResponse:
     return require_found(await load_match_response(match_id), 'Match')
 
 
-# --- Scheduling -------------------------------------------------------------
-
-
 async def create_match(
     tournament_id: int,
     scheduled_date: str,
@@ -95,6 +94,7 @@ async def create_match(
     commentator_ids: Optional[List[int]] = None,
     tracker_ids: Optional[List[int]] = None,
     is_stream_candidate: bool = False,
+    broadcaster_ids: Optional[List[int]] = None,
 ) -> MatchResponse:
     """Schedule a new match and notify its players.
 
@@ -112,6 +112,7 @@ async def create_match(
         stage_id=stage_id,
         commentator_ids=commentator_ids,
         tracker_ids=tracker_ids,
+        broadcaster_ids=broadcaster_ids,
         is_stream_candidate=is_stream_candidate,
         actor=actor,
     )
@@ -153,6 +154,7 @@ async def update_match(
     player_ids: Optional[List[int]] = None,
     commentator_ids: Optional[List[int]] = None,
     tracker_ids: Optional[List[int]] = None,
+    broadcaster_ids: Optional[List[int]] = None,
     comment: Optional[str] = None,
     clear_seated: bool = False,
     clear_started: bool = False,
@@ -175,6 +177,7 @@ async def update_match(
         player_ids=player_ids,
         commentator_ids=commentator_ids,
         tracker_ids=tracker_ids,
+        broadcaster_ids=broadcaster_ids,
         comment=comment,
         clear_seated=clear_seated,
         clear_started=clear_started,
@@ -192,14 +195,35 @@ async def delete_match(
 ) -> OperationResult:
     """Delete a match. This cannot be undone — confirm with the user first.
 
-    Players and crew are notified that it is off.
+    Nobody is notified: players and crew are not told it is off, so tell them
+    yourself or have staff call the match off in the app, which does send DMs.
     """
     actor = current_actor().user
     await MatchService().delete_match(match_id, actor=actor)
     return OperationResult(detail=f'Match {match_id} deleted.')
 
 
-# --- Stream and stations ----------------------------------------------------
+async def extend_match_to_set(
+    match_id: int,
+    later_games: List[SetGameTime],
+    tenant: TenantArg = None,
+    allow_outside_round: bool = False,
+) -> List[MatchResponse]:
+    """Turn a booked Challonge or start.gg match into a best-of set, keeping it as game 1.
+
+    For a matchup booked as one game before its stage became a best-of. The
+    match keeps its crew, seed, stage and comments; games 2 and up are booked
+    with the same players, who are DMed as for any booking.
+    `later_games` lists games 2, 3 and on in order, each a date (YYYY-MM-DD)
+    and time (HH:MM) on the community's own clock: two entries make a
+    best-of-3, four a best-of-5. Returns every game, game 1 first.
+    """
+    body = ExtendToSetRequest(later_games=later_games, allow_outside_round=allow_outside_round)
+    games = await BracketSetService().extend_booking(
+        match_id, [(g.scheduled_date, g.scheduled_time) for g in body.later_games], current_actor().user,
+        allow_outside_round=body.allow_outside_round,
+    )
+    return [await _match_response(g.id) for g in games]
 
 
 async def set_match_stream_candidate(
@@ -240,9 +264,6 @@ async def assign_match_stations(
     actor = current_actor().user
     await MatchService().assign_stations(match_id, assignments, actor=actor)
     return await _match_response(match_id)
-
-
-# --- Lifecycle --------------------------------------------------------------
 
 
 async def seat_match(
@@ -339,10 +360,7 @@ async def generate_match_seed(
     lands. Every other randomizer returns the permalink directly.
     """
     actor = current_actor().user
-    # Resolve the id before handing it to the service. ``generate_seed`` reports
-    # every failure as a ``(False, message, None)`` tuple, so an unknown id would
-    # otherwise come back as `invalid_request` — and reach Sentry as a logged
-    # traceback — where every other tool here answers `not_found`.
+    # Resolve first: generate_seed would report an unknown id as invalid_request, not not_found.
     await _load_match(match_id)
     success, message, seed_url = await MatchScheduleService().generate_seed(
         match_id, actor=actor
@@ -352,7 +370,26 @@ async def generate_match_seed(
     return SeedResultResponse(message=message, seed_url=seed_url)
 
 
-# --- Your own participation -------------------------------------------------
+async def set_crew_approval(
+    crew_id: int,
+    role: CrewRole,
+    approved: bool,
+    tenant: TenantArg = None,
+) -> OperationResult:
+    """Approve or reject someone's `commentator`, `tracker` or `broadcaster` signup.
+
+    `crew_id` is the signup's `id` from `list_match_crew`. Approving DMs them
+    asking them to confirm; rejecting an approved signup clears their
+    confirmation and DMs them that they're off the crew. Sending the state the
+    signup is already in changes nothing. Staff, admins of the match's
+    tournament and its crew coordinators.
+    """
+    actor = current_actor().user
+    service = CrewService()
+    crew_member = require_found(await service.get_crew_member_by_id(crew_id, role), 'Crew signup')
+    await service.update_crew_approval(crew_member, role, approved, actor=actor)  # type: ignore[arg-type]
+    verdict = 'Approved' if approved else 'Rejected'
+    return OperationResult(detail=f'{verdict} {role} signup {crew_id}.')
 
 
 async def signup_as_crew(
@@ -360,7 +397,7 @@ async def signup_as_crew(
     role: CrewRole,
     tenant: TenantArg = None,
 ) -> OperationResult:
-    """Sign yourself up to crew a match as `commentator` or `tracker`.
+    """Sign yourself up to crew a match as `commentator`, `tracker` or `broadcaster`.
 
     Signs up the person this connection belongs to, never anyone else. The
     signup may need staff approval before it counts.
@@ -375,7 +412,7 @@ async def withdraw_crew_signup(
     role: CrewRole,
     tenant: TenantArg = None,
 ) -> OperationResult:
-    """Withdraw your own `commentator` or `tracker` signup from a match."""
+    """Withdraw your own `commentator`, `tracker` or `broadcaster` signup from a match."""
     actor = current_actor().user
     await CrewService().undo_crew_signup(match_id, actor, role)
     return OperationResult(detail=f'Withdrew your {role} signup for match {match_id}.')
@@ -426,7 +463,7 @@ async def offer_match_for_stream(
 ) -> OperationResult:
     """Offer your own match for stream coverage, before it starts.
 
-    Only a player in the match can offer it. Stream managers see the offer when
+    Only a player in the match can offer it. Broadcast techs see the offer when
     they choose stream candidates; it does not put the match on stream.
     """
     await MatchStreamVolunteerService().volunteer(match_id, current_actor().user)
@@ -449,7 +486,9 @@ async def withdraw_stream_offer(
 
 
 def register_tools(mcp: MCPServer) -> None:
-    def write_tool(fn: Callable, title: str, *, destructive: bool = False) -> None:
+    def write_tool(
+        fn: Callable, title: str, *, scope: ApiScope, destructive: bool = False, event: Any = False,
+    ) -> None:
         """Every tool in this module, registered the same way.
 
         The gate and ``write=True`` are not per-tool decisions here — they are
@@ -457,28 +496,31 @@ def register_tools(mcp: MCPServer) -> None:
         nineteen times where one of them could quietly go missing.
         """
         register(
-            mcp, fn, gate=Gate.ACTOR, write=True, title=title,
+            mcp, fn, gate=Gate.ACTOR, scope=scope, write=True, title=title,
             destructive=destructive,
+            event=event,
         )
 
-    write_tool(create_match, 'Create match')
-    write_tool(submit_match_request, 'Request match')
-    write_tool(update_match, 'Update match')
-    write_tool(delete_match, 'Delete match', destructive=True)
-    write_tool(set_match_stream_candidate, 'Set stream candidate')
-    write_tool(assign_match_stage, 'Assign stage')
-    write_tool(assign_match_stations, 'Assign stations')
-    write_tool(seat_match, 'Check in match')
-    write_tool(start_match, 'Start match')
-    write_tool(finish_match, 'Finish match')
-    write_tool(confirm_match, 'Confirm match')
-    write_tool(record_match_result, 'Record result')
-    write_tool(set_match_review, 'Flag or clear review')
-    write_tool(generate_match_seed, 'Generate seed')
-    write_tool(signup_as_crew, 'Sign up as crew')
-    write_tool(withdraw_crew_signup, 'Withdraw crew signup', destructive=True)
-    write_tool(acknowledge_match, 'Acknowledge match')
-    write_tool(watch_match, 'Watch match')
-    write_tool(unwatch_match, 'Stop watching match')
-    write_tool(offer_match_for_stream, 'Offer match for stream')
-    write_tool(withdraw_stream_offer, 'Withdraw stream offer', destructive=True)
+    write_tool(create_match, 'Create match', scope=ApiScope.STAFF_WRITE, event=True)
+    write_tool(submit_match_request, 'Request match', scope=ApiScope.PLAY, event=True)
+    write_tool(update_match, 'Update match', scope=ApiScope.STAFF_WRITE, event=True)
+    write_tool(delete_match, 'Delete match', destructive=True, scope=ApiScope.STAFF_WRITE, event=True)
+    write_tool(extend_match_to_set, 'Turn match into a set', scope=ApiScope.STAFF_WRITE, event=True)
+    write_tool(set_match_stream_candidate, 'Set stream candidate', scope=ApiScope.STAFF_WRITE, event=True)
+    write_tool(assign_match_stage, 'Assign stage', scope=ApiScope.STAFF_WRITE, event=True)
+    write_tool(assign_match_stations, 'Assign stations', scope=ApiScope.STAFF_WRITE, event=True)
+    write_tool(seat_match, 'Check in match', scope=ApiScope.STAFF_WRITE, event=True)
+    write_tool(start_match, 'Start match', scope=ApiScope.STAFF_WRITE, event=True)
+    write_tool(finish_match, 'Finish match', scope=ApiScope.STAFF_WRITE, event=True)
+    write_tool(confirm_match, 'Confirm match', scope=ApiScope.STAFF_WRITE, event=True)
+    write_tool(record_match_result, 'Record result', scope=ApiScope.STAFF_WRITE, event=True)
+    write_tool(set_match_review, 'Flag or clear review', scope=ApiScope.STAFF_WRITE, event=True)
+    write_tool(generate_match_seed, 'Generate seed', scope=ApiScope.STAFF_WRITE, event=True)
+    write_tool(set_crew_approval, 'Approve or reject crew', scope=ApiScope.STAFF_WRITE, event=True)
+    write_tool(signup_as_crew, 'Sign up as crew', scope=ApiScope.CREW, event=True)
+    write_tool(withdraw_crew_signup, 'Withdraw crew signup', destructive=True, scope=ApiScope.CREW, event=True)
+    write_tool(acknowledge_match, 'Acknowledge match', scope=ApiScope.PLAY, event=True)
+    write_tool(watch_match, 'Watch match', scope=ApiScope.CREW, event=True)
+    write_tool(unwatch_match, 'Stop watching match', scope=ApiScope.CREW, event=True)
+    write_tool(offer_match_for_stream, 'Offer match for stream', scope=ApiScope.PLAY, event=True)
+    write_tool(withdraw_stream_offer, 'Withdraw stream offer', destructive=True, scope=ApiScope.PLAY, event=True)

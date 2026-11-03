@@ -3,7 +3,8 @@
 The fourth write module, held to the same rule as the others: each tool
 mirrors one REST endpoint, from ``api/routers/stage_actions.py``,
 ``api/routers/volunteers.py``, ``api/routers/users.py``,
-``api/routers/equipment.py`` and ``api/routers/payouts.py``. A write that
+``api/routers/equipment.py``, ``api/routers/payouts.py`` and
+``api/routers/notification_settings.py``. A write that
 belongs here belongs in the REST router too, and vice versa.
 
 Every tool is registered at ``Gate.ACTOR`` with ``write=True``, mirroring
@@ -16,11 +17,13 @@ not found.
 """
 
 from decimal import Decimal
-from typing import Callable, List, Optional
+from typing import Any, Callable, List, Optional
 
 from mcp.server.mcpserver import MCPServer
 from pydantic import BaseModel, Field
 
+from api.schemas.notification_settings import NotificationSettingResponse
+from api.schemas.notifications import MyNotificationResponse, MyNotificationsResponse
 from api.schemas.payouts import PayoutLineRequest
 from api.schemas.volunteers import (
     AssignResponse,
@@ -30,9 +33,13 @@ from api.schemas.volunteers import (
     VolunteerPositionUpdate,
     VolunteerShiftResponse,
 )
+from application.api_scopes import ApiScope
 from application.errors import require_found
 from application.services import (
     EquipmentService,
+    EventService,
+    NotificationPreferenceService,
+    NotificationSettingsService,
     PayoutService,
     StageService,
     TenantMembershipService,
@@ -70,16 +77,13 @@ def _role(value: str) -> Role:
         raise ValueError(f"Unknown role '{value}'. Valid roles: {valid}") from exc
 
 
-# --- Stages ---------------------------------------------------------------------
-
-
 async def create_stage(
     name: str,
     tenant: TenantArg = None,
     stream_url: Optional[str] = None,
     is_active: bool = True,
 ) -> StageInfo:
-    """Add a stage (a stream or play area matches are assigned to). Staff or stream managers."""
+    """Add a stage (a stream or play area matches are assigned to). Staff or broadcast techs."""
     stage = await StageService().create_stage(
         name=name, stream_url=stream_url, is_active=is_active, actor=current_actor().user,
     )
@@ -96,7 +100,7 @@ async def update_stage(
     """Change a stage. Only what you pass changes; an empty `stream_url` clears it.
 
     Set `is_active` false to retire a stage that has matches on it. Staff or
-    stream managers.
+    broadcast techs.
     """
     service = StageService()
     stage = require_found(await service.get_stage_by_id(stage_id), 'Stage')
@@ -110,14 +114,11 @@ async def delete_stage(
     stage_id: int,
     tenant: TenantArg = None,
 ) -> OperationResult:
-    """Permanently delete a stage with no matches on it. Staff or stream managers."""
+    """Permanently delete a stage with no matches on it. Staff or broadcast techs."""
     service = StageService()
     stage = require_found(await service.get_stage_by_id(stage_id), 'Stage')
     await service.delete_stage(stage, actor=current_actor().user)
     return OperationResult(detail=f'Stage {stage_id} deleted.')
-
-
-# --- Volunteer positions ----------------------------------------------------------
 
 
 async def create_volunteer_position(
@@ -129,11 +130,14 @@ async def create_volunteer_position(
     is_active: bool = True,
     shift_length_minutes: Optional[int] = None,
     stagger_minutes: Optional[int] = None,
+    staff_alerts: bool = False,
 ) -> VolunteerPositionResponse:
     """Add a volunteer position, such as "Runner" or "Info desk". Staff or volunteer coordinators.
 
     Set `shift_length_minutes` and `stagger_minutes` together to have generated
-    shifts overlap; leave both out for back-to-back blocks.
+    shifts overlap; leave both out for back-to-back blocks. Set `staff_alerts`
+    on the admin-desk position: whoever is on its shift gets match alerts
+    (player comments, reschedule requests) instead of every staff member.
     """
     args = dict(locals())
     args.pop('tenant')
@@ -152,6 +156,7 @@ async def update_volunteer_position(
     is_active: Optional[bool] = None,
     shift_length_minutes: Optional[int] = None,
     stagger_minutes: Optional[int] = None,
+    staff_alerts: Optional[bool] = None,
 ) -> VolunteerPositionResponse:
     """Change a volunteer position. Only what you pass changes. Staff or volunteer coordinators."""
     args = dict(locals())
@@ -161,9 +166,9 @@ async def update_volunteer_position(
     body = VolunteerPositionUpdate.model_validate(fields)
     service = VolunteerPositionService()
     position = require_found(await service.get(position_id), 'Position')
-    changes = body.model_dump(exclude_unset=True)
-    if changes:
-        position = await service.update(current_actor().user, position, **changes)
+    position = await service.update(
+        current_actor().user, position, **body.model_dump(exclude_unset=True),
+    )
     return VolunteerPositionResponse.model_validate(position, from_attributes=True)
 
 
@@ -176,9 +181,6 @@ async def delete_volunteer_position(
     position = require_found(await service.get(position_id), 'Position')
     await service.delete(current_actor().user, position)
     return OperationResult(detail=f'Position {position_id} deleted with its shifts.')
-
-
-# --- Volunteer shifts and assignments ---------------------------------------------
 
 
 async def create_volunteer_shift(
@@ -234,8 +236,7 @@ async def update_volunteer_shift(
             fields[key] = value.strip() or None
     service = VolunteerScheduleService()
     shift = require_found(await service.get_shift(shift_id), 'Shift')
-    if fields:
-        await service.update_shift(current_actor().user, shift, **fields)
+    await service.update_shift(current_actor().user, shift, **fields)
     return VolunteerShiftResponse.from_row(
         require_found(await service.get_shift(shift_id), 'Shift'), include_drafts=True,
     )
@@ -286,9 +287,6 @@ async def unassign_volunteer(
     return OperationResult(detail=f'Assignment {assignment_id} removed.')
 
 
-# --- Members and roles ----------------------------------------------------------------
-
-
 async def add_community_member(
     user_id: int,
     tenant: TenantArg = None,
@@ -314,29 +312,116 @@ async def remove_community_member(
 async def grant_community_role(
     user_id: int,
     role: str,
+    event: Optional[str] = None,
     tenant: TenantArg = None,
 ) -> OperationResult:
     """Give someone a role in this community, making them a member if needed. Staff only.
 
-    `role` is a name such as `proctor`, `volunteer` or `check_in_desk`.
+    `role` is a name such as `proctor`, `volunteer` or `check_in_desk`. Those
+    on-site roles are held in one event: `event` is its slug, by default the
+    community's default event. `staff` and the online admin roles cover every
+    event and ignore it.
     """
     parsed = _role(role)
-    await UserService().grant_role(await _user(user_id), parsed, actor=current_actor().user)
+    await UserService().grant_role(
+        await _user(user_id), parsed, actor=current_actor().user,
+        event_id=await EventService.id_for_slug(event),
+    )
     return OperationResult(detail=f'Granted {parsed.value} to user {user_id}.')
 
 
 async def revoke_community_role(
     user_id: int,
     role: str,
+    event: Optional[str] = None,
     tenant: TenantArg = None,
 ) -> OperationResult:
-    """Take a role away in this community. They stay a member. Staff only."""
+    """Take a role away in this community. They stay a member. Staff only.
+
+    For an on-site role, `event` is the slug of the event it's taken away in,
+    by default the community's default event.
+    """
     parsed = _role(role)
-    await UserService().revoke_role(await _user(user_id), parsed, actor=current_actor().user)
+    await UserService().revoke_role(
+        await _user(user_id), parsed, actor=current_actor().user,
+        event_id=await EventService.id_for_slug(event),
+    )
     return OperationResult(detail=f'Revoked {parsed.value} from user {user_id}.')
 
 
-# --- Equipment ------------------------------------------------------------------------
+async def set_notification_setting(
+    notice: str,
+    recipient: str,
+    mode: str,
+    tenant: TenantArg = None,
+) -> NotificationSettingResponse:
+    """Set how one message reaches one kind of recipient. Staff only.
+
+    `notice` and `recipient` come from `list_notification_settings`; `mode` is
+    `off`, `silent` or `ping`. Choosing the default clears the override.
+    Mirrors `PUT /api/notification-settings/{notice}/{recipient}`.
+    """
+    return NotificationSettingResponse.from_row(await NotificationSettingsService.set_mode(current_actor().user, notice, recipient, mode))
+
+
+async def set_staff_notification_setting(
+    notice: str,
+    choice: str,
+    tenant: TenantArg = None,
+) -> List[NotificationSettingResponse]:
+    """Set how one message reaches staff, in one choice. Staff only.
+
+    `choice` is `ping_all` (whoever is on shift plus the admins, all staff when
+    nobody is on shift), `ping_on_duty` (admins off, same fallback), `silent` or
+    `off`. Sets the message's `on_duty`, `admins` and `staff` rows together and
+    returns them. Mirrors `PUT /api/notification-settings/{notice}/staff-alerts`.
+    """
+    rows = await NotificationSettingsService.set_staff_choice(current_actor().user, notice, choice)
+    return [NotificationSettingResponse.from_row(r) for r in rows]
+
+
+async def reset_notification_settings(
+    tenant: TenantArg = None,
+) -> OperationResult:
+    """Put every notification back to its default. Staff only.
+
+    Mirrors `POST /api/notification-settings/reset`.
+    """
+    count = await NotificationSettingsService.reset_all(current_actor().user)
+    return OperationResult(detail=f'{count} setting(s) back to default.')
+
+
+async def set_my_notification_preset(
+    preset: str,
+    tenant: TenantArg = None,
+) -> MyNotificationsResponse:
+    """Choose your own notification preset in this community: `everything`,
+    `needs_me` (ping only when you have something to do) or `quiet` (ping only
+    what can't wait). Messages you changed one by one keep your choice.
+
+    Mirrors `PUT /api/notifications/messages/preset`.
+    """
+    return MyNotificationsResponse.from_mine(
+        await NotificationPreferenceService.set_preset(current_actor().user, preset),
+    )
+
+
+async def set_my_notification(
+    notice: str,
+    recipient: str,
+    mode: Optional[str] = None,
+    tenant: TenantArg = None,
+) -> MyNotificationResponse:
+    """Choose how one message reaches you: `off`, `silent` or `ping`, or leave
+    `mode` out to follow your preset again.
+
+    `notice` and `recipient` come from `my_notification_settings`. Your
+    community's setting is a ceiling, so you can make a message quieter, never
+    louder. Mirrors `PUT /api/notifications/messages/{notice}/{recipient}`.
+    """
+    return MyNotificationResponse.from_row(
+        await NotificationPreferenceService.set_mode(current_actor().user, notice, recipient, mode),
+    )
 
 
 async def create_equipment(
@@ -436,12 +521,14 @@ async def check_in_equipment(
     return await get_equipment(equipment_id)
 
 
-# --- Payouts --------------------------------------------------------------------------
-
-
 class PayoutLine(BaseModel):
     place: int = Field(..., ge=1, description='Finishing place this share pays, starting at 1.')
-    percentage: Decimal = Field(..., gt=0, description='Share of the total, as a percentage ("25" is 25%).')
+    percentage: Optional[Decimal] = Field(
+        None, gt=0, description='Share of the total, as a percentage ("25" is 25%). Give this or amount.',
+    )
+    amount: Optional[Decimal] = Field(
+        None, gt=0, description='A fixed dollar amount ("650" is $650) that does not move with the pool. Give this or percentage.',
+    )
     entrant_id: Optional[int] = Field(None, description='User ID of the person paid; leave out while drafting.')
     note: Optional[str] = None
 
@@ -467,8 +554,9 @@ async def set_tournament_payout_split(
 ) -> TournamentPayouts:
     """Replace a tournament's whole prize split. An empty list clears it.
 
-    Percentages may add up to less than 100 but not more, and every entrant must
-    be a member. Staff or that tournament's admins.
+    Each place takes a percentage or a fixed dollar amount. Percentages may add
+    up to less than 100 but not more, the money may not exceed the total, and
+    every entrant must be a member. Staff or that tournament's admins.
     """
     rows = [PayoutLineRequest.model_validate(line.model_dump()).model_dump() for line in lines]
     await PayoutService().set_split(tournament_id, rows, current_actor().user)
@@ -477,39 +565,47 @@ async def set_tournament_payout_split(
 
 def register_tools(mcp: MCPServer) -> None:
     def write_tool(
-        fn: Callable, title: str, feature: Optional[FeatureFlag] = None, *, destructive: bool = False,
+        fn: Callable, title: str, feature: Optional[FeatureFlag] = None, *,
+        scope: ApiScope, destructive: bool = False, event: Any = False,
     ) -> None:
         register(
-            mcp, fn, gate=Gate.ACTOR, feature=feature, write=True, title=title,
+            mcp, fn, gate=Gate.ACTOR, scope=scope, feature=feature, write=True, title=title,
             destructive=destructive,
+            event=event,
         )
 
-    write_tool(create_stage, 'Create stage')
-    write_tool(update_stage, 'Update stage')
-    write_tool(delete_stage, 'Delete stage', destructive=True)
+    write_tool(create_stage, 'Create stage', scope=ApiScope.STAFF_WRITE, event=True)
+    write_tool(update_stage, 'Update stage', scope=ApiScope.STAFF_WRITE, event=True)
+    write_tool(delete_stage, 'Delete stage', destructive=True, scope=ApiScope.STAFF_WRITE, event=True)
 
     volunteers = FeatureFlag.VOLUNTEERS
-    write_tool(create_volunteer_position, 'Create volunteer position', volunteers)
-    write_tool(update_volunteer_position, 'Update volunteer position', volunteers)
-    write_tool(delete_volunteer_position, 'Delete volunteer position', volunteers, destructive=True)
-    write_tool(create_volunteer_shift, 'Create volunteer shift', volunteers)
-    write_tool(update_volunteer_shift, 'Update volunteer shift', volunteers)
-    write_tool(delete_volunteer_shift, 'Delete volunteer shift', volunteers, destructive=True)
-    write_tool(assign_volunteer, 'Assign volunteer', volunteers)
-    write_tool(unassign_volunteer, 'Unassign volunteer', volunteers, destructive=True)
+    write_tool(create_volunteer_position, 'Create volunteer position', volunteers, scope=ApiScope.STAFF_WRITE, event=True)
+    write_tool(update_volunteer_position, 'Update volunteer position', volunteers, scope=ApiScope.STAFF_WRITE, event=True)
+    write_tool(delete_volunteer_position, 'Delete volunteer position', volunteers, destructive=True, scope=ApiScope.STAFF_WRITE, event=True)
+    write_tool(create_volunteer_shift, 'Create volunteer shift', volunteers, scope=ApiScope.STAFF_WRITE, event=True)
+    write_tool(update_volunteer_shift, 'Update volunteer shift', volunteers, scope=ApiScope.STAFF_WRITE, event=True)
+    write_tool(delete_volunteer_shift, 'Delete volunteer shift', volunteers, destructive=True, scope=ApiScope.STAFF_WRITE, event=True)
+    write_tool(assign_volunteer, 'Assign volunteer', volunteers, scope=ApiScope.STAFF_WRITE, event=True)
+    write_tool(unassign_volunteer, 'Unassign volunteer', volunteers, destructive=True, scope=ApiScope.STAFF_WRITE, event=True)
 
-    write_tool(add_community_member, 'Add community member')
-    write_tool(remove_community_member, 'Remove community member', destructive=True)
-    write_tool(grant_community_role, 'Grant community role')
-    write_tool(revoke_community_role, 'Revoke community role', destructive=True)
+    write_tool(add_community_member, 'Add community member', scope=ApiScope.STAFF_WRITE)
+    write_tool(remove_community_member, 'Remove community member', destructive=True, scope=ApiScope.STAFF_WRITE)
+    write_tool(grant_community_role, 'Grant community role', scope=ApiScope.STAFF_WRITE)
+    write_tool(revoke_community_role, 'Revoke community role', destructive=True, scope=ApiScope.STAFF_WRITE)
+
+    write_tool(set_notification_setting, 'Set notification setting', scope=ApiScope.STAFF_WRITE)
+    write_tool(set_staff_notification_setting, 'Set staff notification setting', scope=ApiScope.STAFF_WRITE)
+    write_tool(reset_notification_settings, 'Reset notification settings', destructive=True, scope=ApiScope.STAFF_WRITE)
+    write_tool(set_my_notification_preset, 'Set my notification preset', scope=ApiScope.PROFILE_WRITE)
+    write_tool(set_my_notification, 'Set my notification', scope=ApiScope.PROFILE_WRITE)
 
     equipment = FeatureFlag.EQUIPMENT
-    write_tool(create_equipment, 'Create equipment', equipment)
-    write_tool(update_equipment, 'Update equipment', equipment)
-    write_tool(delete_equipment, 'Delete equipment', equipment, destructive=True)
-    write_tool(check_out_equipment, 'Check out equipment', equipment)
-    write_tool(check_in_equipment, 'Check in equipment', equipment)
+    write_tool(create_equipment, 'Create equipment', equipment, scope=ApiScope.STAFF_WRITE)
+    write_tool(update_equipment, 'Update equipment', equipment, scope=ApiScope.STAFF_WRITE)
+    write_tool(delete_equipment, 'Delete equipment', equipment, destructive=True, scope=ApiScope.STAFF_WRITE)
+    write_tool(check_out_equipment, 'Check out equipment', equipment, scope=ApiScope.PLAY)
+    write_tool(check_in_equipment, 'Check in equipment', equipment, scope=ApiScope.STAFF_WRITE)
 
     payouts = FeatureFlag.PAYOUTS
-    write_tool(set_tournament_prize_pool, 'Set prize pool', payouts)
-    write_tool(set_tournament_payout_split, 'Set payout split', payouts)
+    write_tool(set_tournament_prize_pool, 'Set prize pool', payouts, scope=ApiScope.STAFF_WRITE, event=True)
+    write_tool(set_tournament_payout_split, 'Set payout split', payouts, scope=ApiScope.STAFF_WRITE, event=True)

@@ -9,14 +9,14 @@ from typing import List, Literal, Optional
 
 from fastapi import APIRouter, Depends, Query
 
-from api.dependencies import ServiceErrorRoute, require_staff
+from api.dependencies import ServiceErrorRoute, event_filter, require_staff
 from api.schemas.telemetry import TelemetrySummaryResponse, TelemetryTopRow
 from application.services import TelemetryService
 from models import User
 
 router = APIRouter(prefix="/telemetry", tags=["Telemetry"], route_class=ServiceErrorRoute)
 
-Dimension = Literal['paths', 'event_types', 'users', 'controls']
+Dimension = Literal['paths', 'event_types', 'users', 'controls', 'api', 'api_users']
 
 StartQuery = Query(None, description="Window start (UTC ISO 8601). Unbounded when omitted.")
 EndQuery = Query(None, description="Window end (UTC ISO 8601). Unbounded when omitted.")
@@ -28,7 +28,8 @@ EndQuery = Query(None, description="Window end (UTC ISO 8601). Unbounded when om
     summary="Engagement totals for a window (Staff only)",
     description=(
         "Counts telemetry rows, distinct people, distinct sessions and page loads recorded in the "
-        "window. Leave `start` or `end` out to leave that side open.\n\n"
+        "window, plus how many distinct people called the MCP server and the REST API. "
+        "Leave `start` or `end` out to leave that side open.\n\n"
         "**Who can call this:** Staff."
     ),
 )
@@ -36,8 +37,9 @@ async def summary(
     start: Optional[datetime] = StartQuery,
     end: Optional[datetime] = EndQuery,
     actor: User = Depends(require_staff),
+    event_id: Optional[int] = Depends(event_filter),
 ):
-    return await TelemetryService().engagement_summary(actor, start=start, end=end)
+    return await TelemetryService().engagement_summary(actor, start=start, end=end, event_id=event_id)
 
 
 @router.get(
@@ -47,16 +49,20 @@ async def summary(
     description=(
         "Returns the busiest rows for one dimension, busiest first. The row shape depends on "
         "`dimension`: `paths` gives the most-loaded pages, `event_types` the most frequent event names, "
-        "`users` the most active people and `controls` the most-used tabs, buttons, dialogs and fields.\n\n"
+        "`users` the most active people, `controls` the most-used tabs, buttons, dialogs and fields, "
+        "`api` the most-called MCP tools and REST routes and `api_users` who calls the MCP server "
+        "and REST API. Pass `user_id` to count only that person's rows.\n\n"
         "**Who can call this:** Staff."
     ),
 )
 async def top(
-    dimension: Dimension = Query(..., description="Which leaderboard to return: `paths`, `event_types`, `users` or `controls`."),
+    dimension: Dimension = Query(..., description="Which leaderboard to return: `paths`, `event_types`, `users`, `controls`, `api` or `api_users`."),
     start: Optional[datetime] = StartQuery,
     end: Optional[datetime] = EndQuery,
     limit: int = Query(15, ge=1, le=100, description="Maximum rows to return."),
+    user_id: Optional[int] = Query(None, description="Count only this person's rows."),
     actor: User = Depends(require_staff),
+    event_id: Optional[int] = Depends(event_filter),
 ):
     service = TelemetryService()
     fn = {
@@ -64,5 +70,7 @@ async def top(
         'event_types': service.top_event_types,
         'users': service.top_users,
         'controls': service.top_controls,
+        'api': service.top_api_calls,
+        'api_users': service.top_api_users,
     }[dimension]
-    return await fn(actor, start=start, end=end, limit=limit)
+    return await fn(actor, start=start, end=end, event_id=event_id, user_id=user_id, limit=limit)

@@ -35,8 +35,6 @@ class MatchStreamVolunteerService:
             await self.match_repository.get_by_id(match_id),
             f"Match {match_id}",
         )
-        # Reverse relation and FK id column: mypy cannot see either on a
-        # dynamically built Tortoise model.
         players = match.players  # type: ignore[attr-defined]
         if not any(p.user_id == user.id for p in players):
             raise ValueError('Only the players in a match can offer it for stream.')
@@ -56,6 +54,9 @@ class MatchStreamVolunteerService:
                 EventType.MATCH_STREAM_VOLUNTEERED,
                 event_extra={'tournament_id': match.tournament_id},
             )
+            from application.services import opt_in_notifications
+            from application.services.discord import discord_queue
+            discord_queue.enqueue(opt_in_notifications.stream_offer(match_id, user.id, user.preferred_name))
         return row
 
     async def withdraw(self, match_id: int, user: User) -> bool:

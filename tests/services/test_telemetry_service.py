@@ -29,11 +29,6 @@ async def _plain(discord_id: int = 2002, username: str = 'nobody') -> User:
     return await User.create(discord_id=discord_id, username=username)
 
 
-# ---------------------------------------------------------------------------
-# record_event — event-bus mirror
-# ---------------------------------------------------------------------------
-
-
 class TestRecordEvent:
     async def test_mirrors_domain_event_with_actor(self, db):
         actor = await _plain()
@@ -63,11 +58,6 @@ class TestRecordEvent:
         monkeypatch.setenv('TELEMETRY_ENABLED', 'false')
         await TelemetryService().record_event(Event.create(EventType.MATCH_CREATED, {}))
         assert await TelemetryEvent.all().count() == 0
-
-
-# ---------------------------------------------------------------------------
-# track_page_view / track_interaction — engagement capture
-# ---------------------------------------------------------------------------
 
 
 class TestTrackPageView:
@@ -112,11 +102,6 @@ class TestTrackInteraction:
         assert row.path == 'audit'
         assert row.user_id == user.id
         assert row.session_id == 's9'
-
-
-# ---------------------------------------------------------------------------
-# Aggregations (run the real GROUP BY / COUNT DISTINCT on SQLite)
-# ---------------------------------------------------------------------------
 
 
 class TestAggregations:
@@ -174,14 +159,9 @@ class TestAggregations:
         await TelemetryRepository.create(category='domain', event_type='match.created', user_id=None)
         summary = await TelemetryService().engagement_summary(staff)
         assert summary['total_events'] == 3
-        assert summary['unique_users'] == 1  # the domain row has a null user
+        assert summary['unique_users'] == 1
         assert summary['unique_sessions'] == 1
         assert summary['page_views'] == 1
-
-
-# ---------------------------------------------------------------------------
-# list / count filters + Staff gating
-# ---------------------------------------------------------------------------
 
 
 class TestListAndCount:
@@ -218,11 +198,6 @@ class TestStaffGating:
     async def test_staff_reads_allowed(self, db):
         staff = await _staff()
         assert await TelemetryService().count_events(staff) == 0
-
-
-# ---------------------------------------------------------------------------
-# track_tab_view / track_ui_batch — in-page usage
-# ---------------------------------------------------------------------------
 
 
 class TestTrackTabView:
@@ -298,6 +273,19 @@ class TestTrackUiBatch:
             'uses': 3, 'users': 2, 'phone': 1,
         }
         assert len(rows) == 2
+
+    async def test_top_controls_filters_to_one_person(self, db):
+        staff = await _staff()
+        other = await _plain(discord_id=779, username='other')
+        svc = TelemetryService()
+        click = {'type': 'ui.click', 'target': 'Add match', 'path': '/admin/schedule'}
+        await svc.track_ui_batch([click, click], discord_id='1001')
+        await svc.track_ui_batch([click, {**click, 'target': 'Roll seed'}], discord_id='779')
+        rows = await svc.top_controls(staff, user_id=other.id)
+        assert {(r['target'], r['uses'], r['users']) for r in rows} == {
+            ('Add match', 1, 1), ('Roll seed', 1, 1),
+        }
+        assert [r['user_id'] for r in await svc.top_users(staff, user_id=staff.id)] == [staff.id]
 
     async def test_top_controls_is_staff_only(self, db):
         with pytest.raises(PermissionError):

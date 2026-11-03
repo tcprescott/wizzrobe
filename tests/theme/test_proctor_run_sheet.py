@@ -7,12 +7,14 @@ rows, so a regression here is caught without a browser.
 
 from theme.dialog.match_sheet import readiness
 from theme.tables.match_run_sheet import (
+    _SEATED_WHO,
     _body_slot,
     _item_slot,
     arrange_run_sheet,
     next_step,
     proctor_group,
     seat_line,
+    seed_pending,
 )
 
 PLAYERS = [{'name': 'Player One', 'station': None}, {'name': 'Player Two', 'station': None}]
@@ -69,7 +71,8 @@ class TestNextStep:
     def test_the_step_follows_the_state(self):
         assert next_step(_row(1, 'Scheduled'))['event'] == 'seat'
         assert next_step(_row(1, 'Checked In'))['event'] == 'start'
-        assert next_step(_row(1, 'Started'))['event'] == 'finish'
+        assert next_step(_row(1, 'Started'))['event'] == 'winner'
+        assert next_step(_row(1, 'Started', players=PLAYERS + PLAYERS[:1]))['event'] == 'finish'
         assert next_step(_row(1, 'Finished')) is None
 
     def test_late_check_in_and_start_are_the_primary_buttons(self):
@@ -82,6 +85,42 @@ class TestNextStep:
         assert next_step(_row(1, 'Checked In', is_racetime=True)) is None
 
 
+class TestSeedStep:
+    """A tournament that rolls seeds puts Roll seed between check-in and Start."""
+
+    def test_roll_comes_before_start(self):
+        row = _row(1, 'Checked In', tournament_seed_generator='alttpr')
+        assert next_step(row)['event'] == 'roll'
+        assert next_step(row)['primary'] is True
+        assert next_step(dict(row, generated_seed='https://x/h/abc'))['event'] == 'start'
+
+    def test_a_roll_in_flight_holds_the_button(self):
+        row = _row(1, 'Checked In', tournament_seed_generator='alttpr', seed_rolling_since='t')
+        step = next_step(row)
+        assert step['event'] is None and step['rolling'] is True
+
+    def test_a_failed_roll_offers_the_roll_again(self):
+        row = _row(1, 'Checked In', tournament_seed_generator='alttpr', seed_roll_error='boom')
+        assert next_step(row)['event'] == 'roll'
+
+    def test_no_generator_goes_straight_to_start(self):
+        assert next_step(_row(1, 'Checked In'))['event'] == 'start'
+
+    def test_check_in_still_comes_first(self):
+        assert next_step(_row(1, 'Scheduled', tournament_seed_generator='alttpr'))['event'] == 'seat'
+
+    def test_pending_only_while_unplayed(self):
+        assert seed_pending(_row(1, 'Scheduled', tournament_seed_generator='alttpr'))
+        assert not seed_pending(_row(1, 'Started', tournament_seed_generator='alttpr'))
+        assert not seed_pending(_row(1, 'Checked In', tournament_seed_generator='alttpr', is_racetime=True))
+
+    def test_the_seed_line_is_proctor_only_and_outside_the_phone_button(self):
+        assert 'run-sheet__seed' in _body_slot(True) and 'run-sheet__seed' not in _body_slot(False)
+        slot = _item_slot(True, can_run=True)
+        opener = slot.index('run-sheet__card-open')
+        assert slot.index('</button>', opener) < slot.index('run-sheet__seed-strip')
+
+
 class TestSeatLine:
     def test_none_some_and_all_seated(self):
         assert seat_line(_row(1, 'Scheduled')) == 'No stations yet'
@@ -89,6 +128,14 @@ class TestSeatLine:
         assert seat_line(dict(_row(1, 'Scheduled'), players=some)) == 'Player One at 4 · Player Two has none'
         both = [{'name': 'Player One', 'station': 4}, {'name': 'Player Two', 'station': 7}]
         assert seat_line(dict(_row(1, 'Scheduled'), players=both)) == 'Stations 4 and 7'
+
+    def test_a_stage_match_never_asks_for_stations(self):
+        assert seat_line(_row(1, 'Scheduled', stage='Main Stage')) == ''
+        some = [{'name': 'Player One', 'station': 4}, {'name': 'Player Two', 'station': None}]
+        assert seat_line(dict(_row(1, 'Scheduled', stage='Main Stage'), players=some)) == 'Player One at 4'
+
+    def test_the_no_station_tag_skips_stage_matches(self):
+        assert 'v-if="s.station || !props.row.stage"' in _SEATED_WHO
 
 
 class TestSlots:
@@ -100,7 +147,8 @@ class TestSlots:
 
     def test_the_admin_line_is_untouched(self):
         assert "_next" not in _body_slot(False) and "_seats" not in _body_slot(False)
-        assert "_group_count" not in _item_slot(False)
+        folded_count = '<template v-if="props.row._folded"> · {{ props.row._group_count }}</template>'
+        assert "_group_count" not in _item_slot(False).replace(folded_count, '')
 
     def test_the_phone_step_is_not_nested_in_the_line_button(self):
         slot = _item_slot(True, can_run=True)

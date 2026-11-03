@@ -13,26 +13,23 @@ proctor station too.
 """
 
 from datetime import timedelta
+from typing import Any, Callable, Optional
 
 from nicegui import ui
 
+from application.services.match.match_display_service import NO_STAGE
 from application.utils.tenant_session import tenant_session_get, tenant_session_set
 from application.utils.timezone import local_day_bounds, today_local
+from theme.timer_teardown import PageTimer
 
-# Match lifecycle states, and the subset shown by default. Kept as module constants
-# so the storage default, the select options, and the "is this filter changed?"
-# check in _active_filter_count cannot drift out of sync.
 ALL_MATCH_STATES = ['Scheduled', 'Checked In', 'Started', 'Finished', 'Confirmed']
 DEFAULT_STATE_FILTER = ['Scheduled', 'Checked In', 'Started']
 
-# Day scopes for the Day filter. The board had no day or now anchor at all, so
-# an operator standing at a venue scrolled ~8 screenfuls of phone to find a
-# match by eye — the cards carry every detail and nothing narrowed them to the
-# day being run. ``ALL_DAYS`` is the default, so nothing is hidden until asked.
 ALL_DAYS = 'All dates'
+
+RESET_UNDO_SECONDS = 8
 DAY_SCOPES = [ALL_DAYS, 'Today', 'Tomorrow', 'Next 7 days']
 
-#: ``scope -> (days from today for the first day, for the last day)``, inclusive.
 _DAY_OFFSETS = {'Today': (0, 0), 'Tomorrow': (1, 1), 'Next 7 days': (0, 6)}
 
 
@@ -54,6 +51,14 @@ def day_scope_window(scope: str):
 
 class MatchFiltersMixin:
     """The filter strip, its stored state, and the options it offers."""
+
+    default_day_scope: str = ALL_DAYS
+    storage_key: str
+    default_state_filter: Optional[list]
+    _bg: Callable[[Any], None]
+    refresh: Callable[[], Any]
+    extra_filters: Optional[Callable[[], None]]
+    _filters_open: bool
 
     def _skey(self, name: str) -> str:
         """Session key for one of this view's filters.
@@ -101,13 +106,13 @@ class MatchFiltersMixin:
         self._refresh_unless_initializing()
 
     def _on_tournament_filter_change(self, *_args, **_kwargs):
-        # Store the tournament ID value (namespaced by tenant — ids are global).
+        # Namespaced by tenant — ids are global.
         tenant_session_set(self._skey('tournament_filter'), self.tournament_filter.value)
         self._update_filter_badge()
         self._refresh_unless_initializing()
 
     def _on_stage_filter_change(self, *_args, **_kwargs):
-        # Store the stage ID value (namespaced by tenant — ids are global).
+        # Namespaced by tenant — ids are global.
         tenant_session_set(self._skey('stage_filter'), self.stage_filter.value)
         self._update_filter_badge()
         self._refresh_unless_initializing()
@@ -135,6 +140,11 @@ class MatchFiltersMixin:
         else:
             self.filters_card.classes(remove='wiz-filters-open')
 
+    def open_filters(self) -> None:
+        """Open the phone's filter card, to point at a field in it; desktop shows it anyway."""
+        if not self._filters_open:
+            self._toggle_filters()
+
     def _active_filter_count(self) -> int:
         """Number of the three filters set away from this board's own default.
 
@@ -150,24 +160,80 @@ class MatchFiltersMixin:
         default_states = set(self.default_state_filter or DEFAULT_STATE_FILTER)
         if self.state_filter and set(self.state_filter.value or []) != default_states:
             count += 1
-        if self.day_filter and self.day_filter.value not in (None, ALL_DAYS):
+        if self.day_filter and self.day_filter.value not in (None, self.default_day_scope):
             count += 1
         return count
 
     def _update_filter_badge(self):
-        """Sync the mobile filter-count badge with the current selections."""
-        if self.filter_badge is None:
-            return
+        """Sync both reset chips (phone toggle row, desktop strip) with the selections."""
         count = self._active_filter_count()
-        self.filter_badge.text = str(count)
-        self.filter_badge.set_visibility(count > 0)
+        if count:
+            self._reset_undo = None
+        for chip, wide in self._reset_chips():
+            if count:
+                chip.props(f'label="{count} filter{"s" if count != 1 else ""}" icon-right=close'
+                           if wide else f'label="{count}" icon-right=close')
+                chip.props(f'aria-label="Reset {count} filter{"s" if count != 1 else ""}"')
+            elif self._reset_undo is not None:
+                chip.props('label=Undo icon-right=undo aria-label="Undo filter reset"')
+            chip.set_visibility(bool(count) or self._reset_undo is not None)
+
+    def _reset_chips(self):
+        return [(chip, wide) for chip, wide in (
+            (getattr(self, 'filter_badge', None), False),
+            (getattr(self, 'filter_reset_desk', None), True),
+        ) if chip is not None]
+
+    def _filter_snapshot(self) -> dict:
+        return {
+            'day': self.day_filter.value,
+            'tournament': self.tournament_filter.value,
+            'stage': self.stage_filter.value,
+            'state': list(self.state_filter.value or []),
+        }
+
+    def _apply_filters(self, values: dict) -> None:
+        """Set every filter at once and reload the table a single time."""
+        self._initializing = True
+        try:
+            self.day_filter.value = values['day']
+            self.tournament_filter.value = values['tournament']
+            self.stage_filter.value = values['stage']
+            self.state_filter.value = values['state']
+        finally:
+            self._initializing = False
+        self._bg(self.refresh())
+
+    def _on_reset_chip(self, *_args) -> None:
+        """One tap: back to this board's defaults, or put them back if Undo is showing."""
+        if self._active_filter_count() == 0:
+            undo, self._reset_undo = self._reset_undo, None
+            if undo is not None:
+                self._apply_filters(undo)
+            self._update_filter_badge()
+            return
+        snapshot = self._filter_snapshot()
+        self._apply_filters({
+            'day': self.default_day_scope,
+            'tournament': None,
+            'stage': None,
+            'state': list(self.default_state_filter or DEFAULT_STATE_FILTER),
+        })
+        self._reset_undo = snapshot
+        self._update_filter_badge()
+        undo_token = snapshot
+
+        def expire() -> None:
+            if self._reset_undo is undo_token:
+                self._reset_undo = None
+                self._update_filter_badge()
+
+        with self.filters_card:
+            PageTimer(RESET_UNDO_SECONDS, expire, once=True)
 
     async def _load_tournaments(self):
         """Load all tournament names for the filter using service layer."""
         self.tournaments_list = await self.display_service.get_tournaments_for_filter()
-        # A scoped board offers only its own tournaments: the filter is a choice
-        # within the scope, and listing the rest invites picking one that yields
-        # an empty board for no visible reason.
         if self.scope_tournament_ids is not None:
             allowed = set(self.scope_tournament_ids)
             self.tournaments_list = {
@@ -185,11 +251,32 @@ class MatchFiltersMixin:
         self.stages_list = await self.display_service.get_stages_for_filter()
         default_stage_id = tenant_session_get(self._skey('stage_filter'), None)
         if self.stage_filter:
-            self.stage_filter.options = self.stages_list
+            self.stage_filter.options = {NO_STAGE: 'No stage', **self.stages_list}
             self.stage_filter.value = default_stage_id
             self.stage_filter.update()
         self._update_filter_badge()
 
+
+    def _reset_chip(self):
+        chip = ui.button(on_click=self._on_reset_chip) \
+            .props('outline rounded dense no-caps no-wrap color=primary') \
+            .classes('wiz-filter-reset')
+        chip.set_visibility(False)
+        return chip
+
+    def show_one_match_chip(self, show_all_url: str, show_all_label: str) -> None:
+        """Say the board is narrowed to one match, in the filter strip itself.
+
+        A DM link opens the board on one match. The chip leads both strips (the
+        phone toggle row and the desktop card) and is the way back to the whole
+        board: its own line plus a separate link wrapped to two rows on a phone.
+        """
+        for lead in self.toolbar_lead:
+            with lead:
+                ui.button('One match', icon='filter_alt', color=None,
+                          on_click=lambda: ui.navigate.to(show_all_url)) \
+                    .props(f'unelevated rounded dense no-caps no-wrap icon-right=close aria-label="{show_all_label}"') \
+                    .classes('wiz-one-match').tooltip(show_all_label)
 
     def _build_filter_bar(self):
         """Render the toggle row and the filter card; returns the two header slots.
@@ -198,40 +285,27 @@ class MatchFiltersMixin:
         the caller once the table exists — the strip is built first, for visual
         order.
         """
-        # Mobile-only filter toggle (CSS hides this row >=1024px, where the card is
-        # shown inline; below 1024px the card is collapsed until toggled open).
-        # Each strip has an empty lead and end slot a page can fill with its own
-        # controls (``toolbar_lead`` / ``toolbar_end``): one pair on the phone
-        # row, one in the desktop card. Only one strip shows at a time, so a
-        # control the page wants on both is built once into each.
         with ui.row().classes('wiz-filter-toggle full-width items-center no-wrap'):
             phone_lead = ui.row().classes('wiz-toolbar-slot items-center no-wrap')
             ui.button('Filters', icon='filter_list', on_click=self._toggle_filters) \
                 .props('flat color=primary').classes('wiz-filter-toggle__btn')
-            self.filter_badge = ui.badge('0').props('color=primary')
-            self.filter_badge.set_visibility(False)
+            self.filter_badge = self._reset_chip()
             ui.space()
             ui.button(icon='refresh', on_click=self.refresh).props('flat color=primary round dense').tooltip('Refresh table')
             phone_end = ui.row().classes('wiz-toolbar-slot items-center no-wrap')
 
-        # Each field carries its own label inside the box rather than a caption
-        # line above it: with captions the open card stood ~550px tall on a
-        # 393px phone, four half-width fields stacked one per line.
         self.filters_card = ui.card().classes('match-filters-card match-filters-card--compact')
         with self.filters_card:
             with ui.row().classes('match-filter-row'):
                 desk_lead = ui.row().classes('wiz-toolbar-slot wiz-toolbar-slot--desk items-center no-wrap')
-                # Day filter, first because it is the coarsest narrowing and
-                # the one an operator working a venue reaches for.
+                self.filter_reset_desk = self._reset_chip().classes('wiz-filter-reset--desk')
                 self.day_filter = ui.select(
                     options=list(DAY_SCOPES),
                     label='Day',
-                    value=tenant_session_get(self._skey('day_filter'), ALL_DAYS),
+                    value=tenant_session_get(self._skey('day_filter'), self.default_day_scope),
                     on_change=self._on_day_filter_change,
                 ).classes('match-filter-field').props('outlined dense options-dense')
 
-                # Multi-selects read as one line of text, not chips: chips
-                # wrapped the State field to two lines on a phone.
                 self.tournament_filter = ui.select(
                     options=[],
                     label='Tournament',
@@ -239,6 +313,9 @@ class MatchFiltersMixin:
                     multiple=True,
                     on_change=self._on_tournament_filter_change
                 ).classes('match-filter-field').props('outlined dense options-dense')
+
+                if self.extra_filters is not None:
+                    self.extra_filters()
 
                 self.stage_filter = ui.select(
                     options=[],
@@ -256,8 +333,6 @@ class MatchFiltersMixin:
                     on_change=self._on_state_filter_change
                 ).classes('match-filter-field').props('outlined dense options-dense')
 
-                # Search, then the CSV/preferences gear once the table exists,
-                # then refresh (which a phone already has on the toggle row).
                 with ui.row().classes('match-filter-tools items-center no-wrap'):
                     search_slot = ui.row().classes('items-center')
                     gear_slot = ui.row().classes('items-center')

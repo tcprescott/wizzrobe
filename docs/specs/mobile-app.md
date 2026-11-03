@@ -1,0 +1,284 @@
+# Wizzrobe as a mobile app on a serverless backend
+
+Status: Building · Size: full · PRs: #760 (spec), #761 (step 3), #762 (step 4), #763 (step 2), #764 (step 6), #770 (step 5), #771 (step 7 Home + Schedule), #772 (step 7 Me + shift check-in), #779 (step 12 native shells), step 8 Event tab (this PR) · Requested: 2026-10-31, Thomas
+
+## Problem
+
+Wizzrobe's whole interface is NiceGUI: every open tab holds a live websocket and a
+server-side copy of its page (about 67,000 lines across `pages/` and `theme/`, 24
+page routes, most with many tabs). That's why it can only run as one long-lived
+process, why phones get "connection lost" on venue Wi-Fi, and why there's no app
+in the App Store or Play Store. Thomas wants a full-featured mobile app with a
+rebuilt frontend, and a backend that can run serverless.
+
+## Scope
+
+In:
+- A new frontend in `web/` in this repo: one React + TypeScript app for phone and
+  desktop, installable as a PWA and wrapped with Capacitor for iOS and Android.
+- Every screen that exists today, for every role (player, crew, volunteer, proctor,
+  check-in desk, broadcast tech, staff, platform admin), rebuilt on the Studio design
+  system with our own components (Radix headless parts styled with Studio tokens).
+  Admin screens are built last.
+- The REST API extended to cover every screen, with a typed TypeScript client
+  generated from its OpenAPI schema.
+- Live screens (run sheets, check-in desk, brackets, Watch) kept current through
+  Postgres LISTEN/NOTIFY streamed to the app as server-sent events.
+- The backend made stateless and deployed to Google Cloud Run (API service), with
+  background workers as Cloud Scheduler jobs and one small always-on bot service.
+- Push notifications: web push (already built) plus native push through APNs/FCM
+  in the store apps.
+- One switch-over before SGL27: every screen and the new backend go live together,
+  and NiceGUI is retired that day.
+
+Out:
+- Changing what any screen does. This is a rebuild of today's behaviour; feature
+  changes go in their own specs, built in the new app.
+- GraphQL mutations (GraphQL stays read-only for outside integrations).
+- A separate repo for the app.
+- Offline editing. Screens cache what they last showed, but changes need a
+  connection.
+
+## Flow
+
+The roles keep today's workflows. What changes for each person:
+
+1. **Everyone.** Install from the App Store / Play Store, or "Add to Home Screen"
+   from the browser, or keep using the website (same app). Sign in with Discord
+   (password sign-in stays for the accounts that have it). Pick a community and
+   event as today.
+2. **Player.** Home opens on "Needs you" (pick a time, confirm, check in) then
+   today's matches. A DM's link button opens the exact screen in the app
+   (universal / app links), or the website when the app isn't installed.
+3. **Crew, volunteer, proctor, check-in desk.** Their screens sit under the role
+   area of the shell (see Mockup pick). Run sheets update live without a reload.
+4. **Staff.** Same admin screens as now, rebuilt last, same layout on phone and
+   desktop.
+5. **Outside integrations.** REST, GraphQL, MCP and webhooks keep their contracts.
+   The six webhook events the SpeedGaming automation consumes don't change.
+
+## Mockup pick
+
+**A, five tabs.** Bottom tabs on phone (Home, Schedule, Event, Work, Me), the same
+five down a left rail on desktop; Work holds whichever roles you have. Options shown
+at sign-off:
+
+- **A, five tabs:** bottom tabs on phone (Home, Schedule, Event, Work, Me), the same
+  five down a left rail on desktop; Work holds whichever roles you have.
+- **B, mode switch:** Playing / Crew / Staff switch picks the tab set.
+- **C, closest to today:** one grouped menu, drawer on phone, pinned on desktop.
+
+Images: `/mnt/project-files/mobile-app/mockups/{A,B,C}-{phone,desktop}-{light,dark}.png`
+(source `shell.html`, `?v=A&t=dark&w=phone`; `node shot.js` renders).
+
+## Data and permissions
+
+- **Feature flag:** no. The new app runs on staging until switch-over, then
+  replaces the old one for every community at once.
+- **Models:** no domain model changes. New tables for state that lives in process
+  memory today: an outbox for DMs and webhooks (outbox columns on `SentMessage` and
+  `WebhookDelivery`, plus `PersonalWebhookOutbox`), so a send isn't lost when an
+  instance stops mid-way; working out who gets what stays in process, `oauth_handoff`
+  (replaces the in-memory nonce store), and a shared rate-limit counter. The
+  per-match seed lock becomes a Postgres advisory lock. A `device_push_token`
+  table for APNs/FCM tokens beside the existing web-push subscriptions.
+- **Auth:** the app is a first-party public OAuth client of our own authorization
+  server (code + PKCE, already built for third-party apps). Roles, tenant and event
+  scoping, the archived-event write guard and feature flags are enforced in the
+  services as now; the app only hides what the API would refuse.
+- **URLs:** `/t/<slug>/e/<event>/…` paths keep their shape so links already sent
+  in DMs keep working; `notification_links.py` keeps building them.
+- **Other surfaces:**
+  - REST: new endpoints for every screen that has none (staying three-layer:
+    routers call services). `api/scopes.py` maps each one. OpenAPI client generated
+    in CI with a drift check.
+  - Live updates: `match_live` / `check_in_live` publish via `NOTIFY`; a
+    `GET /api/live` SSE endpoint fans out per community/event.
+  - Workers: each `run_worker_loop` worker becomes a Cloud Scheduler-triggered tick
+    (`application/worker_registry.py`, `POST /internal/workers/<key>/tick`,
+    switched on by `WORKER_MODE=scheduled`; see `docs/features/scheduled-workers.md`).
+  - Discord: buttons move to the HTTP interactions endpoint (signed POSTs, no
+    gateway). DMs already go over Discord's REST API. Member update/remove events
+    (inbound role sync) need the gateway, so they stay on the bot service.
+  - Telegram: switches from polling to Telegram's webhook.
+  - racetime: room bot stays on websockets, on the bot service.
+  - MCP: already stateless HTTP; moves to Cloud Run unchanged.
+- **Hosting:** Cloud Run `api` service (scales to zero or a floor of 1 during
+  events), Cloud Run `bots` service (min 1 instance, CPU always on: Discord
+  gateway + racetime), Cloud Scheduler for worker ticks, Cloud SQL Postgres (or
+  Neon) with a small pool per instance. Static app on Cloud Storage + CDN (or
+  Firebase Hosting).
+- **Player input:** unchanged; the threat model applies to the API as today.
+
+## PR plan
+
+All PRs are drafts until mergeable. The current app stays in production until the
+switch-over, so nothing here may break it.
+
+1. **Spec** committed to `docs/specs/mobile-app.md`.
+2. **Backend: stateless state.** (a, #763) handoff table, shared rate limiter,
+   advisory locks, NOTIFY-backed live relay; (b, #763) outbox for staff and
+   personal webhooks and for Discord DMs, with sweeper workers that resend.
+   NiceGUI keeps working on top.
+3. **Backend: workers as ticks.** HTTP tick endpoint guarded by Cloud Scheduler's
+   OIDC token; leader-only fallback for the current single process.
+4. **Backend: Discord interactions over HTTP + Telegram webhook**, bot service
+   entry point (gateway + racetime only).
+5. **Cloud Run deploy**: Dockerfiles, `api`/`bots` services, Scheduler jobs,
+   staging environment against a copy of prod data.
+6. **App skeleton** in `web/`: Vite, routing, Studio tokens and base components,
+   sign-in via PKCE, generated client, shell (picked option), a11y + contrast CI.
+   Plus the shared reads every screen needs (from the screen inventory): one
+   "who am I here" context read (roles, flags, theme, clock, events, badge
+   counts), `GET /api/live` SSE, per-viewer table layouts, batched telemetry,
+   audited table CSV export, help snippets, and a staff "send a DM" endpoint.
+Steps 7 to 11 each carry the REST they need. The screen inventory
+(`/mnt/project-files/mobile-app/screen-inventory.md`) counts 79 screens and 157
+dialogs, 48 services with no REST router at all, and about 470 service calls
+with no endpoint, so the REST work is the larger half of these steps. Where a
+screen renders a Python view-model (run sheets, signup cards, My Timeline, the
+volunteer grids), port one read per view-model rather than rebuilding the joins
+in TypeScript.
+
+7. **Player screens** (Home, My Schedule, pick a time, check-in, availability,
+   profile, notifications) with the REST they need.
+8. **Event and public screens** (event info, brackets, Watch, help, changelog).
+9. **Crew, volunteer, proctor, check-in desk screens.**
+10. **Admin screens** (several PRs, one per admin area).
+11. **Platform screens.**
+12. **Capacitor iOS/Android shells, native push, app links.**
+13. **Switch-over**: point the domain at Cloud Run, remove NiceGUI, `pages/`,
+    `theme/`, the browser a11y config for old pages; fold this spec into
+    `docs/features/` and delete it.
+
+## Acceptance
+
+- [ ] Every page route and tab in today's app has a screen in the new app that does
+      the same things for the same roles (checked against a route/tab inventory).
+- [ ] On a phone (360–440px) and on desktop (1440px), every screen uses the picked
+      shell and passes the axe + contrast scan in light and dark.
+- [ ] A run sheet open on two devices updates on both within 2 seconds of a change
+      made on either, with the API running on more than one Cloud Run instance.
+- [ ] The API runs on Cloud Run with `min-instances=0` and serves a cold request.
+- [ ] Every background worker runs from Cloud Scheduler; none runs in the API process.
+- [ ] Killing an API instance mid-request loses no DM or webhook (outbox delivers it).
+- [ ] Discord buttons on DMs work with the bot service stopped (HTTP interactions).
+- [ ] racetime room bot and inbound Discord role sync run on the bot service.
+- [ ] A DM link opens the exact screen in the installed app, and in the browser
+      when the app isn't installed.
+- [ ] iOS and Android builds install from TestFlight / Play internal testing and
+      receive a push.
+- [ ] `tests/services/test_webhook_consumer_contract.py` passes unchanged.
+- [ ] REST, GraphQL and MCP contracts unchanged except for additions.
+- [ ] After switch-over, no NiceGUI code or dependency remains.
+
+## Open questions
+
+
+## Decisions
+
+- 2026-10-31 — Thomas picked one React web app wrapped for the stores (Capacitor),
+  not React Native, Flutter or PWA-only.
+- 2026-10-31 — Thomas picked "replace everything, admin last".
+- 2026-10-31 — Thomas picked Google Cloud Run.
+- 2026-10-31 — Thomas picked workers as scheduled jobs and one small always-on bot
+  service for racetime (and the Discord gateway).
+- 2026-10-31 — Thomas picked REST with a generated TypeScript client.
+- 2026-10-31 — Thomas picked a big-bang switch for SGL27; "admin last" is build
+  order only, NiceGUI is retired on switch-over day.
+- 2026-10-31 — Thomas picked Postgres LISTEN/NOTIFY + server-sent events for live
+  screens.
+- 2026-10-31 — Thomas picked the same repo, `web/` folder.
+- 2026-10-31 — Thomas picked our own Studio components on Radix.
+- 2026-10-31 — Thomas picked bug fixes only in the current (NiceGUI) app while the
+  rebuild runs; new features are built once, in the new app.
+- 2026-10-31 — Thomas picked shell A: five tabs on phone, left rail on desktop.
+- 2026-10-31 — Thomas picked no feature flag.
+- 2026-10-31 — Thomas picked one sign-in for every community: the app's grant names
+  no community and each REST call names one (`X-Wizzrobe-Community`), checked for
+  membership and roles as now.
+- 2026-10-31 — Screen inventory found far more missing REST than assumed (48
+  services, ~470 calls); PR plan steps 6 to 11 updated to carry it.
+- 2026-11-01 — Thomas picked "durable sends, fan-out in process" for the outbox:
+  each webhook and each finished DM is saved and retried, but working out who
+  gets what still runs in memory just after the change. A DM still queued for
+  fan-out when an instance dies is lost; the acceptance line on killing an
+  instance mid-request covers the send itself.
+- 2026-11-01 — Step 7 splits in two. Thomas picked Home + Schedule first (pick a
+  time, agree to an opponent's request, acknowledge, running late), then profile,
+  notifications, availability and check-in. Home layout B, "next up first": the
+  next match as a card with a countdown, to-dos as cards beside it, then the rest
+  of today; Schedule is one day-grouped list with Upcoming / Past and a type
+  filter. Mockups: `/mnt/project-files/mobile-app/player-mockups/`.
+- 2026-11-02 — Step 7 part 2: Thomas picked all of the profile in one PR, and
+  "check-in" means the volunteer shift buttons (I'm here, Got it, Running late,
+  Can't make it) on Schedule rows, not a desk badge. Me is layout B, a settings
+  list: on a phone the list, and each section opens on its own page with a back
+  link; on desktop the list sits beside the open section. Linking outside
+  accounts and "Use my Discord email" still open the website's sign-in pages in
+  a tab, and device push waits for the service worker (step 12). Mockups:
+  `/mnt/project-files/mobile-app/profile-mockups/`.
+- 2026-11-02 — Thomas started steps 10 and 11 early, in parallel, split across
+  threads: the admin shell plus Settings, Event settings and Events; Match
+  Schedule; tournaments and brackets; people and volunteers; comms and reports;
+  Platform. Admin keeps the website's `/admin/<slug>` URLs and sits under Work.
+  Each area registers itself from `web/src/admin/<area>/routes.tsx`; which areas
+  a viewer may open comes from `GET /api/admin/nav`, whose gates
+  `tests/test_admin_nav_drift.py` holds to the website's admin drawer.
+- 2026-11-02 — Step 9 (Work tab): Thomas's general preference is the side list,
+  so Work is layout A: the areas your roles open (check-in desk, volunteer
+  schedule, your volunteer availability, Proctor Station, Admin), each with a
+  live line, beside the open area on desktop and as their own screens on a
+  phone. Part 1 builds the desk, the schedule grid and availability; Proctor
+  Station follows on the Event tab's run sheet. Until the live stream exists the
+  desk and grid re-read on a timer and after every action. Mockups:
+  `/mnt/project-files/mobile-app/work-mockups/`.
+
+- 2026-11-02 — Admin Match Schedule: Thomas picked layout C, list and detail side by
+  side (the run sheet on the left with its groups, the selected match in a pane
+  beside it; on a phone the match opens as its own screen with a back link), and
+  three PRs: (1) board and match pane with the run actions, (2) Needs you,
+  reschedule requests and comments, (3) Not booked yet and create/edit match. Part 1 is PR #780.
+  Mockups: `/mnt/project-files/mobile-app/admin-schedule-mockups/`.
+- 2026-11-02 — People admin (Members, Check-in Roster, Equipment, Meetups):
+  Thomas first picked a table with a side sheet, then switched to the side list
+  ("in general I like the side list format", "we do want to keep a consistent
+  visual language"): the list sits beside the open item on desktop, and on a
+  phone each item is its own page with a back link, like Me. Built on the
+  shared `SideListLayout` / `Detail` kit in `web/src/admin/kit/SideList.tsx`.
+  Each screen reads one screen-shaped board (`/api/admin/members`,
+  `/api/admin/check-in`, `/api/admin/equipment`, `/api/admin/meetups`) that
+  carries the viewer's zone. Staff DMs from Members go out with no catalogue
+  notice, as the website's Send message does. The Matcherino check-in desk
+  itself is step 9. Mockups: `/mnt/project-files/mobile-app/people-mockups/`.
+- 2026-11-02 — Step 12: Thomas picked APNs direct for iPhones and FCM for
+  Android (official Capacitor push plugin, no Firebase SDK in the iOS app).
+- 2026-11-02 — Step 12: Thomas picked bundling the built app inside the store
+  apps rather than loading the live website.
+- 2026-11-02 — Step 12: the app id stays a placeholder (`org.speedgaming.wizzrobe`,
+  `web/src/native/appId.ts`); Thomas confirms the real one before the first
+  store upload.
+- 2026-11-02 — Step 12: the service worker caches the app's own files and
+  handles push; API data is never cached (Thomas's pick).
+- 2026-11-02 — Step 12: CI does compile checks only (Android debug on every
+  `web/` pull request, unsigned iOS simulator build on demand); signing and
+  TestFlight / Play uploads follow once the developer accounts exist.
+- 2026-11-02 — Step 12: Thomas picked layout A for Me › Notifications in the
+  store app: a "This phone" row with Turn on, and phones listed with the other
+  devices, tagged "Wizzrobe app". Mockups:
+  `/mnt/project-files/mobile-app/native-push-mockups/`.
+- 2026-11-02 — Step 8 splits in two. Thomas picked the event-day screens first
+  (run sheet, brackets, Watch; the reading pages follow in their own thread),
+  and Event tab layout B, an event hub: a card per stage with what's on now and
+  next, the next few matches, and a card per tournament. The full schedule and
+  Watch open as their own screens with a back link; on a phone the bracket shows
+  one round at a time. Mockups: `/mnt/project-files/mobile-app/event-mockups/`.
+- 2026-11-02 — Step 11 (Platform): side list, like Admin and Me (Thomas: "I like the side
+  list format"). `/platform/<section>` sits outside any community, reached from
+  Platform administration in the community menu; the eight sections are grouped
+  Communities and people / Connections / Operations. Super-admin routes now bind no
+  community, so the app calls them without the header. Mockups:
+  `/mnt/project-files/mobile-app/platform-mockups/`.
+- 2026-11-02 — Thomas picked app-only endpoints for passwords and password accounts:
+  `require_app_super_admin_write` accepts only Wizzrobe's own app, so personal tokens
+  and MCP never carry a password. Platform ships as one PR (all eight sections).

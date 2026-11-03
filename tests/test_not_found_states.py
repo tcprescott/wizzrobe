@@ -16,15 +16,18 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.requests import Request
 
 import middleware.auth as auth_mw
+from application.services.feature_flag_service import reset_flag_cache
 from application.tenant_context import tenant_scope
-from models import FeatureFlag, Tenant
+from middleware.tenant import EVENT_SLUG_SCOPE_KEY
+from models import FeatureFlag, Tenant, TenantFeatureFlag
 from theme.error_page import NOT_FOUND_HEADLINE, NOT_FOUND_MESSAGE
 
 
 def _request(path='/x', **scope):
+    # Named as the middleware leaves an /e/<slug> URL, so the gates answer rather than the default-event redirect.
     return Request({
         'type': 'http', 'method': 'GET', 'path': path, 'headers': [],
-        'query_string': b'', 'root_path': '', **scope,
+        'query_string': b'', 'root_path': '', EVENT_SLUG_SCOPE_KEY: 'bare', **scope,
     })
 
 
@@ -74,6 +77,31 @@ async def test_a_feature_the_community_has_off_is_a_404(
     assert 'body' not in rendered
 
 
+async def test_a_gate_of_several_flags_is_a_404_only_when_all_are_off(
+    raw_page, no_session, flagless_tenant,
+):
+    rendered = []
+
+    @auth_mw.public_page('/test-any-of', feature=(FeatureFlag.VOLUNTEERS, FeatureFlag.EVENT_CHECK_IN))
+    async def page():
+        rendered.append(True)
+
+    with tenant_scope(flagless_tenant.id):
+        with Client(ui.page(''), request=_request('/test-any-of')) as client:
+            await page()
+    assert client.status_code == 404
+    assert rendered == []
+
+    await TenantFeatureFlag.create(
+        tenant_id=flagless_tenant.id, flag=FeatureFlag.EVENT_CHECK_IN.value, available=True, enabled=True,
+    )
+    reset_flag_cache()
+    with tenant_scope(flagless_tenant.id):
+        with Client(ui.page(''), request=_request('/test-any-of')):
+            await page()
+    assert rendered == [True]
+
+
 async def test_the_feature_off_page_says_what_an_unknown_route_says(
     raw_page, no_session, flagless_tenant, monkeypatch,
 ):
@@ -91,7 +119,6 @@ async def test_the_feature_off_page_says_what_an_unknown_route_says(
     with tenant_scope(flagless_tenant.id):
         with Client(ui.page(''), request=_request()):
             await page()
-    # No headline/message override: the unknown-route defaults, word for word.
     assert 'headline' not in seen and 'message' not in seen
 
 

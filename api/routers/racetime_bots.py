@@ -34,8 +34,6 @@ async def _load_bot_or_404(bot_id: int) -> RacetimeBot:
     return require_found(await RacetimeBot.get_or_none(id=bot_id), "Racetime bot")
 
 
-# --- Bot CRUD -------------------------------------------------------------
-
 @router.get(
     "",
     response_model=List[RacetimeBotResponse],
@@ -149,8 +147,6 @@ async def restart_bot(bot_id: int, actor: User = Depends(require_super_admin_wri
     service = RacetimeBotService()
     return service.serialize(await service.restart_connection(actor, bot_id))
 
-
-# --- Tenant authorization grants ------------------------------------------
 
 @router.get(
     "/{bot_id}/grants",

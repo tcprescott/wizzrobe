@@ -10,6 +10,7 @@ The actions on offer follow the state cached by the last sync
 on Challonge and stays on Challonge's own site.
 """
 
+import logging
 from dataclasses import dataclass
 from typing import Awaitable, Callable, Dict, List, Optional, Tuple
 
@@ -20,6 +21,8 @@ from application.utils.clients.challonge_client import ChallongeAPIError, Challo
 from models import FeatureFlag, Tournament, User
 
 STAGE_WRITE_SCOPE = 'tournaments:write'
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -160,7 +163,19 @@ class ChallongeStageMixin:
                     f"next step: {failure} The bracket has been re-synced; try the "
                     f"next step again from here."
                 )
-            raise ValueError(f"Challonge refused to {action.label.lower()}: {failure}")
+            refused = f"Challonge refused to {action.label.lower()}: {failure}"
+            try:
+                await self._sync_tournament(tournament, actor, force=True)
+            except (ValueError, ChallongeAPIError):
+                logger.warning(
+                    "Challonge re-sync after a refused stage change failed for tournament %s",
+                    tournament.id, exc_info=True,
+                )
+                raise ValueError(refused) from None
+            raise ValueError(
+                f"{refused} The bracket has been re-synced, so this page now shows "
+                f"where it stands on Challonge."
+            )
         return tournament
 
 

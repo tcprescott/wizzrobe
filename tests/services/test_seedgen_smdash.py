@@ -63,8 +63,6 @@ class TestGenerateSmdash:
         assert sent['url'] == 'https://www.dashrando.net/generate/sgl26'
         assert sent['params'] == {'race': '1'}
         assert sent['allow_redirects'] is False
-        # The seed page is read once for its code; this stub answers 307 again,
-        # so there is none and the roll still succeeds.
         assert code_fetch['url'] == 'https://www.dashrando.net/seed/abc123'
         assert call.value.code is None
 

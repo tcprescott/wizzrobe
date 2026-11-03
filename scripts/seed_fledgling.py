@@ -5,6 +5,7 @@ A sibling of the other ``seed_*`` fixture modules, called from
 800-line budget.
 """
 
+from application.services.event_service import EventService
 from application.tenant_context import tenant_scope
 from models import (
     JoinRequestStatus,
@@ -34,24 +35,17 @@ async def seed_fledgling_tenant(users: dict[str, User], groups: dict) -> None:
     )
     tenant.feature_group = groups['default']
     await tenant.save()
+    await EventService.ensure_first_event(tenant)
     with tenant_scope(tenant.id):
         await TenantMembership.get_or_create(user=users['staff_user'], tenant=tenant)
         await UserRole.get_or_create(
             user=users['staff_user'], role=Role.STAFF, tenant=tenant,
             defaults={'granted_by': None},
         )
-        # A tournament with **no entrants**: the state the entrants dialog is
-        # for, and the one the checklist's `enrolment` step reports outstanding.
-        # The populated tenants keep their rosters, so one seed run gives a
-        # reviewer both the empty and the full dialog.
         await Tournament.get_or_create(
             name='First Tournament', tenant=tenant,
             defaults={'is_active': True},
         )
-        # A pending request, so the staff queue has something in it. Its author
-        # is the one seeded account that belongs to no community at all — see
-        # seed_dev's `outsider` — which is also what makes the join page itself
-        # reachable in dev without hand-editing the database.
         await TenantJoinRequest.get_or_create(
             user=users['outsider'], tenant=tenant,
             defaults={

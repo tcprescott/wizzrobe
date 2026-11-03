@@ -61,19 +61,16 @@ from models import (
     Tenant,
     TenantMembership,
     Tournament,
+    TournamentNotificationPreference,
     TournamentPlayers,
     User,
 )
 from scripts.seed_qualifiers import seed_qualifiers_for_tenant
+from scripts.seed_room_bot import seed_room_bot_rooms
 from scripts.seed_support import backfill
 
 ONLINE_TOURNAMENT_NAME = "Wizzrobe Online Series"
 
-#: The operational metadata an online tournament actually carries. Kept beside
-#: the tournament it describes: ``average_match_duration`` is what the schedule's
-#: suggestion engine spaces races by and what the reports' expected-average
-#: column reads, and both fall back to a hard-coded 90 minutes when it is NULL —
-#: so a dev database could never tell a configured tournament from an unconfigured one.
 _ONLINE_TOURNAMENT_META = {
     "tournament_format": "Round-robin groups into a double-elimination bracket",
     "rules_url": "https://example.invalid/wizzrobe/online-series/rules",
@@ -127,7 +124,7 @@ async def link_twitch_identities(users: dict[str, User]) -> None:
 
 
 PROBE_UNLINKED_USERS = ("player_three", "player_four")
-_PROVIDER_PREFIXES = ("challonge", "twitch", "racetime")
+_PROVIDER_PREFIXES = ("challonge", "twitch", "racetime", "startgg")
 
 
 async def reset_unlinked_probe_users(users: dict[str, User]) -> None:
@@ -196,9 +193,6 @@ async def seed_racetime_bots() -> dict[str, RacetimeBot]:
             "last_checked_at": now,
         },
     )
-    # One bot per BotStatus, because the /platform health table's whole job is
-    # telling them apart: a board that only ever shows connected and error rows
-    # cannot show whether the other two render (or sort) correctly.
     parked_bots = [
         ("smw", "SMW Dev Bot", BotStatus.ERROR,
          "Second fixture bot, parked in an error state.",
@@ -221,7 +215,6 @@ async def seed_racetime_bots() -> dict[str, RacetimeBot]:
                 "is_active": True,
                 "status": status,
                 "status_message": status_message,
-                # An UNKNOWN bot has never been checked; the others have.
                 "last_checked_at": None if status is BotStatus.UNKNOWN else now,
             },
         )
@@ -249,6 +242,7 @@ async def seed_online_for_tenant(
         tenant, tournament, players,
     )
     await _seed_rooms(tenant, bots["alttpr"], scheduled, in_progress, finished)
+    await seed_room_bot_rooms(tenant, tournament, bots["alttpr"], players)
     await _seed_speedgaming(tenant, tournament, scheduled)
     await _seed_discord_events(tenant, tournament, scheduled)
     await seed_qualifiers_for_tenant(tenant, preset)
@@ -343,19 +337,8 @@ async def _seed_presets(tenant: Tenant, staff: User) -> Preset:
             "description": "Standard open-mode ALTTPR settings.",
         },
     )
-    # The committed ``presets/`` files, imported the way a real community starts:
-    # **Import built-ins** on the Presets tab. They are the settings actual events
-    # ran (ALTTPR sglive2025/casualboots, OoTR sgl2026, SM Map Rando community race,
-    # DK64 in its settings-string form, the Wind Waker SGL 2026 permalink), so the dev preset list holds real
-    # multi-randomizer payloads instead of one three-key toy dict — which is what
-    # the JSON editor, the payload-size handling and the per-randomizer filter are
-    # written against. Idempotent by (randomizer, name) inside the service.
     await PresetService().import_builtins(staff)
-    # One preset in the shape **Import from Randomizer** produces: a name and
-    # description straight from the upstream catalogue, and settings that are a
-    # branch plus a portable settings string rather than a full payload. Seeded
-    # directly instead of through ``import_remote_presets`` so the row exists
-    # whether or not this run has the DK64 mock queue enabled.
+    # Seeded directly, not via import_remote_presets, so it exists without the DK64 mock queue.
     await Preset.get_or_create(
         name="Season 5 Race Settings", tenant=tenant,
         defaults={
@@ -364,15 +347,7 @@ async def _seed_presets(tenant: Tenant, staff: User) -> Preset:
             "description": "Medium length settings with a uniquely shuffled seasonal world.",
         },
     )
-    # Placeholder randomizer credentials so the keyed backends stay *selectable*
-    # in the Presets tab and tournament dialog, and the Randomizer Keys tab is not
-    # empty in dev. The default tenant gets all three; the second tenant only the
-    # OoT key, so dev demonstrates the per-tenant filter narrowing a selector (and
-    # its dk64r preset staying editable without one). Dev rolls go through
-    # MOCK_SEEDGEN, so these are never sent upstream.
-    # The opt-in "harder" preset the online tournament offers. Same randomizer
-    # as the standard one above, which the service requires: whichever preset
-    # wins at roll time is what names the randomizer.
+    # Same randomizer as the standard preset: the service requires it.
     await Preset.get_or_create(
         name="ALTTPR Open — Hard Mode", tenant=tenant,
         defaults={
@@ -401,8 +376,6 @@ async def _seed_online_tournament(
 ) -> Tournament:
     """The racetime.gg-managed fixture tournament (PR 3) — the only seeded
     tournament with a ``racetime_bot``."""
-    # Authorize the tenant to use the bot so live-race room opening (PR 10),
-    # which resolves an authorized bot, has one to pick.
     await RacetimeBotTenant.get_or_create(
         bot=bot, tenant=tenant, defaults={"is_active": True},
     )
@@ -417,36 +390,27 @@ async def _seed_online_tournament(
     )
     await backfill(tournament, **_ONLINE_TOURNAMENT_META)
     await tournament.admins.add(staff)
+    await TournamentNotificationPreference.update_or_create(
+        user=staff, tournament=tournament, tenant=tenant, defaults={"staff_alerts": False},
+    )
     for p in players:
         await TournamentPlayers.get_or_create(
             tournament=tournament, user=p, tenant=tenant,
         )
     if tournament.preset_id is None:
         tournament.preset = preset
-    # The harder preset players can privately opt into instead. Without one on a
-    # dev tournament the whole opt-in surface is invisible, which is what the
-    # feature does for a community that has not configured it — so the fixture
-    # has to supply it for the column to exist at all.
     if tournament.hard_preset_id is None:
         tournament.hard_preset = await Preset.get_or_none(
             name="ALTTPR Open — Hard Mode", tenant=tenant,
         )
-    # The room profile the auto-opener applies to this tournament's rooms. It was
-    # seeded but attached to nothing, so the "tournament → profile → room
-    # settings" resolution every opened room goes through had no dev fixture —
-    # rooms were only ever opened on the built-in defaults.
     if tournament.race_room_profile_id is None:
         tournament.race_room_profile = profile
     tournament.racetime_bot = bot
     tournament.racetime_auto_create_rooms = True
     tournament.room_open_minutes_before = 15
     tournament.racetime_default_goal = "Beat the game"
-    # An online tournament is raced on racetime.gg, so a real one turns this on:
-    # entrants are expected to have linked a racetime account. Nothing enforces
-    # it yet (it is stored and edited, not checked), so this is the fixture for
-    # the *configured* state — and player_three/player_four are enrolled here
-    # while deliberately unlinked, which is the roster the check will meet.
     tournament.require_racetime_link = True
+    tournament.racetime_bot_runs_room = True
     await tournament.save()
     return tournament
 
@@ -492,11 +456,7 @@ async def _seed_online_matches(
         return match
 
     scheduled = await make_match("Online Scheduled Race", 2, players[0], players[1])
-    # One more upcoming race, so the board carries both halves of the opt-in and
-    # not just the agreed one: this is the state a player sees while their own
-    # answer is in and they cannot tell whether anyone else's is.
     half = await make_match("Online Race — One Opt-In", 4, players[1], players[2])
-    # Staff's override, the state where the players' own control steps aside.
     forced_hard = await make_match(
         "Online Race — Staff Set Hard", 6, players[0], players[3],
     )
@@ -506,10 +466,6 @@ async def _seed_online_matches(
     finished = await make_match(
         "Online Race Finished", -3, players[0], players[2], started=True, finished=True,
     )
-    # Hard-preset opt-ins, covering the three states the column renders:
-    # unanimous (both players in, still rollable), a single opt-in waiting on the
-    # other player, and a staff override that disregards both. The third match is
-    # left with no rows at all, which is the fourth state — the plain offer.
     for match, opted_in in (
         (scheduled, (players[0], players[1])),
         (half, (players[1],)),
@@ -521,9 +477,6 @@ async def _seed_online_matches(
     if in_progress.preset_override is None:
         in_progress.preset_override = PresetOverride.STANDARD
         await in_progress.save()
-    # The other direction of the same control. Both are seeded because they read
-    # differently on the board and in the DM, and the forced-hard one sits on an
-    # upcoming match so its control is still live to look at.
     if forced_hard.preset_override is None:
         forced_hard.preset_override = PresetOverride.HARD
         await forced_hard.save()
@@ -576,11 +529,7 @@ async def _seed_rooms(
         ("dev-room", "Scheduled Race — Bracket", RaceRoomStatus.OPEN, scheduled),
         ("dev-room-live", "Race In Progress — Bracket", RaceRoomStatus.IN_PROGRESS, in_progress),
         ("dev-room-done", "Finished Race — Bracket", RaceRoomStatus.FINISHED, finished),
-        # A cancelled room, detached from any match. ``RacetimeRoom.match`` is a
-        # OneToOne, so a room cannot share a match with a live one — and this is
-        # the shape the real thing leaves behind anyway: the room is cancelled,
-        # the match it was opened for is deleted or re-opened elsewhere, and
-        # ``SET_NULL`` leaves the record standing on its own.
+        # Detached from any match: RacetimeRoom.match is OneToOne, so it can't share a live room's match.
         ("dev-room-void", "Cancelled Room — Bracket", RaceRoomStatus.CANCELLED, None),
     ]
     for suffix, room_name, status, match in room_specs:
@@ -651,10 +600,6 @@ async def _seed_speedgaming(
         },
     )
 
-    # One episode per remaining SyncStatus. The SpeedGaming tab exists to show
-    # sync *health*, and health is the non-synced rows: an episode discovered but
-    # not yet materialized, one a lifecycle guard held back, one whose upstream
-    # vanished, and one whose transform failed with the reason attached.
     unhealthy_specs = [
         (2, "Discovered — Not Yet Materialized", SyncStatus.PENDING, None),
         (3, "Held Back — Match Already Started", SyncStatus.SKIPPED, None),
@@ -673,7 +618,6 @@ async def _seed_speedgaming(
                 "content_hash": f"devseedhash{index}",
                 "sync_status": status,
                 "sync_error": sync_error,
-                # Only a row that reached the app has a synced_at.
                 "synced_at": now if status is SyncStatus.SKIPPED else None,
             },
         )
@@ -701,16 +645,12 @@ async def _seed_speedgaming(
         },
     )
 
-    # A real player alongside the placeholder (from the scheduled match's roster).
     real_player = await MatchPlayers.filter(match=scheduled_match).prefetch_related("user").first()
     roster = [placeholder]
     if real_player is not None:
         roster.append(real_player.user)
     for user in roster:
-        # Membership first, then enrol, then add to the match — the order the
-        # real ETL uses. Without the membership the placeholder is a person on
-        # this community's schedule who does not belong to it, which the
-        # membership-coverage audit reports as a gap.
+        # Membership first, then enrol, then add to the match, or the audit reports a coverage gap.
         await TenantMembership.get_or_create(user=user, tenant=tenant)
         if user is placeholder:
             await TenantMembership.filter(user=user, tenant=tenant).update(

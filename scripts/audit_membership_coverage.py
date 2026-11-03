@@ -61,8 +61,6 @@ async def report() -> int:
         by_tenant: dict[int, list[int]] = {}
         for user_id, tenant_id in sorted(grantable):
             by_tenant.setdefault(tenant_id, []).append(user_id)
-        # Per tenant, not just a total: one community with 300 uncovered users is
-        # a different decision from thirty with ten each.
         for tenant_id, user_ids in sorted(by_tenant.items(), key=lambda kv: -len(kv[1])):
             tenant = tenants.get(tenant_id)
             name = f"'{tenant.slug}'" if tenant else f'#{tenant_id} (deleted?)'
@@ -82,8 +80,6 @@ async def report() -> int:
         if len(report_only) > 20:
             print(f'  … +{len(report_only) - 20} more')
 
-    # The genuinely-correct "not a member of anything" case: after the gate they
-    # meet the join page. Say how many, so nobody is surprised by the volume.
     member_user_ids = {m.user_id for m in await TenantMembership.all()}
     homeless = [u for u in await User.all() if u.id not in member_user_ids]
     print()

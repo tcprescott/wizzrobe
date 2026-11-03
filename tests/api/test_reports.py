@@ -47,6 +47,23 @@ class TestGate:
         async with client_for(app, raw) as c:
             assert (await c.get('/api/reports/activity-trends', params=WINDOW)).status_code == 200
 
+    async def test_single_tab_admin_roles_are_refused_the_reports(self, db, app):
+        """An equipment manager or volunteer coordinator has no Reports tab for
+        matches, crew or stages, so the API refuses those reports too."""
+        for role in (Role.EQUIPMENT_MANAGER, Role.VOLUNTEER_COORDINATOR):
+            _, raw = await create_user_token(username=role.value, roles=[role])
+            async with client_for(app, raw) as c:
+                for path in ('/api/reports/activity-trends', '/api/reports/crew-coverage'):
+                    assert (await c.get(path, params=WINDOW)).status_code == 403, (role, path)
+
+    async def test_a_volunteer_coordinator_reads_volunteer_hours_only(self, db, app):
+        _, raw = await create_user_token(username='vc', roles=[Role.VOLUNTEER_COORDINATOR])
+        async with client_for(app, raw) as c:
+            assert (await c.get('/api/reports/volunteer-hour-trends', params=WINDOW)).status_code == 200
+        _, raw = await create_user_token(username='em', roles=[Role.EQUIPMENT_MANAGER])
+        async with client_for(app, raw) as c:
+            assert (await c.get('/api/reports/volunteer-hour-trends', params=WINDOW)).status_code == 403
+
     async def test_a_read_only_token_still_reads(self, db, app):
         _, raw = await create_user_token(username='staff', roles=[Role.STAFF], read_only=True)
         async with client_for(app, raw) as c:
@@ -73,7 +90,6 @@ class TestReshapedReports:
             body = (await c.get('/api/reports/stage-utilization', params=WINDOW)).json()
         assert [r['stage_name'] for r in body['stages']] == ['Main']
         row = body['stages'][0]
-        # The ORM Match rows the service returns are collapsed to a count.
         assert 'matches' not in row
         assert row['match_count'] == 1
         assert 'unplaced_candidate_count' in body
@@ -129,8 +145,17 @@ class TestPassThroughReports:
         _, raw = await create_user_token(username='staff', roles=[Role.STAFF])
         async with client_for(app, raw) as c:
             assert (await c.get('/api/reports/volunteer-hour-trends', params=WINDOW)).status_code == 404
-            # Its unflagged siblings keep working.
             assert (await c.get('/api/reports/activity-trends', params=WINDOW)).status_code == 200
+
+    async def test_volunteer_hour_trends_without_the_flag_404s_for_a_non_admin_too(self, db, app):
+        """The flag is checked before the role, so a player can't tell a
+        switched-off feature from one they lack the role for."""
+        await TenantFeatureFlag.filter(
+            tenant_id=1, flag=FeatureFlag.VOLUNTEERS.value,
+        ).update(available=False, enabled=False)
+        _, raw = await create_user_token(username='player')
+        async with client_for(app, raw) as c:
+            assert (await c.get('/api/reports/volunteer-hour-trends', params=WINDOW)).status_code == 404
 
 
 class TestTelemetry:

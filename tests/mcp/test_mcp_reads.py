@@ -39,8 +39,10 @@ from models import (
     Tournament,
     TriforceText,
     User,
+    VolunteerAssignment,
     VolunteerAvailabilityStatus,
     VolunteerPosition,
+    VolunteerShift,
     Webhook,
     WebhookDelivery,
 )
@@ -99,6 +101,29 @@ class TestEquipment:
         assert not is_error, detail
         assert len(detail['loans']) == 1
         assert detail['loans'][0]['checked_in_at'] is None
+        assert detail['loan_count'] == 1
+
+    async def test_long_loan_history_is_capped_but_counted(self, db):
+        """Every equipment write hands this detail back, so an asset loaned out
+        all weekend must not return its whole history each time."""
+        from mcpserver.tools.equipment import MAX_LOANS
+
+        user, raw = await _staff()
+        asset = await Equipment.create(asset_number=8, name='Controller')
+        base = datetime(2026, 3, 1, tzinfo=timezone.utc)
+        for i in range(MAX_LOANS + 5):
+            await EquipmentLoan.create(
+                equipment=asset, borrower=user, checked_out_by=user,
+                checked_out_at=base + timedelta(hours=i),
+                checked_in_at=base + timedelta(hours=i, minutes=30),
+            )
+        async with mcp_session() as client:
+            is_error, detail = await call_tool(
+                client, raw, 'get_equipment', tenant=TENANT, equipment_id=asset.id,
+            )
+        assert not is_error, detail
+        assert len(detail['loans']) == MAX_LOANS
+        assert detail['loan_count'] == MAX_LOANS + 5
 
     async def test_status_filter_narrows_the_inventory(self, db):
         _, raw = await _staff()
@@ -140,7 +165,6 @@ class TestOnlinePlay:
                 client, raw, 'get_preset', tenant=TENANT, preset_id=preset.id,
             )
         assert [p['name'] for p in listing['result']] == ['Open Standard']
-        # The summary carries no settings; the detail is the only way to get them.
         assert 'settings' not in listing['result'][0]
         assert not is_error, detail
         assert detail['settings'] == {'glitches': 'none'}
@@ -203,7 +227,6 @@ class TestOnlinePlay:
             )
         assert links['result'][0]['event_slug'] == 'alttprleague'
         assert episodes['result'][0]['sg_episode_id'] == '4242'
-        # The upstream payload blob is deliberately not echoed back.
         assert 'payload' not in episodes['result'][0]
 
     async def test_randomizers_list_only_what_the_community_can_roll(self, db):
@@ -212,8 +235,6 @@ class TestOnlinePlay:
             is_error, payload = await call_tool(client, raw, 'list_randomizers', tenant=TENANT)
         assert not is_error, payload
         names = {r['randomizer'] for r in payload['result']}
-        # ALTTPR needs no credential, so it is always rollable; the key-gated
-        # backends stay out until a credential is configured.
         assert 'alttpr' in names
         assert 'ootr' not in names
         assert any(r['supports_triforce_texts'] for r in payload['result'])
@@ -304,6 +325,32 @@ class TestBrackets:
         assert pairing['winner'] == 'Alice'
         assert (pairing['entry1_score'], pairing['entry2_score']) == (2, 1)
 
+    async def test_standings_name_their_entrants(self, db):
+        """The tool once read ``group.name`` and ``row.label``, neither of which
+        exists, so every row came back with a null entrant."""
+        _, raw = await _staff()
+        tournament = await _tournament('Groups Cup')
+        bracket = await Bracket.create(
+            tournament=tournament, name='Groups', format=BracketFormat.ROUND_ROBIN,
+        )
+        entries = []
+        for seed, name in enumerate(('Alice', 'Bob'), start=1):
+            entrant = await BracketEntrant.create(tournament=tournament, display_name=name)
+            entries.append(await BracketEntry.create(bracket=bracket, entrant=entrant, seed=seed))
+        await BracketMatch.create(
+            bracket=bracket, round=1, position=1,
+            entry1=entries[0], entry2=entries[1], winner=entries[0],
+            entry1_score=1, entry2_score=0, state=BracketMatchState.COMPLETE,
+        )
+        async with mcp_session() as client:
+            is_error, payload = await call_tool(
+                client, raw, 'get_bracket_standings', tenant=TENANT, bracket_id=bracket.id,
+            )
+        assert not is_error, payload
+        rows = payload['result'][0]['rows']
+        assert [row['display_name'] for row in rows] == ['Alice', 'Bob']
+        assert (rows[0]['rank'], rows[0]['wins'], rows[1]['losses']) == (1, 1, 1)
+
     async def test_entrants_are_listed_per_tournament(self, db):
         _, raw = await _staff()
         tournament, _ = await self._bracket()
@@ -317,8 +364,6 @@ class TestBrackets:
     async def test_a_non_staff_caller_cannot_read_an_unpublished_stage(self, db):
         """``_bracket`` builds a DRAFT stage. The same rule as the public pages
         and REST: staff-only, answered as ``not_found``, roster included."""
-        # A role is the MCP floor for reaching a community at all; VOLUNTEER
-        # holds no authority over brackets.
         _, raw = await create_oauth_token(username='mcp-player', roles=[Role.VOLUNTEER])
         tournament, bracket = await self._bracket()
         async with mcp_session() as client:
@@ -351,6 +396,27 @@ class TestAsyncQualifiers:
         assert payload['runs_per_pool'] == 2
         assert [p['name'] for p in payload['pools']] == ['Pool A']
         assert payload['pools'][0]['permalink_count'] == 0
+
+    async def test_a_member_reads_open_qualifiers_without_their_pools(self, db):
+        """The Qualifiers page lists open qualifiers to every member; the
+        connector must too, keeping pools and closed ones behind the admin gate."""
+        _, raw = await create_oauth_token(username='mcp-player', roles=[Role.VOLUNTEER])
+        open_q = await AsyncQualifier.create(
+            name='Season 5 Quals', is_active=True,
+            opens_at=datetime(2026, 10, 1, tzinfo=timezone.utc),
+        )
+        await AsyncQualifier.create(name='Draft Quals', is_active=False)
+        await AsyncQualifierPool.create(qualifier=open_q, name='Pool A')
+        async with mcp_session() as client:
+            is_error, listed = await call_tool(client, raw, 'list_async_qualifiers', tenant=TENANT)
+            assert not is_error, listed
+            assert [q['name'] for q in listed['result']] == ['Season 5 Quals']
+            is_error, payload = await call_tool(
+                client, raw, 'get_async_qualifier', tenant=TENANT, qualifier_id=open_q.id,
+            )
+        assert not is_error, payload
+        assert payload['name'] == 'Season 5 Quals'
+        assert payload['pools'] == []
 
     async def test_leaderboard_is_readable_by_a_qualifier_admin(self, db):
         """An empty board is still the right answer; a refusal would not be."""
@@ -402,7 +468,6 @@ class TestObservability:
         assert hooks['result'][0]['event_types'] == ['match.created']
         assert 'super-secret-value' not in str(hooks)
         assert deliveries['result'][0]['response_status'] == 500
-        # The serialized request body is bulk, and the audit log already has it.
         assert 'payload' not in deliveries['result'][0]
 
     async def test_feedback_lists_most_recent_first(self, db):
@@ -496,6 +561,22 @@ class TestAnalytics:
                 series = payload['result']
                 assert series['bucket'] == 'week'
                 assert series['bucket_labels']
+
+    async def test_a_reversed_window_or_unknown_bucket_is_refused(self, db):
+        """REST answers both with a 400. The services quietly clamp a reversed
+        window to an empty one and read any bucket but 'month' as a week, so
+        without the check MCP returned an empty or weekly report instead."""
+        _, raw = await _staff()
+        reversed_window = {'start': WINDOW['end'], 'end': WINDOW['start']}
+        async with mcp_session() as client:
+            is_error, payload = await call_tool(
+                client, raw, 'capacity_forecast', tenant=TENANT, **reversed_window,
+            )
+            assert is_error and 'end must not be before start' in payload, payload
+            is_error, payload = await call_tool(
+                client, raw, 'activity_trends', tenant=TENANT, bucket='year', **WINDOW,
+            )
+            assert is_error, payload
 
     async def test_volunteer_hour_trends_is_bucketed_too(self, db):
         _, raw = await _staff()
@@ -651,3 +732,54 @@ class TestVolunteerPositions:
         assert {p['name'] for p in everything['result']} == {'Check-in Desk', 'Retired Job'}
         assert [p['name'] for p in active['result']] == ['Check-in Desk']
         assert everything['result'][0]['description'] == 'Front door'
+
+
+class TestPlayerFacingGaps:
+    """A player reaches neither the volunteer roster nor the whole equipment
+    register; the app keeps both to the people who run them."""
+
+    async def test_a_player_cannot_read_the_volunteer_schedule(self, db):
+        player, raw = await create_oauth_token(roles=[])
+        await TenantMembership.create(user=player, tenant_id=1)
+        window = dict(start='2026-01-01T00:00:00', end='2026-01-02T00:00:00')
+        async with mcp_session() as client:
+            for tool, kwargs in (
+                ('list_volunteer_shifts', window),
+                ('volunteer_coverage', window),
+                ('list_volunteer_positions', {}),
+            ):
+                is_error, payload = await call_tool(client, raw, tool, tenant=TENANT, **kwargs)
+                assert is_error, (tool, payload)
+                assert 'forbidden:' in payload, (tool, payload)
+
+    async def test_a_volunteer_reads_shifts_without_drafts(self, db):
+        _, raw = await create_oauth_token(roles=[Role.VOLUNTEER])
+        pos = await VolunteerPosition.create(name='Desk')
+        shift = await VolunteerShift.create(
+            position=pos, starts_at=datetime(2026, 1, 1, 12, tzinfo=timezone.utc),
+            ends_at=datetime(2026, 1, 1, 16, tzinfo=timezone.utc),
+        )
+        published = await create_community_member(username='published')
+        drafted = await create_community_member(username='drafted')
+        await VolunteerAssignment.create(shift=shift, user=published, auto_generated=False)
+        await VolunteerAssignment.create(shift=shift, user=drafted, auto_generated=True)
+        async with mcp_session() as client:
+            is_error, payload = await call_tool(
+                client, raw, 'list_volunteer_shifts', tenant=TENANT,
+                start='2026-01-01T00:00:00', end='2026-01-02T00:00:00',
+            )
+        assert not is_error, payload
+        assert payload['result'][0]['assignees'] == [published.preferred_name]
+
+    async def test_a_player_cannot_list_equipment_but_can_look_one_up(self, db):
+        player, raw = await create_oauth_token(roles=[])
+        await TenantMembership.create(user=player, tenant_id=1)
+        asset = await Equipment.create(asset_number=3, name='CRT')
+        async with mcp_session() as client:
+            is_error, payload = await call_tool(client, raw, 'list_equipment', tenant=TENANT)
+            assert is_error and 'forbidden:' in payload, payload
+            is_error, payload = await call_tool(
+                client, raw, 'get_equipment', tenant=TENANT, equipment_id=asset.id,
+            )
+            assert not is_error, payload
+

@@ -7,24 +7,56 @@ personal bearer token; see :mod:`api.dependencies`.
 
 from fastapi import APIRouter, Depends
 
+from api import graphql
 from api.dependencies import require_feature, tenant_context_scope
 from api.rate_limit import rate_limit
 from api.routers import (
+    admin_brackets,
+    admin_check_in,
+    admin_equipment,
+    admin_match_schedule,
+    admin_meetups,
+    admin_members,
+    admin_nav,
+    admin_notifications,
+    admin_payouts,
+    admin_presets,
+    admin_qualifiers,
+    admin_reports,
+    admin_stream_layouts,
+    admin_tournaments,
     async_qualifier_live_races,
     async_qualifiers,
     audit,
     brackets,
     check_in,
+    community_settings,
     crew,
     discord_events,
     discord_role_mappings,
+    discord_role_sync,
+    discord_settings,
     equipment,
+    event_hub,
+    event_settings,
+    events,
+    exports,
     feedback,
     health,
+    integration_settings,
     match_actions,
+    match_comments,
     matches,
+    me,
     memberships,
+    my_developer,
+    my_notifications,
+    my_profile,
+    my_schedule,
+    my_surveys,
+    notification_settings,
     notifications,
+    patreon,
     payouts,
     platform,
     player_availability,
@@ -32,44 +64,76 @@ from api.routers import (
     race_room_profiles,
     race_rooms,
     racetime_bots,
+    reading,
     reports,
     reschedule_requests,
     seeds,
+    sent_messages,
     service_health,
     speedgaming,
     stage_actions,
     stages,
+    survey_builder,
+    surveys,
     system_config,
     telemetry,
+    tickets,
     tokens,
     tournament_actions,
     tournaments,
     triforce,
     users,
+    version,
     volunteers,
     web_push,
     webhooks,
+    work,
 )
 from models import FeatureFlag
 
 router = APIRouter(dependencies=[Depends(rate_limit), Depends(tenant_context_scope)])
-# Unauthenticated liveness probe (no auth dependency on this router).
 router.include_router(health.router)
+router.include_router(version.router)
+router.include_router(reading.help_router)
+router.include_router(reading.event_info_router)
+router.include_router(reading.app_router)
 router.include_router(matches.router)
 router.include_router(match_actions.router)
+router.include_router(match_comments.router)
 router.include_router(crew.router)
-# Literal ``/reschedule-requests/mine`` before the ``/{request_id}`` routes in
-# the same module, which FastAPI resolves in declaration order.
+# Before the /{request_id} routes: FastAPI resolves in declaration order.
 router.include_router(reschedule_requests.router)
+router.include_router(events.router)
 router.include_router(tournaments.router)
 router.include_router(tournament_actions.router)
 router.include_router(stages.router)
 router.include_router(stage_actions.router)
+router.include_router(me.router)
+router.include_router(my_schedule.router)
+router.include_router(event_hub.router)
+router.include_router(my_surveys.router)
+router.include_router(admin_nav.router)
+router.include_router(work.router)
+router.include_router(community_settings.router)
+router.include_router(discord_settings.router)
+router.include_router(discord_role_sync.router)
+router.include_router(integration_settings.router)
+router.include_router(event_settings.router)
+router.include_router(my_profile.router)
+router.include_router(admin_tournaments.router)
+router.include_router(
+    admin_brackets.router,
+    dependencies=[Depends(require_feature(FeatureFlag.BRACKETS))],
+)
+router.include_router(admin_presets.router)
+router.include_router(admin_match_schedule.router)
+router.include_router(my_notifications.router)
+router.include_router(my_developer.apps_router)
+router.include_router(my_developer.webhooks_router)
+router.include_router(admin_members.router)
 router.include_router(users.router)
 router.include_router(memberships.router)
-# The literal ``/users/me/availability`` router must be included before the one
-# carrying ``/users/{user_id}/availability``, or ``me`` matches the int path
-# param and 422s instead of falling through.
+# Include before /users/{user_id}/availability, or `me` hits the int param and 422s.
 router.include_router(player_availability.router)
 router.include_router(player_availability.other_players_router)
 router.include_router(
@@ -80,9 +144,21 @@ router.include_router(
     payouts.router,
     dependencies=[Depends(require_feature(FeatureFlag.PAYOUTS))],
 )
+router.include_router(
+    admin_payouts.router,
+    dependencies=[Depends(require_feature(FeatureFlag.PAYOUTS))],
+)
+router.include_router(
+    admin_stream_layouts.router,
+    dependencies=[Depends(require_feature(FeatureFlag.STREAM_LAYOUTS))],
+)
 router.include_router(notifications.router)
 router.include_router(audit.router)
+router.include_router(sent_messages.router)
+router.include_router(exports.router)
 router.include_router(system_config.router)
+router.include_router(notification_settings.router)
+router.include_router(admin_notifications.router)
 router.include_router(tokens.router)
 router.include_router(
     volunteers.router,
@@ -90,6 +166,7 @@ router.include_router(
 )
 router.include_router(discord_role_mappings.router)
 router.include_router(reports.router)
+router.include_router(admin_reports.router)
 router.include_router(telemetry.router)
 router.include_router(
     equipment.router,
@@ -99,15 +176,38 @@ router.include_router(
     feedback.router,
     dependencies=[Depends(require_feature(FeatureFlag.FEEDBACK))],
 )
-# Also no auth dependency: the service worker that calls it has no session to
-# present, and proves ownership of the subscription instead (see the module).
+router.include_router(survey_builder.router)
+router.include_router(
+    surveys.router,
+    dependencies=[Depends(require_feature(FeatureFlag.SURVEYS))],
+)
+router.include_router(
+    tickets.router,
+    dependencies=[Depends(require_feature(FeatureFlag.TICKET_SALES))],
+)
+router.include_router(
+    tickets.me_router,
+    dependencies=[Depends(require_feature(FeatureFlag.TICKET_SALES))],
+)
+router.include_router(
+    patreon.router,
+    dependencies=[Depends(require_feature(FeatureFlag.PATREON))],
+)
+router.include_router(
+    patreon.me_router,
+    dependencies=[Depends(require_feature(FeatureFlag.PATREON))],
+)
+# No token on purpose: the stored single-use state ties the sign-in to whoever started it.
+router.include_router(patreon.callback_router)
+# No token on purpose: Patreon posts it, and its signature, checked against the campaign's secret, is the proof.
+router.include_router(patreon.webhook_router)
+# No token on purpose: a store posts it, and its signature, checked against that store's secret, is the proof.
+router.include_router(tickets.webhook_router)
+# No auth dependency on purpose: the service worker has no session and proves subscription ownership instead.
 router.include_router(web_push.router)
 router.include_router(webhooks.router)
+router.include_router(graphql.router)
 
-# --- online-tournament feature routers ---
-# Feature-gated per tenant (mirrors the web UI's per-tenant flags). ``presets``,
-# ``seeds``, ``racetime_bots`` (platform infra), ``discord_events`` (ungated),
-# and ``service_health`` stay open; the rest 404 when the tenant lacks the flag.
 router.include_router(presets.router)
 router.include_router(
     race_room_profiles.router,
@@ -134,16 +234,29 @@ router.include_router(
     dependencies=[Depends(require_feature(FeatureFlag.EVENT_CHECK_IN))],
 )
 router.include_router(seeds.router)
-# Live-races MUST be registered before the async-qualifiers router: its literal
-# ``/async-qualifiers/live-races`` prefix would otherwise be shadowed by the
-# ``/async-qualifiers/{qualifier_id}`` int path param (a non-int segment 422s
-# rather than falling through), so the more specific router is included first.
+# Must come before the async-qualifiers router, or /{qualifier_id} shadows /live-races and 422s.
 router.include_router(
     async_qualifier_live_races.router,
     dependencies=[Depends(require_feature(FeatureFlag.ASYNC_QUALIFIERS))],
 )
 router.include_router(
     async_qualifiers.router,
+    dependencies=[Depends(require_feature(FeatureFlag.ASYNC_QUALIFIERS))],
+)
+router.include_router(
+    admin_check_in.router,
+    dependencies=[Depends(require_feature(FeatureFlag.EVENT_CHECK_IN))],
+)
+router.include_router(
+    admin_equipment.router,
+    dependencies=[Depends(require_feature(FeatureFlag.EQUIPMENT))],
+)
+router.include_router(
+    admin_meetups.router,
+    dependencies=[Depends(require_feature(FeatureFlag.COMMUNITY_EVENTS))],
+)
+router.include_router(
+    admin_qualifiers.router,
     dependencies=[Depends(require_feature(FeatureFlag.ASYNC_QUALIFIERS))],
 )
 

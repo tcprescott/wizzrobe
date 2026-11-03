@@ -23,40 +23,21 @@ from models import (
 
 DEFAULT_IMBALANCE_THRESHOLD = 2
 
-# How long a drawn run may stay in progress before it is forfeited automatically.
-# Twelve hours is SahasrahBot's production-tested value: comfortably longer than
-# any real run plus a meal break, short enough that an abandoned run frees its
-# pool slot the same day.
+# SahasrahBot's production-tested value: an abandoned run frees its pool slot the same day.
 DEFAULT_RUN_TIME_LIMIT_HOURS = 12
-# How long before that deadline the runner gets one warning DM.
 DEFAULT_EXPIRY_WARNING_MINUTES = 60
 
-# Clock skew between the browser's submit and the server's ``now``, plus request
-# latency. A claim inside this much of the measured duration is not a discrepancy.
 CLOCK_GRACE_SECONDS = 120
 
-# How far a claim may fall short of the measurement before the player is asked
-# about it. Generous on purpose: finishing and submitting twenty minutes later is
-# ordinary, while a dropped H segment is off by an hour or more.
+# Generous on purpose: submitting twenty minutes after finishing is ordinary; a dropped segment is an hour off.
 IMPLAUSIBLE_DRIFT_SECONDS = 15 * 60
 
-# How long the oldest pending run must have waited before the reviewer set is
-# interrupted about it. Below this, a queue is just a queue: submissions arrive and
-# get worked, and a DM would be noise.
 REVIEW_BACKLOG_AGE = timedelta(hours=6)
-# And how often that reminder may repeat while the backlog persists. A qualifier at
-# real scale takes thousands of runs; one DM per run would train every reviewer to
-# mute the bot, which is worse than the silence this replaces.
 REVIEW_BACKLOG_REMINDER = timedelta(hours=24)
 
-# A seed permalink is a link a runner opens in a browser, so nothing else counts.
-# An allow-list rather than a "has a scheme" check because ``javascript:`` and
-# ``data:`` both render as a clickable link in the admin page.
+# An allow-list, not a has-a-scheme check: javascript: and data: both render as clickable links.
 _PERMALINK_SCHEMES = ('http', 'https')
 
-# How long a reviewer's claim on a queue card holds before the worker releases it.
-# Long enough to watch a VoD through, short enough that a closed tab does not
-# park a run out of everyone else's reach for the rest of the qualifier.
 REVIEW_CLAIM_TTL = timedelta(hours=2)
 
 
@@ -291,10 +272,6 @@ class PoolUsage:
     used: int
     allowed: int
     has_candidates: bool
-    # Whether the pool holds any permalink a self-paced runner could ever draw. A
-    # live-race-only pool holds none, and would otherwise look permanently like
-    # "slots free, every seed played" — the one reason that tells an organiser to
-    # add more seeds.
     seeded: bool = True
 
     @property
@@ -389,9 +366,9 @@ class WindowState(str, Enum):
     (``AsyncQualifier.window_state_notified``), so the crossing is announced once.
     """
 
-    PENDING = 'pending'    # active, but ``opens_at`` is still ahead
-    OPEN = 'open'          # runs may be drawn right now
-    CLOSED = 'closed'      # past ``closes_at``, or switched inactive
+    PENDING = 'pending'
+    OPEN = 'open'
+    CLOSED = 'closed'
 
 
 def window_state(qualifier: AsyncQualifier, now: Optional[datetime] = None) -> WindowState:
@@ -408,8 +385,8 @@ class ClaimVerdict(str, Enum):
     """How a claimed finish time stands against the server-measured wall clock."""
 
     OK = 'ok'
-    IMPLAUSIBLE = 'implausible'   # ask the player; never blocks
-    IMPOSSIBLE = 'impossible'     # refuse; the claim exceeds the wall clock
+    IMPLAUSIBLE = 'implausible'
+    IMPOSSIBLE = 'impossible'
 
 
 def measure_elapsed(started_at: Optional[datetime], now: Optional[datetime] = None) -> Optional[int]:

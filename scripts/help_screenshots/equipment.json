@@ -2,11 +2,11 @@
   {
     "name": "yours-phone",
     "user": "player_one",
-    "path": "/home/my-schedule",
-    "selector": ".wiz-panel:has-text(\"Equipment you have out\")",
+    "path": "/home/profile",
+    "selector": ".wiz-equipment-out",
     "annotate": [
       {
-        "selector": ".wiz-panel:has-text(\"Equipment you have out\") button:has-text('View')",
+        "selector": ".wiz-equipment-out button:has-text('View')",
         "n": 1
       }
     ]
@@ -14,10 +14,10 @@
   {
     "name": "held-phone",
     "user": "player_one",
-    "path": "/home/my-schedule",
+    "path": "/home/profile",
     "setup": [
       {
-        "click": ".wiz-panel:has-text(\"Equipment you have out\") >> text=View"
+        "click": ".wiz-equipment-out >> text=View"
       },
       {
         "waitFor": "text=Loan history"

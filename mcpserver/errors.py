@@ -16,16 +16,14 @@ from typing import Optional
 
 from mcp.server.mcpserver.exceptions import ToolError
 
-from application.errors import NotFoundError
+from application.errors import EventArchivedError, NotFoundError
 
 logger = logging.getLogger(__name__)
 
-# Machine-readable prefixes. A bare prose message forces the model to guess
-# whether a failure is worth retrying; these let it distinguish "I lack
-# permission, tell the user" from "wrong id, list first" without parsing English.
 FORBIDDEN = 'forbidden'
 NOT_FOUND = 'not_found'
 INVALID_REQUEST = 'invalid_request'
+READ_ONLY = 'read_only'
 INTERNAL_ERROR = 'internal_error'
 
 
@@ -42,9 +40,10 @@ def map_service_error(exc: Exception, tool: Optional[str] = None) -> ToolError:
         return ToolError(f'{FORBIDDEN}: {exc or "Permission denied"}')
     if isinstance(exc, NotFoundError):
         return ToolError(f'{NOT_FOUND}: {exc or "Not found"}')
+    if isinstance(exc, EventArchivedError):
+        return ToolError(f'{READ_ONLY}: {exc}')
     if isinstance(exc, ValueError):
         return ToolError(f'{INVALID_REQUEST}: {exc}')
-    # Anything else is a bug. Log it with a traceback (which reaches Sentry) but
-    # hand the model an opaque message — the same posture as the 500 page.
+    # Log the traceback but hand the model an opaque message, like the 500 page.
     logger.exception('Unhandled exception in MCP tool %s', tool or '(unknown)', exc_info=exc)
     return ToolError(f'{INTERNAL_ERROR}: The server hit an unexpected error.')

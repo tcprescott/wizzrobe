@@ -14,9 +14,11 @@ from pathlib import Path
 import pytest
 from nicegui import ui
 
+from application.services.table_preference_service import TablePreferenceService
 from application.table_preferences_context import table_prefs_scope
 from theme.tables.mobile_grid import enable_mobile_grid
 from theme.tables.preferences import (
+    ROWS_PER_PAGE_OPTIONS,
     apply_saved_config,
     customization_of,
     customize_table,
@@ -111,8 +113,6 @@ class TestThePlanReachesTheTable:
         assert 'wiz-table--sized' not in table.classes
 
     def test_an_unprimed_context_renders_defaults(self, table):
-        # /platform and the public bracket views never prime; defaults are the
-        # correct answer there, not a failure.
         plan = customize_table(table, COLUMNS, key='admin.users')
         assert plan.is_customized is False
         assert [c['name'] for c in table.columns] == [c['name'] for c in COLUMNS]
@@ -121,6 +121,47 @@ class TestThePlanReachesTheTable:
         table.pagination = {'rowsPerPage': 15}
         plan = customize_table(table, COLUMNS, key='reports.example')
         assert plan.page_size == 15
+
+
+class TestRowsPerPageLivesInTheFooter:
+    """One control for rows per page: the table footer, and it saves."""
+
+    def test_the_footer_offers_exactly_what_the_service_accepts(self):
+        assert set(ROWS_PER_PAGE_OPTIONS) == set(TablePreferenceService.ALLOWED_PAGE_SIZES)
+
+    def test_every_customized_table_gets_the_footer_options(self, table):
+        customize_table(table, COLUMNS, key='admin.users')
+        assert table._props['rows-per-page-options'] == ROWS_PER_PAGE_OPTIONS
+        assert table._props['rows-per-page-label'] == 'Rows per page:'
+
+    def test_the_footer_stays_on_all(self, table):
+        with table_prefs_scope({'admin.users': {'page_size': 0}}):
+            customize_table(table, COLUMNS, key='admin.users')
+        assert table._props['pagination']['rowsPerPage'] == 0
+        assert table._props['hide-pagination'] is False
+
+    def test_a_server_paged_table_has_no_footer_and_ignores_a_saved_size(self, table):
+        with table_prefs_scope({'admin.users': {'page_size': 25}}):
+            plan = customize_table(table, COLUMNS, key='admin.users', pager=False)
+        assert plan.page_size == 0
+        assert table._props['hide-pagination'] is True
+        assert 'rows-per-page-options' not in table._props
+
+    def test_the_preferences_dialog_has_no_rows_per_page_control(self):
+        source = (REPO / 'theme/dialog/table_preferences_dialog.py').read_text()
+        assert "ui.label('Rows per page')" not in source
+        assert 'set_page_size' not in source
+
+    def test_every_shipped_page_size_is_one_the_footer_offers(self):
+        import re
+        allowed = set(ROWS_PER_PAGE_OPTIONS)
+        bad = []
+        for path in [*(REPO / 'pages').rglob('*.py'), *(REPO / 'theme').rglob('*.py')]:
+            text = path.read_text()
+            for m in re.finditer(r"(?:pagination=|'rowsPerPage':\s*)(\d+)", text):
+                if int(m.group(1)) not in allowed:
+                    bad.append(f'{path.relative_to(REPO)}: {m.group(0)}')
+        assert not bad, bad
 
 
 class TestReapplying:
@@ -145,7 +186,6 @@ class TestReapplying:
 
 class TestTheCarriers:
     def test_capture_render_context_carries_preferences(self):
-        # The wave's subtlest bug: a background refresh reverting to defaults.
         from theme.tables.admin_crud import capture_render_context
 
         with table_prefs_scope({'admin.users': SAVED}):
@@ -155,7 +195,6 @@ class TestTheCarriers:
     def test_base_layout_primes_and_scopes(self):
         source = (REPO / 'theme' / 'base.py').read_text()
         assert 'TablePreferenceService().prime(self.user)' in source
-        # Both carriers: the page build and the lazy tab build.
         assert source.count('table_prefs_scope(') >= 2
 
 
@@ -193,3 +232,47 @@ class TestCallOrder:
         assert not offenders, (
             'customize_table must be called after the mobile card slot is '
             f'generated: {offenders}')
+
+
+class TestClockSort:
+    def test_render_context_carries_the_clock(self):
+        from application.timezone_context import hour_cycle_scope
+        from theme.tables.admin_crud import capture_render_context
+
+        with hour_cycle_scope(True):
+            assert capture_render_context()[3] is True
+        assert capture_render_context()[3] is False
+
+    def test_twelve_hour_sortable_columns_get_the_clock_sort(self):
+        from theme.tables.preferences import CLOCK_SORT, _with_clock_sort
+
+        assert _with_clock_sort({'name': 'when', 'sortable': True})[':sort'] == CLOCK_SORT
+        assert ':sort' not in _with_clock_sort({'name': 'when'})
+        assert _with_clock_sort({'name': 'n', 'sortable': True, ':sort': 'x'})[':sort'] == 'x'
+
+
+class TestEventCarry:
+    """SGLMAN-2R/2S: a detached refresh lost the event and raised "No event in context"."""
+
+    @pytest.mark.asyncio
+    async def test_scoped_background_rebinds_the_captured_event(self, monkeypatch):
+        from application import event_context
+        from application.event_context import event_scope, require_event_id
+        from application.tenant_context import tenant_scope
+        from theme.tables import admin_crud
+
+        monkeypatch.setattr(event_context, '_fallback_event_id', lambda tenant_id: None)
+        with tenant_scope(7), event_scope(42):
+            context = admin_crud.capture_render_context()
+        assert context[4] == 42
+
+        seen = {}
+
+        async def body():
+            seen['event'] = require_event_id()
+
+        spawned = []
+        monkeypatch.setattr(admin_crud.background_tasks, 'create', spawned.append)
+        admin_crud.scoped_background(context, body())
+        await spawned[0]
+        assert seen['event'] == 42

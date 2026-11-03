@@ -143,8 +143,6 @@ class TestCheckInDesk:
             assert unlinked['user_id'] is None
 
     async def test_linking_someone_outside_the_community_reads_as_unknown(self, db, app):
-        # User is global: linking writes Matcherino payout fields onto the account
-        # and names it in the response, so a desk must not reach non-members.
         _, raw = await create_user_token(username='desk', roles=[Role.CHECK_IN_DESK])
         outsider = await User.create(username='outsider', discord_id=987654)
         event = await _event()

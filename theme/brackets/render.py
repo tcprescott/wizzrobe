@@ -33,8 +33,6 @@ from .layout import (
     slot_sources,
 )
 
-# The disc is 26px at its largest; 64 covers a 2x display without paying for a
-# 128px fetch per entrant.
 AVATAR_SIZE = 64
 
 
@@ -332,7 +330,6 @@ def _render_round_meta(round_number: int, ctx) -> None:
         return
     with ui.row().classes('bracket-round-meta'):
         if scheduled:
-            # "Round time", not the game's time — see the 2-D header (U3c).
             ui.label(f'Round time: {ctx.scheduled_fmt(scheduled)}') \
                 .classes('bracket-header-time')
         if best_of:

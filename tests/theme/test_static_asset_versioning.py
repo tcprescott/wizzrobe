@@ -25,11 +25,8 @@ from theme.assets import (
 
 ROOT = Path(__file__).resolve().parents[2]
 
-# Anything whose content changes with a deploy. Icons, fonts and the manifest are
-# content-stable and fall under the revalidate policy instead.
 VERSIONED_SUFFIXES = ('.css', '.js')
 
-# `/static/<path>` inside a Python string literal.
 STATIC_URL = re.compile(r"""['"]/static/([\w./-]+)['"]""")
 
 

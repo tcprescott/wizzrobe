@@ -6,11 +6,12 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Query
 
 from api._match_view import MATCH_PREFETCH, serialize_match
-from api.dependencies import ServiceErrorRoute, require_admin, require_api_actor
+from api.dependencies import ServiceErrorRoute, event_binding, require_admin, require_api_actor
 from api.schemas.crew import CrewSignupInfo, MatchCrewResponse
 from api.schemas.matches import MatchResponse
 from application.errors import require_found
-from application.services import MatchWatcherService
+from application.event_context import event_scoped
+from application.services import CrewService, MatchWatcherService
 from application.tenant_context import require_tenant_id
 from models import Match, User
 
@@ -18,7 +19,7 @@ router = APIRouter(
     prefix="/matches",
     tags=["Matches"],
     route_class=ServiceErrorRoute,
-    dependencies=[Depends(require_api_actor)],
+    dependencies=[Depends(event_binding(match_id=Match)), Depends(require_api_actor)],
 )
 
 
@@ -42,7 +43,7 @@ async def get_matches(
     tournament_id: Optional[List[int]] = Query(None, description="Filter by specific tournament IDs."),
     limit: int = Query(default=100, ge=1, le=500, description="Maximum matches to return."),
 ):
-    query = Match.filter(tenant_id=require_tenant_id())
+    query = event_scoped(Match.all())
 
     if match_id:
         query = query.filter(id__in=match_id)
@@ -107,21 +108,16 @@ async def get_match(match_id: int):
 @router.get(
     "/{match_id}/crew",
     response_model=MatchCrewResponse,
-    summary="List a match's crew, including pending signups (admin only)",
+    summary="List a match's crew, including pending signups",
     description=(
-        "Every commentator and tracker signup on a match, approved or not, with "
+        "Every commentator, tracker and broadcaster signup on a match, approved or not, with "
         "when each approved crew member confirmed. `GET /matches/{match_id}` "
         "shows approved crew only.\n\n"
-        "**Who can call this:** Admins (any admin role, tournament admin or crew coordinator)."
+        "**Who can call this:** Staff, or Admins or Crew coordinators of this match's tournament."
     ),
 )
 async def get_match_crew(match_id: int, actor: User = Depends(require_admin)):
-    match = require_found(
-        await Match.filter(id=match_id, tenant_id=require_tenant_id())
-        .prefetch_related('commentators__user', 'trackers__user')
-        .first(),
-        "Match",
-    )
+    match = await CrewService().get_match_crew(match_id, actor)
     return MatchCrewResponse(
         match_id=match.id,
         commentators=[
@@ -131,5 +127,9 @@ async def get_match_crew(match_id: int, actor: User = Depends(require_admin)):
         trackers=[
             CrewSignupInfo.model_validate(t, from_attributes=True)
             for t in match.trackers  # type: ignore[attr-defined]
+        ],
+        broadcasters=[
+            CrewSignupInfo.model_validate(b, from_attributes=True)
+            for b in match.broadcasters  # type: ignore[attr-defined]
         ],
     )

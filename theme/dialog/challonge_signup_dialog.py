@@ -8,6 +8,7 @@ from typing import Awaitable, Callable
 
 from nicegui import ui
 
+from theme.busy import busy_click
 from theme.dialog._helpers import dialog_actions, dialog_header, mobile_sheet
 
 
@@ -33,10 +34,10 @@ def open_challonge_signup_dialog(
         )
 
         async def confirm() -> None:
-            dialog.close()
             await on_confirm()
+            dialog.close()
 
         with dialog_actions().classes('justify-end'):
             ui.button('Cancel', on_click=dialog.close).props('flat')
-            ui.button('Sign up', icon='how_to_reg', on_click=confirm).props('color=primary')
+            ui.button('Sign up', icon='how_to_reg', on_click=busy_click('Signing up…', confirm)).props('color=primary')
     dialog.open()

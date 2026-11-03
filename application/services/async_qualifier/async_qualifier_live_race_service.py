@@ -66,16 +66,13 @@ from racetimebot.transport import EntrantStatus, RaceEntrant
 
 logger = logging.getLogger(__name__)
 
-# racetime entrant outcome → qualifier run status. IN_PROGRESS is deliberately
-# absent: a still-racing entrant blocks recording entirely.
+# IN_PROGRESS deliberately absent: a still-racing entrant blocks recording entirely.
 _ENTRANT_TO_RUN_STATUS = {
     EntrantStatus.DONE: AsyncQualifierRunStatus.FINISHED,
     EntrantStatus.DID_NOT_FINISH: AsyncQualifierRunStatus.FORFEIT,
     EntrantStatus.DISQUALIFIED: AsyncQualifierRunStatus.DISQUALIFIED,
 }
 
-# What a human may assert about a racer — the same three outcomes racetime reports.
-# In-progress is not one of them: a race being recorded by hand is over.
 _MANUAL_STATUSES = frozenset(_ENTRANT_TO_RUN_STATUS.values())
 
 
@@ -140,8 +137,6 @@ class AsyncQualifierLiveRaceService:
         self.bot_service = RacetimeBotService()
         self.qualifier_service = AsyncQualifierService()
         self.audit_service = AuditService()
-
-    # ============================================================ management
 
     @requires_feature(FeatureFlag.ASYNC_QUALIFIERS)
     async def list_live_races(
@@ -244,8 +239,7 @@ class AsyncQualifierLiveRaceService:
             start_racetime_room,
         )
 
-        # Gated by ASYNC_QUALIFIERS alone, deliberately: a live race is the
-        # qualifier feature's own, and RACETIME_ROOMS gates match-driven rooms.
+        # ASYNC_QUALIFIERS alone, deliberately: RACETIME_ROOMS gates only match-driven rooms.
         live_race, qualifier = await self._require_live_race_admin(actor, live_race_id)
         async with room_open_lock(f'qualifier-live:{live_race.id}'):
             live_race = require_found(
@@ -286,8 +280,6 @@ class AsyncQualifierLiveRaceService:
             {'live_race_id': live_race.id, 'qualifier_id': qualifier.id},
         )
         await self.repository.delete(live_race)
-
-    # =============================================================== capture
 
     @requires_feature(FeatureFlag.ASYNC_QUALIFIERS)
     async def mark_in_progress(self, live_race: AsyncQualifierLiveRace) -> AsyncQualifierLiveRace:
@@ -346,11 +338,7 @@ class AsyncQualifierLiveRaceService:
             if run_status is None:
                 continue
             if run_status == AsyncQualifierRunStatus.FINISHED and not is_scored_finish(entrant):
-                # Writing this one anyway approved a run with no elapsed time: par
-                # cannot score it, the board drops the row entirely, and the racer's
-                # pool slot is spent on a result nobody can see. The match recorder
-                # has always filtered this entrant; so does this one now, and the
-                # handle goes on the to-do so staff can type the real time in.
+                # Never record a finisher with no elapsed time: par can't score it and the board drops the row.
                 unmatched.append(unmatched_handle(entrant))
                 continue
             resolved.append(CapturedResult(
@@ -403,8 +391,7 @@ class AsyncQualifierLiveRaceService:
                 if elapsed > MAX_RUN_SECONDS:
                     raise ValueError("That finish time is longer than a week — check the value")
             else:
-                # A forfeit or DQ has no time to record, and keeping one entered by
-                # mistake would put a scoreable-looking number on a zero run.
+                # Discard a time entered for a forfeit/DQ: it would put a scoreable-looking number on a zero run.
                 elapsed = None
             user = require_found(await UserService().get_user_by_id(result.user_id), "Racer")
             resolved.append(CapturedResult(
@@ -434,10 +421,6 @@ class AsyncQualifierLiveRaceService:
         racers it could not record — every one of them, not just the ones it noticed.
         """
         if live_race.permalink_id is None:
-            # Recording without one produced runs with permalink_id NULL: no par to
-            # score against, the recompute skipped, and the entrants invisible on the
-            # board forever with nothing saying why. The dialog offers "(assign
-            # later)", so later is now.
             raise ValueError(
                 "This race has no permalink assigned, so its results cannot be scored. "
                 "Assign one to the race, then record again."
@@ -445,11 +428,6 @@ class AsyncQualifierLiveRaceService:
         actor = actor or await UserService().get_system_user()
         qualifier = await self._require_qualifier(await self._qualifier_id_of(live_race))
         now = datetime.now(timezone.utc)
-        # Everyone in a race starts at the same instant, and the old code stamped
-        # ``now`` as every run's start — so each one read Started == Finished with a
-        # blank Timed column, and no live-race run had a duration on any screen. The
-        # slowest finisher can only just have finished, so the race began at least
-        # their elapsed time ago.
         times = [r.elapsed_seconds for r in resolved if r.elapsed_seconds]
         started_at = now - timedelta(seconds=max(times)) if times else now
 
@@ -460,28 +438,18 @@ class AsyncQualifierLiveRaceService:
         voided: List[int] = []
         for result in resolved:
             user, run_status, elapsed = result.user, result.status, result.elapsed_seconds
-            # A non-finisher (forfeit/DQ) scores zero immediately; a finisher is
-            # scored by the par recompute below.
             score = None if run_status == AsyncQualifierRunStatus.FINISHED else 0.0
             fields = dict(
                 status=run_status,
                 review_status=AsyncQualifierReviewStatus.APPROVED,
-                # A finisher's own finish is their start plus their time; a
-                # non-finisher's is when the race was recorded.
                 finished_at=started_at + timedelta(seconds=elapsed) if elapsed else now,
                 elapsed_seconds=elapsed,
-                # The racetime clock *is* the measurement here — there is no runner's
-                # claim to hold it against, which is what it means elsewhere — so the
-                # Timed column shows the raced time rather than a dash.
                 measured_seconds=elapsed,
                 score=score,
                 reviewed_by_id=actor.id,
                 reviewed_at=now,
             )
             if user.id in over_cap:
-                # Recorded, but voided: the result is in the racer's history and on
-                # their own table, and never reaches par or the board. Scoring it
-                # would give a live racer more attempts than a self-paced one.
                 fields.update(
                     reattempted=True,
                     reattempt_reason=(
@@ -505,18 +473,13 @@ class AsyncQualifierLiveRaceService:
                 )
 
         await self.qualifier_service.recompute_par_and_scores(live_race.permalink_id)
-        # Recompute scores sibling run instances, so reload the captured runs
-        # to return their post-score state.
+        # Reload: the recompute rescored sibling runs.
         captured = await self.run_repository.list_for_live_race(live_race.id)
 
         live_race = await self.repository.update(
             live_race,
             status=AsyncQualifierLiveRaceStatus.FINISHED,
-            # Whatever the calling path could not turn into a run, and nothing else:
-            # the racetime capture recomputes the list from the entrants, the manual
-            # one carries forward what it did not record. Empty clears the card's
-            # to-do, which is why neither path may pass empty as a shorthand for
-            # "I did not look".
+            # Empty clears the card's to-do, so never pass empty to mean "did not look".
             unmatched_handles=list(unmatched) or None,
         )
         detail = {
@@ -535,8 +498,6 @@ class AsyncQualifierLiveRaceService:
             event_extra={'manual': manual},
         )
         return captured
-
-    # ============================================================= internals
 
     async def _over_pool_cap(
         self,

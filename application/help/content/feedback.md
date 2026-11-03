@@ -7,32 +7,31 @@ feature: FEEDBACK
 summary: Telling staff about a bug or an idea, and checking whether they've read it.
 ---
 
-Feedback goes to this community's staff. Use it for a bug, a suggestion, a
-thank-you, or anything else about the app or the event. You need to be a member
-of the community to send it.
+Feedback goes to this community's staff. Send a bug, a suggestion, a thank-you,
+or anything else about the app or the event. You need to be a member of the
+community to send it.
 
 ## Sending it
 
 :::snippet feedback-send
-Open **Send Feedback** in the side menu, just below Help. Pick a **Category** (Bug,
-Suggestion, Praise or Other), write your **Message**, and tap **Send**.
+Open **Send Feedback** in the side menu, just below Help. Pick a Category (Bug,
+Suggestion, Praise or Other), write your Message, and tap **Send**.
 
-The app notes which page you were on when you sent it, so staff can find the
-thing you're talking about. You don't need to describe where you were.
+The app notes which page you were on, so staff can find what you're talking
+about. You don't need to describe where you were.
 :::
 
 ![The Send Feedback dialog on a phone, with Category set to Bug and marked 1, a message about the bracket page typed into Message, marked 2, and the Send button marked 3](/static/help/feedback/send-phone.webp "Pick a **Category** (1), write your **Message** (2), and tap **Send** (3).")
 
-If you land on an error page that shows an error reference, its
-**Report this error** button opens the same
-form with *Bug* already picked and the error's reference filled in. Add what you
-were doing when it happened; that's usually what staff need most.
+If you hit an error page with an error reference, its **Report this error**
+button opens the same form with *Bug* picked and the reference filled in. Add
+what you were doing when it happened. That's usually what staff need most.
 
 ## Did anyone read it?
 
 :::snippet feedback-yours
-Your **Profile** tab has a **Your feedback** card listing the last ten things
-you've sent, newest first. It only appears once you've sent something.
+Your Profile tab has a Your feedback card with the last ten things you've sent,
+newest first. It only shows up once you've sent something.
 
 | Status | Means |
 |---|---|
@@ -47,13 +46,18 @@ ask in the community's usual channel too, or catch staff in person.
 
 ## Reading feedback (staff)
 
-This part is for staff. Everyone else can stop reading here.
+This part is for staff.
 
-**Admin → Feedback** lists everything members have sent, newest first, with who
-sent it, the category, the message and the page they were on. Each row starts as
-*New*. **Mark reviewed** moves it to *Reviewed*, and the sender's Profile card
-changes to *Read by staff* at the same moment. Mark it once you've actually
-dealt with it, since that's the only signal the sender gets.
+Admin → Feedback opens on the *New* queue, newest first: who sent each one,
+the category, the message and the page they were on (tap it to open that page).
+**Reviewed** and **All** show the rest, and the category picker and search box
+narrow it further.
 
-Marked one by mistake? **Reopen** puts it back to *New*, and the sender sees
-*Not read yet* again.
+:::snippet feedback-review
+**Mark reviewed** moves one to *Reviewed*, and the sender's Profile card
+switches to *Read by staff* at the same time. That's the only signal they get,
+so mark it once you've actually dealt with it.
+
+Marked one by mistake? **Reopen** puts it back to *New*, and the sender sees *Not
+read yet* again.
+:::

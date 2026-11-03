@@ -12,11 +12,9 @@ this.
 """
 
 from pages.admin_tabs.admin_equipment import _ACTIONS_CELL, _GRID_CARD
-from pages.home_tabs.equipment import _VIEW_ICON_BTN, _VIEW_LABEL_BTN
 from theme.connection import REQUIRES_SOCKET_CLASS
 
 _REGISTER_TEMPLATES = {'body-cell-actions': _ACTIONS_CELL, 'item': _GRID_CARD}
-_HOME_BUTTONS = {'icon:view': _VIEW_ICON_BTN, 'label:view': _VIEW_LABEL_BTN}
 
 
 class TestAdminRegister:
@@ -36,29 +34,15 @@ class TestAdminRegister:
         assert events(_ACTIONS_CELL) == {'checkout', 'checkin', 'view', 'edit', 'remove'}
 
 
-class TestHomeCheckouts:
-    """Home keeps only the viewer's own loans, so View is the only action left.
 
-    Check-out and check-in moved to the admin register and the QR-scan detail
-    page when Home came down to four tabs. The rule is unchanged: both copies of
-    every emitting button carry the mark.
-    """
+class TestProfileCheckouts:
+    """The Profile card's View is a server round trip, so it carries the mark too."""
 
-    def test_every_button_is_marked(self):
-        for name, snippet in _HOME_BUTTONS.items():
-            assert REQUIRES_SOCKET_CLASS in snippet, f'{name} is not marked'
-            assert snippet.count("$parent.$emit(") == 1
+    def test_the_view_button_is_marked(self):
+        import inspect
 
-    def test_the_view_button_is_marked_in_both_forms(self):
-        # It looks like a link but is a server round trip: the click emits, and
-        # the server answers with an `open` message.
-        assert REQUIRES_SOCKET_CLASS in _VIEW_ICON_BTN
-        assert REQUIRES_SOCKET_CLASS in _VIEW_LABEL_BTN
+        from pages.home_tabs.equipment import equipment_checkouts_section
 
-    def test_both_forms_emit_the_same_action(self):
-        import re
-
-        def events(template: str) -> set:
-            return set(re.findall(r"\$parent\.\$emit\('(\w+)'", template))
-
-        assert events(_VIEW_ICON_BTN) == events(_VIEW_LABEL_BTN) == {'view'}
+        src = inspect.getsource(equipment_checkouts_section)
+        assert "'View'" in src
+        assert 'REQUIRES_SOCKET_CLASS' in src

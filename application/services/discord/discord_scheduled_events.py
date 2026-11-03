@@ -22,10 +22,19 @@ from typing import Awaitable, Callable, Optional, Tuple, Union
 import discord
 from discord.ext import commands
 
+from application.services.discord.bot_state import bot_ready
 from application.services.discord.discord_guild_ops import log_discord_failure
 from application.utils.mocks import mock_discord_data
 
 logger = logging.getLogger(__name__)
+
+BOT_NOT_CONNECTED = "Discord bot is not connected."
+BOT_NOT_IN_GUILD = "The bot is not in this server."
+BOT_LACKS_EVENT_PERMISSION = (
+    "The bot can't create events in this Discord server. Give its role the "
+    "Create Events permission in Server Settings → Roles."
+)
+SETUP_FAILURES = frozenset({BOT_NOT_CONNECTED, BOT_NOT_IN_GUILD, BOT_LACKS_EVENT_PERMISSION})
 
 
 def _description_or_missing(description: Optional[str]) -> str:
@@ -38,12 +47,9 @@ def _description_or_missing(description: Optional[str]) -> str:
     return (description or '')[:1000] or discord.utils.MISSING
 
 
-
 class ScheduledEventsMixin:
     """Scheduled-event operations against the live bot."""
 
-    #: Set by the composed class's ``__init__``; declared so the mixin's own
-    #: reads type-check without the composed class being visible from here.
     _bot: Optional[commands.Bot]
 
     async def _get_guild(self, guild_id: int) -> Optional["discord.Guild"]:
@@ -56,6 +62,31 @@ class ScheduledEventsMixin:
             except (discord.NotFound, discord.Forbidden):
                 return None
         return guild
+
+    async def bot_event_problem(self, guild_id: int) -> Optional[str]:
+        """Why the bot can't manage its own Scheduled Events in ``guild_id``, or ``None``.
+
+        Create Events is enough for events the bot made itself, which are the
+        only ones the reconciler touches; Manage Events and Administrator imply it.
+        """
+        try:
+            if not bot_ready(self._bot):
+                return BOT_NOT_CONNECTED
+            guild = await self._get_guild(guild_id)
+            if guild is None:
+                return BOT_NOT_IN_GUILD
+            me = guild.me
+            if me is None:
+                me = await guild.fetch_member(self._bot.user.id)
+            perms = me.guild_permissions
+            if perms.administrator or perms.create_events or perms.manage_events:
+                return None
+            return BOT_LACKS_EVENT_PERMISSION
+        except (discord.NotFound, discord.Forbidden):
+            return BOT_NOT_IN_GUILD
+        except Exception as e:
+            log_discord_failure("Failed to read the bot's event permissions", e)
+            return BOT_NOT_CONNECTED
 
     async def _scheduled_event_op(
         self,
@@ -73,14 +104,14 @@ class ScheduledEventsMixin:
         ``gerund``/``verb`` name the action for the error text (e.g. 'creating'/'create').
         """
         try:
-            if self._bot is None or not self._bot.is_ready():
-                return False, "Discord bot is not connected."
+            if not bot_ready(self._bot):
+                return False, BOT_NOT_CONNECTED
             guild = await self._get_guild(guild_id)
             if guild is None:
-                return False, "The bot is not in this server."
+                return False, BOT_NOT_IN_GUILD
             return await op(guild)
         except discord.Forbidden:
-            return False, "Bot lacks permission to manage events in this server."
+            return False, BOT_LACKS_EVENT_PERMISSION
         except discord.HTTPException as e:
             return False, f"Discord HTTP error while {gerund} event: {e!s}"
         except Exception as e:
@@ -160,6 +191,9 @@ class ScheduledEventsMixin:
 
 class MockScheduledEventsMixin:
     """The same surface against ``mock_discord_data``'s in-memory event store."""
+
+    async def bot_event_problem(self, guild_id: int) -> Optional[str]:
+        return None if mock_discord_data.bot_can_create_events(guild_id) else BOT_LACKS_EVENT_PERMISSION
 
     async def create_scheduled_event(
         self, guild_id: int, *, name: str, start_time: "datetime", end_time: "datetime",

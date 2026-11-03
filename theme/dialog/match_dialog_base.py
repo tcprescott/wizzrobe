@@ -27,9 +27,10 @@ from application.services.match import (
 )
 from application.utils.timezone import (
     format_local_date,
-    format_local_time,
+    input_time,
     next_whole_hour_local,
     now_local,
+    parse_local_datetime,
 )
 from models import Match, PresetOverride
 from theme.dialog._helpers import (
@@ -42,7 +43,9 @@ from theme.dialog._helpers import (
     render_suggest_time_button,
     submit_on_enter,
 )
+from theme.dialog.clash_warning import confirm_local_time
 from theme.dialog.confirmation_dialog import ConfirmationDialog
+from theme.dialog.round_schedule_dialog import confirm_outside_window
 from theme.menu import menu_action
 from theme.notify import notify_error
 
@@ -61,9 +64,6 @@ def enrolment_preview(names: list, tournament_name: str) -> str:
     return f'{listed} will be enrolled in {tournament_name}.'
 
 
-#: Semantic tone (``match_status.STATUS_TONES``) → the chip class ``styles.css``
-#: already defines. One mapping so the dialog's chip and the board's cell cannot
-#: colour the same state differently.
 _TONE_CHIP = {
     'neutral': 'wiz-chip--neutral',
     'info': 'wiz-chip--neutral',
@@ -107,14 +107,12 @@ class BaseMatchDialog:
             return {
                 'tournament': self.match.tournament_id if self.match.tournament_id else None,
                 'date': format_local_date(self.match.scheduled_at) if self.match.scheduled_at else now.strftime('%Y-%m-%d'),
-                'time': format_local_time(self.match.scheduled_at) if self.match.scheduled_at else now.strftime('%H:%M'),
+                'time': input_time(self.match.scheduled_at) if self.match.scheduled_at else now.strftime('%H:%M'),
                 'comment': self.match.comment or '',
                 'stage': self.match.stage_id if self.match.stage_id else None,
             }
         else:
-            # A new match starts on the next whole hour, never on "now": a
-            # player request refuses a time that has passed, and by the time
-            # anyone presses Save, now has.
+            # Next whole hour, never now: a player request refuses a past time, and now has passed by Save.
             slot = next_whole_hour_local()
             return {
                 'tournament': None,
@@ -149,8 +147,7 @@ class BaseMatchDialog:
             with_input=True,
         ).props('required').classes('input-full-width')
         if not tournaments:
-            # Otherwise a required select with no options opens no menu and
-            # answers "Please fill required field(s): Tournament".
+            # A required select with no options opens no menu and fails as 'Please fill required field(s)'.
             select.disable()
             select.props(f'hint="{empty_hint}"')
         return select
@@ -241,8 +238,6 @@ class BaseMatchDialog:
                 if new_value:
                     await watcher_service.watch(match_id, user)
                     with client:
-                        # The dialog *is* the match — naming it again (or worse,
-                        # quoting its id) tells the reader nothing.
                         ui.notify(
                             'Now watching this match. You will receive Discord DMs on updates.',
                             color='positive',
@@ -466,19 +461,15 @@ class BaseMatchDialog:
         """
         async def take_mine() -> None:
             choice.close()
-            # Re-baseline: the operator has now been told what they are
-            # overwriting, so the guard has done its job and must not fire again.
+            # Re-baseline so the guard doesn't fire again.
             self._initial_updated_at = latest.updated_at
             await overwrite()
 
         def take_theirs() -> None:
-            # Their version stands, so this dialog has nothing left to show —
-            # every input in it is the losing copy.
             choice.close()
             dialog.close()
 
-        # Built inline rather than through ConfirmationDialog: both exits act,
-        # and its cancel button only closes itself.
+        # Not ConfirmationDialog: both exits act, and its cancel only closes.
         with ui.dialog() as choice, ui.card().classes('dialog-card dialog-card--sm'):
             mobile_sheet(choice)
             dialog_header('Someone else saved this match first', choice)
@@ -504,6 +495,8 @@ class BaseMatchDialog:
         do_update: Callable[[], Awaitable[None]],
         do_create: Callable[[], Awaitable[None]],
         create_success_message: str,
+        scheduled: tuple = (None, None),
+        confirm_label: str = 'Save anyway',
     ) -> None:
         """Shared submit pipeline for both match dialogs.
 
@@ -514,6 +507,10 @@ class BaseMatchDialog:
 
         ``required_fields`` is an ordered ``{label: value}`` mapping; any falsy value
         marks its label as missing.
+
+        ``scheduled`` is the ``(date, time)`` as typed. A new time goes through
+        the "Check this time" sheet first; an edit that keeps the match's time
+        doesn't, so fixing a comment never re-raises a clash already accepted.
         """
         missing = [label for label, value in required_fields.items() if not value]
         if missing:
@@ -521,16 +518,18 @@ class BaseMatchDialog:
                 ui.notify(f'Please fill required field(s): {", ".join(missing)}.', color='warning')
             return
 
+        if self._time_changed(*scheduled) and not await confirm_local_time(
+            tournament_id=tournament_id, player_ids=player_ids,
+            date_value=scheduled[0], time_value=scheduled[1],
+            actor=await get_user_from_session(app.storage.user),
+            exclude_match_id=self.match.id if self.match else None,
+            confirm_label=confirm_label,
+        ):
+            return
+
         try:
-            # The actor is passed so the enrolments this creates carry a name in
-            # the audit log — scheduling someone into a tournament they were not
-            # in is a roster change somebody made, not one that happened.
             actor = await get_user_from_session(app.storage.user)
             newly_enrolled = await self.match_service.ensure_players_enrolled(
-                # This dialog is behind a staff-gated page, so the lookup cannot
-                # come back empty in practice; if it ever did, the service's
-                # audit write raises and the `except` below shows it rather than
-                # writing an unattributable enrolment.
                 tournament_id, player_ids, actor=actor,  # type: ignore[arg-type]
             )
         except ValueError as e:
@@ -549,7 +548,12 @@ class BaseMatchDialog:
                         await self.on_submit(self.match)
                 except (ValueError, PermissionError) as e:
                     with self.dialog:
-                        notify_error(e)
+                        if not confirm_outside_window(e, save_outside_round):
+                            notify_error(e)
+
+            async def save_outside_round() -> None:
+                self.allow_outside_round = True
+                await save()
 
             latest_match = await self.match_service.get_match_by_id(self.match.id)
             if latest_match and latest_match.updated_at != self._initial_updated_at:
@@ -564,7 +568,6 @@ class BaseMatchDialog:
             try:
                 await do_create()
                 with self.dialog:
-                    # Say what scheduling the match did besides schedule it.
                     report = enrolment_report(
                         [u.preferred_name for u in newly_enrolled],
                         await self._tournament_name(tournament_id),
@@ -581,6 +584,14 @@ class BaseMatchDialog:
                 with self.dialog:
                     notify_error(e)
 
+    def _time_changed(self, date_value: Optional[str], time_value: Optional[str]) -> bool:
+        if not (self.match and self.match.scheduled_at):
+            return True
+        try:
+            return parse_local_datetime(date_value or '', time_value or '') != self.match.scheduled_at
+        except ValueError:
+            return True
+
     def _render_submit_footer(self, dialog, submit, *, create_label: str) -> None:
         """Render the shared footer (Delete/Cancel/primary) and wire Enter-to-submit.
 
@@ -592,8 +603,6 @@ class BaseMatchDialog:
                 with dialog_more_menu():
                     if rewind_targets(self.match):
                         menu_action('history', 'Rewind…', lambda: self._open_rewind(dialog))
-                    # "Call off", not "Cancel": the footer's Cancel just closes
-                    # this dialog, where this DMs everyone who committed to it.
                     menu_action('event_busy', 'Call off match…', lambda: self._confirm_cancel(dialog))
                     ui.separator()
                     if getattr(self.match, 'generated_seed_id', None) is not None:

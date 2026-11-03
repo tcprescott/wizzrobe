@@ -7,17 +7,17 @@ those sit at ``require_api_actor`` because the *service* carries the real check
 gate rather than guessing a stricter one keeps the two surfaces answering the
 same question, and the service still refuses a caller who lacks the role.
 
-``list_race_rooms`` is the exception at STAFF, matching ``GET /race-rooms/open``:
-its service read has no gate of its own, so the router's is the only one.
+``list_race_rooms`` follows the same rule: ``GET /race-rooms/open`` sits at
+``require_api_actor`` and the service admits staff or a sync admin.
 """
 
 from typing import List, Optional
 
 from mcp.server.mcpserver import MCPServer
 
+from application.api_scopes import ApiScope
 from application.errors import require_found
 from application.services import (
-    AuthService,
     MatchService,
     PresetService,
     RaceRoomProfileService,
@@ -102,10 +102,10 @@ async def list_race_rooms(
 ) -> List[RaceRoomInfo]:
     """List the community's open racetime.gg rooms — those not yet finished or cancelled.
 
-    Requires staff access. Use `get_race_room` for the room attached to one match,
+    Requires staff or sync admin. Use `get_race_room` for the room attached to one match,
     including rooms that have already ended.
     """
-    rooms = await RacetimeRoomService().list_open_rooms_for_current_tenant()
+    rooms = await RacetimeRoomService().list_open_rooms_for_current_tenant(current_actor().user)
     return [_room(room) for room in rooms]
 
 
@@ -200,20 +200,12 @@ async def list_triforce_texts(
     `status` filters to `pending`, `approved` or `rejected`; omit it for
     everything submitted.
 
-    Requires staff, or being an admin of this tournament. That check runs here
-    rather than at the registry gate because it is per-tournament: it is the
-    same one `GET /api/triforce-texts` makes, and `TriforceTextService` does not
-    re-gate the read.
+    Requires staff, or being an admin of this tournament. That check is
+    per-tournament, so `TriforceTextService` makes it rather than the registry gate.
     """
-    actor = current_actor().user
-    is_moderator = (
-        await AuthService.is_staff(actor)
-        or await AuthService.is_tournament_admin(actor, tournament_id)
+    rows = await TriforceTextService().list_for_moderation(
+        tournament_id, status=status, actor=current_actor().user,
     )
-    if not is_moderator:
-        raise PermissionError('You do not have permission to moderate this pool')
-
-    rows = await TriforceTextService().list_for_moderation(tournament_id, status=status)
     return [
         TriforceTextEntry(
             id=row.id,
@@ -233,30 +225,35 @@ async def list_triforce_texts(
 
 
 def register_tools(mcp: MCPServer) -> None:
-    register(mcp, list_presets, gate=Gate.ACTOR, title='List presets')
-    register(mcp, get_preset, gate=Gate.ACTOR, title='Get preset')
-    register(mcp, list_randomizers, gate=Gate.ACTOR, title='List randomizers')
+    register(mcp, list_presets, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ, title='List presets')
+    register(mcp, get_preset, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ, title='Get preset')
+    register(mcp, list_randomizers, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ, title='List randomizers')
     register(
-        mcp, list_triforce_texts, gate=Gate.ACTOR,
+        mcp, list_triforce_texts, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ,
         feature=FeatureFlag.TRIFORCE_TEXTS, title='List triforce texts',
+        event=True,
     )
     register(
-        mcp, list_race_room_profiles, gate=Gate.ACTOR,
+        mcp, list_race_room_profiles, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ,
         feature=FeatureFlag.RACETIME_ROOMS, title='List race room profiles',
     )
     register(
-        mcp, list_race_rooms, gate=Gate.STAFF,
+        mcp, list_race_rooms, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ,
         feature=FeatureFlag.RACETIME_ROOMS, title='List open race rooms',
+        event=True,
     )
     register(
-        mcp, get_race_room, gate=Gate.ACTOR,
+        mcp, get_race_room, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ,
         feature=FeatureFlag.RACETIME_ROOMS, title='Get a match race room',
+        event=True,
     )
     register(
-        mcp, list_speedgaming_links, gate=Gate.ACTOR,
+        mcp, list_speedgaming_links, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ,
         feature=FeatureFlag.SPEEDGAMING_ETL, title='List SpeedGaming links',
+        event=True,
     )
     register(
-        mcp, list_speedgaming_episodes, gate=Gate.ACTOR,
+        mcp, list_speedgaming_episodes, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ,
         feature=FeatureFlag.SPEEDGAMING_ETL, title='List SpeedGaming episodes',
+        event=True,
     )

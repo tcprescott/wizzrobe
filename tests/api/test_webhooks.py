@@ -40,13 +40,13 @@ class TestWebhookApiCrud:
             })
             assert create.status_code == 201
             body = create.json()
-            assert body['secret']  # returned once on create
+            assert body['secret']
             webhook_id = body['id']
 
             listing = await client.get('/api/webhooks')
             assert listing.status_code == 200
             row = listing.json()[0]
-            assert 'secret' not in row  # never echoed by list/GET
+            assert 'secret' not in row
             assert row['id'] == webhook_id
 
     async def test_create_validation_error_is_400(self, app, db):
@@ -73,7 +73,7 @@ class TestWebhookApiCrud:
             assert deleted.status_code == 204
 
             missing = await client.get(f'/api/webhooks/{wid}')
-            assert missing.status_code == 404  # service raises NotFoundError -> 404 (audit §2B.6)
+            assert missing.status_code == 404
 
     async def test_regenerate_secret_returns_new_secret(self, app, db):
         _, token = await create_user_token(roles=[Role.STAFF])

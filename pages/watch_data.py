@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -22,19 +23,22 @@ from typing import Dict, List, Optional
 
 from application.events import EventType, event_bus
 from application.services import BracketService, MatchService, StageService, TournamentService
+from application.services.event_info_service import prize_fields
 from application.services.feature_flag_service import FeatureFlagService
 from application.services.system_config_service import (
     DEFAULT_WATCH_AUTO_THRESHOLD,
     KEY_WATCH_AUTO_STATIC,
     KEY_WATCH_AUTO_THRESHOLD,
     KEY_WATCH_MODE,
+    KEY_WATCH_STATIC_SIGNED_OUT,
     SystemConfigService,
 )
 from application.services.tenant_service import TenantService
 from application.services.tenant_theme_service import TenantThemeService
 from application.services.timezone_service import TimezoneService
 from application.tenant_context import tenant_scope
-from application.timezone_context import tz_scope
+from application.timezone_context import hour_cycle_scope, tz_scope
+from application.utils.match_labels import has_undecided
 from application.utils.safe_url import http_url_or_empty
 from application.utils.timezone import (
     format_local_time,
@@ -44,7 +48,7 @@ from application.utils.timezone import (
 )
 from application.utils.twitch_embed import twitch_channel, twitch_channel_name
 from models import BracketState, FeatureFlag
-from theme.join_page import roster_label
+from theme.join_page import roster_label, roster_parts
 from theme.watch_view import (
     COMING_UP_LIMIT,
     UP_NEXT_LIMIT,
@@ -57,14 +61,10 @@ from theme.watch_view import (
 
 logger = logging.getLogger(__name__)
 
-#: Days of streamed matches the page looks ahead, today included.
 COMING_UP_DAYS = 7
 _TTL_SECONDS = 30
-#: How long a read of the mode settings is reused. Every arrival needs them,
-#: and a rush is exactly when three queries per request would hurt.
 _SETTINGS_TTL_SECONDS = 5
 
-#: Challonge's bracket states, in a spectator's words and a chip tone.
 _CHALLONGE_STATUS = {
     'pending': ('Not started', 'neutral'),
     'checking_in': ('Not started', 'neutral'),
@@ -147,6 +147,7 @@ class WatchSettings:
     mode: str = 'live'
     auto_static: bool = True
     threshold: int = DEFAULT_WATCH_AUTO_THRESHOLD
+    static_signed_out: bool = False
 
 
 _settings: Dict[int, tuple[float, WatchSettings]] = {}
@@ -164,6 +165,7 @@ async def watch_settings(tenant_id: int) -> WatchSettings:
             threshold=await SystemConfigService.get_int(
                 KEY_WATCH_AUTO_THRESHOLD, DEFAULT_WATCH_AUTO_THRESHOLD,
             ) or DEFAULT_WATCH_AUTO_THRESHOLD,
+            static_signed_out=await SystemConfigService.get_bool(KEY_WATCH_STATIC_SIGNED_OUT, default=False),
         )
     _settings[tenant_id] = (time.monotonic(), settings)
     return settings
@@ -179,16 +181,27 @@ def _crew(signups) -> str:
 
 
 def _row(match, stage_name: str = '') -> WatchMatch:
+    parts = roster_parts(match)
     return WatchMatch(
         time=format_local_time(match.scheduled_at) if match.scheduled_at else 'TBD',
         players=roster_label(match),
         tournament=match.tournament.name if match.tournament else '',
+        tournament_short=match.tournament.short_label if match.tournament else '',
         stage=stage_name,
         commentators=_crew(match.commentators),
         trackers=_crew(match.trackers),
         match_id=match.id,
         tournament_id=match.tournament_id,
+        started_at=match.started_at,
+        players_parts=parts if has_undecided(parts) else [],
     )
+
+
+def _stage_order(stage: WatchStage) -> tuple:
+    """Channel name in natural order (SpeedGaming, SpeedGaming2 … SpeedGaming10), unstreamed stages last."""
+    channel = (stage.channel or '').lower()
+    parts = tuple((0, int(p), '') if p.isdigit() else (1, 0, p) for p in re.split(r'(\d+)', channel) if p)
+    return (not channel, parts, stage.name.lower())
 
 
 def _status(tournament, stages: List) -> tuple[str, str]:
@@ -209,6 +222,7 @@ async def _tournaments(streamed_ids: set[int]) -> List[WatchTournament]:
         for bracket in await BracketService().list_all_visible_brackets(None):
             published.setdefault(bracket.tournament_id, []).append(bracket)
 
+    payouts_live = await FeatureFlagService().is_enabled(FeatureFlag.PAYOUTS)
     rows: List[WatchTournament] = []
     for t in await TournamentService().get_all_tournaments(active_only=True):
         stages = published.get(t.id, [])
@@ -216,15 +230,16 @@ async def _tournaments(streamed_ids: set[int]) -> List[WatchTournament]:
             bracket = f'/live/tournament/{t.id}/brackets'
         else:
             bracket = http_url_or_empty(t.bracket_url) or http_url_or_empty(t.challonge_tournament_url)
-        # Listed when a spectator has something to follow: a bracket to open or
-        # a match on stream. A tournament with neither is staff's business yet.
         if not bracket and t.id not in streamed_ids:
             continue
         status, tone = _status(t, stages)
+        prize = prize_fields(t) if payouts_live else {}
         rows.append(WatchTournament(
             id=t.id, name=t.name, format=t.tournament_format or '',
             status=status, tone=tone, bracket_url=bracket,
             rules_url=http_url_or_empty(t.rules_url),
+            prize_total=prize.get('prize_total'),
+            prize_synced=prize.get('prize_synced_at') is not None,
         ))
     return sorted(rows, key=lambda r: r.name.lower())
 
@@ -234,7 +249,8 @@ async def build_watch_view(tenant_id: int) -> WatchView:
     tz = await TimezoneService.tenant_timezone_name(tenant_id)
     stages = sorted(await StageService().get_all_stages(active_only=True), key=lambda s: s.name)
 
-    with tz_scope(tz):
+    # Cached and shared by every viewer, so the default 12-hour clock, not one viewer's.
+    with tz_scope(tz), hour_cycle_scope(True):
         today = today_local()
         matches = await MatchService().get_streamed_matches(today, COMING_UP_DAYS)
         by_stage: Dict[int, list] = {}
@@ -251,8 +267,6 @@ async def build_watch_view(tenant_id: int) -> WatchView:
             todays = by_stage.get(stage.id, [])
             if not stage.stream_url and not todays:
                 continue
-            # One stream shows one match. A second seated match on the same
-            # stage is a result nobody recorded yet, not a second broadcast.
             seated = [m for m in todays if m.is_seated or m.is_started]
             waiting = [m for m in todays if not (m.is_seated or m.is_started)]
             watch_stages.append(WatchStage(
@@ -266,6 +280,7 @@ async def build_watch_view(tenant_id: int) -> WatchView:
             ))
             overflow.extend(waiting[UP_NEXT_LIMIT:])
 
+        watch_stages.sort(key=_stage_order)
         stage_name = {s.id: s.name for s in stages}
         coming: List[WatchDay] = []
         upcoming = sorted(overflow, key=lambda m: m.scheduled_at) + later
@@ -278,10 +293,10 @@ async def build_watch_view(tenant_id: int) -> WatchView:
         zone = timezone_label()
 
     try:
-        primary = (await TenantThemeService.get_current_theme()).get('primary')
+        theme = await TenantThemeService.get_current_theme()
     except Exception:
         logger.debug('Watch page: falling back to the default palette', exc_info=True)
-        primary = None
+        theme = {}
 
     return WatchView(
         community=await TenantService.current_community_name() or 'Wizzrobe',
@@ -289,6 +304,7 @@ async def build_watch_view(tenant_id: int) -> WatchView:
         coming=coming,
         tournaments=await _tournaments({m.tournament_id for m in matches}),  # type: ignore[attr-defined]
         timezone_label=zone,
-        primary_color=primary,
+        primary_color=theme.get('primary'),
+        icons=theme,
         generated_at=datetime.now(timezone.utc),
     )

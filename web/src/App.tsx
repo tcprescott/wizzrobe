@@ -1,0 +1,109 @@
+import { createBrowserRouter, Navigate, RouterProvider, type RouteObject } from 'react-router-dom'
+import { AdminAreaScreen } from './admin/AdminAreaScreen'
+import { AdminLayout } from './admin/AdminLayout'
+import { AuthProvider, RequireAuth } from './auth/AuthProvider'
+import { TooltipProvider } from './components'
+import { CallbackScreen } from './screens/CallbackScreen'
+import { CommunityIndex } from './screens/CommunityIndex'
+import { KitScreen } from './screens/KitScreen'
+import { PlatformShell } from './platform/PlatformShell'
+import { MeLayout } from './me/MeLayout'
+import { MeSection } from './me/sections'
+import { NotFoundScreen } from './screens/NotFoundScreen'
+import { SignInScreen } from './screens/SignInScreen'
+import { HomeScreen } from './player/HomeScreen'
+import { ScheduleScreen } from './player/ScheduleScreen'
+import { BracketScreen } from './event/BracketScreen'
+import { EventHub } from './event/EventHub'
+import { RunSheetScreen } from './event/RunSheetScreen'
+import { WatchScreen } from './event/WatchScreen'
+import { SurveyScreen } from './player/survey/SurveyScreen'
+import { BadgesScreen } from './tickets/BadgesScreen'
+import { ClaimScreen } from './tickets/ClaimScreen'
+import { DeskScreen } from './work/DeskScreen'
+import { MyAvailabilityScreen } from './work/MyAvailabilityScreen'
+import { ProctorScreen } from './work/ProctorScreen'
+import { VolunteerScheduleScreen } from './work/VolunteerScheduleScreen'
+import { WorkLayout } from './work/WorkLayout'
+import { AppShell } from './shell/AppShell'
+import { ReadingFrame } from './reading/ReadingFrame'
+import { readingRoutes } from './reading/routes'
+import { ThemeProvider } from './theme/ThemeProvider'
+import { startNativeBridge } from './native/bridge'
+
+const tabRoutes: RouteObject[] = [
+  { index: true, element: <Navigate to="home" replace /> },
+  { path: 'home', element: <HomeScreen /> },
+  { path: 'schedule', element: <ScheduleScreen /> },
+  { path: 'event', element: <EventHub /> },
+  { path: 'event/schedule', element: <RunSheetScreen /> },
+  { path: 'event/watch', element: <WatchScreen /> },
+  { path: 'event/badges', element: <BadgesScreen /> },
+  { path: 'badges/claim/:token', element: <ClaimScreen /> },
+  { path: 'event/tournament/:tournamentId', element: <BracketScreen /> },
+  { path: 'survey/:surveyId', element: <SurveyScreen /> },
+  { path: 'survey/:surveyId/:part', element: <SurveyScreen /> },
+  {
+    path: 'work',
+    element: <WorkLayout />,
+    children: [
+      { path: 'desk', element: <DeskScreen /> },
+      { path: 'desk/:eventId', element: <DeskScreen /> },
+      { path: 'schedule', element: <VolunteerScheduleScreen /> },
+      { path: 'availability', element: <MyAvailabilityScreen /> },
+      { path: 'proctor', element: <ProctorScreen /> },
+      { path: 'proctor/:match', element: <ProctorScreen /> },
+    ],
+  },
+  { path: 'me', element: <MeLayout />, children: [{ path: ':section', element: <MeSection /> }] },
+  { path: 'admin', element: <AdminLayout />, children: [{ path: ':area/*', element: <AdminAreaScreen /> }] },
+  ...readingRoutes,
+]
+
+// The reading pages (help, event info…) open signed out too; ReadingFrame picks the frame.
+const shell = (
+  <ReadingFrame>
+    <AppShell />
+  </ReadingFrame>
+)
+
+// /t/<slug>/… and /t/<slug>/e/<event>/… keep the shape links in sent DMs already use.
+export const routes: RouteObject[] = [
+  { path: '/sign-in', element: <SignInScreen /> },
+  { path: '/auth/callback', element: <CallbackScreen /> },
+  { path: '/kit', element: <KitScreen /> },
+  {
+    path: '/',
+    element: (
+      <RequireAuth>
+        <CommunityIndex />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: '/platform/:section?',
+    element: (
+      <RequireAuth>
+        <PlatformShell />
+      </RequireAuth>
+    ),
+  },
+  { path: '/t/:community', element: shell, children: tabRoutes },
+  { path: '/t/:community/e/:event', element: shell, children: tabRoutes },
+  { path: '*', element: <NotFoundScreen /> },
+]
+
+const router = createBrowserRouter(routes)
+startNativeBridge((to) => void router.navigate(to))
+
+export function App() {
+  return (
+    <ThemeProvider>
+      <AuthProvider>
+        <TooltipProvider>
+          <RouterProvider router={router} />
+        </TooltipProvider>
+      </AuthProvider>
+    </ThemeProvider>
+  )
+}

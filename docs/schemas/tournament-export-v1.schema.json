@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/tcprescott/wizzrobe/docs/schemas/tournament-export-v1.schema.json",
+  "title": "Wizzrobe tournament export, schema version 1",
+  "description": "tournaments.json from a Wizzrobe tournament export (Reports → Exports, POST /api/exports/tournaments, or the export_tournaments MCP tool). All times are UTC ISO 8601 with a trailing Z. Discord ids are strings.",
+  "type": "object",
+  "required": ["format", "schema_version", "generated_at", "community", "tournaments"],
+  "additionalProperties": false,
+  "properties": {
+    "format": {"const": "wizzrobe-tournament-export"},
+    "schema_version": {"const": 1},
+    "generated_at": {"$ref": "#/$defs/timestamp"},
+    "community": {
+      "type": "object",
+      "required": ["slug", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "slug": {"type": "string"},
+        "name": {"type": ["string", "null"]}
+      }
+    },
+    "tournaments": {"type": "array", "items": {"$ref": "#/$defs/tournament"}}
+  },
+  "$defs": {
+    "timestamp": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"},
+    "optionalTimestamp": {"anyOf": [{"$ref": "#/$defs/timestamp"}, {"type": "null"}]},
+    "site": {"enum": ["wizzrobe", "challonge", "startgg", null]},
+    "discordId": {"type": ["string", "null"], "pattern": "^\\d+$"},
+    "tournament": {
+      "type": "object",
+      "required": ["id", "name", "short_name", "format", "active", "test", "bracket", "participants", "matches"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "integer"},
+        "name": {"type": "string"},
+        "short_name": {"type": ["string", "null"]},
+        "format": {"type": ["string", "null"], "description": "The tournament's match format, as set under Admin → Tournaments."},
+        "active": {"type": "boolean"},
+        "test": {"type": "boolean"},
+        "bracket": {
+          "type": "object",
+          "required": ["site", "url"],
+          "additionalProperties": false,
+          "properties": {
+            "site": {"$ref": "#/$defs/site", "description": "Where the bracket lives. null when the tournament has none."},
+            "url": {"type": ["string", "null"]}
+          }
+        },
+        "participants": {"type": "array", "items": {"$ref": "#/$defs/participant"}},
+        "matches": {"type": "array", "items": {"$ref": "#/$defs/match"}}
+      }
+    },
+    "participant": {
+      "type": "object",
+      "required": ["player_id", "name", "discord_username", "discord_id", "bracket_name", "enrolled", "status", "seed", "placement", "wins", "losses"],
+      "additionalProperties": false,
+      "properties": {
+        "player_id": {"type": ["integer", "null"], "description": "Wizzrobe user id. null for a bracket entrant with no linked account."},
+        "name": {"type": "string"},
+        "discord_username": {"type": ["string", "null"]},
+        "discord_id": {"$ref": "#/$defs/discordId"},
+        "bracket_name": {"type": ["string", "null"], "description": "The name on the bracket site (Challonge, start.gg or the Wizzrobe bracket)."},
+        "enrolled": {"type": "boolean", "description": "On the tournament's player list in Wizzrobe."},
+        "status": {"enum": ["active", "eliminated", "dropped", "finished", null], "description": "null when the tournament has no bracket."},
+        "seed": {"type": ["integer", "null"]},
+        "placement": {"type": ["integer", "null"], "description": "Always null for Challonge, which doesn't share placements."},
+        "wins": {"type": "integer", "minimum": 0},
+        "losses": {"type": "integer", "minimum": 0}
+      }
+    },
+    "matchPlayer": {
+      "type": "object",
+      "required": ["player_id", "name", "discord_id", "place", "finish_time_seconds", "score"],
+      "additionalProperties": false,
+      "properties": {
+        "player_id": {"type": ["integer", "null"]},
+        "name": {"type": "string"},
+        "discord_id": {"$ref": "#/$defs/discordId"},
+        "place": {"type": ["integer", "null"]},
+        "finish_time_seconds": {"type": ["integer", "null"]},
+        "score": {"type": ["integer", "null"], "description": "Bracket score, when the match is linked to a bracket."}
+      }
+    },
+    "match": {
+      "type": "object",
+      "required": ["match_id", "source", "bracket_site", "bracket_match_id", "round", "title", "state", "scheduled_at", "started_at", "finished_at", "confirmed_at", "stage", "seed_url", "players", "winner_player_id", "winner_name"],
+      "additionalProperties": false,
+      "properties": {
+        "match_id": {"type": ["integer", "null"], "description": "Wizzrobe match id. null for a bracket match that was never scheduled in Wizzrobe."},
+        "source": {"enum": ["wizzrobe", "challonge", "startgg"], "description": "wizzrobe for a scheduled match; otherwise the bracket site the row came from."},
+        "bracket_site": {"$ref": "#/$defs/site"},
+        "bracket_match_id": {"type": ["string", "null"]},
+        "round": {"type": ["string", "null"]},
+        "title": {"type": ["string", "null"]},
+        "state": {"enum": ["scheduled", "checked_in", "in_progress", "finished", "confirmed", "unscheduled", "reported"]},
+        "scheduled_at": {"$ref": "#/$defs/optionalTimestamp"},
+        "started_at": {"$ref": "#/$defs/optionalTimestamp"},
+        "finished_at": {"$ref": "#/$defs/optionalTimestamp"},
+        "confirmed_at": {"$ref": "#/$defs/optionalTimestamp"},
+        "stage": {"type": ["string", "null"]},
+        "seed_url": {"type": ["string", "null"]},
+        "players": {"type": "array", "items": {"$ref": "#/$defs/matchPlayer"}},
+        "winner_player_id": {"type": ["integer", "null"]},
+        "winner_name": {"type": ["string", "null"]}
+      }
+    }
+  }
+}

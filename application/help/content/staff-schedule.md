@@ -7,46 +7,50 @@ audience: staff
 summary: For staff. Admin → Match Schedule, creating and editing matches, cancelling one, rewinding a match, stages and stream candidates, and approving crew.
 ---
 
-**This one is for staff.** It covers **Admin → Match Schedule**, the board you book and
-run matches from. What players, crew and proctors see of the same matches is in
+This one's for staff. It covers Admin → Match Schedule, the board you book and run
+matches from. What players, crew and proctors see of the same matches is in
 [the player guide](/help/player), [crew signup](/help/crew) and
 [the proctor guide](/help/proctor).
 
-The answers to "what's waiting on me" (reschedule requests, results to confirm,
-disputes, seeds and race rooms) have their own page:
+Reschedule requests, results to confirm, disputes, seeds and race rooms (the
+things waiting on you) have their own page,
 [Match day queues](/help/staff-match-day).
 
 ## The board
 
 :::snippet staff-schedule-board
-**Admin → Match Schedule** lists every match in the community, one line each: the
-time, who's playing, the stage, the crew and where the match stands. Out of the box it
-hides {state:Confirmed} matches, because a confirmed match needs nothing more
-from you. Change that with the **State** filter, and narrow by day, tournament, stage or
-a search the same way as [the public board](/help/schedule-board).
+Admin → Match Schedule lists every match in the community, one line each: the time,
+who's playing, the stage, the crew and where the match is at. By default it hides
+{state:Confirmed} matches, since those need nothing more from you. Change that with
+the **State** filter, and narrow by day, tournament, stage or a search, the same way
+as [the public board](/help/schedule-board).
 
-The lines are grouped by what they need: **Needs a decision** (finished, not yet
-confirmed), **Live now**, **Up next**, **Waiting for players** (bracket matches
-whose players aren't decided) and **Confirmed**. A time in orange with a
-{chip:pending:Late} chip means the match is past its start and nobody has
-checked it in.
+Lines are grouped by what they need. Needs a decision (finished, not yet
+confirmed), Live now, Up next, Waiting for players (bracket matches whose players
+aren't decided yet) and Confirmed. A time in orange with a {chip:pending:Late} chip
+means the match is past its start and nobody's checked it in.
 
-The **Commentators** and **Trackers** columns count signups against what the
-tournament needs: "1/2" is one signup for two places. Until the match starts, a
-role that's short says **needs crew** in orange, and one with enough signups
-that you haven't approved yet says **to approve**. The names are listed under
-the count, a tick for approved and a clock and "to approve" for the rest.
+The Commentators and Trackers columns count signups against what the tournament
+needs, so "1/2" is one signup for two places. Until the match starts, a role
+that's short says "needs crew" in orange, and one with enough signups you haven't
+approved yet says "to approve". A match with no stage needs no crew, so it shows
+just the signup count. The names are listed under the count, with a tick for
+approved and a clock and an **Approve** button for the rest.
 
-Tap a line to open the match. Its next step (**Check in**, **Start match**,
-**Finish** or **Confirm result**) sits under the title. Below it, **Ready to
-play?** checks the match off before it starts: players confirmed, stations,
-stage, seed and crew, each ticked or flagged with the fix on the same line
-(**Assign** stations, **Generate** a seed, pick a stage). No stage isn't a
-problem, it just means the match is off stream. **Edit match** at the bottom
-opens the full dialog, and **New match** at the top of the page adds one.
+A live two-player match shows both names under "Who won?". Tap the winner and
+it's recorded, finished and confirmed in one go, with **Undo** in the message
+for a few seconds. Nothing's saved or sent until that runs out.
 
-**Needs you**, beside the board on a computer and above it on a phone, lists
-the work that's waiting on you rather than on the clock. See
+Tap a line to open the match. Its next step (**Check in**, **Start match**, the
+winner buttons, **Finish** or **Confirm result**) sits under the title. Below that, the Ready to
+play? checklist covers the match before it starts: players confirmed, stations,
+stage, seed and crew. Each one's ticked or flagged, with the fix on the same line
+(**Assign** stations, **Generate** a seed, pick a stage). No stage is fine. It just
+means the match isn't streamed. **Edit match** at the bottom opens the full dialog,
+and **New match** at the top of the page adds one.
+
+Needs you, beside the board on a computer and above it on a phone, lists the work
+that's waiting on you instead of on the clock. See
 [Match day queues](/help/staff-match-day).
 :::
 
@@ -54,82 +58,110 @@ the work that's waiting on you rather than on the clock. See
 
 ![A match opened from the board: its next step, Check in, marked 1, then the Ready to play? checklist of players, stations, stage, seed and crew, each ticked or flagged, with the stations' Assign fix marked 2 and Edit match at the bottom marked 3](/static/help/staff-schedule/match-sheet.webp "Tap a line to open the match: its next step (1), a fix on the checklist (2), and **Edit match** (3).")
 
+### Matchups nobody has booked
+
+Challonge, start.gg and Wizzrobe brackets turn up matchups that are ready to play,
+and only their two players see them, on My Schedule. Switch the board from
+**Booked** to **Not booked yet** to see every one that's still waiting, grouped by
+tournament. The switch counts them.
+
+A matchup only shows up once both players are known. A Challonge or start.gg
+bracket has none until it's started on that site and synced here, so the view
+stays empty while signups are still open.
+
+**Book…** schedules a matchup for both players, the same as a player booking it,
+with Suggest a time and the clash check. Outside the round's booking window you're
+warned and can book anyway. A matchup marked {chip:pending:Needs account} has a
+player who isn't matched to a Wizzrobe account yet, so nobody can book it. The line
+names them, and **Fix entrant** opens the place to match them. **All**,
+**Ready to book** and **Needs account** narrow the list, and the search finds a
+player.
+
+If the match was already scheduled by hand (with **New match**, say), link it
+instead of booking a second one. When a match with the same two players is on the
+schedule, the row says so and **Link** attaches it in one tap; otherwise use the
+row's ⋮ › **Link an existing match…**. Only unconfirmed matches with exactly the
+matchup's two players can be linked, because the result counts for that matchup.
+
 ### Who sees what
 
-You aren't the only one on this board. Each role gets the controls it can use and
-nothing else.
+Other people use this board too. Each role only gets the controls it can use.
 
 | Role | What they can do here |
 |---|---|
 | Staff | Everything below |
 | Tournament admin | Everything, but only for their own tournaments. The board shows them nothing else. |
-| Stream manager | Set the Stage on any match |
+| Broadcast tech | Set the Stage on any match, and check in, roll the seed, start and finish any match that's on a stage |
 | Crew coordinator | Approve commentators and trackers on their tournaments |
 | Proctor | Check in, start, finish and roll seeds, from Volunteer → Proctor Station rather than here |
 
-Only staff and tournament admins confirm results. A proctor records the winner,
-and you make it official.
+Only staff and tournament admins confirm results. A proctor records the winner, and
+you make it official with **Confirm result**, which also has **Undo** rather than
+asking first. A result you record yourself is confirmed already. A flagged one
+still shows the result and asks before confirming.
 
 ## Creating a match
 
-Press **New match**, pick the tournament, the players, a date and a time, and
-press **Create**. Everything else is optional.
+Press **New match**, pick the tournament, the players, a date and a time, then press
+**Create**. Everything else is optional.
 
-- **Players** lists only people enrolled in that tournament. Tick **Include
-  players not enrolled in this tournament** to pick anyone in the community.
-  Doing that enrols them, and the dialog names who it's about to enrol before
-  you save.
-- **Suggest a time** fills in the date and time for you. It picks the earliest
-  slot none of the players has blocked out or is already playing in, and never
-  pushes the room past **Players at once** (Admin → Settings → Event). It fills the
-  room to about three quarters first, so walk-ups still fit.
-- **Commentators** and **Trackers** you add here are approved on the spot. They
-  get a DM asking them to acknowledge.
-- **Stage** puts it on a stream straight away. **Stream candidate** marks it as
+- Players only lists people entered in that tournament. Tick
+  **Include players not enrolled in this tournament** to pick anyone in the
+  community. That enrols them, and the dialog tells you who it's about to enrol
+  before you save.
+- **Suggest a time** fills in the date and time. It picks the earliest slot that
+  none of the players has blocked out or is already playing in, and it never pushes
+  the room past Players at once (Admin → Settings → Event). It fills the room to
+  about three quarters first, so walk-ups still fit.
+- Commentators and trackers you add here are approved on the spot. They get a DM
+  asking them to acknowledge.
+- **Stage** puts it on a stream right away. **Stream candidate** marks it as
   "probably streamed, stage not decided".
 
-Saving DMs the players and asks each of them to acknowledge the match.
+Saving DMs the players and asks each of them to acknowledge.
 
 ## Editing a match
 
-Open the match and press **Edit match**. The top of the dialog says where the match is now (its state,
-the winner, and whether it's flagged), then everything below edits it.
+Open the match and press **Edit match**. The top of the dialog shows where the match
+is now (its state, the winner, and whether it's flagged), and everything below that
+edits it.
 
 ![The Edit Match dialog for a finished match, showing its Finished state, its winner and a Needs review flag, marked 1, above the fields](/static/help/staff-schedule/match-dialog.webp "A flagged result (1) shows at the top of the dialog.")
 
 Moving the date or time tells everyone on the match and asks the players to
-acknowledge again. Changing the players asks the new line-up to acknowledge;
-a player you take off gets a DM saying so. Commentators and trackers you add or remove
-both get a DM.
+acknowledge again. Changing the players asks the new line-up to acknowledge, and a
+player you take off gets a DM saying so. Commentators and trackers you add or remove
+get a DM too.
 
-A match synced from SpeedGaming carries a **Synced from SpeedGaming** badge. Its
-tournament, players and time are locked, because the next sync would overwrite
-any change you made. Edit those on SpeedGaming.
+A match synced from SpeedGaming has a Synced from SpeedGaming badge. Its tournament,
+players and time are locked, because the next sync would overwrite your change.
+Edit those on SpeedGaming.
 
 ### Seed settings
 
-When a tournament offers a second, harder preset, the dialog shows **Seed
-settings** until the seed is rolled. Leave it on **Let the players decide** and
-the harder preset is used only when every player opts in. Pick **Force** either
-way to make the call yourself. Both players are DMed whichever you choose.
+When a tournament offers a second, harder preset, the dialog shows Seed settings
+until the seed is rolled. Leave it on **Let the players decide** and the harder
+preset is only used when every player opts in. Pick **Force** either way to make
+the call yourself. Both players get a DM whichever you pick.
 
 ### Rewinding a match
 
 Open the dialog's ⋮ menu and choose **Rewind…** when a step shouldn't have
-happened: a match checked in by mistake, or a result confirmed too soon. Pick
+happened, like a match checked in by mistake or a result confirmed too soon. Pick
 the step to go back to (**Finished**, **Started**, **Checked in** or
-**Scheduled**) and every step after it is cleared together, straight away. The
-menu only offers steps the match has actually reached.
+**Scheduled**) and every step after it is cleared at once. The menu only offers
+steps the match has actually reached.
 
-To re-roll a seed, choose **Clear seed…** from the same menu and confirm. The
-match's **Seed** line offers **Generate** again once it's gone.
+To re-roll a seed, choose **Clear seed…** from the same menu and confirm. Once it's
+gone, the match's Seed line offers **Generate** again.
 
-To correct only the winner, don't rewind. Open the match and press **Change
-result** instead (see [Match day queues](/help/staff-match-day)).
+If only the winner's wrong, don't rewind. Open the match and press
+**Change result** instead (see [Match day queues](/help/staff-match-day)).
 
 ## Calling a match off
 
-The match dialog's ⋮ menu, left of Cancel and Save, has two ways to call a match off, and they aren't the same.
+The match dialog's ⋮ menu, left of Cancel and Save, has two ways to get rid of a
+match, and they do different things.
 
 | Menu item | What it does | Use it when |
 |---|---|---|
@@ -137,8 +169,8 @@ The match dialog's ⋮ menu, left of Cancel and Save, has two ways to call a mat
 | **Delete match…** | Removes the match and tells nobody | It should never have existed: a duplicate, a test, a typo |
 
 If a player asked to call it off, approve their request instead (see
-[Match day queues](/help/staff-match-day)). That cancels it the same way and
-answers them in one step.
+[Match day queues](/help/staff-match-day)). That cancels it the same way and answers
+them in one go.
 
 ## Stages and streams
 
@@ -146,48 +178,53 @@ answers them in one step.
 Open the match and pick from **Stage**. The board's Stage column shows what each
 match is on.
 
-- A stage name puts the match on that stream. **Watch** beside it opens the
-  stream.
-- **Candidate** means "this is going out, we haven't picked a stage yet". It's
-  what you set while you're still planning, and the coverage report counts it.
-- **No stage** takes it off.
+- A stage name puts the match on that stream. **Watch** beside it opens the stream.
+- Candidate means "this is going out, we haven't picked a stage yet". Set it while
+  you're still planning, and the coverage report counts it.
+- No stage takes it off.
 
-Picking a real stage over Candidate keeps the match counted as a stream match in
-the reports, so you don't have to untick anything.
+Switching from Candidate to a real stage keeps the match counted as a stream match
+in the reports, so there's nothing to untick.
 
-When a player offers their match for stream, the dialog names them under
-**Stream candidate**. That's advisory. It doesn't make the match a candidate
-until you tick the box or pick Candidate on the match.
+When a player offers their match for stream, the dialog names them under Stream
+candidate. That's only a hint. The match doesn't become a candidate until you tick
+the box or pick Candidate on it.
 :::
 
-The stages themselves (name, stream URL, and whether they're active) live on
-**Admin → Stages**. Staff and stream managers can add and edit them there. Untick
+The stages themselves (name, stream URL, and whether they're active) are on
+Admin → Stages. Staff and broadcast techs can add and edit them there. Untick
 **Active** on a stage you've stopped using.
 
 ## Approving crew
 
 :::snippet staff-crew-approval
-Commentators and trackers who sign up themselves arrive unapproved. Open the
-match: under **Crew**, each role lists the people **Waiting for you** with an
-**Approve** button each, and says how many more it needs. Approved people sit
-above, after **Approved:**, as a name with "confirmed" or "hasn't confirmed".
-Their **⋮** menu has **Un-approve**.
+Commentators and trackers who sign themselves up start out unapproved. The
+quickest way in is the board itself: a waiting name has an **Approve** button
+beside it. Tap it and they're approved, with **Undo** in the message for a few
+seconds; their DM waits until that runs out, so an undone approval never reaches
+them. If that person's booked somewhere else at the same time, you get the
+warning below before anything's saved.
 
-Approving asks you to confirm first, and warns you if that person is already
-committed somewhere else at the same time. Once you approve, they're DMed and
-asked to acknowledge. Un-approving clears their acknowledgment and tells them.
+You can also open the match. Under Crew, each role lists the people Waiting for you, each with an
+**Approve** button, and says how many more it needs. Approved people are listed
+above, after "Approved:", as a name with "confirmed" or "hasn't confirmed". Their
+⋮ menu has **Un-approve**.
 
-Press a waiting name, or **Open profile** in an approved person's **⋮** menu,
-to see their profile.
+Approving there works the same way, and warns you if that person's already booked
+somewhere else at the same time. Once you approve, they get a DM asking them to
+acknowledge. Un-approving clears their acknowledgment and tells them.
+
+Press a waiting name, or **Open profile** in an approved person's ⋮ menu, to see
+their profile.
 :::
 
 ### Finding gaps in coverage
 
-**Admin → Reports → Staff / Crew Activity** is where you find matches that are
-short of crew. **Coverage by match** counts approved against total signups for
-each role, set against what the tournament needs, and marks every match that's
-short with **GAP**. Filter it to **Pending only** to see signups still waiting on
-you. Each row opens that match on the board, where you can open it and approve someone.
+Admin → Reports → Staff / Crew Activity is where you find matches that are short of
+crew. Coverage by match counts approved against total signups for each role, next
+to what the tournament needs, and marks every short match with GAP. Filter it to
+**Pending only** to see signups still waiting on you. Each row opens that match on
+the board, where you can approve someone.
 
-**Contribution by person** shows how much each volunteer has covered, which helps
-when you're choosing between two people for the same slot.
+Contribution by person shows how much each volunteer has covered, which helps when
+you're picking between two people for the same slot.

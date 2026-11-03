@@ -1,14 +1,17 @@
 from nicegui import app, ui
 
+from application.event_context import get_current_event_id
 from application.services import (
     AuthService,
     ChallongeService,
+    EventService,
     FeatureFlagService,
     TournamentService,
     UserService,
     get_user_from_session,
 )
-from models import FeatureFlag, Role, User
+from application.tenant_context import require_tenant_id
+from models import FeatureFlag, User
 from theme.dialog._helpers import (
     dialog_actions,
     dialog_header,
@@ -16,9 +19,11 @@ from theme.dialog._helpers import (
     mobile_sheet,
     submit_on_enter,
 )
+from theme.dialog.role_grants import RoleGrantsEditor
 from theme.dialog.send_message_dialog import SendMessageDialog
 from theme.menu import menu_action
 from theme.notify import notify_error
+from theme.pickers import CHIP_PROPS
 
 
 class BaseUserDialog:
@@ -154,9 +159,7 @@ class AdminUserDialog(BaseUserDialog):
                 ).classes('input-full-width')
                 challonge_username_input = None
                 challonge_id_input = None
-                # Credentials alone aren't enough: the identity is global but the
-                # feature is per-tenant, so a user linked in another community
-                # would otherwise get these fields here and the save would raise.
+                # Credentials aren't enough: identity is global but the feature is per-tenant, so the save would raise.
                 challonge_live = (
                     ChallongeService.is_configured()
                     and await FeatureFlagService().is_enabled(FeatureFlag.CHALLONGE)
@@ -203,22 +206,11 @@ class AdminUserDialog(BaseUserDialog):
                 else:
                     discord_id_input = None
 
-                # tenant_grantable, not every Role: SUPER_ADMIN is a platform role
-                # and the service refuses it, so offering it here would only ever
-                # produce an error dialog.
-                role_options = {
-                    r.value: r.name.replace('_', ' ').title()
-                    for r in Role.tenant_grantable()
-                }
-                current_roles = []
-                if self.user:
-                    current_roles = [r.value for r in await AuthService.get_roles(self.user)]
-                role_select = ui.select(
-                    label='Roles',
-                    options=role_options,
-                    value=list(current_roles),
-                    multiple=True,
-                ).props('use-chips').classes('input-full-width')
+                held = await self.user_service.role_grants(self.user) if self.user else []
+                roles_editor = RoleGrantsEditor(
+                    held, await EventService.events_for_tenant(require_tenant_id()), get_current_event_id(),
+                )
+                roles_editor.build()
 
                 tournaments, user_tournaments, selected_tournament_ids, tournament_options = await self._get_tournament_data()
                 tournament_multiselect = ui.select(
@@ -226,7 +218,7 @@ class AdminUserDialog(BaseUserDialog):
                     options=tournament_options,
                     value=[str(tid) for tid in selected_tournament_ids],
                     multiple=True,
-                ).props('use-chips').classes('input-full-width')
+                ).props(CHIP_PROPS).classes('input-full-width')
 
                 admin_tournament_ids = []
                 if self.user:
@@ -236,7 +228,7 @@ class AdminUserDialog(BaseUserDialog):
                     options=tournament_options,
                     value=admin_tournament_ids,
                     multiple=True,
-                ).props('use-chips').classes('input-full-width')
+                ).props(CHIP_PROPS).classes('input-full-width')
 
                 cc_tournament_ids = []
                 if self.user:
@@ -246,17 +238,14 @@ class AdminUserDialog(BaseUserDialog):
                     options=tournament_options,
                     value=cc_tournament_ids,
                     multiple=True,
-                ).props('use-chips').classes('input-full-width')
+                ).props(CHIP_PROPS).classes('input-full-width')
 
             async def sync_role_assignments(target_user):
-                desired = set(role_select.value or [])
-                current = set(current_roles) if target_user is self.user else set()
-                if target_user is not self.user:
-                    current = {r.value for r in await AuthService.get_roles(target_user)}
-                for added in desired - current:
-                    await self.user_service.grant_role(target_user, Role(added), actor=actor)
-                for removed in current - desired:
-                    await self.user_service.revoke_role(target_user, Role(removed), actor=actor)  # style-guide: exempt — part of Save
+                granting, revoking = roles_editor.changes()
+                for role, event_id in granting:
+                    await self.user_service.grant_role(target_user, role, actor=actor, event_id=event_id)
+                for role, event_id in revoking:
+                    await self.user_service.revoke_role(target_user, role, actor=actor, event_id=event_id)  # style-guide: exempt — part of Save
 
             async def sync_tournament_memberships(target_user, multiselect, current_ids_str, add_method, remove_method):
                 desired = set(map(int, multiselect.value or []))

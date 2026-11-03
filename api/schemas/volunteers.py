@@ -10,7 +10,6 @@ from api.schemas.common import AvailabilityWindowInput as AvailabilityWindowInpu
 from api.schemas.common import SetAvailabilityRequest as SetAvailabilityRequest
 from models import VolunteerAvailabilityStatus
 
-# --- Positions ------------------------------------------------------------
 
 class VolunteerPositionResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -23,6 +22,7 @@ class VolunteerPositionResponse(BaseModel):
     is_active: bool = Field(..., description="Whether the position is in use. `active_only` on the list hides inactive ones.")
     shift_length_minutes: Optional[int] = Field(None, description="Length of each generated shift in minutes when shifts are staggered; empty for back-to-back blocks.")
     stagger_minutes: Optional[int] = Field(None, description="Minutes between the start times of overlapping generated shifts; empty for back-to-back blocks.")
+    staff_alerts: bool = Field(False, description="Whoever holds one of this position's shifts gets match alerts (player comments, reschedule requests) instead of every staff member.")
     created_at: datetime = Field(..., description="When the position was created (UTC).")
     updated_at: datetime = Field(..., description="When the position was last changed (UTC).")
 
@@ -35,6 +35,7 @@ class VolunteerPositionCreate(BaseModel):
     is_active: bool = Field(True, description="Whether the position is in use.")
     shift_length_minutes: Optional[int] = Field(None, description="Length of each generated shift in minutes. Set together with `stagger_minutes`, or leave both empty.")
     stagger_minutes: Optional[int] = Field(None, description="Minutes between the start times of overlapping generated shifts. Positive and no longer than `shift_length_minutes`.")
+    staff_alerts: bool = Field(False, description="Whoever holds one of this position's shifts gets match alerts (player comments, reschedule requests) instead of every staff member.")
 
 
 class VolunteerPositionUpdate(BaseModel):
@@ -45,9 +46,8 @@ class VolunteerPositionUpdate(BaseModel):
     is_active: Optional[bool] = Field(None, description="Whether the position is in use.")
     shift_length_minutes: Optional[int] = Field(None, description="Length of each generated shift in minutes. Set together with `stagger_minutes`, or leave both empty.")
     stagger_minutes: Optional[int] = Field(None, description="Minutes between the start times of overlapping generated shifts. Positive and no longer than `shift_length_minutes`.")
+    staff_alerts: Optional[bool] = Field(None, description="Whoever holds one of this position's shifts gets match alerts (player comments, reschedule requests) instead of every staff member.")
 
-
-# --- Assignments ----------------------------------------------------------
 
 class VolunteerAssignmentResponse(BaseModel):
     id: int = Field(..., description="Assignment id.")
@@ -59,6 +59,8 @@ class VolunteerAssignmentResponse(BaseModel):
     reminder_sent_at: Optional[datetime] = Field(None, description="When the pre-shift reminder DM went out (UTC); empty if it hasn't.")
     checked_in_at: Optional[datetime] = Field(None, description="When the volunteer arrived for the shift (UTC); empty until they check in or are checked in.")
     checked_in_by_id: Optional[int] = Field(None, description="Who recorded the arrival: the volunteer themselves or a coordinator.")
+    called_off_at: Optional[datetime] = Field(None, description="When staff called this shift off for the volunteer (UTC); empty unless they did. A called-off shift skips check-in and still counts as fully worked.")
+    called_off_by_id: Optional[int] = Field(None, description="Who called it off.")
     created_at: datetime = Field(..., description="When the assignment was made (UTC).")
 
     @classmethod
@@ -75,6 +77,8 @@ class VolunteerAssignmentResponse(BaseModel):
             reminder_sent_at=a.reminder_sent_at,
             checked_in_at=a.checked_in_at,
             checked_in_by_id=a.checked_in_by_id,
+            called_off_at=a.called_off_at,
+            called_off_by_id=a.called_off_by_id,
             created_at=a.created_at,
         )
 
@@ -83,12 +87,16 @@ class AssignRequest(BaseModel):
     user_id: int = Field(..., description="The member to put on the shift. Must belong to this community.")
 
 
+class CallOffRequest(BaseModel):
+    """An optional note from staff, sent to the volunteer in the call-off DM."""
+
+    note: Optional[str] = Field(None, description="Shown to the volunteer in the DM. Up to 300 characters are kept.")
+
+
 class AssignResponse(BaseModel):
     assignment: VolunteerAssignmentResponse = Field(..., description="The new assignment.")
     warnings: List[str] = Field(default_factory=list, description="Soft problems that didn't block the assignment, such as an already full shift or the volunteer's availability.")
 
-
-# --- Shifts ---------------------------------------------------------------
 
 class VolunteerShiftResponse(BaseModel):
     id: int = Field(..., description="Shift id.")
@@ -144,8 +152,6 @@ class VolunteerShiftUpdate(BaseModel):
     notes: Optional[str] = Field(None, description="Notes for the volunteers. An empty string clears them. Omit to leave them unchanged.")
 
 
-# --- Availability ---------------------------------------------------------
-
 class VolunteerAvailabilityResponse(BaseModel):
     id: int = Field(..., description="Availability window id.")
     user_id: int = Field(..., description="The volunteer the window belongs to.")
@@ -154,8 +160,6 @@ class VolunteerAvailabilityResponse(BaseModel):
     status: VolunteerAvailabilityStatus = Field(..., description="One of `available`, `unavailable` or `preferred`.")
     note: Optional[str] = Field(None, description="Optional note from the volunteer.")
 
-
-# --- Profile / coverage ---------------------------------------------------
 
 class ReleaseAssignmentRequest(BaseModel):
     """Why you can no longer cover a shift. The coordinators see it."""
@@ -187,3 +191,7 @@ class VolunteerHoursResponse(BaseModel):
     tier_cleared: Optional[float] = Field(None, description="The highest comp tier reached, in hours; empty if none.")
     next_tier: Optional[float] = Field(None, description="The next comp tier, in hours; empty when every tier is cleared.")
     hours_to_next: Optional[float] = Field(None, description="Hours still needed to reach `next_tier`; empty when there is none.")
+
+
+class ShiftLateRequest(BaseModel):
+    minutes: int = Field(..., description="How late you expect to be: 10, 20 or 30.")

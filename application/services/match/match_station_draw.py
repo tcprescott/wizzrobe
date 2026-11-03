@@ -62,8 +62,6 @@ def _are_neighbours(a: Station, b: Station) -> bool:
 
 
 class StationDrawMixin:
-    # Supplied by the class this is mixed into (``MatchService``). Annotations
-    # only — they declare the contract without creating attributes at runtime.
     repository: 'MatchRepository'
     station_repository: 'StationRepository'
     _require_match: Callable[[int], Awaitable[Match]]
@@ -114,9 +112,6 @@ class StationDrawMixin:
                 "in use by a match already in play."
             )
 
-        # Stations the *rest* of the venue is sitting at. Spread is measured
-        # against these, so a suggestion avoids seating a player beside a match
-        # that is already running as well as beside their own opponent.
         taken = [s for s in pool if s.name in occupied]
 
         relaxations: List[str] = []
@@ -140,9 +135,6 @@ class StationDrawMixin:
         sided = [side for side, group in by_side.items() if group]
 
         if len(sided) < 2:
-            # Either the pool has no sides filled in, or one whole side is full.
-            # Both land here, and they need different copy: an unsided pool is a
-            # configuration gap, a full side is tonight's problem.
             if any(s.side is not None for s in free):
                 relaxations.append(
                     "Both players are on the same side of the room — the other "
@@ -159,8 +151,6 @@ class StationDrawMixin:
             second = self._pick_spread(rest, [*taken, first], relaxations)
             return first, second
 
-        # Which player gets which side is itself a coin flip, so the first
-        # player on the row does not always end up on the left.
         near, far = by_side[sided[0]], by_side[sided[1]]
         if secrets.choice((True, False)):
             near, far = far, near
@@ -193,8 +183,6 @@ class StationDrawMixin:
             "The room is busy enough that a player had to be seated next to "
             "another station in use."
         )
-        # Both picks can land in the fallback tier, and the proctor only needs
-        # telling once.
         if crowded not in relaxations:
             relaxations.append(crowded)
         return secrets.choice(list(candidates))

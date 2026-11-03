@@ -15,8 +15,6 @@ from tests.api._bracket_api import draft, enroll, staff_token, token_for, tourna
 from tests.api_helpers import client_for, create_user_token
 from tests.factories import make_member
 
-# --- editing the bracket definition ---------------------------------------
-
 
 class TestBracketEditing:
     async def test_update_bracket(self, db, app):
@@ -29,7 +27,6 @@ class TestBracketEditing:
             assert r.status_code == 200
             assert r.json()['name'] == 'Playoffs'
 
-            # An omitted field is left alone rather than nulled.
             r = await c.patch(f'/api/brackets/{bracket_id}', json={'stage_order': 3})
             assert r.status_code == 200
             assert r.json()['name'] == 'Playoffs'
@@ -170,7 +167,6 @@ class TestSeeds:
                 'seeds': {str(first): 2, str(second): 1},
             })
             assert r.status_code == 200
-            # Returned in the new seed order.
             assert [row['seed'] for row in r.json()] == [1, 2]
             assert [row['id'] for row in r.json()] == [second, first]
 
@@ -225,9 +221,6 @@ class TestSeeds:
             assert r.status_code == 403
 
 
-# --- reads ----------------------------------------------------------------
-
-
 class TestMatchRead:
     async def test_get_match_with_games(self, db, app):
         _, staff = await staff_token()
@@ -241,7 +234,6 @@ class TestMatchRead:
             r = await c.get(f'/api/brackets/matches/{match_id}')
             assert r.status_code == 200
             assert r.json()['id'] == match_id
-            # Game rows are created lazily, so an unscheduled series has none.
             assert r.json()['games'] == []
 
     async def test_get_match_not_found(self, db, app):
@@ -280,7 +272,6 @@ class TestMyOpenMatches:
         async with client_for(app, staff) as c:
             await self._linked_bracket(c, t, (alice, bob))
 
-        # A user who is not an entrant sees nothing.
         _, outsider = await create_user_token(username='outsider')
         async with client_for(app, outsider) as c:
             assert (await c.get('/api/brackets/my-open-matches')).json() == []
@@ -317,7 +308,6 @@ class TestMyOpenMatches:
             await c.post(f'/api/brackets/{bracket_id}/entries', json={
                 'entrant_id': entrant['id'],
             })
-            # Bob has no linked user.
             unlinked = (await c.post('/api/brackets/entrants', json={
                 'tournament_id': t.id, 'display_name': 'Bob',
             })).json()
@@ -332,9 +322,6 @@ class TestMyOpenMatches:
     async def test_unauthenticated_is_rejected(self, db, app):
         async with client_for(app, None) as c:
             assert (await c.get('/api/brackets/my-open-matches')).status_code == 401
-
-
-# --- corrections ----------------------------------------------------------
 
 
 class TestOverrideResult:
@@ -364,8 +351,6 @@ class TestOverrideResult:
             assert r.json()['entry1_score'] == 1
             assert r.json()['entry2_score'] == 3
 
-            # The stage auto-finalized on the original result, so its ranks are
-            # recomputed from the correction rather than left stale.
             entries = (await c.get(f'/api/brackets/{bracket_id}/entries')).json()
             champion = next(e for e in entries if e['final_rank'] == 1)
             assert champion['id'] == match['entry2_id']
@@ -423,10 +408,6 @@ class TestOverrideResult:
             assert r.status_code == 403
 
 
-
-# --- stage close-out and entry removal ------------------------------------
-
-
 class TestCancelAndEntryRemoval:
     async def _started(self, c, tournament, names=('Alice', 'Bob')):
         bracket_id = await draft(c, tournament)
@@ -446,7 +427,6 @@ class TestCancelAndEntryRemoval:
             assert r.status_code == 200
             assert r.json()['state'] == 'cancelled'
 
-            # And the slot comes back — a cancelled stage is deletable.
             assert (await c.delete(f'/api/brackets/{bracket_id}')).status_code == 204
 
     async def test_cancel_read_only_forbidden(self, db, app):
@@ -479,7 +459,6 @@ class TestCancelAndEntryRemoval:
             r = await c.post(f'/api/brackets/entries/{entry_ids[0]}/retire')
             assert r.status_code == 200
             assert r.json()['status'] == 'dropped'
-            # Not idempotent by design — a second retire is a mistake worth saying.
             assert (await c.post(
                 f'/api/brackets/entries/{entry_ids[0]}/retire'
             )).status_code == 400

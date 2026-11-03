@@ -22,23 +22,31 @@ This file is the lean, always-loaded guide: the behavioral rules to follow on ev
 | OAuth mechanics, route protection, `AuthService` | [docs/reference/authentication.md](docs/reference/authentication.md) |
 | Bot singleton, DM queue, interaction handlers | [docs/reference/discord-integration.md](docs/reference/discord-integration.md) |
 | REST endpoints & schemas | [docs/reference/rest-api.md](docs/reference/rest-api.md) |
+| Read-only GraphQL API (`/api/graphql`), limits, schema contract | [docs/features/graphql-api.md](docs/features/graphql-api.md) |
 | MCP server (`/mcp`), its OAuth flow & tool catalogue | [docs/features/mcp-server.md](docs/features/mcp-server.md) |
 | Randomizer integrations & presets | [docs/reference/seed-generation.md](docs/reference/seed-generation.md) |
 | In-process event bus (publish/subscribe) | [docs/features/event-system.md](docs/features/event-system.md) |
 | Outbound webhooks (event subscriber) | [docs/features/webhooks.md](docs/features/webhooks.md) |
 | Datetime/timezone implementation | [docs/timezone-handling.md](docs/timezone-handling.md) |
 | Multitenancy (tenant context, `/t/<slug>`, query scoping, `/platform`) | [docs/features/multitenancy.md](docs/features/multitenancy.md) |
+| Events inside a community (`Event`, event context, default event, `event_id`) | [docs/features/events.md](docs/features/events.md) |
 | Per-tenant feature flags (two-tier availability + enable, gating) | [docs/features/feature-flags.md](docs/features/feature-flags.md) |
 | Engagement telemetry (page views, interactions, event mirror) | [docs/features/telemetry.md](docs/features/telemetry.md) |
 | Sentry wiring, error-level policy, runtime log levels | [docs/features/observability.md](docs/features/observability.md) |
 | In-app help (`/help` articles, help icons, the safe markdown model) | [docs/features/help.md](docs/features/help.md) |
 | In-app changelog (`/changelog`, the weekly "What's new" entries) | [docs/features/changelog.md](docs/features/changelog.md) |
 | Discord bot, notifications, role sync, mock mode | [docs/features/discord.md](docs/features/discord.md) |
+| Notification settings (catalogue of every DM, off/silent/ping per community, `send_dm(notice=)`) | [docs/features/notification-settings.md](docs/features/notification-settings.md) |
 | Crew signup, match acknowledgment, watching | [docs/features/match-participation.md](docs/features/match-participation.md) |
 | Online tournaments (presets, race rooms, qualifiers, SG sync) | [docs/features/online-tournaments.md](docs/features/online-tournaments.md) |
+| start.gg brackets (mirror, booking, writeback, bracket-source contract) | [docs/features/startgg.md](docs/features/startgg.md) |
+| OBS stream overlays (layouts per event, stage links, pins) | [docs/features/stream-layouts.md](docs/features/stream-layouts.md) |
 | Event check-in (Matcherino roster sync, account matching, the desk) | [docs/features/event-check-in.md](docs/features/event-check-in.md) |
+| Post-event surveys (targeted parts, conditions, anonymity, send/remind) | [docs/features/surveys.md](docs/features/surveys.md) |
 | Single-worker constraint and the way out of it | [docs/scaling-roadmap.md](docs/scaling-roadmap.md) |
+| Background workers: registry, `WORKER_MODE`, Cloud Scheduler ticks | [docs/features/scheduled-workers.md](docs/features/scheduled-workers.md) |
 | Remaining per-feature docs | [docs/features/](docs/features/) |
+| **Specs** — when one's needed, lite/full templates, sign-off, acceptance check | [docs/specs/README.md](docs/specs/README.md) |
 
 ## Architecture: three-layer pattern
 
@@ -56,6 +64,8 @@ Presentation (pages/, theme/)  →  Service (application/services/)  →  Reposi
 See [docs/refactoring-guide.md](docs/refactoring-guide.md) for the full pattern and examples.
 
 ### Adding a new feature
+**New features and changed workflows start from an approved spec** ([docs/specs/](docs/specs/README.md), lite or full template, via `/plan-feature`); bug fixes, copy tweaks, small polish and refactors skip it. Commit the spec to `docs/specs/<topic>.md` as the PR's first commit, edit it in the same PR when the plan changes, tick every acceptance item in the PR description before leaving draft, and delete it (folding lasting behaviour into `docs/features/`) in the PR that finishes the feature.
+
 0. **Ask the user whether this feature warrants a per-tenant feature flag.** Not every feature needs one — flags exist only for deliberately-gated subsystems (see [Feature flags](#feature-flags)). Always ask; if yes, gate it (page/tab/API/worker) and register the flag. Do **not** add flags retroactively to existing features unless asked.
 1. Add/update model in the `models/` package (per-domain submodule; re-export from `models/__init__.py`) → `poetry run aerich migrate && poetry run aerich upgrade`
 2. Update/create the repository in `application/repositories/`
@@ -102,6 +112,28 @@ await self.audit_service.write_and_publish(
 ```
 
 Use bare `event_bus.publish(Event.create(EventType.X, {...}, actor))` (`from application.events import Event, EventType, event_bus`) only where there is no audit row to pair with — a worker observation, or a publish that must fire on a path the audit deliberately skips. `EventType` names mirror `AuditActions` and are an **external contract** — add a member to `EventType` + `EventType.ALL` for a new event; treat renames as breaking. `publish` is synchronous, never raises, and never blocks. Lives at `application/events/` (a peer of `services/`, so it's exempt from the architecture hook). Its narrow sibling `application/events/match_live.py` is **not** the same thing: that one carries only `(match_id, change_type)` to nudge open UI views. Publish domain events on `event_bus`; use `match_live` only for UI refresh. Detail: [docs/features/event-system.md](docs/features/event-system.md).
+
+**An outside automation consumes six webhook events in production** (`match.rescheduled`, `match.stage_assigned`, `match.stage_cleared`, `match.deleted`, `match.cancelled`, `crew.approval_changed`). `tests/services/test_webhook_consumer_contract.py` freezes their payloads, the envelope, the headers and the signature. If it goes red, don't edit the expected values to get green: say so in the PR description and tell Thomas, so the automation's author hears first.
+
+## Hand-maintained registries
+
+**A new component should register itself where it's defined, not depend on someone remembering a second list elsewhere.** Prefer a registry the component's own module fills in (`mcpserver.registry.register`, `register_view_factory`, the notification `CATALOG`, `run_worker_loop`) or discovery from a folder (help articles, changelog files). A missed entry in a hand list fails silently: the worker never runs, the button does nothing, the page is never scanned.
+
+- **Don't add a new hand-kept list** that has to mirror components defined elsewhere. If one is genuinely unavoidable (ordering matters, or the import itself is the registration), add a test in the same PR that fails when the list and the components disagree. `tests/test_registry_drift.py` is the pattern.
+- **When you add one of these, also edit its list.** A red test or guardrail is the backstop, not the plan:
+
+| Adding… | Also update | Caught by |
+|---|---|---|
+| a background worker (`run_worker_loop`) | `WORKERS` in `application/worker_registry.py` (placement, env gate); `main.py`, the tick script and the Cloud Scheduler endpoint all read it | `test_registry_drift.py` |
+| a Discord button or DM view | `discordbot/__init__.py` (`register_interaction_handler` / `register_view_factory`) | `test_registry_drift.py` |
+| an MCP tool *module* | `register_all` in `mcpserver/tools/__init__.py` | `test_registry_drift.py` |
+| an `EventType` | `EventType.ALL` | `check_event_types.py` |
+| a service or repository | its package `__init__.py` | `check_layer_exports.py` |
+| a randomizer | every per-slug table in `SeedgenService`, plus `randomizer_credentials.py` | per-port tests only |
+| a page | `scripts/ui_a11y_ci.json` | nothing yet |
+| an outside-service client | a probe in `_PROBES` (`service_health_service.py`) | nothing yet |
+
+Converting the randomizers, a11y pages and health probes to self-registration is planned for after SG Live.
 
 ## Writing user-facing text
 
@@ -189,7 +221,7 @@ as a broken app. Detail: [docs/features/discord.md](docs/features/discord.md#cal
 - **Actions follow one layout**: a page toolbar is one main button plus an Actions menu, a row or card is one button plus a ⋮ (`more_vert`) menu, destructive items come last and confirm first, and in any pair the negative action is on the left and the positive on the right. Match lists are run sheets (`MatchTableView(layout='run_sheet')`).
 - **Mockups before building, and phone and desktop as one design**: see the guide's "Before you build".
 
-`tests/theme/test_style_guide.py` and `tests/test_a11y_names.py` check the source; the CI `browser` job runs `scripts/ui_a11y_scan.js` (axe plus a tint-aware contrast check, light and dark) over `scripts/ui_a11y_ci.json`. Add a new page to that list.
+`tests/theme/test_style_guide.py` and `tests/test_a11y_names.py` check the source; the CI `browser-a11y` job runs `scripts/ui_a11y_scan.js` (axe plus a tint-aware contrast check, light and dark) over `scripts/ui_a11y_ci.json`. Add a new page to that list.
 
 ## Timezone handling
 
@@ -214,6 +246,17 @@ The app is **logically multitenant**: one DB, a `tenant` FK on nearly every mode
 - When adding a tenant-scoped model: add the `tenant` FK, scope its repo, make formerly-global uniques composite with `tenant`, and add a leak test.
 
 Detail: [docs/features/multitenancy.md](docs/features/multitenancy.md).
+
+### Events inside a community
+
+A community holds **events** (one SGL weekend, one season). Event-owned rows (tournaments, matches, brackets, stages, positions and shifts, check-in, qualifiers, meetups) carry `event_id` beside `tenant_id`; community-owned ones (members, roles outside the per-event set, settings, presets, webhooks) don't, and audit/telemetry/sent messages/exports are *tagged* with an event only for filtering.
+
+- **Repositories** read event-owned rows through `event_scoped(qs)` and stamp writes with `event_id=current_event_id()` (`application/repositories/_event.py`); tagged rows use `tagged_event_id()`. `check_event_scoping.py` fails an unscoped read.
+- **Every entry point binds an event.** Pages bind it from `/e/<slug>` (else the default event); workers go through `for_each_tenant_scoped(..., event_id_of=…)` or `each_live_event=True` (live events only); bot and background paths wrap `event_scope(event_id)`. **A new REST router** over event-owned rows attaches `Depends(event_binding(match_id=Match, …))` naming every row path parameter, and **a new MCP tool** over them registers with `event=True` (`ARG_ROWS` covers the shared argument names). `tests/api/test_event_binding.py` and `tests/mcp/test_mcp_events.py` fail when either is missed.
+- **A row decides its own event**: a call about a match works in the match's event, whatever the caller named, and a contradicting `event` is a not-found.
+- **Archived events are read-only at the ORM** (`application/event_writes.py`); a queryset `update()`/`delete()` or `bulk_*` on a guarded model goes through `guarded_update`/`guarded_delete`/`ensure_writable` (`check_event_write_gating.py`).
+
+Detail: [docs/features/events.md](docs/features/events.md).
 
 ## Feature flags
 
@@ -275,7 +318,7 @@ await AuthService.get_roles(user)                   # set[Role]
 await AuthService.can_view_admin(user)              # any admin role / membership
 ```
 
-Protect routes with `@protected_page('/path', roles=[Role.STAFF])` (the `roles=` kwarg is optional). A spectator surface that must work signed out uses `@public_page('/path')` instead — same tenant resolution and feature gate, but the route never joins `protected_routes`, so `AuthMiddleware` does not redirect to `/login`; the page body must tolerate `user is None` and everything it renders is world-readable (currently the bracket views, `/help`, `/changelog`, `/event-info`, `/room/{token}/seeds` and `/cat-facts`). A `@public_page` skips the membership gate. Detail: [docs/reference/authentication.md](docs/reference/authentication.md).
+Protect routes with `@protected_page('/path', roles=[Role.STAFF])` (the `roles=` kwarg is optional). A spectator surface that must work signed out uses `@public_page('/path')` instead — same tenant resolution and feature gate, but the route never joins `protected_routes`, so `AuthMiddleware` does not redirect to `/login`; the page body must tolerate `user is None` and everything it renders is world-readable (currently the bracket views, `/help`, `/changelog`, `/event-info`, `/room/{token}/seeds` and `/facts`). A `@public_page` skips the membership gate. Detail: [docs/reference/authentication.md](docs/reference/authentication.md).
 
 ## NiceGUI patterns
 
@@ -295,5 +338,6 @@ Fetch the authoritative API surface from `nicegui/llms.md` inside the installed 
 - **Never block the event loop** — all users share one loop. Use `async with httpx.AsyncClient()` (not `requests`) and `await asyncio.sleep()` (not `time.sleep()`).
 - **Use `@ui.refreshable`** for dynamic sections; call `.refresh()` after data changes instead of rebuilding the page.
 - **Module-level variables are shared across all users** — never store per-user state at module level; use `app.storage.user` or locals inside the `@ui.page` function.
+- **Per-tab state must let go when the tab does.** A `WeakKeyDictionary[Client, X]` whose value holds the client (or any element, closure or subscription that does) never drops its entry, so every closed tab's page stays in memory and garbage-collection pauses grow with uptime (SGLMAN-29). Release it in `client.on_delete` (`app.on_delete` for a module-wide hook); a disconnect alone isn't enough. The browser CI step `scripts/ui_leak_check.js` (main only, not pull requests) fails a leak and prints what holds the page; run it locally on a change to per-tab state.
 - **Every `ui.table` needs a mobile card view** — a bare table overflows a phone and hides its row-action buttons off-screen. Call `enable_mobile_grid(table, columns, actions=…, field_slots=…)` (`from theme.tables.mobile_grid import enable_mobile_grid`) right after building the table; it adds `:grid="Quasar.Screen.lt.md"` + a `.wiz-grid-card` `item` slot. The four family tables (match/user/tournament/equipment) keep bespoke `item` slots; a table that must stay a table opts out with a `# mobile-grid: exempt` comment. The `check_table_grid` hook enforces this. Detail: [docs/reference/frontend.md](docs/reference/frontend.md#data-tables).
 - **Every `ui.table` also needs a `table_key`** — the per-viewer column layout (visible columns, order, widths, page size, density, wrap) rides on it. Pass `table_key=TableKeys.X` to `enable_mobile_grid`, which then owns the ordering that keeps the mobile card out of it; a bespoke `item` slot calls `customize_table(table, columns, key=…)` **after** registering that slot. Opt out with `# table-prefs: exempt — <reason>`. The `check_table_prefs` hook enforces this. Detail: [docs/reference/frontend.md](docs/reference/frontend.md#data-tables).

@@ -92,14 +92,15 @@ class QrLabelDialog:
                 if not assets:
                     ui.label('No equipment to print.').classes('italic-note')
                 else:
-                    # --- Layout / content ---
                     with ui.row().classes('items-center gap-2 full-width'):
                         template_select = ui.select(
                             TEMPLATE_CHOICES, value='plain', label='Template',
                         ).props('dense').classes('col')
+                        # url-state: exempt — a print setting inside a dialog
                         paper_toggle = ui.toggle({'letter': 'Letter', 'a4': 'A4'}, value='letter') \
                             .props('dense unelevated no-caps').classes('wiz-segmented')
                         paper_toggle.bind_visibility_from(template_select, 'value', lambda v: v == 'plain')
+                        # url-state: exempt — a print setting inside a dialog
                         cols_toggle = ui.toggle({2: '2', 3: '3', 4: '4'}, value=3) \
                             .props('dense unelevated').classes('wiz-segmented') \
                             .tooltip('Columns per row')
@@ -114,7 +115,6 @@ class QrLabelDialog:
 
                     ui.separator()
 
-                    # --- Quick-select filters ---
                     owner_opts = {_ANY: 'Any owner'}
                     seen = set()
                     for r in rows:
@@ -151,7 +151,6 @@ class QrLabelDialog:
                         ui.button('Select all', on_click=lambda: self._set_ids(r['id'] for r in rows)).props('flat dense')
                         ui.button('Select none', on_click=lambda: self._set_ids(())).props('flat dense')
 
-                    # --- Per-asset checklist ---
                     with ui.column().classes('gap-1 full-width').style('max-height: 40vh; overflow-y: auto'):
                         for a in assets:
                             self._checks[a.id] = ui.checkbox(f'#{a.asset_number} · {a.name}', value=True)
@@ -176,8 +175,7 @@ class QrLabelDialog:
                     params.append('logo=0')
 
                 dialog.close()
-                # Bare path: ui.navigate.to prepends the tenant's root_path, so
-                # the new tab opens on this community (path or host mode).
+                # Bare path: ui.navigate.to prepends the tenant's root_path.
                 ui.navigate.to('/equipment/qr-labels?' + '&'.join(params), new_tab=True)
 
             with dialog_actions().classes('justify-end'):

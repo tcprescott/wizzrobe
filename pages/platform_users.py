@@ -29,6 +29,7 @@ from theme.tables.preferences import (
     preferences_button,
     search_input,
 )
+from theme.url_state import bind_url
 
 _NAME = '''
     <div class="text-weight-bold">{{ props.row.display }}</div>
@@ -66,7 +67,6 @@ def _row(user: User, me: User) -> dict[str, Any]:
         'id': user.id,
         'display': user.preferred_name,
         'handle': handle,
-        # What the search box matches: name, handle, Discord id and sign-in name.
         'name': ' '.join(filter(None, [
             user.preferred_name, user.username, str(user.discord_id or ''), user.login_name or '',
         ])),
@@ -93,8 +93,6 @@ async def render_users_section(user: User) -> None:
     with actions:
         ui.button('New user', icon='person_add', on_click=lambda: _open_new_user_dialog(reload)) \
             .props('color=primary')
-    # Its own row rather than beside New user: on a phone the three controls
-    # squeezed the search box down to its icon.
     header_row = ui.row().classes('w-full items-center gap-2')
 
     columns: list[dict] = [
@@ -166,8 +164,9 @@ async def render_users_section(user: User) -> None:
 
     with header_row:
         search_input(table, placeholder='Search name, handle or Discord ID…', width='flex-1 sm:flex-none sm:w-64')
-        ui.toggle({'all': 'Everyone', 'password': 'Has password'}, value='all', on_change=on_filter) \
+        accounts = ui.toggle({'all': 'Everyone', 'password': 'Has password'}, value='all', on_change=on_filter) \
             .props('no-caps dense unelevated no-wrap').classes('wiz-segmented')
+        bind_url('accounts', accounts, default='all', history='replace')
         preferences_button(table)
 
     async def on_set_password(e) -> None:
@@ -246,7 +245,7 @@ def _password_fields() -> tuple[ui.input, Callable[[], None]]:
 
     def generate() -> None:
         password.value = generate_password()
-        # Shown, so it can be read out or copied before the dialog closes.
+        # Shown on purpose, so it can be read out or copied before the dialog closes.
         password.props('type=text')
 
     with ui.row().classes('items-center gap-2'):

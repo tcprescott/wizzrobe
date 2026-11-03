@@ -44,8 +44,6 @@ class TestGuardUnits:
         guard('not an int')
 
     def test_field_value_error_is_a_value_error(self):
-        # The whole point: entry surfaces catch ValueError, and Tortoise's own
-        # ValidationError is not one.
         assert issubclass(FieldValueError, ValueError)
         assert not issubclass(ORMValidationError, ValueError)
 
@@ -67,7 +65,6 @@ class TestInstalledOnModels:
 
     @pytest.mark.asyncio
     async def test_bigint_field_keeps_its_wider_range(self, db):
-        # discord_id is a BigIntField: a value an INT column would reject is fine.
         user = await User.create(discord_id=9_000_000_000, username='wide')
         assert user.id
 

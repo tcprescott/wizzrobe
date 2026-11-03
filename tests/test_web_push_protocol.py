@@ -138,7 +138,6 @@ class TestVapid:
         der = encode_dss_signature(
             int.from_bytes(raw_signature[:32], 'big'), int.from_bytes(raw_signature[32:], 'big')
         )
-        # Raises InvalidSignature if the JWT does not verify.
         private_key.public_key().verify(
             der, f'{header_b64}.{claims_b64}'.encode(), ec.ECDSA(hashes.SHA256())
         )

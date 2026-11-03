@@ -21,14 +21,20 @@ from urllib.parse import urlparse
 from application.errors import require_found
 from application.feature_flags import requires_feature
 from application.repositories import ChallongeRepository, TournamentRepository, UserRepository
+from application.repositories._save import save_fields
+from application.services import result_alerts
+from application.services._challonge_auto_sync import ChallongeAutoSyncMixin
 from application.services._challonge_communities import ChallongeCommunitiesMixin, not_found_message
+from application.services._challonge_link import ChallongeLinkMixin
 from application.services._challonge_participants import ChallongeParticipantAssignmentMixin
-from application.services._challonge_signup import ChallongeSignupMixin, misc_user_id
+from application.services._challonge_placeholders import ChallongePlaceholderMixin, slot_fields
+from application.services._challonge_results import ChallongeResultsMixin
+from application.services._challonge_signup import ChallongeSignupMixin, misc_user_id, refuse_empty_started_bracket
 from application.services._challonge_stages import ChallongeStageMixin
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
-from application.services.feature_flag_service import FeatureFlagService
 from application.services.match.match_service import MatchService
+from application.services.round_schedule_service import RoundScheduleService
 from application.utils.clients.challonge_client import (
     ChallongeAPIError,
     ChallongeClient,
@@ -37,6 +43,7 @@ from application.utils.clients.challonge_client import (
 )
 from application.utils.environment import get_base_url
 from application.utils.mocks.mock_challonge import is_mock_challonge
+from application.utils.shared_lock import shared_lock
 from models import (
     ChallongeConnection,
     ChallongeMatch,
@@ -49,15 +56,11 @@ from models import (
 
 logger = logging.getLogger(__name__)
 
-# Refresh the service token slightly before it actually expires.
 _TOKEN_REFRESH_BUFFER = timedelta(minutes=5)
 
-# Collapse rapid repeat syncs (double-clicks, webhook bursts) — a non-forced
-# sync within this window of the last one is treated as a no-op.
-_SYNC_THROTTLE_WINDOW = timedelta(seconds=60)
+# Per-community lock: Challonge rotates the refresh token, so the losing racer would send a spent one.
 
-# The Challonge plan's monthly request quota, surfaced in the admin UI.
-CHALLONGE_MONTHLY_QUOTA = 500
+_SYNC_THROTTLE_WINDOW = timedelta(seconds=60)
 
 _DEFAULT_SERVICE_SCOPES = (
     'me tournaments:read tournaments:write matches:read matches:write '
@@ -67,8 +70,7 @@ _PLAYER_SCOPES = 'me'
 
 
 def _redirect_uri() -> str:
-    # One registered redirect URI serves both the service-account and the
-    # per-player flows; Challonge OAuth apps only validate against a single URI.
+    # One URI for both flows: a Challonge OAuth app validates against a single redirect URI.
     return os.getenv('CHALLONGE_REDIRECT_URI') or f"{get_base_url()}/challonge/oauth/callback"
 
 
@@ -83,10 +85,9 @@ def _as_aware_utc(dt: Optional[datetime]) -> Optional[datetime]:
     return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt.astimezone(timezone.utc)
 
 
-class ChallongeService(
-    ChallongeParticipantAssignmentMixin, ChallongeStageMixin, ChallongeSignupMixin,
-    ChallongeCommunitiesMixin,
-):
+class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin, ChallongeSignupMixin,
+                       ChallongeCommunitiesMixin, ChallongeLinkMixin, ChallongeResultsMixin,
+                       ChallongeAutoSyncMixin, ChallongePlaceholderMixin):
     """Business logic for the Challonge integration."""
 
     def __init__(self) -> None:
@@ -94,9 +95,6 @@ class ChallongeService(
         self.tournament_repository = TournamentRepository()
         self.audit_service = AuditService()
 
-    # ------------------------------------------------------------------
-    # OAuth configuration / URLs (reused by the OAuth middleware)
-    # ------------------------------------------------------------------
     @staticmethod
     def is_configured() -> bool:
         """True when the OAuth app credentials are present (or mock is on)."""
@@ -133,9 +131,6 @@ class ChallongeService(
     def redirect_uri() -> str:
         return _redirect_uri()
 
-    # ------------------------------------------------------------------
-    # Client factories
-    # ------------------------------------------------------------------
     def _oauth_client(self) -> ChallongeClient:
         """Client for token exchange/refresh and get_me (no bearer needed)."""
         cls = MockChallongeClient if is_mock_challonge() else ChallongeClient
@@ -155,9 +150,6 @@ class ChallongeService(
             on_request=self.repository.increment_api_usage,
         )
 
-    # ------------------------------------------------------------------
-    # Service-account token management
-    # ------------------------------------------------------------------
     async def get_valid_access_token(self, force_refresh: bool = False) -> str:
         """Return a live service access token, refreshing if expired/forced."""
         connection = await self.repository.get_connection()
@@ -172,17 +164,40 @@ class ChallongeService(
                 raise ValueError("Challonge token expired and no refresh token is available; reconnect required.")
             return connection.access_token
 
-        payload = await self._oauth_client().refresh(connection.refresh_token)
-        access, refresh, expires_at = self._unpack_token(payload)
-        await self.repository.update_connection_tokens(connection, access, refresh, expires_at)
-        return access
+        return await self._refresh_token(connection, _TOKEN_REFRESH_BUFFER, force=force_refresh)
+
+    async def renew_ahead(self, connection: ChallongeConnection, window: timedelta) -> bool:  # feature-gate: exempt — the health worker's renewal, no community data
+        """Renew a token that lapses within ``window``, ahead of the lazy refresh.
+
+        Returns True when the token is now good for longer than ``window``.
+        Raises when Challonge refuses the refresh. The caller sets the
+        connection's tenant scope (the token request is tallied per tenant).
+        """
+        if not self._token_expiring(connection, window):
+            return True
+        if not connection.refresh_token:
+            return False
+        await self._refresh_token(connection, window)
+        return not self._token_expiring(connection, window)
+
+    async def _refresh_token(self, connection: ChallongeConnection, buffer: timedelta, *, force: bool = False) -> str:
+        async with shared_lock('challonge.token_refresh', connection.tenant_id):
+            await connection.refresh_from_db()
+            if not force and not self._token_expiring(connection, buffer):
+                return connection.access_token
+            if not connection.refresh_token:
+                return connection.access_token
+            payload = await self._oauth_client().refresh(connection.refresh_token)
+            access, refresh, expires_at = self._unpack_token(payload)
+            await self.repository.update_connection_tokens(connection, access, refresh, expires_at)
+            return access
 
     @staticmethod
-    def _token_expiring(connection: ChallongeConnection) -> bool:
+    def _token_expiring(connection: ChallongeConnection, buffer: timedelta = _TOKEN_REFRESH_BUFFER) -> bool:
         if connection.token_expires_at is None:
             return False
         expires = _as_aware_utc(connection.token_expires_at)
-        return datetime.now(timezone.utc) >= (expires - _TOKEN_REFRESH_BUFFER)
+        return datetime.now(timezone.utc) >= (expires - buffer)
 
     @staticmethod
     def _unpack_token(payload: Dict[str, Any]) -> Tuple[str, Optional[str], Optional[datetime]]:
@@ -197,9 +212,6 @@ class ChallongeService(
         )
         return access, refresh, expires_at
 
-    # ------------------------------------------------------------------
-    # Connection lifecycle (called by OAuth middleware)
-    # ------------------------------------------------------------------
     @requires_feature(FeatureFlag.CHALLONGE)
     async def save_service_connection(
         self, token_payload: Dict[str, Any], actor: User, community: Optional[str] = None,
@@ -246,7 +258,6 @@ class ChallongeService(
         base = {
             'configured': self.is_configured(),
             'request_usage': usage,
-            'request_quota': CHALLONGE_MONTHLY_QUOTA,
         }
         if connection is None:
             return {'connected': False, **base}
@@ -255,12 +266,10 @@ class ChallongeService(
             'challonge_username': connection.challonge_username,
             'scopes': connection.scopes,
             'token_expires_at': connection.token_expires_at,
+            'renews_automatically': bool(connection.refresh_token),
             **base,
         }
 
-    # ------------------------------------------------------------------
-    # Player identity linking (called by player OAuth callback)
-    # ------------------------------------------------------------------
     async def _write_player_link(
         self,
         user: User,
@@ -289,7 +298,7 @@ class ChallongeService(
         user.challonge_user_id = cuid
         user.challonge_username = (challonge_username or '').strip() or None
         user.challonge_linked_at = datetime.now(timezone.utc)
-        await user.save()
+        await save_fields(user, 'challonge_user_id', 'challonge_username', 'challonge_linked_at')
         details = {
             'user_id': user.id,
             'challonge_user_id': cuid,
@@ -300,6 +309,32 @@ class ChallongeService(
         await self.audit_service.write_log(
             actor, AuditActions.CHALLONGE_PLAYER_LINKED, details,
         )
+        await self._map_linked_entrants(user, cuid, actor)
+
+    async def _map_linked_entrants(self, user: User, challonge_user_id: str, actor: User) -> None:
+        """Map the player onto entrants already mirrored here, without waiting for a sync.
+
+        The mirror keeps each entrant's Challonge account id, so a fresh link can
+        resolve them locally, exactly as the next sync would. Hand assignments
+        stay put. Best-effort: the link itself is saved, and the next sync
+        retries anything that fails here.
+        """
+        try:
+            participants = [
+                p for p in await self.repository.participants_for_challonge_account(challonge_user_id)
+                if not p.user_assigned_manually and p.user_id != user.id
+            ]
+            tournaments = {p.tournament.id: p.tournament for p in participants}
+            bookable_before = {tid: await self._bookable_pairings(t) for tid, t in tournaments.items()}
+            for p in participants:
+                await self.repository.set_participant_user(p, user, manual=False)
+            for tid, tournament in tournaments.items():
+                await self._mirror_players(tournament, actor)
+                await self._relink_bookings(tournament, actor)
+                await self._refresh_placeholder_bookings(tournament, actor)
+                await self._announce_newly_bookable(tournament, bookable_before[tid])
+        except Exception:
+            logger.exception('Mapping Challonge entrants for user %s after linking failed', user.id)
 
     @requires_feature(FeatureFlag.CHALLONGE)
     async def record_player_link(
@@ -380,7 +415,7 @@ class ChallongeService(
         await self._ensure_may_link_for(user, actor)
         old_username = user.challonge_username
         user.challonge_username = new_username
-        await user.save()
+        await save_fields(user, 'challonge_username')
         await self.audit_service.write_log(
             actor, AuditActions.CHALLONGE_PLAYER_USERNAME_UPDATED,
             {'user_id': user.id, 'old_username': old_username, 'new_username': new_username},
@@ -391,7 +426,7 @@ class ChallongeService(
         user.challonge_user_id = None
         user.challonge_username = None
         user.challonge_linked_at = None
-        await user.save()
+        await save_fields(user, 'challonge_user_id', 'challonge_username', 'challonge_linked_at')
         await self.audit_service.write_log(
             actor, AuditActions.CHALLONGE_PLAYER_UNLINKED, {'user_id': user.id},
         )
@@ -413,9 +448,6 @@ class ChallongeService(
         """Exchange the service account's authorization code for a token payload."""
         return await self._oauth_client().exchange_code(code, _redirect_uri())
 
-    # ------------------------------------------------------------------
-    # Tournament linking + bracket sync
-    # ------------------------------------------------------------------
     @staticmethod
     def parse_tournament_identifier(id_or_url: str) -> Tuple[str, Optional[str]]:
         """Extract a Challonge ``(tournament identifier, community)`` from a raw id or URL.
@@ -448,19 +480,15 @@ class ChallongeService(
             await self.tournament_repository.get_by_id(tournament_id), f"Tournament {tournament_id}"
         )
         await AuthService.ensure(
-            await AuthService.can_edit_tournament(actor, tournament),
-            "You do not have permission to link this tournament",
+            await AuthService.is_staff(actor),
+            "Only staff can link a tournament's Challonge bracket",
         )
 
-        # Exclusivity: a tournament uses a native bracket OR a Challonge link,
-        # never both (the symmetric guard lives in
-        # ``BracketService._ensure_no_challonge_link``).
+        if tournament.startgg_event_slug:
+            raise ValueError("This tournament follows a start.gg event; a tournament follows one bracket site.")
         from application.repositories import BracketRepository
         if await BracketRepository().list_for_tournament(tournament_id):
-            raise ValueError(
-                "This tournament already has a native bracket; a tournament uses "
-                "a native bracket or a Challonge link, never both."
-            )
+            raise ValueError("This tournament already has a native bracket; a tournament uses one bracket site.")
 
         identifier, community = self.parse_tournament_identifier(id_or_url)
         try:
@@ -469,7 +497,7 @@ class ChallongeService(
             if community and e.status == 403:
                 raise ValueError(
                     f"Challonge won't let the connected account read tournaments in the '{community}' "
-                    f"community. In Admin → Challonge, enter '{community}' as the community and "
+                    f"community. Under Admin → Settings → Integrations, enter '{community}' as the community and "
                     f"reconnect, signing in as one of its admins."
                 ) from e
             if e.status == 404:
@@ -477,23 +505,17 @@ class ChallongeService(
             raise ValueError(f"Could not find that Challonge tournament: {e}") from e
 
         remote = full['tournament']
-        tournament.challonge_tournament_id = remote.get('id') or identifier
-        tournament.challonge_community = community  # type: ignore[assignment]
-        tournament.challonge_tournament_url = remote.get('url')
-        # A bracket-run tournament schedules only what the bracket produced, so
-        # close the manual player-request path. Staff can re-open it per
-        # tournament from the tournament editor.
-        tournament.allow_player_match_requests = False
-        await tournament.save()
+        await self.tournament_repository.update(
+            tournament, challonge_tournament_id=remote.get('id') or identifier, challonge_community=community,
+            challonge_tournament_url=remote.get('url'), allow_player_match_requests=False,
+        )
 
         await self.audit_service.write_log(
             actor, AuditActions.CHALLONGE_TOURNAMENT_LINKED,
             {'tournament_id': tournament.id, 'challonge_tournament_id': tournament.challonge_tournament_id},
         )
 
-        # The full fetch already carries the bracket, so mirror it without a
-        # second round-trip.
-        await self._mirror_bracket(tournament, full['participants'], full['matches'], actor)
+        await self._mirror_bracket(tournament, full['participants'], full['matches'], actor, remote)
         await self._record_sync(tournament, remote)
         return tournament
 
@@ -512,8 +534,8 @@ class ChallongeService(
             await self.tournament_repository.get_by_id(tournament_id), f"Tournament {tournament_id}"
         )
         await AuthService.ensure(
-            await AuthService.can_edit_tournament(actor, tournament),
-            "You do not have permission to unlink this tournament",
+            await AuthService.is_staff(actor),
+            "Only staff can unlink a tournament's Challonge bracket",
         )
         if not tournament.challonge_tournament_id:
             raise ValueError("This tournament is not linked to a Challonge bracket")
@@ -525,13 +547,10 @@ class ChallongeService(
             'participants_removed': participants,
             'matches_removed': matches,
         }
-        tournament.challonge_tournament_id = None
-        tournament.challonge_community = None  # type: ignore[assignment]
-        tournament.challonge_tournament_url = None
-        tournament.challonge_last_synced_at = None
-        tournament.challonge_state = None  # type: ignore[assignment]
-        tournament.challonge_group_stage = False
-        await tournament.save()
+        await self.tournament_repository.update(
+            tournament, challonge_tournament_id=None, challonge_community=None, challonge_tournament_url=None,
+            challonge_last_synced_at=None, challonge_state=None, challonge_group_stage=False,
+        )
 
         await self.audit_service.write_log(
             actor, AuditActions.CHALLONGE_TOURNAMENT_UNLINKED, details,
@@ -545,7 +564,7 @@ class ChallongeService(
         )
         await AuthService.ensure(
             await AuthService.can_edit_tournament(actor, tournament),
-            "You do not have permission to sync this tournament",
+            "Only staff and this tournament's admins can sync its Challonge bracket",
         )
         return await self._sync_tournament(tournament, actor, force=force)
 
@@ -571,16 +590,17 @@ class ChallongeService(
         full = await self._api_client().get_tournament_full(
             tournament.challonge_tournament_id, community=tournament.challonge_community,
         )
-        result = await self._mirror_bracket(
-            tournament, full['participants'], full['matches'], actor,
-        )
+        refuse_empty_started_bracket(full, await self.repository.count_participants(tournament))
+        result = await self._mirror_bracket(tournament, full['participants'], full['matches'], actor, full['tournament'])
         await self._record_sync(tournament, full['tournament'])
         return result
 
     async def _record_sync(self, tournament: Tournament, remote: Dict[str, Any]) -> None:
+        from application.services._challonge_signup import announce_if_started
+        announce_if_started(tournament, remote.get('state'))
         await self.repository.record_sync(
             tournament, datetime.now(timezone.utc),
-            remote.get('state'), bool(remote.get('group_stage')),
+            remote.get('state'), bool(remote.get('group_stage')), remote.get('tournament_type'),
         )
 
     @staticmethod
@@ -595,23 +615,19 @@ class ChallongeService(
         tournament: Tournament,
         remote_participants: List[Dict[str, Any]],
         remote_matches: List[Dict[str, Any]],
-        actor: User,
+        actor: User, remote_tournament: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, int]:
-        bookable_before = await self._bookable_match_ids(tournament)
-        # Participants -> resolve to linked wizzrobe users by Challonge account id.
-        # Resolve every linked user in one query rather than per participant.
+        bookable_before = await self._bookable_pairings(tournament)
+        unfinished_before = await self.repository.unfinished_match_ids(tournament)
         users_by_cuid = await self.repository.resolve_users_by_challonge_ids(
             [rp.get('challonge_user_id') for rp in remote_participants]
         )
-        # A hand assignment outlives every sync: an entrant added by name has no
-        # account to resolve, and staff chose this mapping on purpose.
+        # A hand assignment outlives every sync: staff chose it on purpose.
         manual = {
             p.challonge_participant_id: p.user
             for p in await self.repository.list_participants(tournament)
             if p.user_assigned_manually
         }
-        # An entrant a player added from the Tournaments tab carries no account
-        # id until they accept Challonge's invite; its ``misc`` names them.
         users_by_misc = await UserRepository.get_by_ids([
             uid for uid in (misc_user_id(rp.get('misc')) for rp in remote_participants) if uid
         ])
@@ -631,10 +647,11 @@ class ChallongeService(
                 name=rp.get('name'),
                 challonge_user_id=cuid,
                 user=user,
+                active=rp.get('active', True),
             )
             participant_by_cid[rp['participant_id']] = participant
 
-        # Matches -> mirror with resolved participant FKs.
+        letters = {rm['match_id']: rm.get('identifier') for rm in remote_matches}
         for rm in remote_matches:
             p1 = participant_by_cid.get(rm.get('player1_participant_id'))
             p2 = participant_by_cid.get(rm.get('player2_participant_id'))
@@ -647,19 +664,24 @@ class ChallongeService(
                 participant1=p1,
                 participant2=p2,
                 winner_participant=winner,
+                group_stage=RoundScheduleService.group_stage_running(remote_tournament),
+                slots=slot_fields(rm, letters),
             )
 
-        # A reset or cleared roster on Challonge; a hand assignment goes with its entrant.
+        await self._flag_lost_placeholders(tournament, {rm['match_id'] for rm in remote_matches})
         removed_p, removed_m = await self.repository.prune_mirror(
             tournament, set(participant_by_cid), {rm['match_id'] for rm in remote_matches},
         )
         await self._mirror_players(tournament, actor)
+        relinked = await self._relink_bookings(tournament, actor)
         result = {'participants': len(remote_participants), 'matches': len(remote_matches)}
         await self.audit_service.write_log(actor, AuditActions.CHALLONGE_BRACKET_SYNCED, {
             'tournament_id': tournament.id, **result,
-            'participants_removed': removed_p, 'matches_removed': removed_m,
+            'participants_removed': removed_p, 'matches_removed': removed_m, 'matches_relinked': relinked,
         })
+        await self._refresh_placeholder_bookings(tournament, actor)
         await self._announce_newly_bookable(tournament, bookable_before)
+        await result_alerts.challonge_results_in(tournament, unfinished_before, remote_matches)
         return result
 
     @staticmethod
@@ -670,12 +692,29 @@ class ChallongeService(
             return ChallongeMatchState.COMPLETE
         return ChallongeMatchState.PENDING
 
-    # ------------------------------------------------------------------
-    # Scheduling a bracket matchup (reuses the existing match-request flow)
-    # ------------------------------------------------------------------
     @requires_feature(FeatureFlag.CHALLONGE)
-    async def list_unscheduled_matches_for_user(self, user: User) -> List[ChallongeMatch]:
-        return await self.repository.unscheduled_open_matches_for_user(user)
+    async def list_unscheduled_matches_for_user(
+        self, user: User, *, include_partial_sets: bool = False,
+    ) -> List[ChallongeMatch]:
+        """The player's open matches with nothing booked; ``include_partial_sets``
+        adds the best-of sets with some games booked."""
+        rows = await self.repository.unscheduled_open_matches_for_user(user)
+        if include_partial_sets:
+            rows += await self.repository.open_set_matches_for_user(user)
+        return rows
+
+    @requires_feature(FeatureFlag.CHALLONGE)
+    async def list_unbooked_matches(
+        self, tournament_ids: Optional[List[int]] = None, *, include_partial_sets: bool = False,
+    ) -> List[ChallongeMatch]:
+        """Open matches nobody has booked yet, for the staff board. Callers authorize.
+
+        ``include_partial_sets`` adds the best-of sets with some games booked.
+        """
+        rows = await self.repository.unscheduled_open_matches(tournament_ids)
+        if include_partial_sets:
+            rows += await self.repository.open_set_matches(tournament_ids)
+        return rows
 
     @requires_feature(FeatureFlag.CHALLONGE)
     async def schedule_challonge_match(
@@ -685,6 +724,7 @@ class ChallongeService(
         scheduled_time: str,
         actor: User,
         comment: Optional[str] = None,
+        *, allow_outside_round: bool = False,
     ) -> Match:
         cmatch = require_found(
             await self.repository.get_match(challonge_match_pk), "Challonge match"
@@ -700,101 +740,11 @@ class ChallongeService(
                 "Both players must link their Challonge account before this match can be scheduled."
             )
 
-        match = await MatchService().submit_match_request(
-            tournament_id=cmatch.tournament_id,
-            scheduled_date=scheduled_date,
-            scheduled_time=scheduled_time,
-            player_ids=[p1.user_id, p2.user_id],
-            actor=actor,
-            comment=comment,
-            # The bracket is the sanctioned scheduling path for a Challonge-linked
-            # tournament, so this bypasses its allow_player_match_requests toggle.
-            from_bracket=True,
+        await RoundScheduleService().check_challonge_booking(
+            cmatch, scheduled_date, scheduled_time, actor, allow_outside_round=allow_outside_round,
+        )
+        match = await MatchService().book_from_bracket(
+            cmatch.tournament_id, scheduled_date, scheduled_time, [p1.user_id, p2.user_id], actor, comment,
         )
         await self.repository.link_match(cmatch, match)
         return match
-
-    # ------------------------------------------------------------------
-    # Pushing results back to Challonge
-    # ------------------------------------------------------------------
-    # feature-gate: exempt — the soft integration point; see the docstring below.
-    async def push_result_if_linked(self, match: Match, actor: Optional[User]) -> bool:
-        """Push the result only when the match mirrors a Challonge match.
-
-        Returns True if a push was attempted. Used by the confirm flow so
-        non-Challonge matches are silently skipped. Requires an actor for the
-        audit entry; with none, the push is skipped.
-
-        Soft-gated: the match confirm/finish flow calls this for *every* match, so
-        a community without the Challonge feature must simply confirm its matches
-        — raising here would break match completion for everyone who does not use
-        Challonge. The flag is still enforced (no result leaves the tenant where
-        the feature is off) by answering "nothing pushed"; the administrative
-        entry points above raise instead.
-        """
-        if actor is None:
-            return False
-        if not await FeatureFlagService().is_enabled(FeatureFlag.CHALLONGE):
-            return False
-        cmatch = await self.repository.get_challonge_match_for_match(match)
-        if cmatch is None:
-            return False
-        await self.push_match_result(match, actor)
-        return True
-
-    @requires_feature(FeatureFlag.CHALLONGE)
-    async def push_match_result(self, match: Match, actor: User) -> None:
-        cmatch = await self.repository.get_challonge_match_for_match(match)
-        if cmatch is None:
-            raise ValueError("This match is not linked to a Challonge match.")
-
-        await match.fetch_related('players__user', 'tournament')
-        ranked = [p for p in match.players if p.finish_rank is not None]
-        winner = next((p for p in ranked if p.finish_rank == 1), None)
-        if winner is None:
-            raise ValueError("No winner has been recorded for this match yet.")
-        losers = [p for p in match.players if p.id != winner.id]
-        if not losers:
-            raise ValueError("Cannot push a result without an opponent.")
-        loser = losers[0]
-
-        winner_pid = self._participant_id_for_user(cmatch, winner.user_id)
-        loser_pid = self._participant_id_for_user(cmatch, loser.user_id)
-        if winner_pid is None or loser_pid is None:
-            raise ValueError("Could not map both players to Challonge participants; re-sync the bracket.")
-
-        if not cmatch.tournament.challonge_tournament_id:
-            raise ValueError("The tournament is no longer linked to Challonge.")
-
-        await self._api_client().update_match(
-            tournament_id=cmatch.tournament.challonge_tournament_id,
-            match_id=cmatch.challonge_match_id,
-            winner_participant_id=winner_pid,
-            loser_participant_id=loser_pid,
-            community=cmatch.tournament.challonge_community,
-        )
-        await self.audit_service.write_log(
-            actor, AuditActions.CHALLONGE_RESULT_PUSHED,
-            {'match_id': match.id, 'challonge_match_id': cmatch.challonge_match_id,
-             'winner_participant_id': winner_pid},
-        )
-
-        # The push advanced the bracket (next-round matches now open). Re-sync
-        # once so those newly-open matches surface locally without a manual
-        # Sync. Failures here must not undo the successful push.
-        try:
-            await self._sync_tournament(cmatch.tournament, actor, force=True)
-        except (ValueError, ChallongeAPIError):
-            # Logged rather than printed so a silently-stale bracket leaves a
-            # diagnostic trail in structured logs and Sentry.
-            logger.error(
-                "Challonge post-push re-sync failed for tournament %s",
-                cmatch.tournament_id, exc_info=True,
-            )
-
-    @staticmethod
-    def _participant_id_for_user(cmatch: ChallongeMatch, user_id: int) -> Optional[str]:
-        for participant in (cmatch.participant1, cmatch.participant2):
-            if participant is not None and participant.user_id == user_id:
-                return participant.challonge_participant_id
-        return None

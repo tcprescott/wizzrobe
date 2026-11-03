@@ -12,6 +12,7 @@ from typing import List, Optional
 
 from tortoise.expressions import Q
 
+from application.event_writes import guarded_delete, guarded_update
 from application.repositories._base import TenantScopedRepository
 from application.repositories._tenant import current_tenant_id, scoped
 from models import (
@@ -20,6 +21,7 @@ from models import (
     BracketEntry,
     BracketMatch,
     BracketMatchGame,
+    EventStatus,
     Match,
 )
 
@@ -29,7 +31,6 @@ class BracketRepository(TenantScopedRepository[Bracket]):
 
     model = Bracket
 
-    # --- Bracket ---------------------------------------------------------
     async def get_bracket(self, bracket_id: int) -> Optional[Bracket]:
         return await scoped(Bracket.filter(id=bracket_id)).first()
 
@@ -53,9 +54,13 @@ class BracketRepository(TenantScopedRepository[Bracket]):
             Bracket.filter(tournament_id=tournament_id, stage_order=stage_order)
         ).first()
 
-    # --- BracketEntrant --------------------------------------------------
     async def create_entrant(self, **fields) -> BracketEntrant:
         return await BracketEntrant.create(tenant_id=current_tenant_id(), **fields)
+
+    async def user_has_entry(self, bracket_id: int, user_id: int) -> bool:
+        return await scoped(
+            BracketEntry.filter(bracket_id=bracket_id, entrant__user_id=user_id)
+        ).exists()
 
     async def get_entrant(self, entrant_id: int) -> Optional[BracketEntrant]:
         return await scoped(BracketEntrant.filter(id=entrant_id)).first()
@@ -71,14 +76,10 @@ class BracketRepository(TenantScopedRepository[Bracket]):
         return await self.update(entrant, **fields)
 
     async def list_entrants(self, tournament_id: int) -> List[BracketEntrant]:
-        # ``user`` is prefetched for the linked account's Discord avatar, which
-        # every bracket surface paints beside the name — one extra query for the
-        # whole field beats one per entrant at render time.
         return await scoped(
             BracketEntrant.filter(tournament_id=tournament_id)
         ).prefetch_related('user').order_by('display_name')
 
-    # --- BracketEntry ----------------------------------------------------
     async def create_entry(self, **fields) -> BracketEntry:
         return await BracketEntry.create(tenant_id=current_tenant_id(), **fields)
 
@@ -108,7 +109,7 @@ class BracketRepository(TenantScopedRepository[Bracket]):
         for entry_id, seed in seeds.items():
             by_seed.setdefault(seed, []).append(entry_id)
         for seed, entry_ids in by_seed.items():
-            await scoped(BracketEntry.filter(id__in=entry_ids)).update(seed=seed)
+            await guarded_update(scoped(BracketEntry.filter(id__in=entry_ids)), seed=seed)
 
     async def list_entries(self, bracket_id: int) -> List[BracketEntry]:
         return await scoped(
@@ -128,7 +129,6 @@ class BracketRepository(TenantScopedRepository[Bracket]):
             BracketEntry.filter(bracket_id=bracket_id, entrant_id=entrant_id)
         ).first()
 
-    # --- BracketMatch ----------------------------------------------------
     async def create_match(self, **fields) -> BracketMatch:
         return await BracketMatch.create(tenant_id=current_tenant_id(), **fields)
 
@@ -140,11 +140,6 @@ class BracketRepository(TenantScopedRepository[Bracket]):
         return await self.update(match, **fields)
 
     async def list_matches(self, bracket_id: int) -> List[BracketMatch]:
-        # ``games__match`` is prefetched so a whole round can render its series
-        # state — including each game's scheduled time — without an N+1 across
-        # the bracket view. ``__stage`` rides along for the live "Watch"
-        # link (U2): a fixed number of queries for the whole field, whatever its
-        # size, which is the rule the bracket view is held to.
         return await scoped(
             BracketMatch.filter(bracket_id=bracket_id)
         ).prefetch_related(
@@ -179,8 +174,6 @@ class BracketRepository(TenantScopedRepository[Bracket]):
 
     async def list_open_matches(self, bracket_id: int) -> List[BracketMatch]:
         from models import BracketMatchState
-        # ``games__match`` (not just ``games``) so callers can derive each
-        # matchup's live status without an N+1 — one more batched query.
         return await scoped(
             BracketMatch.filter(bracket_id=bracket_id, state=BracketMatchState.OPEN)
         ).prefetch_related('games__match').order_by('round', 'position')
@@ -216,7 +209,6 @@ class BracketRepository(TenantScopedRepository[Bracket]):
             BracketMatch.filter(loser_to_id=match_id, loser_to_slot=slot)
         ).exclude(state=BracketMatchState.COMPLETE)
 
-    # --- scheduling seam (mirrors ChallongeRepository) -------------------
     async def get_match_with_bracket(self, bracket_match_id: int) -> Optional[BracketMatch]:
         """One matchup with its parent stage, for readers that need the stage config.
 
@@ -254,6 +246,13 @@ class BracketRepository(TenantScopedRepository[Bracket]):
             'bracket_match__entry2__entrant__user',
         ).first()
 
+    async def first_booked_match_id(self, bracket_match_id: int) -> Optional[int]:
+        """The earliest-booked game's match on a bracket match, if any game is booked."""
+        game = await scoped(
+            BracketMatchGame.filter(bracket_match_id=bracket_match_id, match_id__isnull=False)
+        ).order_by('id').first()
+        return game.match_id if game is not None else None
+
     async def get_bracket_match_for_match(self, match_id: int) -> Optional[BracketMatch]:
         """The bracket match whose series contains the game backed by ``match_id``."""
         game = await self.get_game_for_match(match_id)
@@ -272,11 +271,14 @@ class BracketRepository(TenantScopedRepository[Bracket]):
         Excludes matchups in a **cancelled** stage. Cancelling a stage flips only
         the bracket's own state; its matchups stay OPEN, so without this the
         abandoned stage kept inviting both players to schedule a game in it.
+
+        Across every live event (cross-event: it feeds the player's own schedule).
         """
         from models import BracketMatchState, BracketState
         qs = scoped(BracketMatch.filter(
             Q(entry1__entrant__user_id=user_id) | Q(entry2__entrant__user_id=user_id),
             state=BracketMatchState.OPEN,
+            bracket__tournament__event__status=EventStatus.LIVE,
         )).exclude(bracket__state=BracketState.CANCELLED)
         if tournament_id is not None:
             qs = qs.filter(bracket__tournament_id=tournament_id)
@@ -302,7 +304,23 @@ class BracketRepository(TenantScopedRepository[Bracket]):
             'bracket', 'entry1__entrant__user', 'entry2__entrant__user', 'games',
         ).order_by('bracket__stage_order', 'round', 'position')
 
-    # --- BracketMatchGame -------------------------------------------------
+    async def open_matches_for_tournaments(
+        self, tournament_ids: Optional[List[int]] = None
+    ) -> List[BracketMatch]:
+        """Every OPEN matchup in active tournaments; ``None`` means all of them.
+
+        Excludes a cancelled stage's matchups, as ``open_matches_for_tournament`` does.
+        """
+        from models import BracketMatchState, BracketState
+        qs = scoped(BracketMatch.filter(
+            state=BracketMatchState.OPEN, bracket__tournament__is_active=True,
+        )).exclude(bracket__state=BracketState.CANCELLED)
+        if tournament_ids is not None:
+            qs = qs.filter(bracket__tournament_id__in=tournament_ids)
+        return await qs.prefetch_related(
+            'bracket__tournament', 'entry1__entrant__user', 'entry2__entrant__user', 'games',
+        ).order_by('bracket__tournament_id', 'bracket__stage_order', 'round', 'position')
+
     async def create_game(self, **fields) -> BracketMatchGame:
         return await BracketMatchGame.create(tenant_id=current_tenant_id(), **fields)
 
@@ -311,12 +329,15 @@ class BracketRepository(TenantScopedRepository[Bracket]):
 
     async def delete_game(self, game_id: int) -> int:
         """Delete one game row, freeing its slot. Returns the rows removed."""
-        return await scoped(BracketMatchGame.filter(id=game_id)).delete()
+        return await guarded_delete(scoped(BracketMatchGame.filter(id=game_id)))
 
-    async def list_games(self, bracket_match_id: int) -> List[BracketMatchGame]:
-        return await scoped(
+    async def list_games(self, bracket_match_id: int, *, with_matches: bool = False) -> List[BracketMatchGame]:
+        query = scoped(
             BracketMatchGame.filter(bracket_match_id=bracket_match_id)
         ).order_by('game_number')
+        if with_matches:
+            query = query.prefetch_related('match')
+        return await query
 
     async def games_for_matches(self, match_ids: List[int]) -> List[BracketMatchGame]:
         """The game rows backed by any of ``match_ids`` — **unscoped**, one query.
@@ -378,7 +399,7 @@ class BracketRepository(TenantScopedRepository[Bracket]):
         conditional UPDATE makes the loser a no-op without needing a transaction.
         """
         from models import BracketMatchGameState
-        updated = await scoped(BracketMatchGame.filter(
+        updated = await guarded_update(scoped(BracketMatchGame.filter(
             id=game_id, state=BracketMatchGameState.SCHEDULED,
-        )).update(**fields)
+        )), **fields)
         return bool(updated)

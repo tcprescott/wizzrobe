@@ -22,7 +22,7 @@ import theme.tables.match_lifecycle as match_lifecycle
 from theme.tables.match_access import MatchBoardAccess
 from theme.tables.match_lifecycle import MatchLifecycleHandlers
 
-RUN = ['on_generate_seed', 'on_seat', 'on_start', 'on_finish', 'on_assign_stations']
+RUN = ['on_generate_seed', 'on_seat', 'on_start', 'on_finish', 'on_report_winner', 'on_assign_stations']
 EDIT = ['on_edit']
 CONFIRM = ['on_confirm', 'on_edit_result']
 STREAM = ['on_set_stage']
@@ -65,9 +65,10 @@ def test_the_crew_coordinator_is_offered_no_lifecycle_control():
     assert _callbacks(MatchBoardAccess.for_roles(is_crew_coordinator=True)) == set()
 
 
-def test_the_stream_manager_is_offered_exactly_the_stage():
-    """``assign_stage``'s own docstring names this role; nothing offered it."""
-    assert _callbacks(MatchBoardAccess.for_roles(is_stream_manager=True)) == set(STREAM)
+def test_the_broadcast_tech_is_offered_the_stage_and_the_run_controls():
+    """The stage is theirs, and so is running a match on one; the row-level
+    stage check lives in the slot guards and ``can_run_match``."""
+    assert _callbacks(MatchBoardAccess.for_roles(is_stream_manager=True)) == set(STREAM) | set(RUN)
 
 
 def test_an_uncovered_callback_is_omitted_not_none():
@@ -86,7 +87,6 @@ def test_correcting_a_result_does_not_re_finish_the_match():
     """
     src = inspect.getsource(MatchLifecycleHandlers.on_edit_result)
     assert "mode='edit'" in src
-    # The call, not the word — the handler's docstring explains the omission.
     assert 'finish_match(' not in src
     assert 'confirm_finishing(' not in src
 
@@ -105,8 +105,6 @@ def test_the_proctor_board_declares_only_the_run_capability():
     assert 'MatchBoardAccess(run=True)' in src
     assert 'submit_match_callback' not in src
 
-
-# --- The Stage select: one control for two different fields -----------------
 
 class _Recorder:
     """Stands in for ``MatchService``, recording what the handler asked for."""
@@ -143,7 +141,6 @@ def _stage_handlers(monkeypatch, *, stage_id=None, is_stream_candidate=False):
 
     monkeypatch.setattr(match_lifecycle, 'Match', _Model)
     monkeypatch.setattr(match_lifecycle, 'require_tenant_id', lambda: 1)
-    # ``notify_error`` reaches for a NiceGUI client, which no unit test has.
     notified = []
     monkeypatch.setattr(match_lifecycle, 'notify_error', notified.append)
 
@@ -211,3 +208,140 @@ async def test_a_refused_write_still_refreshes_the_row(monkeypatch):
     await handlers.on_set_stage(7, 3)
     assert handlers.table_view.refreshed == [7]
     assert [str(e) for e in handlers.notified] == ['nope']
+
+
+def _start_handlers(monkeypatch, *, stage_id=None, stations=(None, None)):
+    """Handlers whose one match is checked in with the given stations."""
+    players = [
+        SimpleNamespace(assigned_station=s, user=SimpleNamespace(preferred_name=f'P{i}'))
+        for i, s in enumerate(stations)
+    ]
+    match = SimpleNamespace(id=7, stage_id=stage_id, players=players)
+
+    class _Query:
+        def prefetch_related(self, *_args):
+            return self
+
+        def __await__(self):
+            async def _m():
+                return match
+            return _m().__await__()
+
+    class _Model:
+        @staticmethod
+        def get(**_kwargs):
+            return _Query()
+
+    opened = []
+
+    class _Dialog:
+        def __init__(self, *, match, purpose, **_kwargs):
+            self.purpose = purpose
+
+        async def open(self):
+            opened.append(('stations', self.purpose))
+
+    class _Confirm:
+        def __init__(self, **_kwargs):
+            pass
+
+        def open(self):
+            opened.append(('confirm', None))
+
+    monkeypatch.setattr(match_lifecycle, 'Match', _Model)
+    monkeypatch.setattr(match_lifecycle, 'require_tenant_id', lambda: 1)
+    monkeypatch.setattr(match_lifecycle, 'StationAssignmentDialog', _Dialog)
+    monkeypatch.setattr(match_lifecycle, 'ConfirmationDialog', _Confirm)
+    handlers = MatchLifecycleHandlers(nullcontext(), access=MatchBoardAccess(run=True))
+    return handlers, opened
+
+
+async def test_starting_without_stations_asks_for_them(monkeypatch):
+    handlers, opened = _start_handlers(monkeypatch, stations=('4', None))
+    await handlers.on_start(7)
+    assert opened == [('stations', 'start')]
+
+
+async def test_starting_a_seated_match_just_confirms(monkeypatch):
+    handlers, opened = _start_handlers(monkeypatch, stations=('4', '5'))
+    await handlers.on_start(7)
+    assert opened == [('confirm', None)]
+
+
+async def test_a_stage_match_is_never_asked_for_stations(monkeypatch):
+    handlers, opened = _start_handlers(monkeypatch, stage_id=2)
+    await handlers.on_start(7)
+    assert opened == [('confirm', None)]
+
+
+def _clear_seed_handlers(monkeypatch, *, refuse: bool = False):
+    calls = SimpleNamespace(confirms=[], cleared=[], refreshed=[], notified=[])
+
+    class _Confirm:
+        def __init__(self, *, on_confirm, **_kwargs):
+            calls.confirms.append(on_confirm)
+
+        def open(self):
+            pass
+
+    class _Service:
+        async def clear_match_seed(self, match_id, *, actor):
+            if refuse:
+                raise ValueError("This match doesn't have a seed to clear.")
+            calls.cleared.append((match_id, actor))
+
+    class _View:
+        async def update_row_by_id(self, match_id, flash=False):
+            calls.refreshed.append(match_id)
+
+    monkeypatch.setattr(match_lifecycle, 'ConfirmationDialog', _Confirm)
+    monkeypatch.setattr(match_lifecycle, 'notify_error', calls.notified.append)
+    monkeypatch.setattr(match_lifecycle.ui, 'notify', lambda *_a, **_k: None)
+    handlers = MatchLifecycleHandlers(nullcontext(), access=MatchBoardAccess.for_roles(is_staff=True))
+    handlers.match_service = _Service()
+    handlers.table_view = _View()
+
+    async def _actor():
+        return 'staff'
+    handlers._actor = _actor
+    return handlers, calls
+
+
+async def test_clearing_a_seed_from_the_sheet_asks_first(monkeypatch):
+    handlers, calls = _clear_seed_handlers(monkeypatch)
+    await handlers.on_clear_seed(7)
+    assert calls.cleared == []
+    await calls.confirms[0]()
+    assert calls.cleared == [(7, 'staff')]
+    assert calls.refreshed == [7]
+
+
+async def test_a_refused_clear_says_why(monkeypatch):
+    handlers, calls = _clear_seed_handlers(monkeypatch, refuse=True)
+    await handlers.on_clear_seed(7)
+    await calls.confirms[0]()
+    assert len(calls.notified) == 1
+    assert calls.refreshed == []
+
+
+def test_the_sheet_offers_clear_seed_only_to_editors():
+    from theme.dialog.match_sheet import MatchSheet
+    src = inspect.getsource(MatchSheet._check_seed)
+    assert 'can_edit_row(row)' in src and 'on_clear_seed' in src
+
+
+async def test_checking_in_off_stage_seats_the_players(monkeypatch):
+    handlers, opened = _start_handlers(monkeypatch)
+    await handlers.on_seat(7)
+    assert opened == [('stations', 'checkin')]
+
+
+async def test_checking_in_a_stage_match_takes_one_tap(monkeypatch):
+    handlers, opened = _start_handlers(monkeypatch, stage_id=2)
+    seated = []
+
+    async def _seat(match):
+        seated.append(match.id)
+    handlers.confirm_seating = _seat
+    await handlers.on_seat(7)
+    assert opened == [] and seated == [7]

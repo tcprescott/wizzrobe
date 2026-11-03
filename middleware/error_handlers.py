@@ -78,8 +78,6 @@ def register_error_handlers(fastapi_app: FastAPI) -> None:
 
     @app.exception_handler(404)
     async def _not_found_handler(request: Request, exc: Exception) -> Response:
-        # Preserve NiceGUI's behavior: non-page endpoints (the REST API, raised
-        # HTTPExceptions from dependencies, etc.) should get JSON, not HTML.
         endpoint = request.scope.get('endpoint')
         if (
             endpoint is not None
@@ -93,9 +91,6 @@ def register_error_handlers(fastapi_app: FastAPI) -> None:
         user = await _current_user_best_effort()
         with Client(ui.page(''), request=request) as client:
             if request.scope.get(UNKNOWN_COMMUNITY_SCOPE_KEY):
-                # No tenant is bound, so "home" is the community picker — which
-                # is exactly where someone with a mistyped or retired link
-                # wants to go.
                 render_error_page(
                     status_code=404,
                     headline='Community not found',

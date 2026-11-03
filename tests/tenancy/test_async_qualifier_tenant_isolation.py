@@ -44,7 +44,7 @@ async def test_pool_reads_are_isolated(two_tenants):
         pa = await AsyncQualifierPool.create(qualifier=qa, name='P')
     with tenant_scope(b.id):
         qb = await AsyncQualifier.create(name='QB')
-        pb = await AsyncQualifierPool.create(qualifier=qb, name='P')  # same name, other tenant
+        pb = await AsyncQualifierPool.create(qualifier=qb, name='P')
 
     with tenant_scope(a.id):
         assert [p.id for p in await repo.list_for_qualifier(qa.id)] == [pa.id]
@@ -76,7 +76,6 @@ async def test_run_reads_are_isolated(two_tenants):
     with tenant_scope(a.id):
         assert [r.id for r in await repo.list_for_qualifier(qa.id)] == [ra.id]
         assert await repo.get_by_id(rb.id) is None
-        # An active-run lookup never crosses tenants.
         assert await repo.get_active_for_user(qb.id, ub.id) is None
     with tenant_scope(b.id):
         assert [r.id for r in await repo.list_for_qualifier(qb.id)] == [rb.id]

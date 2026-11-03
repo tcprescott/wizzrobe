@@ -10,7 +10,7 @@ server), so guild lookup is ``list_by_guild_id`` — the bot fans out over every
 tenant linked to the guild rather than resolving a single one.
 """
 
-from typing import List, Optional
+from typing import Iterable, List, Optional, Set
 
 from application.repositories._base import TenantScopedRepository
 from models import Tenant
@@ -40,13 +40,19 @@ class TenantRepository(TenantScopedRepository[Tenant]):
 
     @staticmethod
     async def list_by_guild_id(guild_id: int) -> List[Tenant]:
-        # A Discord guild may back several tenants, so this returns every tenant
-        # linked to the guild (stable id order). Callers fan out over the result.
         return await Tenant.filter(discord_guild_id=guild_id).order_by('id')
 
     @staticmethod
     async def list_all() -> List[Tenant]:
         return await Tenant.all().order_by('name')
+
+    @staticmethod
+    async def active_ids(ids: Iterable[int]) -> Set[int]:
+        wanted = set(ids)
+        if not wanted:
+            return set()
+        rows = await Tenant.filter(id__in=wanted, is_active=True).values_list('id', flat=True)
+        return set(rows)  # type: ignore[arg-type]
 
     @staticmethod
     async def slug_exists(slug: str, exclude_id: Optional[int] = None) -> bool:

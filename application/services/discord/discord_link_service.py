@@ -30,8 +30,7 @@ logger = logging.getLogger(__name__)
 
 _AUTHORIZE_URL = 'https://discord.com/api/oauth2/authorize'
 _EXCHANGE_URL = 'https://discord.com/api/oauth2/token'
-# Manage Roles (0x10000000) — the minimum the bot needs to apply mapped roles
-# after linking. Override with DISCORD_BOT_PERMISSIONS for more capability.
+# Manage Roles (0x10000000), the minimum to apply mapped roles; DISCORD_BOT_PERMISSIONS overrides it.
 _DEFAULT_BOT_PERMISSIONS = '268435456'
 
 

@@ -47,7 +47,6 @@ async def test_signup_state_does_not_leak_across_tenants(db, tenant_b):
             name='Spring Open', tenant_id=tenant_b.id, **window,
         )
 
-    # One person in both communities, entered in tenant B's tournament only.
     player = await _member(8400, 'crossover', 1)
     with tenant_scope(tenant_b.id):
         await TenantMembership.create(user=player, tenant_id=tenant_b.id)
@@ -79,7 +78,6 @@ async def test_entrant_lists_are_tenant_scoped(db, tenant_b):
         [tournament_a.id, tournament_b.id],
     )
     assert [u.id for u in entrants.get(tournament_a.id, [])] == [here.id]
-    # Tenant B's tournament id was asked for explicitly and still returns nothing.
     assert entrants.get(tournament_b.id, []) == []
 
 
@@ -91,3 +89,27 @@ async def test_another_tenants_tournament_cannot_be_signed_up_for(db, tenant_b):
     with pytest.raises(ValueError):
         await TournamentService().self_enroll(tournament_b.id, player)
     assert await TournamentPlayers.filter(user=player).count() == 0
+
+
+async def test_admin_lists_are_tenant_scoped(db, tenant_b):
+    tournament_a = await Tournament.create(name='Cup')
+    with tenant_scope(tenant_b.id):
+        tournament_b = await Tournament.create(name='Cup', tenant_id=tenant_b.id)
+
+    zed = await _member(8404, 'zed', 1)
+    amy = await _member(8405, 'Amy', 1)
+    away = await _member(8406, 'remote-admin', tenant_b.id)
+    await tournament_a.admins.add(zed, amy)
+    await tournament_b.admins.add(away)
+
+    admins = await TournamentRepository.admins_by_tournament(
+        [tournament_a.id, tournament_b.id],
+    )
+    assert [u.id for u in admins[tournament_a.id]] == [amy.id, zed.id]
+    assert tournament_b.id not in admins
+
+    card = next(
+        c for c in await TournamentService().list_signup_cards(amy)
+        if c.tournament.id == tournament_a.id
+    )
+    assert [u.id for u in card.admins] == [amy.id, zed.id]

@@ -1,0 +1,124 @@
+name: Native apps
+
+# Compile checks for the Capacitor shells in web/ios and web/android. Android
+# builds on every pull request that touches web/; iOS needs a macOS runner
+# (about ten times the minutes), so it runs only when started by hand.
+# Signing and store uploads come later, once the developer accounts exist.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - 'api/**'
+      - 'scripts/export_openapi.py'
+      - '.github/workflows/native-apps.yml'
+  workflow_dispatch:
+    inputs:
+      ios:
+        description: Also build the iOS app (macOS runner)
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+env:
+  POETRY_VERSION: '2.3.3'
+
+concurrency:
+  group: native-apps-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Install Poetry
+        run: pipx install poetry==${{ env.POETRY_VERSION }}
+
+      - name: Install Python dependencies
+        working-directory: .
+        run: poetry install --no-interaction
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install
+        run: npm ci
+
+      - name: Generate the API client
+        run: npm run gen:api
+
+      - name: Build the app and copy it into the shell
+        env:
+          VITE_API_BASE: https://onsite.speedgaming.org
+        run: npm run build && npx cap sync android
+
+      - name: Debug build
+        working-directory: web/android
+        run: ./gradlew --no-daemon assembleDebug
+
+  ios:
+    if: github.event_name == 'workflow_dispatch' && inputs.ios
+    runs-on: macos-15
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Install Poetry
+        run: pipx install poetry==${{ env.POETRY_VERSION }}
+
+      - name: Install Python dependencies
+        working-directory: .
+        run: poetry install --no-interaction
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Generate the API client
+        run: npm run gen:api
+
+      - name: Build the app and copy it into the shell
+        env:
+          VITE_API_BASE: https://onsite.speedgaming.org
+        run: npm run build && npx cap sync ios
+
+      - name: Simulator build (unsigned)
+        working-directory: web/ios/App
+        run: >
+          xcodebuild -project App.xcodeproj -scheme App -configuration Debug
+          -sdk iphonesimulator -destination 'generic/platform=iOS Simulator'
+          CODE_SIGNING_ALLOWED=NO build

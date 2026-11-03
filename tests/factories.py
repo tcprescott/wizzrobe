@@ -78,3 +78,28 @@ def make_audit_double() -> MagicMock:
     double.write_log = AsyncMock()
     double.write_and_publish = partial(AuditService.write_and_publish, double)
     return double
+
+
+async def set_setting(name: str, value: str, tenant_id: int | None = None) -> None:
+    """Store a setting where SystemConfigService reads it.
+
+    An event's own setting (capacity, hours, dates…) goes on the community's
+    default event; any other is a community row. Written raw, so a test can
+    store what the service would refuse.
+    """
+    from datetime import date
+
+    from application.services.system_config_service import EVENT_CONFIG_KEYS, EVENT_DATE_FIELDS
+    from application.tenant_context import get_current_tenant_id
+    from models import Event, SystemConfiguration
+
+    tenant_id = tenant_id if tenant_id is not None else (get_current_tenant_id() or 1)
+    if name in EVENT_DATE_FIELDS:
+        await Event.filter(tenant_id=tenant_id, is_default=True).update(
+            **{EVENT_DATE_FIELDS[name]: date.fromisoformat(value)},
+        )
+    elif name in EVENT_CONFIG_KEYS:
+        event = await Event.get(tenant_id=tenant_id, is_default=True)
+        await Event.filter(id=event.id).update(config={**(event.config or {}), name: value})
+    else:
+        await SystemConfiguration.create(name=name, value=value, tenant_id=tenant_id)

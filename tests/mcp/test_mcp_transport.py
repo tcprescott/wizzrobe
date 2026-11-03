@@ -8,6 +8,7 @@ would leave clients unable to start the flow they need.
 """
 
 from application.services.api_token_service import MCP_TOKEN_PREFIX
+from application.utils.build_info import build_info
 from models import Role
 from tests.api_helpers import create_user_token
 from tests.mcp.conftest import auth, call_tool, create_oauth_token, mcp_session, rpc
@@ -18,8 +19,6 @@ class TestAuthentication:
         async with mcp_session() as client:
             resp = await rpc(client, None, 'tools/list')
         assert resp.status_code == 401
-        # The challenge is what turns a rejection into a recovery: a compliant
-        # client reads it, finds the authorization server, and starts OAuth.
         assert 'resource_metadata=' in resp.headers['www-authenticate']
 
     async def test_garbage_token_is_401(self, db):
@@ -85,8 +84,6 @@ class TestTransport:
         assert resp.status_code == 200
         result = resp.json()['result']
         assert result['serverInfo']['name'] == 'Wizzrobe'
-        # The instructions are the server-level prompt; losing them would
-        # silently degrade every conversation, with no error anywhere.
         assert 'whoami' in result['instructions']
 
     async def test_wrong_method_is_rejected(self, db):
@@ -167,7 +164,6 @@ class TestDiscovery:
                 assert resp.status_code == 200, path
                 body = resp.json()
                 assert body['resource'].endswith('/mcp')
-                # Without this a client cannot find the authorization server.
                 assert body['authorization_servers']
                 assert body['bearer_methods_supported'] == ['header']
 
@@ -203,6 +199,22 @@ class TestOrientationTools:
         assert payload['username'] == 'alice'
         assert [t['slug'] for t in payload['tenants']] == ['default']
         assert Role.STAFF.value in payload['tenants'][0]['roles']
+
+    async def test_server_version_reports_the_build(self, db, monkeypatch):
+        build_info.cache_clear()
+        monkeypatch.setenv('GIT_SHA', 'abcdef1234567890')
+        monkeypatch.setenv('GIT_COMMIT_DATE', '2026-10-17T09:30:00-07:00')
+        monkeypatch.delenv('APP_VERSION', raising=False)
+        _, raw = await create_oauth_token()
+        try:
+            async with mcp_session() as client:
+                is_error, payload = await call_tool(client, raw, 'server_version')
+        finally:
+            build_info.cache_clear()
+        assert not is_error, payload
+        assert payload['version'] == '2026.10.17'
+        assert payload['commit_short'] == 'abcdef1'
+        assert payload['source_url'].endswith('/tree/abcdef1234567890')
 
     async def test_list_tenants_hides_communities_without_a_role(self, db):
         """A role-less user must not learn which communities exist."""

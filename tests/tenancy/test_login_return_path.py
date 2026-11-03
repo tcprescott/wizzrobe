@@ -33,7 +33,6 @@ class TestSafeLocalPath:
         assert safe_local_path(path) == path
 
     @pytest.mark.parametrize('path', [
-        # Another origin, every way a browser accepts one.
         'https://evil.example/',
         'http://evil.example',
         '//evil.example/x',
@@ -42,24 +41,19 @@ class TestSafeLocalPath:
         '/%2F%2Fevil.example',
         'javascript:alert(1)',
         'evil.example/x',
-        # Relative paths resolve against wherever the reader is.
         'login',
         'home/schedule',
-        # Smuggled whitespace / control characters.
         '/home\r\nLocation: https://evil.example',
         '/home\t',
         '/ home',
-        # Dot segments walk out of the community, encoded or not.
         '/../t/other/admin',
         '/home/../../t/other',
         '/%2e%2e/t/other',
         '/.%2E/t/other',
-        # Loops.
         '/login',
         '/login?next=/x',
         '/logout',
         '/oauth/callback',
-        # Not a string, empty, absurd.
         None,
         '',
         12345,

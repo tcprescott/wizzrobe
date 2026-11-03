@@ -23,9 +23,6 @@ from models import ApiToken, RoomToken, Tenant, User
 
 async def seed_tokens_for_tenant(tenant: Tenant, staff: User, now: datetime) -> None:
     """Seed one tenant's API tokens and tournament-room tokens."""
-    # Deterministic dev bearer strings, one pair per tenant, so REST
-    # endpoints resolve to the right tenant. Non-secret fixtures; only the
-    # SHA-256 hash is stored, exactly like production.
     dev_bearer = f"wizzrobe_pat_devseed_{tenant.slug}_local_only_do_not_use"
     if not await ApiToken.filter(user=staff, name="Dev Seed Token", tenant=tenant).exists():
         await ApiToken.create(
@@ -42,9 +39,6 @@ async def seed_tokens_for_tenant(tenant: Tenant, staff: User, now: datetime) -> 
         )
     print(f"    [{tenant.slug}] api tokens ok (dev bearer: {dev_bearer})")
 
-    # A live token per tenant plus a revoked one, so the settings list shows
-    # both states and /ui-validation can open the seeds board without a
-    # login. Deterministic like the bearers above and just as non-secret.
     room_token = f"wizzrobe_room_devseed_{tenant.slug}_local_only_do_not_use"
     await RoomToken.get_or_create(
         token_hash=hash_token(room_token),

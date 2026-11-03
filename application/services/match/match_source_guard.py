@@ -36,8 +36,6 @@ def assert_sg_fields_unchanged(
     violations: List[str] = []
     if tournament_id is not None and tournament_id != match.tournament_id:
         violations.append('tournament')
-    # Either ingress for the new time: the edit dialog's form strings, or an
-    # instant a service already resolved (an approved reschedule request).
     new_scheduled_at = scheduled_at
     if new_scheduled_at is None and scheduled_date and scheduled_time:
         new_scheduled_at = parse_local_datetime(scheduled_date, scheduled_time)

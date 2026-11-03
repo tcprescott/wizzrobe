@@ -10,6 +10,7 @@ other — only the shared enums in :mod:`models.enums` are imported directly.
 """
 
 from .accommodation import AccommodationRequest
+from .ai import AiProvider, AiProviderSetting
 from .async_qualifier import (
     AsyncQualifier,
     AsyncQualifierLiveRace,
@@ -35,7 +36,9 @@ from .challonge import (
 from .check_in import CheckInEntrant, CheckInEvent, CheckInPass, CheckInTier, MatcherinoLogin
 from .column_guards import FieldValueError, install_column_guards
 from .community_event import CommunityEvent, CommunityEventSeen, CommunityEventSubscription
-from .discord_events import DiscordScheduledEvent, StaffRequestDM
+from .data_export import DataExport
+from .discord_events import DiscordScheduledEvent, SentMessage, StaffRequestDM
+from .discord_role_sync import DiscordRoleGrant, DiscordRoleRule, DiscordRoleSyncState
 from .emergency_contact import EmergencyContact
 from .enums import (
     STATION_REGEXES,
@@ -58,34 +61,55 @@ from .enums import (
     CheckInEventStatus,
     CheckInLinkMethod,
     CheckInTierLanyard,
+    CommentaryInviteStatus,
     CommunityEventStatus,
+    DataExportKind,
+    DataExportStatus,
     DiscordEventSource,
+    DiscordRoleRuleKind,
     EquipmentStatus,
+    EventStatus,
     FeatureFlag,
     FeedbackCategory,
     FeedbackStatus,
+    ForfeitReason,
     JoinRequestStatus,
     MatchCommentKind,
     MatchNotificationLevel,
     MembershipSource,
+    NotificationMode,
+    NotificationPreset,
+    NotificationRecipient,
+    OAuthClientType,
+    PatreonOAuthPurpose,
     PresetOverride,
     ProviderTaskStatus,
+    RaceRoomHoldReason,
     RaceRoomStatus,
     RescheduleRequestKind,
     RescheduleRequestStatus,
     Role,
     RoleSource,
+    SentMessageStatus,
     StaffRequestKind,
+    StartggSetState,
     StationFormat,
     StationSide,
     SyncStatus,
+    TicketOrderStatus,
+    TicketProvider,
+    TicketStatus,
     TournamentGrant,
     VolunteerAvailabilityStatus,
 )
 from .equipment import Equipment, EquipmentLoan
+from .event import Event
 from .feature_flag import FeatureFlagGroup, TenantFeatureFlag
 from .feedback import Feedback
+from .item_tracker import ItemTrackerBoard, ItemTrackerChange
 from .match import (
+    Broadcaster,
+    CommentaryInvite,
     Commentator,
     Match,
     MatchAcknowledgment,
@@ -100,10 +124,40 @@ from .match import (
     Tracker,
 )
 from .mcp import McpAuthorizationCode, McpOAuthClient
-from .preferences import UserTablePreference
+from .notification_preference import NotificationPreference
+from .notification_setting import NotificationSetting
+from .oauth_app import OAuthApp, OAuthAppBlock, OAuthAppCode
+from .patreon import PatreonCampaign, PatreonMembership, PatreonOAuthState, PatreonTierBadge
+from .preferences import UserFriend, UserTablePreference
 from .racetime import RaceRoomProfile, RacetimeBot, RacetimeBotTenant, RacetimeRoom
 from .speedgaming import SpeedGamingEpisode, SpeedGamingEventLink
-from .system import LogLevelOverride, RoomToken, SystemConfiguration
+from .startgg import StartggConnection, StartggEntrant, StartggPhase, StartggPool, StartggSet
+from .stream_layout import StageOverlay, StreamLayout, StreamLayoutArt
+from .survey import (
+    Survey,
+    SurveyAnswer,
+    SurveyAudience,
+    SurveyCommentMark,
+    SurveyCommentTag,
+    SurveyPartTally,
+    SurveyQuestion,
+    SurveyQuestionKind,
+    SurveyRecipient,
+    SurveyResponse,
+    SurveyResponseStatus,
+    SurveySection,
+    SurveyStatus,
+    SurveySuggestionBatch,
+)
+from .system import (
+    BrowserErrorIgnoreRule,
+    BrowserMonitoringSettings,
+    LogLevelOverride,
+    OAuthHandoff,
+    RateLimitWindow,
+    RoomToken,
+    SystemConfiguration,
+)
 from .tenant import (
     ProfileNudgeDismissal,
     Tenant,
@@ -113,6 +167,7 @@ from .tenant import (
     TenantMembership,
     WatchLayoutVote,
 )
+from .ticket import Ticket, TicketOrder, TicketStore, TicketType
 from .tournament import (
     DoorSeed,
     GeneratedSeeds,
@@ -129,6 +184,7 @@ from .tournament import (
 from .user import (
     ApiToken,
     ContactVerification,
+    DevicePushToken,
     DiscordRoleMapping,
     DiscordTournamentGrant,
     User,
@@ -144,24 +200,20 @@ from .volunteer import (
     VolunteerRoleMapping,
     VolunteerShift,
 )
-from .webhook import Webhook, WebhookDelivery
+from .webhook import PersonalWebhook, PersonalWebhookOutbox, Webhook, WebhookDelivery
 
-# Every model is imported by now, so the column-fit guards can be attached to
-# their fields. Must stay last: it walks this module's namespace for models.
+# Must stay last: it walks this module's namespace for every model.
 install_column_guards(globals())
 
 __all__ = [
     'STATION_REGEXES',
-    # constants
     'SYSTEM_USER_DISCORD_ID',
-    # accommodation
     'AccommodationRequest',
     'AccommodationStatus',
-    # user / auth
+    'AiProvider',
+    'AiProviderSetting',
     'ApiToken',
-    # enums
     'ApiTokenOrigin',
-    # async qualifier
     'AsyncQualifier',
     'AsyncQualifierLiveRace',
     'AsyncQualifierLiveRaceStatus',
@@ -171,10 +223,8 @@ __all__ = [
     'AsyncQualifierReviewStatus',
     'AsyncQualifierRun',
     'AsyncQualifierRunStatus',
-    # audit / telemetry
     'AuditLog',
     'BotStatus',
-    # brackets
     'Bracket',
     'BracketEntrant',
     'BracketEntrantStatus',
@@ -186,13 +236,14 @@ __all__ = [
     'BracketMatchGameState',
     'BracketMatchState',
     'BracketState',
-    # challonge
+    'Broadcaster',
+    'BrowserErrorIgnoreRule',
+    'BrowserMonitoringSettings',
     'ChallongeApiUsage',
     'ChallongeConnection',
     'ChallongeMatch',
     'ChallongeMatchState',
     'ChallongeParticipant',
-    # check-in
     'CheckInDmStatus',
     'CheckInEntrant',
     'CheckInEntrantSource',
@@ -202,34 +253,43 @@ __all__ = [
     'CheckInPass',
     'CheckInTier',
     'CheckInTierLanyard',
-    # match / crew
+    'CommentaryInvite',
+    'CommentaryInviteStatus',
     'Commentator',
     'CommunityEvent',
     'CommunityEventSeen',
     'CommunityEventStatus',
     'CommunityEventSubscription',
     'ContactVerification',
+    'DataExport',
+    'DataExportKind',
+    'DataExportStatus',
+    'DevicePushToken',
     'DiscordEventSource',
+    'DiscordRoleGrant',
     'DiscordRoleMapping',
-    # discord events
+    'DiscordRoleRule',
+    'DiscordRoleRuleKind',
+    'DiscordRoleSyncState',
     'DiscordScheduledEvent',
     'DiscordTournamentGrant',
     'DoorSeed',
     'EmergencyContact',
-    # equipment
     'Equipment',
     'EquipmentLoan',
     'EquipmentStatus',
+    'Event',
+    'EventStatus',
     'FeatureFlag',
     'FeatureFlagGroup',
-    # feedback
     'Feedback',
     'FeedbackCategory',
     'FeedbackStatus',
-    # column guards
     'FieldValueError',
-    # tournament
+    'ForfeitReason',
     'GeneratedSeeds',
+    'ItemTrackerBoard',
+    'ItemTrackerChange',
     'JoinRequestStatus',
     'LogLevelOverride',
     'Match',
@@ -243,50 +303,95 @@ __all__ = [
     'MatchStreamVolunteer',
     'MatchWatcher',
     'MatcherinoLogin',
-    # mcp oauth
     'McpAuthorizationCode',
     'McpOAuthClient',
     'MembershipSource',
-    # volunteer
+    'NotificationMode',
+    'NotificationPreference',
+    'NotificationPreset',
+    'NotificationRecipient',
+    'NotificationSetting',
+    'OAuthApp',
+    'OAuthAppBlock',
+    'OAuthAppCode',
+    'OAuthClientType',
+    'OAuthHandoff',
+    'PatreonCampaign',
+    'PatreonMembership',
+    'PatreonOAuthPurpose',
+    'PatreonOAuthState',
+    'PatreonTierBadge',
+    'PersonalWebhook',
+    'PersonalWebhookOutbox',
     'PlayerAvailability',
     'Preset',
     'PresetOverride',
     'ProfileNudgeDismissal',
     'ProviderTask',
     'ProviderTaskStatus',
-    # racetime
+    'RaceRoomHoldReason',
     'RaceRoomProfile',
     'RaceRoomStatus',
     'RacetimeBot',
     'RacetimeBotTenant',
     'RacetimeRoom',
     'RandomizerCredential',
+    'RateLimitWindow',
     'RescheduleRequestKind',
     'RescheduleRequestStatus',
     'Role',
     'RoleSource',
     'RomPatch',
     'RoomToken',
-    # speedgaming
+    'SentMessage',
+    'SentMessageStatus',
     'SpeedGamingEpisode',
     'SpeedGamingEventLink',
     'StaffRequestDM',
     'StaffRequestKind',
     'Stage',
+    'StageOverlay',
+    'StartggConnection',
+    'StartggEntrant',
+    'StartggPhase',
+    'StartggPool',
+    'StartggSet',
+    'StartggSetState',
     'Station',
     'StationFormat',
     'StationSide',
+    'StreamLayout',
+    'StreamLayoutArt',
+    'Survey',
+    'SurveyAnswer',
+    'SurveyAudience',
+    'SurveyCommentMark',
+    'SurveyCommentTag',
+    'SurveyPartTally',
+    'SurveyQuestion',
+    'SurveyQuestionKind',
+    'SurveyRecipient',
+    'SurveyResponse',
+    'SurveyResponseStatus',
+    'SurveySection',
+    'SurveyStatus',
+    'SurveySuggestionBatch',
     'SyncStatus',
-    # system
     'SystemConfiguration',
     'TelemetryEvent',
-    # tenant
     'Tenant',
     'TenantFeatureFlag',
     'TenantJoinRequest',
     'TenantLogo',
     'TenantMemberBlock',
     'TenantMembership',
+    'Ticket',
+    'TicketOrder',
+    'TicketOrderStatus',
+    'TicketProvider',
+    'TicketStatus',
+    'TicketStore',
+    'TicketType',
     'Tournament',
     'TournamentGrant',
     'TournamentNotificationPreference',
@@ -295,8 +400,8 @@ __all__ = [
     'Tracker',
     'TriforceText',
     'User',
+    'UserFriend',
     'UserRole',
-    # per-user UI preferences
     'UserTablePreference',
     'VolunteerAssignment',
     'VolunteerAvailability',
@@ -307,7 +412,6 @@ __all__ = [
     'VolunteerShift',
     'WatchLayoutVote',
     'WebPushSubscription',
-    # webhooks
     'Webhook',
     'WebhookDelivery',
 ]

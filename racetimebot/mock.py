@@ -14,11 +14,13 @@ The transport is configurable so a test can force each health path:
   (the loop must back off and reconnect).
 * ``script`` → a list of :class:`RaceRoomEvent` :meth:`run` emits in order, each
   preceded by a heartbeat, then returns (a graceful stop).
+* :meth:`send` records each action in ``sent`` as ``(slug, action)``, so a test
+  can read back what the bot said in a room.
 """
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from racetimebot.transport import (
     EventCallback,
@@ -27,6 +29,7 @@ from racetimebot.transport import (
     RacetimeAuthError,
     RacetimeTransientError,
     RacetimeTransport,
+    RoomSource,
 )
 
 
@@ -41,6 +44,7 @@ class MockRacetimeTransport(RacetimeTransport):
         fail_auth: bool = False,
         fail_transient: bool = False,
         heartbeats: int = 1,
+        room_source: Optional[RoomSource] = None,
     ) -> None:
         self.category = category
         self.script = script or []
@@ -49,6 +53,8 @@ class MockRacetimeTransport(RacetimeTransport):
         self.heartbeats = heartbeats
         self.authenticated = False
         self.closed = False
+        self.room_source = room_source
+        self.sent: List[Tuple[str, dict]] = []
 
     async def authenticate(self) -> None:
         if self.fail_auth:
@@ -62,6 +68,10 @@ class MockRacetimeTransport(RacetimeTransport):
             await on_heartbeat()
         for event in self.script:
             await on_event(event)
+
+    async def send(self, slug: str, action: dict) -> bool:
+        self.sent.append((slug, action))
+        return True
 
     async def close(self) -> None:
         self.closed = True

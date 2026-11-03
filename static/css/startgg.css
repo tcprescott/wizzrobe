@@ -1,0 +1,136 @@
+
+.sgg-pool-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+  width: 100%;
+}
+
+.sgg-pool {
+  min-width: 0;
+  padding: 12px 14px;
+}
+
+.sgg-standings {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 6px;
+}
+
+.sgg-standings th,
+.sgg-standings td {
+  padding: 6px 4px;
+  text-align: left;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.sgg-standings th {
+  border-top: 0;
+  font-size: var(--text-xs);
+  color: var(--fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sgg-standings .n {
+  width: 28px;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+}
+
+.sgg-standings .r {
+  text-align: right;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+
+.sgg-standings tr.is-mine td,
+.sgg-set.is-mine {
+  font-weight: 700;
+}
+
+.sgg-standings tr.is-mine td:first-child {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.sgg-results .q-expansion-item__content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sgg-rounds {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scroll-snap-type: x proximity;
+}
+
+.sgg-round {
+  flex: 0 0 240px;
+  gap: 10px;
+  scroll-snap-align: start;
+}
+
+.sgg-round__title {
+  font-weight: 700;
+  color: var(--fg-secondary);
+}
+
+.sgg-set {
+  background: var(--surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 8px 10px;
+  width: 100%;
+}
+
+.sgg-set.is-mine {
+  border-color: var(--accent);
+}
+
+.sgg-set__head {
+  gap: 8px;
+  margin-bottom: 4px;
+  min-height: 22px;
+}
+
+.sgg-set__id {
+  font-size: var(--text-xs);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+}
+
+.sgg-slot {
+  gap: 8px;
+  padding: 3px 0;
+}
+
+.sgg-slot__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sgg-slot__name--tbd {
+  color: var(--fg-muted);
+  font-style: italic;
+}
+
+.sgg-slot.is-winner .sgg-slot__name {
+  font-weight: 700;
+}
+
+.sgg-slot__score {
+  font-family: var(--font-mono);
+}
+
+.sgg-book {
+  color: var(--wiz-link);
+  font-weight: 700;
+  font-size: var(--text-sm);
+}

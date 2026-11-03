@@ -6,6 +6,7 @@ and on-demand reconcile. All operations are service-gated by
 read-only tokens at the HTTP layer.
 """
 
+import pytest
 
 from application.services.discord.discord_event_reconciler_service import ReconcileResult
 from application.tenant_context import tenant_scope
@@ -71,8 +72,23 @@ class TestReads:
             assert r.status_code == 403
 
 
+@pytest.fixture(autouse=True)
+def _mock_discord(monkeypatch):
+    from application.services.discord import discord_event_sync_service
+    from application.services.discord.discord_service import MockDiscordService
+
+    monkeypatch.setattr(discord_event_sync_service, 'DiscordService', MockDiscordService)
+
+
+async def _link_guild(guild_id=424242):
+    tenant = await Tenant.get(id=1)
+    tenant.discord_guild_id = guild_id
+    await tenant.save()
+
+
 class TestSettingsWrite:
     async def test_patch_updates_settings(self, db, app):
+        await _link_guild()
         _, raw = await create_user_token(username='staff', roles=[Role.STAFF])
         t = await Tournament.create(name='Edit Cup')
         async with client_for(app, raw) as c:
@@ -85,6 +101,32 @@ class TestSettingsWrite:
         assert t.discord_events_enabled is True
         assert t.discord_event_duration_minutes == 90
         assert t.discord_event_title_template == 'Race: {match}'
+
+    async def test_patch_refused_until_a_server_is_linked(self, db, app):
+        _, raw = await create_user_token(username='staff', roles=[Role.STAFF])
+        t = await Tournament.create(name='Unlinked Cup')
+        async with client_for(app, raw) as c:
+            r = await c.patch(f'/api/discord-events/tournaments/{t.id}', json={'enabled': True})
+            assert r.status_code == 400
+        await t.refresh_from_db()
+        assert t.discord_events_enabled is False
+
+    async def test_patch_refused_while_the_bot_cannot_create_events(self, db, app):
+        from application.utils.mocks import mock_discord_data
+
+        await _link_guild()
+        mock_discord_data.set_bot_can_create_events(424242, False)
+        try:
+            _, raw = await create_user_token(username='staff', roles=[Role.STAFF])
+            t = await Tournament.create(name='Locked Cup')
+            async with client_for(app, raw) as c:
+                r = await c.patch(f'/api/discord-events/tournaments/{t.id}', json={'duration_minutes': 30})
+                assert r.status_code == 400
+                assert 'Create Events' in r.text
+        finally:
+            mock_discord_data.set_bot_can_create_events(424242, True)
+        await t.refresh_from_db()
+        assert t.discord_event_duration_minutes == 60
 
     async def test_patch_read_only_token_forbidden(self, db, app):
         _, raw = await create_user_token(username='staff', roles=[Role.STAFF], read_only=True)

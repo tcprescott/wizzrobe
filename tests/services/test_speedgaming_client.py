@@ -32,7 +32,6 @@ def _players(episode):
 
 
 def test_error_object_raises_with_sg_message():
-    # An unknown event slug answers 200 with a JSON object, not a list.
     with pytest.raises(SpeedGamingAPIError) as exc:
         _validate_schedule_payload({'error': 'Failed to find event.'}, 'nosuchevent')
     assert 'Failed to find event.' in str(exc.value)
@@ -84,7 +83,6 @@ def test_mock_fixtures_use_the_live_value_conventions(episode):
         if k not in ('match1', 'match2', 'event', 'channels', *SG_CREW_ROLES, 'players')
     ]
     assert not any(v is None for v in scalars)
-    # Both instants are UTC-offset ISO strings, and SG serves them equal.
     assert episode['when'].endswith('+00:00')
     assert episode['whenCountdown'] == episode['when']
     assert episode['timezone'] == ''

@@ -1,34 +1,37 @@
 [
   {
     "name": "my-shifts-phone",
-    "user": "sm_user",
-    "path": "/volunteer/my-shifts",
-    "selector": ".page-container:has-text('Show all shifts')",
+    "user": "player_two",
+    "path": "/home/my-schedule?shifts=1",
+    "selector": ".wiz-panel:has(#my-shifts)",
+    "hide": [
+      ".q-footer",
+      ".q-header"
+    ],
     "annotate": [
       {
-        "selector": ".page-container button:has-text(\"Can't make it\")",
+        "selector": "#my-shifts button:has-text(\"I'm here\") >> nth=0",
         "n": 1
       },
       {
-        "selector": ".page-container button:has-text('Acknowledge')",
+        "selector": "#my-shifts .wiz-shift-finished .q-item",
         "n": 2
-      },
-      {
-        "selector": ".page-container .q-toggle:has-text('Show all shifts')",
-        "n": 3
       }
     ]
   },
   {
     "name": "release-phone",
     "user": "sm_user",
-    "path": "/volunteer/my-shifts",
+    "path": "/home/my-schedule?shifts=1",
     "setup": [
       {
-        "click": "text=Can't make it"
+        "click": "#my-shifts .wiz-shift-row__actions button >> nth=-1"
       },
       {
-        "waitFor": ".q-dialog"
+        "click": "text=Can't make it\u2026"
+      },
+      {
+        "waitFor": ".q-dialog .q-card:has-text('Give it back')"
       },
       {
         "wait": 500

@@ -121,7 +121,6 @@ async def test_opt_out_tournament_not_mirrored(db):
 
 async def test_out_of_window_match_not_mirrored(db):
     tenant, actor, tourn = await _setup(db)
-    # Far in the future, beyond the lookahead window.
     await _match(tourn, when=datetime.now(timezone.utc) + timedelta(days=90))
 
     result = await _reconciler().reconcile_tenant(tenant, actor=actor)
@@ -136,15 +135,13 @@ async def test_event_deleted_out_of_band_is_recreated(db):
     reconciler = _reconciler()
 
     await reconciler.reconcile_tenant(tenant, actor=actor)
-    # Simulate an out-of-band deletion: the Discord event vanishes but the link
-    # row survives with a now-stale hash (force the edit branch next pass).
     mock_discord_data.reset_scheduled_events()
     link = await DiscordScheduledEvent.filter(source_id=match.id).first()
     await DiscordScheduledEvent.filter(id=link.id).update(content_hash='stale')
 
     result = await reconciler.reconcile_tenant(tenant, actor=actor)
     assert result.errors == 0
-    assert result.created == 1  # healed via re-create
+    assert result.created == 1
     assert await DiscordScheduledEvent.filter(source_id=match.id).count() == 1
     assert len(mock_discord_data.scheduled_events_for(GUILD)) == 1
 
@@ -159,3 +156,82 @@ async def test_title_template_rendered(db):
     await _reconciler().reconcile_tenant(tenant, actor=actor)
     row = await DiscordScheduledEvent.filter(source_id=match.id).first()
     assert row.title == 'T — Alice, Bob'
+
+
+async def test_missing_permission_stops_the_pass_without_an_error_report(db, caplog):
+    """Sentry SGLMAN-18: a bot without Manage Events is a setup problem, said once."""
+    import logging
+
+    from application.services.discord.discord_scheduled_events import BOT_LACKS_EVENT_PERMISSION
+
+    tenant, actor, tourn = await _setup(db)
+    when = datetime.now(timezone.utc) + timedelta(days=1)
+    await _match(tourn, when=when, title='R1')
+    await _match(tourn, when=when + timedelta(hours=1), title='R2', players=('Cara', 'Dan'))
+    reconciler = _reconciler()
+    calls = []
+
+    async def refused(guild_id, **kwargs):
+        calls.append(kwargs['name'])
+        return False, BOT_LACKS_EVENT_PERMISSION
+
+    reconciler.discord.create_scheduled_event = refused
+
+    with caplog.at_level(logging.WARNING):
+        result = await reconciler.reconcile_tenant(tenant, actor=actor)
+
+    assert len(calls) == 1
+    assert result.setup_error == BOT_LACKS_EVENT_PERMISSION
+    assert result.created == 0
+    assert not [r for r in caplog.records if r.levelno >= logging.ERROR]
+
+
+async def test_one_event_failing_still_isolated(db):
+    tenant, actor, tourn = await _setup(db)
+    when = datetime.now(timezone.utc) + timedelta(days=1)
+    await _match(tourn, when=when, title='R1')
+    await _match(tourn, when=when + timedelta(hours=1), title='R2', players=('Cara', 'Dan'))
+    reconciler = _reconciler()
+    real = reconciler.discord.create_scheduled_event
+
+    async def flaky(guild_id, **kwargs):
+        if kwargs['name'] == 'R1':
+            return False, 'Discord HTTP error while creating event: 500'
+        return await real(guild_id, **kwargs)
+
+    reconciler.discord.create_scheduled_event = flaky
+    result = await reconciler.reconcile_tenant(tenant, actor=actor)
+
+    assert result.setup_error is None
+    assert (result.errors, result.created) == (1, 1)
+
+
+async def test_pass_is_paused_before_any_call_when_the_bot_lacks_create_events(db, caplog):
+    import logging
+
+    from application.services.discord.discord_scheduled_events import BOT_LACKS_EVENT_PERMISSION
+    from models import AuditLog
+
+    tenant, actor, tourn = await _setup(db)
+    await _match(tourn, when=datetime.now(timezone.utc) + timedelta(days=1))
+    reconciler = _reconciler()
+    mock_discord_data.set_bot_can_create_events(GUILD, False)
+
+    with caplog.at_level(logging.WARNING):
+        result = await reconciler.reconcile_tenant(tenant, actor=actor)
+
+    assert result.setup_error == BOT_LACKS_EVENT_PERMISSION
+    assert (result.created, result.errors) == (0, 0)
+    assert mock_discord_data.scheduled_events_for(GUILD) == []
+    assert not [r for r in caplog.records if r.levelno >= logging.ERROR]
+    assert await AuditLog.all().count() == 0
+
+
+async def test_a_tenant_with_nothing_to_mirror_is_not_probed(db):
+    tenant, actor, _ = await _setup(db, enabled=False)
+    reconciler = _reconciler()
+    mock_discord_data.set_bot_can_create_events(GUILD, False)
+
+    result = await reconciler.reconcile_tenant(tenant, actor=actor)
+
+    assert result.setup_error is None

@@ -70,8 +70,6 @@ class TestListMyCommitments:
         assert await CrewService().list_my_commitments(person) == []
 
     async def test_a_match_running_late_stays_on_the_list(self, person, tournament, db):
-        # Its start time has passed but it hasn't finished: it is on air or
-        # about to be, which is when the crew member needs the card most.
         running = await Match.create(tournament=tournament, scheduled_at=_at(-1))
         await Commentator.create(match=running, user=person, approved=True)
 
@@ -109,7 +107,6 @@ class TestListMyCommitments:
         assert row['finished'] is False
 
 
-
 class TestTheCrewBoard:
     """My Schedule's crew section is the run sheet narrowed by ``crew_discord_id``."""
 
@@ -124,7 +121,6 @@ class TestTheCrewBoard:
         await Commentator.create(match=both, user=person, approved=True)
         await Tracker.create(match=both, user=person, approved=True)
         await Tracker.create(match=tracked, user=person, approved=True)
-        # Waiting on approval is still yours to withdraw from.
         await Commentator.create(match=waiting, user=person, approved=False)
         await Commentator.create(match=theirs, user=other, approved=True)
 

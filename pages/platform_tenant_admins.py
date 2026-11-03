@@ -15,6 +15,7 @@ from nicegui import ui
 from application.services import TenantService, UserService
 from theme.dialog._helpers import dialog_actions, form_dialog
 from theme.notify import notify_error
+from theme.steady import steady_refreshable
 
 
 async def open_tenant_admins_dialog(actor, tenant_id: int, tenant_name: str) -> None:
@@ -28,7 +29,7 @@ async def open_tenant_admins_dialog(actor, tenant_id: int, tenant_name: str) -> 
             'administered by anyone but a super-admin.'
         ).classes('text-caption text-grey')
 
-        @ui.refreshable
+        @steady_refreshable
         async def staff_list() -> None:
             try:
                 staff = await TenantService.list_staff(actor, tenant_id)

@@ -41,7 +41,6 @@ class TestGetMatchesForDate:
         """The same instant belongs to different days in different zones."""
         t = await Tournament.create(name="T")
         sr = await Stage.create(name="Stage 1")
-        # 02:00 UTC on the 11th = 21:00 ET on the 10th = 11:00 JST on the 11th.
         m = await Match.create(
             tournament=t, scheduled_at=utc(2025, 3, 11, 2), stage=sr,
         )

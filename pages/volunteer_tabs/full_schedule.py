@@ -11,6 +11,7 @@ from application.services import (
     TablePreferenceService,
     get_user_from_discord_id,
 )
+from application.services.my_timeline_service import event_day
 from application.services.volunteer import (
     GridRole,
     GridShift,
@@ -19,14 +20,16 @@ from application.services.volunteer import (
     arrange_roles,
 )
 from application.utils.tenant_session import tenant_session_get, tenant_session_set
-from application.utils.timezone import timezone_label, today_local
+from application.utils.timezone import now_local, timezone_label
 from theme.dialog._helpers import form_dialog
 from theme.empty_state import empty_panel
 from theme.help import help_icon
 from theme.notify import notify_error
 from theme.page_header import page_header
+from theme.steady import steady_refreshable
 from theme.tables.preferences import TableKeys
 from theme.timer_teardown import PageTimer
+from theme.url_state import iso_day, url_param, url_state
 from theme.volunteer_grid import (  # noqa: F401 — re-exported for the grid tests
     HOUR_PX,
     day_label,
@@ -51,6 +54,12 @@ class _ViewState:
     saved: list
 
 
+def _event_day(days, value: Optional[str]) -> Optional[str]:
+    """``value`` when it names one of ``days``, as the ISO string ``opening_day`` takes."""
+    d = iso_day(value)
+    return d.isoformat() if d is not None and d in days else None
+
+
 async def full_schedule_tab() -> None:
     user = await get_user_from_discord_id(app.storage.user.get('discord_id'))
     service = VolunteerScheduleService()
@@ -64,7 +73,8 @@ async def full_schedule_tab() -> None:
     stored = await prefs.get(user, TableKeys.VOLUNTEER_FULL_SCHEDULE) if user else None
     saved = (stored or {}).get('columns') or []
     state = _ViewState(
-        day=opening_day(days, tenant_session_get(_DAY_KEY), today_local()),
+        day=opening_day(days, _event_day(days, url_state().requested('day')) or tenant_session_get(_DAY_KEY),
+                        event_day(now_local())),
         roles=arrange_roles(positions, saved),
         saved=saved,
     )
@@ -98,7 +108,7 @@ async def full_schedule_tab() -> None:
             customized=is_customized(state.roles, positions),
         )
 
-    @ui.refreshable
+    @steady_refreshable
     async def grid_view() -> None:
         if state.day is None:
             empty_panel('No event dates are set yet.', icon='event_busy')
@@ -121,20 +131,29 @@ async def full_schedule_tab() -> None:
             return
         render_day_grid(grid, state.day, on_shift=open_names)
 
-    def pick_day(d: date) -> None:
+    async def show_day(d: Optional[date]) -> None:
         state.day = d
-        tenant_session_set(_DAY_KEY, d.isoformat())
         day_bar.refresh()
-        grid_view.refresh()
+        await grid_view.refresh()
 
-    with ui.column().classes('page-container-wide'):
+    async def pick_day(d: date) -> None:
+        tenant_session_set(_DAY_KEY, d.isoformat())
+        await show_day(d)
+        day_param.set(d.isoformat())
+
+    async def restore_day(value: str) -> None:
+        await show_day(opening_day(days, _event_day(days, value), event_day(now_local())))
+
+    with ui.column().classes('page-container-wide') as page:
         with page_header(
             'Volunteer schedule',
             f"Who's at which station, hour by hour. Times are {timezone_label()}.",
         ):
             await help_icon(('full-schedule', 'The full schedule'), user=user)
+        day_param = url_param(
+            'day', page, default='', value=state.day.isoformat() if state.day else '',
+            label=lambda v: day_label(d) if (d := iso_day(v)) else None, on_restore=restore_day,
+        )
         day_bar()
         await grid_view()
-    # Keeps the Now line and any schedule changes current on a screen left open
-    # at a desk.
     PageTimer(300, grid_view.refresh)

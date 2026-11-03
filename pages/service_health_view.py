@@ -12,11 +12,13 @@ from nicegui import background_tasks, context, ui
 
 from application.services import ProbeResult, ServiceStatus
 from application.utils.timezone import format_local_display
+from theme.busy import busy_click
 from theme.empty_state import empty_panel
 from theme.tables.preferences import TableKeys, customize_table, preferences_button
 
 _STATUS_COLOR = {
     ServiceStatus.HEALTHY: 'positive',
+    ServiceStatus.MOCK: 'info',
     ServiceStatus.DEGRADED: 'orange',
     ServiceStatus.CREDENTIAL_WARNING: 'amber-8',
     ServiceStatus.DOWN: 'negative',
@@ -25,14 +27,13 @@ _STATUS_COLOR = {
 
 _STATUS_LABEL = {
     ServiceStatus.HEALTHY: 'Healthy',
+    ServiceStatus.MOCK: 'Mock',
     ServiceStatus.DEGRADED: 'Degraded',
     ServiceStatus.CREDENTIAL_WARNING: 'Credential warning',
     ServiceStatus.DOWN: 'Down',
     ServiceStatus.UNKNOWN: 'Unknown',
 }
 
-# The probe's own ``category`` is a machine slug ('racetime', 'integrations');
-# unknown values fall through title-cased rather than being dropped.
 _CATEGORY_LABEL = {
     'racetime': 'Racetime',
     'integrations': 'Integrations',
@@ -49,11 +50,6 @@ _COLUMNS: list[dict] = [
     {'name': 'action', 'label': '', 'field': 'action', 'align': 'right'},
 ]
 
-# ``action_for`` maps a result to ``(link text, url)`` — the route out of the
-# problem the row just named. A board that reports "Token expiring soon" and
-# says "reconnect before it becomes an outage" without offering the page where
-# reconnecting happens is the finding the admin-reports audit shipped a fix for;
-# this board had the same shape.
 ActionFor = Callable[[ProbeResult], Optional[tuple]]
 
 _ACTION_SLOT = '''
@@ -75,7 +71,6 @@ def _rows(results: List[ProbeResult], action_for: Optional[ActionFor] = None) ->
             'status': _STATUS_LABEL[r.status],
             'status_color': _STATUS_COLOR[r.status],
             'message': r.message,
-            # App-wide convention: display on the viewer's clock, never raw UTC.
             'checked_at': format_local_display(r.checked_at),
             'action': action[0] if action else '',
             'action_url': action[1] if action else '',
@@ -100,8 +95,6 @@ def render_health_table(
         </q-td>
     ''')
     table.add_slot('body-cell-action', _ACTION_SLOT)
-    # Mobile card (below Quasar's lt.md breakpoint) — the desktop columns overflow
-    # a phone viewport, so each dependency renders as a stacked card instead.
     table.add_slot('item', '''
         <div class="q-pa-xs col-xs-12 col-sm-6">
             <q-card bordered flat class="q-pa-sm wiz-grid-card">
@@ -144,8 +137,7 @@ def build_refreshable_board(
     for it; without one the button sits above the board.
     """
     state: dict = {'results': []}
-    # Captured at render time (valid slot context); restored inside the background
-    # tasks below, where the slot stack is otherwise empty.
+    # Captured at render time; restored inside the background tasks below.
     client = context.client
 
     @ui.refreshable
@@ -167,7 +159,7 @@ def build_refreshable_board(
         # do would bind nothing. The admin tab passes no refresh_loader at all.
         with refresh_slot if refresh_slot is not None else nullcontext():
             ui.button('Refresh now', icon='refresh',
-                      on_click=lambda: background_tasks.create(_load(refresh_loader, notify=True)))
+                      on_click=busy_click('Checking…', lambda: _load(refresh_loader, notify=True)))
 
     board()
     background_tasks.create(_load(initial_loader, notify=False))

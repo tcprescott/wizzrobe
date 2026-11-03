@@ -11,7 +11,7 @@ for the run lifecycle and review, which is where its rules actually live.
 """
 
 from dataclasses import dataclass
-from typing import List, Optional, Sequence, Tuple
+from typing import Callable, List, Optional, Sequence, Tuple
 
 from application.errors import NotFoundError, require_found
 from application.feature_flags import requires_feature
@@ -29,8 +29,6 @@ from models import (
     User,
 )
 
-# A single roll takes on the order of a minute per seed against a live generator,
-# so a batch is bounded to something an admin can wait out in one page load.
 MAX_ROLL_COUNT = 25
 
 
@@ -45,7 +43,7 @@ class BulkPermalinkAdd:
     """
 
     created: List[AsyncQualifierPermalink]
-    rejected: List[Tuple[int, str, str]]   # line number, the line, why it was refused
+    rejected: List[Tuple[int, str, str]]
 
     @property
     def summary(self) -> str:
@@ -67,10 +65,6 @@ def roll_refusal(preset: Optional[Preset]) -> Optional[str]:
     if preset is None:
         return "Pool has no preset to roll from"
     if preset.randomizer in SeedGenerationService.ASYNC_RANDOMIZERS:
-        # Task-queue backends are not wired into this batch yet. Each roll would
-        # take minutes and complete independently, which breaks the "abort with
-        # nothing half-written" property roll_permalinks relies on — a pool would
-        # sit part-filled with no way to tell a slow roll from a lost one.
         return (f"'{preset.randomizer}' rolls seeds asynchronously and cannot "
                 "fill a qualifier pool yet. Pick a preset for another randomizer.")
     return None
@@ -78,8 +72,6 @@ def roll_refusal(preset: Optional[Preset]) -> Optional[str]:
 
 class PoolManagementMixin:
     """Pool + permalink CRUD. Requires the host's repositories and audit service."""
-
-    # ------------------------------------------------------------------ pools
 
     @requires_feature(FeatureFlag.ASYNC_QUALIFIERS)
     async def list_pools(self, actor: Optional[User], qualifier_id: int) -> List[AsyncQualifierPool]:
@@ -156,8 +148,6 @@ class PoolManagementMixin:
         )
         await self.pool_repository.delete(pool)
 
-    # ------------------------------------------------------------- permalinks
-
     @requires_feature(FeatureFlag.ASYNC_QUALIFIERS)
     async def add_permalink(
         self,
@@ -213,31 +203,31 @@ class PoolManagementMixin:
 
     @requires_feature(FeatureFlag.ASYNC_QUALIFIERS)
     async def roll_permalinks(
-        self, actor: Optional[User], pool_id: int, *, count: int
+        self, actor: Optional[User], pool_id: int, *, count: int,
+        on_progress: Optional[Callable[[int, int], None]] = None,
     ) -> List[AsyncQualifierPermalink]:
-        """Roll ``count`` fresh seeds from the pool's preset into permalinks."""
+        """Roll ``count`` fresh seeds from the pool's preset into permalinks.
+
+        ``on_progress(n, count)`` is called before the n-th roll, so a caller can
+        say how far a batch that takes minutes has got.
+        """
         pool = require_found(await self.pool_repository.get_with_permalinks(pool_id), "Pool")
         await self._ensure_pool_admin(actor, pool)
-        # Re-checked here and not only in the picker: a pool created before DK64
-        # became asynchronous can already point at one.
+        # Re-checked here, not only in the picker: an older pool can already point at an async backend.
         preset = pool.preset
         refusal = roll_refusal(preset)
         if refusal is not None or preset is None:
             raise ValueError(refusal or "Pool has no preset to roll from")
         if count < 1 or count > MAX_ROLL_COUNT:
             raise ValueError(f"Roll count must be between 1 and {MAX_ROLL_COUNT}")
-        # A keyed randomizer raises on the first roll when this community has not
-        # configured its credential — before any permalink row is created, so the
-        # batch aborts with nothing half-written.
         seedgen = SeedGenerationService()
         created: List[AsyncQualifierPermalink] = []
-        for _ in range(count):
+        for n in range(1, count + 1):
+            if on_progress is not None:
+                on_progress(n, count)
             call = await seedgen.generate_seed_call(
                 preset.randomizer, preset, surface='qualifier',
             )
-            # Same provenance record a match seed gets: the pool records which
-            # preset it rolls from, but only the snapshot records what that preset
-            # *said* at the moment this permalink was made.
             seed = await GeneratedSeeds.create(
                 tenant_id=require_tenant_id(),
                 seed_url=call.value.url,
@@ -247,6 +237,7 @@ class PoolManagementMixin:
                 settings_snapshot=call.value.settings,
                 rolled_by_id=actor.id if actor is not None else None,
                 provider_meta=call.as_meta(),
+                seed_code=call.value.code or None,
             )
             created.append(await self.permalink_repository.create(
                 pool_id=pool_id, url=call.value.url, generated_seed_id=seed.id,
@@ -292,8 +283,6 @@ class PoolManagementMixin:
             {'permalink_id': permalink.id, 'pool_id': permalink.pool_id},
         )
         await self.permalink_repository.delete(permalink)
-
-    # --------------------------------------------------------------- gateways
 
     async def _require_pool(self, pool_id: int) -> AsyncQualifierPool:
         return await access.require_pool(self.pool_repository, pool_id)

@@ -12,6 +12,7 @@ calls are stamped with the active scope by the test harness (see conftest).
 
 import pytest
 
+from application.repositories.commentary_invite_repository import CommentaryInviteRepository
 from application.repositories.equipment_repository import EquipmentRepository
 from application.repositories.feedback_repository import FeedbackRepository
 from application.repositories.match_hard_preset_repository import (
@@ -31,6 +32,7 @@ from application.repositories.tournament_repository import TournamentRepository
 from application.repositories.volunteer_position_repository import VolunteerPositionRepository
 from application.tenant_context import tenant_scope
 from models import (
+    CommentaryInvite,
     Equipment,
     Feedback,
     Match,
@@ -65,7 +67,7 @@ async def test_tournament_reads_are_isolated(tenants):
 
     with tenant_scope(a.id):
         assert [t.id for t in await TournamentRepository.get_all()] == [ta.id]
-        assert await TournamentRepository.get_by_id(tb.id) is None  # B's row invisible to A
+        assert await TournamentRepository.get_by_id(tb.id) is None
     with tenant_scope(b.id):
         assert [t.id for t in await TournamentRepository.get_all()] == [tb.id]
         assert await TournamentRepository.get_by_id(ta.id) is None
@@ -81,9 +83,7 @@ async def test_preset_reads_are_isolated(tenants):
     repo = PresetRepository()
     with tenant_scope(a.id):
         assert [p.id for p in await repo.list_all()] == [pa.id]
-        assert await repo.get_by_id(pb.id) is None  # B's preset invisible to A
-        # Same (randomizer, name) exists in both tenants; the natural-key lookup
-        # resolves only A's row.
+        assert await repo.get_by_id(pb.id) is None
         assert (await repo.get_by_natural_key('alttpr', 'Open')).id == pa.id
     with tenant_scope(b.id):
         assert [p.id for p in await repo.list_all()] == [pb.id]
@@ -105,8 +105,6 @@ async def test_match_reads_are_isolated(tenants):
     with tenant_scope(b.id):
         assert [m.id for m in await MatchRepository.get_all_for_schedule()] == [mb.id]
 
-    # A deep link carries a raw match id in the URL, so the focused board's
-    # filter has to stay inside the tenant that asked for it.
     with tenant_scope(a.id):
         assert [m.id for m in await MatchRepository.get_all(match_ids=[ma.id])] == [ma.id]
         assert await MatchRepository.get_all(match_ids=[mb.id]) == []
@@ -117,7 +115,6 @@ async def test_stage_reads_are_isolated(tenants):
     with tenant_scope(a.id):
         ra = await Stage.create(name='Stage A')
     with tenant_scope(b.id):
-        # Same name is allowed across tenants now (per-tenant unique).
         rb = await Stage.create(name='Stage A')
 
     with tenant_scope(a.id):
@@ -144,7 +141,7 @@ async def test_volunteer_position_reads_are_isolated(tenants):
     with tenant_scope(a.id):
         pa = await VolunteerPosition.create(name='Desk')
     with tenant_scope(b.id):
-        pb = await VolunteerPosition.create(name='Desk')  # same name, different tenant
+        pb = await VolunteerPosition.create(name='Desk')
 
     with tenant_scope(a.id):
         assert [p.id for p in await VolunteerPositionRepository.list_all()] == [pa.id]
@@ -158,7 +155,7 @@ async def test_equipment_asset_numbering_is_per_tenant(tenants):
         await Equipment.create(asset_number=5, name='A gear')
         assert await EquipmentRepository.next_asset_number() == 6
     with tenant_scope(b.id):
-        # B has no equipment, so its numbering starts fresh — not 6.
+        # B has no equipment, so its numbering starts fresh, not at 6.
         assert await EquipmentRepository.next_asset_number() == 1
         assert [e.id for e in await EquipmentRepository.list_all()] == []
 
@@ -265,6 +262,26 @@ async def test_match_stream_volunteer_does_not_leak(tenants):
         }
 
 
+async def test_commentary_invite_does_not_leak(tenants):
+    a, b = tenants
+    inviter = await User.create(discord_id=905, username='inviter')
+    invitee = await User.create(discord_id=906, username='invitee')
+    with tenant_scope(a.id):
+        ma = await Match.create(tournament=await Tournament.create(name='A Cup'))
+        ia = await CommentaryInvite.create(match=ma, inviter=inviter, invitee=invitee)
+    with tenant_scope(b.id):
+        mb = await Match.create(tournament=await Tournament.create(name='B Cup'))
+        ib = await CommentaryInvite.create(match=mb, inviter=inviter, invitee=invitee)
+
+    with tenant_scope(a.id):
+        assert [i.id for i in await CommentaryInviteRepository.pending_for_invitee(invitee.id)] == [ia.id]
+        assert set(await CommentaryInviteRepository.pending_by_match([ma.id, mb.id])) == {ma.id}
+        assert await CommentaryInviteRepository.get_by_id(ib.id) is None
+    with tenant_scope(b.id):
+        assert [i.id for i in await CommentaryInviteRepository.pending_for_invitee(invitee.id)] == [ib.id]
+        assert await CommentaryInviteRepository.get_by_id(ia.id) is None
+
+
 async def test_reschedule_request_does_not_leak(tenants):
     a, b = tenants
     user = await User.create(discord_id=905, username='asker')
@@ -286,9 +303,7 @@ async def test_reschedule_request_does_not_leak(tenants):
         assert [r.id for r in await RescheduleRequestRepository.list_for_user(user)] == [ra.id]
         assert await RescheduleRequestRepository.pending_count() == 1
         assert await RescheduleRequestRepository.pending_match_ids() == [ma.id]
-        # The other tenant's match id must not resolve a count, even when named.
         assert await RescheduleRequestRepository.pending_by_match([ma.id, mb.id]) == {ma.id: 1}
-        # get_by_id is the sharpest leak point: a forwarded request id.
         assert await RescheduleRequestRepository.get_by_id(rb.id) is None
         assert await RescheduleRequestRepository.get_pending_for(mb.id, user.id) is None
 
@@ -307,7 +322,6 @@ async def test_challonge_connection_is_per_tenant(tenants):
         conn = await ChallongeRepository.get_connection()
         assert conn is not None and conn.access_token == 'tok-A'
     with tenant_scope(b.id):
-        # B has its own (absent) connection; A's must not be visible.
         assert await ChallongeRepository.get_connection() is None
         await ChallongeRepository.save_connection('tok-B', None, None, None, 'acct-b', None)
     with tenant_scope(a.id):

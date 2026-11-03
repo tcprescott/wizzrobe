@@ -28,6 +28,7 @@ def banner(
     title: Optional[str] = None,
     tone: BannerTone = 'info',
     icon: Optional[str] = None,
+    footnote: Optional[str] = None,
 ) -> Iterator[ui.row]:
     """Render a banner; anything built inside the ``with`` lands in its action slot.
 
@@ -42,5 +43,7 @@ def banner(
             if title:
                 ui.label(title).classes('wiz-banner__title')
             ui.label(message)
+            if footnote:
+                ui.label(footnote).classes('wiz-banner__footnote')
         with ui.row().classes('wiz-banner__actions') as actions:
             yield actions

@@ -168,9 +168,7 @@ class TestTenantArgument:
                 client, raw, 'list_matches', tenant=tenant_b.slug,
             )
         assert unknown_err and other_err
-        # Byte-identical, not merely both-errors: a caller must not be able to
-        # tell "this community does not exist" from "you have no role there",
-        # or the error text becomes a directory of every community hosted here.
+        # Byte-identical, not merely both errors: otherwise the error text enumerates communities.
         assert 'not_found:' in unknown
         assert unknown.replace('no-such-community', tenant_b.slug) == other
 
@@ -194,9 +192,7 @@ class TestContextHygiene:
         await _seed(tenant_a, 'Alpha')
         _, raw = await _staff_everywhere(two_tenants)
 
-        # The suite's autouse fixture binds a tenant for the test's own task, so
-        # the invariant is that a call leaves it *unchanged* — not that it is
-        # None. A tool that leaked its binding would overwrite this.
+        # The autouse fixture binds a tenant, so assert it's unchanged, not None.
         ambient = get_current_tenant_id()
         async with mcp_session() as client:
             is_error, _ = await call_tool(

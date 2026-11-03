@@ -15,17 +15,8 @@ from models import AsyncQualifierPermalink, Role, User, UserRole
 
 
 async def test_roll_permalinks_blocked_when_credential_missing(db):
-    # A pool whose preset uses a keyed randomizer (ootr) cannot roll when this
-    # community has not configured the key: the first roll raises before any
-    # permalink row exists, so the whole batch aborts with nothing half-written.
-    # Deliberately not dk64r, which now refuses earlier for being asynchronous
-    # (see test_roll_permalinks_refuses_async_randomizer).
-    # A fresh tenant is used because the db-fixture tenant would otherwise share
-    # any credential a sibling test created.
-    #
-    # ASYNC_QUALIFIERS is turned on for this tenant so the subject under test is
-    # the credential, not AsyncQualifierService's own feature guard (which would
-    # refuse create_qualifier first with every flag off).
+    # Not dk64r: it's refused earlier for being async. A fresh tenant with ASYNC_QUALIFIERS on,
+    # so the missing credential, not a sibling's credential or the flag guard, is what refuses.
     from application.tenant_context import tenant_scope
     from models import FeatureFlag, Preset, Tenant, TenantFeatureFlag
 
@@ -54,13 +45,7 @@ async def test_roll_permalinks_blocked_when_credential_missing(db):
         assert await AsyncQualifierPermalink.filter(pool_id=pool.id).count() == 0
 
 
-# --- the server's own clock as evidence -----------------------------------
-
 async def test_roll_permalinks_refuses_async_randomizer(db):
-    # A task-queue backend (dk64r) cannot fill a pool yet: each roll takes
-    # minutes and lands independently, so the batch's all-or-nothing property
-    # would not hold. Refused in the service, not only in the preset picker,
-    # because a pool created before dk64r became asynchronous already exists.
     from application.tenant_context import tenant_scope
     from models import FeatureFlag, Preset, Tenant, TenantFeatureFlag
 
@@ -88,3 +73,40 @@ async def test_roll_permalinks_refuses_async_randomizer(db):
 
         from models import AsyncQualifierPermalink
         assert await AsyncQualifierPermalink.all().count() == 0
+
+
+async def test_rolled_permalinks_keep_the_seed_code(db, monkeypatch):
+    from application.services._seedgen_types import RolledSeed
+    from application.services.seedgen_service import SeedGenerationService
+    from application.tenant_context import tenant_scope
+    from application.utils.seed_provider import ProviderCall
+    from models import FeatureFlag, GeneratedSeeds, Preset, Tenant, TenantFeatureFlag
+
+    async def fake_call(self, randomizer, preset, surface=None):
+        return ProviderCall(
+            value=RolledSeed(url='https://seed.test/1', code=['Bow', 'Hookshot']),
+            provider=randomizer, operation='generate_seed',
+        )
+
+    monkeypatch.setattr(SeedGenerationService, 'generate_seed_call', fake_call)
+    service = AsyncQualifierService()
+    b = await Tenant.create(name='Codes', slug='codes-q')
+    await TenantFeatureFlag.create(
+        tenant_id=b.id, flag=FeatureFlag.ASYNC_QUALIFIERS.value,
+        available=True, enabled=True,
+    )
+    with tenant_scope(b.id):
+        staff = await User.create(discord_id=900501, username='qstaff2')
+        await UserRole.create(user=staff, role=Role.STAFF)
+        preset = await Preset.create(name='Z3', randomizer='alttpr', settings={})
+        now = datetime.now(timezone.utc)
+        q = await service.create_qualifier(
+            staff, name='Q', opens_at=now - timedelta(days=1),
+            closes_at=now + timedelta(days=1), runs_per_pool=1,
+        )
+        pool = await service.create_pool(staff, q.id, name='Pool A', preset_id=preset.id)
+
+        await service.roll_permalinks(staff, pool.id, count=1)
+
+        seed = await GeneratedSeeds.get(seed_url='https://seed.test/1')
+        assert seed.seed_code == ['Bow', 'Hookshot']

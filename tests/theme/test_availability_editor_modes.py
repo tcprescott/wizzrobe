@@ -42,8 +42,6 @@ class TestModes:
         assert BLOCK_MODE.label(VolunteerAvailabilityStatus.UNAVAILABLE) == "Can't play"
 
     def test_block_mode_still_labels_available_it_never_offers(self):
-        # The heatmap paints AVAILABLE for every unblocked hour, so the label
-        # has to exist even though the dropdown does not offer the status.
         assert BLOCK_MODE.label(VolunteerAvailabilityStatus.AVAILABLE) == 'Available'
 
     def test_only_block_mode_shades_closed_hours(self):

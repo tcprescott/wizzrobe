@@ -15,6 +15,13 @@ from unittest.mock import ANY, AsyncMock
 
 import pytest
 
+from application.services.notification_catalog import (
+    CREW,
+    FOLLOWERS,
+    MATCH_CHECKED_IN,
+    MATCH_SCHEDULED,
+    WATCHERS,
+)
 from models import (
     Commentator,
     Match,
@@ -39,35 +46,34 @@ def service():
 class TestNotifyMatchCrew:
     async def test_approved_commentator_gets_plain_dm(self, service, db):
         t = await Tournament.create(name="T")
-        m = await Match.create(tournament=t)
+        m = await Match.create(tournament=t, stage=await Stage.create(name="Kraid"))
         await Commentator.create(match=m, user=await make_dm_user(111, name="c"), approved=True)
 
         await service.notify_match_crew(m, "hello crew")
 
         service.discord_service.send_dm.assert_awaited_once_with(
-            111, "hello crew\n\nYou're on this match as commentator.", embed=None, link=ANY,
+            111, "hello crew\n\nYou're on this match as commentator.", embed=None, link=ANY, notice=MATCH_SCHEDULED.to(CREW),
         )
         link = service.discord_service.send_dm.await_args.kwargs['link']
-        # Their crew slot, not the player filter that is empty for them.
         assert link.url.endswith(f'/home/my-crew?match={m.id}')
         service.discord_service.send_dm_with_unwatch_button.assert_not_awaited()
 
     async def test_approved_tracker_gets_plain_dm(self, service, db):
         t = await Tournament.create(name="T")
-        m = await Match.create(tournament=t)
+        m = await Match.create(tournament=t, stage=await Stage.create(name="Kraid"))
         await Tracker.create(match=m, user=await make_dm_user(112, name="tr"), approved=True)
 
         await service.notify_match_crew(m, "hi")
 
         service.discord_service.send_dm.assert_awaited_once_with(
-            112, "hi\n\nYou're on this match as tracker.", embed=None, link=ANY,
+            112, "hi\n\nYou're on this match as tracker.", embed=None, link=ANY, notice=MATCH_SCHEDULED.to(CREW),
         )
 
     async def test_crew_on_both_slots_reads_both_in_text_and_title(self, service, db):
         from application.utils.discord_embeds import COLOR_SCHEDULED, match_embed
 
         t = await Tournament.create(name="T")
-        m = await Match.create(tournament=t)
+        m = await Match.create(tournament=t, stage=await Stage.create(name="Kraid"))
         u = await make_dm_user(113, name="both")
         await Commentator.create(match=m, user=u, approved=True)
         await Tracker.create(match=m, user=u, approved=True)
@@ -81,7 +87,6 @@ class TestNotifyMatchCrew:
         args, kwargs = service.discord_service.send_dm.await_args
         assert args == (113, 'slot=commentator+tracker')
         assert kwargs['embed'].title == '📣 Match scheduled · your commentator and tracker slot'
-        # The shared card is copied per recipient, never retitled in place.
         assert embed.title == '📣 Match scheduled'
 
     async def test_watcher_gets_unwatch_button_dm(self, service, db):
@@ -92,12 +97,12 @@ class TestNotifyMatchCrew:
         await service.notify_match_crew(m, "crew msg", watcher_message="watch msg")
 
         service.discord_service.send_dm.assert_not_awaited()
-        service.discord_service.send_dm_with_unwatch_button.assert_awaited_once_with(222, "watch msg", m.id, embed=None, link=None)
+        service.discord_service.send_dm_with_unwatch_button.assert_awaited_once_with(222, "watch msg", m.id, embed=None, link=None, notice=MATCH_SCHEDULED.to(WATCHERS))
 
     async def test_crew_who_also_watches_reads_the_crew_copy(self, service, db):
         """Watching adds the Unwatch button; it does not demote them to a spectator."""
         t = await Tournament.create(name="T")
-        m = await Match.create(tournament=t)
+        m = await Match.create(tournament=t, stage=await Stage.create(name="Kraid"))
         u = await make_dm_user(223, name="cw")
         await Commentator.create(match=m, user=u, approved=True)
         await MatchWatcher.create(match=m, user=u)
@@ -105,7 +110,33 @@ class TestNotifyMatchCrew:
         await service.notify_match_crew(m, "crew msg", watcher_message="watch msg")
 
         service.discord_service.send_dm_with_unwatch_button.assert_awaited_once_with(
-            223, "crew msg\n\nYou're on this match as commentator.", m.id, embed=None, link=ANY,
+            223, "crew msg\n\nYou're on this match as commentator.", m.id, embed=None, link=ANY, notice=MATCH_SCHEDULED.to(CREW),
+        )
+
+    async def test_crew_on_an_unstaged_match_hear_nothing(self, service, db):
+        """Crew hear about a match only while it's on a stage."""
+        t = await Tournament.create(name="T")
+        m = await Match.create(tournament=t)
+        await Commentator.create(match=m, user=await make_dm_user(231, name="c"), approved=True)
+        await Tracker.create(match=m, user=await make_dm_user(232, name="tr"), approved=True)
+
+        await service.notify_match_crew(m, "crew msg")
+        await service.notify_match_participants(m, "hi", notice=MATCH_CHECKED_IN)
+
+        service.discord_service.send_dm.assert_not_awaited()
+        service.discord_service.send_dm_with_unwatch_button.assert_not_awaited()
+
+    async def test_crew_who_watches_an_unstaged_match_reads_the_watcher_copy(self, service, db):
+        t = await Tournament.create(name="T")
+        m = await Match.create(tournament=t)
+        u = await make_dm_user(233, name="cw")
+        await Commentator.create(match=m, user=u, approved=True)
+        await MatchWatcher.create(match=m, user=u)
+
+        await service.notify_match_crew(m, "crew msg", watcher_message="watch msg")
+
+        service.discord_service.send_dm_with_unwatch_button.assert_awaited_once_with(
+            233, "watch msg", m.id, embed=None, link=None, notice=MATCH_SCHEDULED.to(WATCHERS),
         )
 
     async def test_player_who_is_crew_is_excluded(self, service, db):
@@ -131,7 +162,7 @@ class TestNotifyMatchCrew:
 
     async def test_crew_with_discord_off_still_reaches_send_dm(self, service, db):
         t = await Tournament.create(name="T")
-        m = await Match.create(tournament=t)
+        m = await Match.create(tournament=t, stage=await Stage.create(name="Kraid"))
         await Commentator.create(match=m, user=await make_dm_user(555, name="mute", dm=False), approved=True)
 
         await service.notify_match_crew(m, "hi")
@@ -141,11 +172,10 @@ class TestNotifyMatchCrew:
 
     async def test_dm_failure_is_swallowed(self, service, db):
         t = await Tournament.create(name="T")
-        m = await Match.create(tournament=t)
+        m = await Match.create(tournament=t, stage=await Stage.create(name="Kraid"))
         await Commentator.create(match=m, user=await make_dm_user(666, name="c"), approved=True)
         service.discord_service.send_dm = AsyncMock(return_value=(False, "blocked"))
 
-        # A failed DM is logged, not raised.
         await service.notify_match_crew(m, "hi")
 
         service.discord_service.send_dm.assert_awaited_once()
@@ -156,7 +186,6 @@ class TestNotifyMatchCrew:
         await Commentator.create(match=m, user=await make_dm_user(777, name="c"), approved=True)
         service.discord_service.send_dm = AsyncMock(side_effect=RuntimeError("kaboom"))
 
-        # Outer try/except must swallow the send error.
         await service.notify_match_crew(m, "hi")
 
 
@@ -177,7 +206,6 @@ class TestNotifyAcknowledgmentRequest:
         call = service.discord_service.send_dm_with_acknowledgment_button.call_args
         assert call.args[0] == 111
         assert call.args[2] == m.id
-        # The match itself, not the whole board it is one row of.
         assert call.kwargs['link'].url.endswith(f'/home/player?match={m.id}')
 
     async def test_rescheduled_flag_still_sends(self, service, db):
@@ -238,13 +266,13 @@ class TestNotifyMatchParticipantsBranches:
 
     async def test_approved_tracker_receives_dm(self, service, db):
         t = await Tournament.create(name="T")
-        m = await Match.create(tournament=t)
+        m = await Match.create(tournament=t, stage=await Stage.create(name="Kraid"))
         await Tracker.create(match=m, user=await make_dm_user(444, name="tr"), approved=True)
 
-        await service.notify_match_participants(m, "hi")
+        await service.notify_match_participants(m, "hi", notice=MATCH_CHECKED_IN)
 
         service.discord_service.send_dm.assert_awaited_once_with(
-            444, "hi\n\nYou're on this match as tracker.", embed=None, link=None,
+            444, "hi\n\nYou're on this match as tracker.", embed=None, link=None, notice=MATCH_CHECKED_IN.to(CREW),
         )
 
     async def test_dm_failure_is_swallowed(self, service, db):
@@ -253,7 +281,7 @@ class TestNotifyMatchParticipantsBranches:
         await MatchPlayers.create(match=m, user=await make_dm_user(445, name="p"))
         service.discord_service.send_dm = AsyncMock(return_value=(False, "blocked"))
 
-        await service.notify_match_participants(m, "hi")
+        await service.notify_match_participants(m, "hi", notice=MATCH_CHECKED_IN)
 
         service.discord_service.send_dm.assert_awaited_once()
 
@@ -263,7 +291,7 @@ class TestNotifyMatchParticipantsBranches:
         await MatchPlayers.create(match=m, user=await make_dm_user(446, name="p"))
         service.discord_service.send_dm = AsyncMock(side_effect=RuntimeError("kaboom"))
 
-        await service.notify_match_participants(m, "hi")
+        await service.notify_match_participants(m, "hi", notice=MATCH_CHECKED_IN)
 
 
 class TestNotifySubscriberFailurePaths:
@@ -278,10 +306,8 @@ class TestNotifySubscriberFailurePaths:
 
         await service.notify_tournament_subscribers_scheduled(m, "msg", [])
 
-        # ANY for the link: this test is about the failure being swallowed,
-        # not about where the button points.
         service.discord_service.send_dm_with_crew_buttons.assert_awaited_once_with(
-            555, "msg", m.id, embed=None, link=ANY,
+            555, "msg", m.id, embed=None, link=ANY, notice=MATCH_SCHEDULED.to(FOLLOWERS), broadcaster=False,
         )
 
     async def test_stream_candidate_subscriber_dm_failure_is_swallowed(self, service, db):
@@ -299,17 +325,16 @@ class TestNotifySubscriberFailurePaths:
         assert call.args[0] == 556
 
 
-
 class TestNotifyMatchParticipantsCommentatorAndWatcher:
     async def test_approved_commentator_receives_dm(self, service, db):
         t = await Tournament.create(name="T")
-        m = await Match.create(tournament=t)
+        m = await Match.create(tournament=t, stage=await Stage.create(name="Kraid"))
         await Commentator.create(match=m, user=await make_dm_user(211, name="c"), approved=True)
 
-        await service.notify_match_participants(m, "hi")
+        await service.notify_match_participants(m, "hi", notice=MATCH_CHECKED_IN)
 
         service.discord_service.send_dm.assert_awaited_once_with(
-            211, "hi\n\nYou're on this match as commentator.", embed=None, link=None,
+            211, "hi\n\nYou're on this match as commentator.", embed=None, link=None, notice=MATCH_CHECKED_IN.to(CREW),
         )
 
     async def test_watcher_receives_unwatch_button(self, service, db):
@@ -317,10 +342,10 @@ class TestNotifyMatchParticipantsCommentatorAndWatcher:
         m = await Match.create(tournament=t)
         await MatchWatcher.create(match=m, user=await make_dm_user(212, name="w"))
 
-        await service.notify_match_participants(m, "hi")
+        await service.notify_match_participants(m, "hi", notice=MATCH_CHECKED_IN)
 
         service.discord_service.send_dm.assert_not_awaited()
-        service.discord_service.send_dm_with_unwatch_button.assert_awaited_once_with(212, "hi", m.id, embed=None, link=None)
+        service.discord_service.send_dm_with_unwatch_button.assert_awaited_once_with(212, "hi", m.id, embed=None, link=None, notice=MATCH_CHECKED_IN.to(WATCHERS))
 
 
 class TestNotifyStreamCandidateSubscribersExtra:
@@ -377,16 +402,12 @@ class TestNotifyMatchScheduledFanOut:
             await service.notify_match_scheduled(m, rescheduled=False, is_stream_candidate=False)
         finally:
             dq.enqueue = original
-        # Assert the specific notifiers were fanned out (not just the count), so a
-        # regression that enqueues the wrong notifier with the same arity is caught.
         enqueued = {c.cr_code.co_qualname for c in captured}
         for coro in captured:
             coro.close()
         assert enqueued == {
             "MatchNotificationMixin.notify_acknowledgment_request",
             "MatchNotificationMixin.notify_match_crew",
-            # The harder-settings offer rides the same fan-out: being given a
-            # match is when a player first has settings to decide about.
             "MatchHardPresetService.send_offer",
             "MatchNotificationMixin.notify_tournament_subscribers_scheduled",
         }
@@ -407,12 +428,9 @@ class TestNotifyMatchScheduledFanOut:
         enqueued = {c.cr_code.co_qualname for c in captured}
         for coro in captured:
             coro.close()
-        # The stream-candidate branch adds the subscriber fan-out on top.
         assert enqueued == {
             "MatchNotificationMixin.notify_acknowledgment_request",
             "MatchNotificationMixin.notify_match_crew",
-            # The harder-settings offer rides the same fan-out: being given a
-            # match is when a player first has settings to decide about.
             "MatchHardPresetService.send_offer",
             "MatchNotificationMixin.notify_tournament_subscribers_scheduled",
             "MatchNotificationMixin.notify_stream_candidate_subscribers",

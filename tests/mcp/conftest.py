@@ -33,8 +33,7 @@ from application.services.api_token_service import MCP_TOKEN_PREFIX
 from application.services.mcp_auth_service import granted_scope
 from models import ApiToken, ApiTokenOrigin, McpOAuthClient, Role, User, UserRole
 
-# The transport validates both: a POST without JSON content-type is rejected,
-# and json_response=True still requires application/json in Accept.
+# Both headers required: the transport rejects a POST without JSON content-type and needs JSON in Accept.
 MCP_HEADERS = {
     'Content-Type': 'application/json',
     'Accept': 'application/json, text/event-stream',
@@ -68,9 +67,7 @@ def _cached_build_server() -> MCPServer:
     return mcp
 
 
-# Patched at the module the production ``mount()`` resolves it from, so mount()
-# itself still runs for real: routes, discovery and the OAuth endpoints are all
-# registered by the code that registers them in production.
+# Patch where mount() resolves it, so mount() itself still runs for real.
 mcpserver.build_server = _cached_build_server
 
 
@@ -98,6 +95,7 @@ async def create_oauth_token(
     expired: bool = False,
     tenant_id: Optional[int] = None,
     write: bool = False,
+    scope: Optional[str] = None,
 ) -> Tuple[User, str]:
     """Create a user and a platform-wide OAuth token for them.
 
@@ -110,6 +108,9 @@ async def create_oauth_token(
 
     ``write`` mirrors the consent screen's box and defaults off, so a test that
     does not mention writing gets the connection most real users have.
+
+    ``scope`` stores that scope string instead of the one ``write`` implies, for
+    the tests about which areas a connection reaches.
     """
     if discord_id is None:
         discord_id = random.randint(1, 10 ** 12)
@@ -136,7 +137,7 @@ async def create_oauth_token(
     await ApiToken.create(
         user=user, name='test-mcp', tenant_id=None, oauth_client=client,
         origin=ApiTokenOrigin.OAUTH.value, read_only=not write,
-        scope=granted_scope(allow_write=write),
+        scope=scope if scope is not None else granted_scope(allow_write=write),
         token_hash=hashlib.sha256(raw.encode()).hexdigest(),
         token_prefix=raw[:17],
         expires_at=now - timedelta(minutes=1) if expired else now + timedelta(hours=1),

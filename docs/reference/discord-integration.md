@@ -33,7 +33,8 @@ This page documents mechanics only — singletons, method signatures, custom_id 
 | [`discordbot/match_hard_preset.py`](../../discordbot/match_hard_preset.py) | The harder-settings opt-in / back-out button + handler (`match_hard:`) |
 | [`discordbot/login.py`](../../discordbot/login.py) | `/login`, `/wizzrobe login-panel` and the panel's Log in button (`wiz_login:`) |
 | [`application/services/discord/discord_login_service.py`](../../application/services/discord/discord_login_service.py) | `DiscordLoginService` — mints and redeems the one-time login links; the panel's STAFF gate |
-| [`main.py`](../../main.py) | `init_discord_bot()` / `close_discord_bot()`, the `import discordbot` registration hook, queue and worker start/stop in the FastAPI lifespan |
+| [`main.py`](../../main.py) / [`bots.py`](../../bots.py) | The `import discordbot` registration hook and worker start/stop in each lifespan; both start Discord and the delivery queues through [`application/bot_runtime.py`](../../application/bot_runtime.py) |
+| [`discordbot/http_interactions.py`](../../discordbot/http_interactions.py) | Signed HTTP interactions: signature check, dispatch through `parse_interaction_create`, first-response capture |
 | [`application/utils/mocks/mock_discord.py`](../../application/utils/mocks/mock_discord.py) | `is_mock_discord()` flag with production guard |
 | [`application/services/match/_schedule_notifications.py`](../../application/services/match/_schedule_notifications.py) | `MatchNotificationMixin` — the match notification fan-out coroutines, composed into `MatchScheduleService` |
 | [`application/services/notification_links.py`](../../application/services/notification_links.py) | `DMLink` builders (`player_schedule`, `player_match`, `player_hard_preset`, `admin_match`, …) — absolute, tenant-qualified, never raise |
@@ -47,9 +48,13 @@ This page documents mechanics only — singletons, method signatures, custom_id 
 The bot is a **discord.py `commands.Bot`** that lives inside the single Uvicorn worker (see [architecture.md](../architecture.md) for why one worker is a hard requirement). It is created lazily by `get_discord_bot()` in [`application/services/discord/discord_service.py`](../../application/services/discord/discord_service.py) and started during FastAPI lifespan startup in [`main.py`](../../main.py):
 
 1. `import discordbot` — registers the interaction handlers and view factories (below) before any interaction can dispatch or DM can be sent.
-2. `init_discord_bot()` — under `MOCK_DISCORD` it logs `MOCK_DISCORD enabled — skipping Discord bot start.` and returns. Otherwise it reads `DISCORD_TOKEN` and schedules `bot.start(token)` as an asyncio task with a done-callback that logs a crashed task. An unset token logs a warning and continues — the app runs, but the bot never connects.
-3. `discord_queue.start()` — starts the outbound send worker; `discord_event_worker.start()` runs too when `DISCORD_EVENTS_SYNC_ENABLED` is on.
-4. On shutdown, the reverse: `discord_queue.stop()` → `close_discord_bot()` (`bot.close()` + task cancel; no-op under mock) → DB close.
+2. `bot_runtime.start_discord(gateway=...)` ([`application/bot_runtime.py`](../../application/bot_runtime.py)) — under `MOCK_DISCORD` it logs `MOCK_DISCORD enabled — skipping Discord bot start.` and returns. Otherwise it reads `DISCORD_TOKEN` and schedules, as an asyncio task with a done-callback that logs a crash, either `bot.start(token)` (the gateway, retried every 30s until it connects) or, with `DISCORD_GATEWAY=off`, `sign_in_for_rest()`: `bot.login(token)` only, which runs `setup_hook` but opens no gateway. An unset token logs a warning and continues — the app runs, but the bot never connects.
+3. `bot_runtime.start_delivery()` — starts the outbound send worker `discord_queue`, the event dispatch and webhook queues, and their subscribers; `discord_event_worker.start()` runs too when `DISCORD_EVENTS_SYNC_ENABLED` is on.
+4. On shutdown, the reverse: `stop_delivery()` → `close_discord()` (`bot.close()` + task cancel; no-op under mock) → DB close.
+
+`bots.py` uses the same two calls with the gateway forced on; see [discord.md](../features/discord.md#interactions-over-http).
+
+**Usable means `bot_ready(bot)`, not `bot.is_ready()`.** `is_ready()` is a gateway flag and stays false in a REST-only process, so every `DiscordService` path checks [`bot_state.bot_ready`](../../application/services/discord/bot_state.py) (gateway ready, or signed in with the gateway switched off). Guild reads fall back from the gateway cache to REST (`_cached_or_fetched_guild`, `fetch_guilds`).
 
 Degradation is graceful at every layer: when the bot is missing or not connected, every `DiscordService` method returns a `(False, reason)` tuple instead of raising, and the fan-out methods log the failure and move on.
 
@@ -224,7 +229,7 @@ Because `stop()` cancels the worker without draining, anything still queued at s
 
 ## Edited staff DMs
 
-A community event to review, an ADA request, a join request and a reschedule request each DM every staff member (reschedules: every decider). Once one decides it, [`staff_request_dms`](../../application/services/staff_request_dms.py) edits every copy to say who and when ("✅ Approved by Hurfy", "You" on the decider's own copy), recolours it, and swaps the button for one that opens the thing. Each landed copy is recorded in `StaffRequestDM` via `send_dm(on_sent=...)`; the edit runs on the same serial queue, so it always sees the records of sends queued before it. Only DMs sent after this shipped can be edited, and the web-push copy is never changed.
+A community event to review, an ADA request, a join request and a reschedule request each DM every staff member (reschedules: every decider); a crew signup DMs the tournament's admins and crew coordinators. Once one decides it, [`staff_request_dms`](../../application/services/staff_request_dms.py) edits every copy to say who and when ("✅ Approved by Hurfy", "You" on the decider's own copy), recolours it, and swaps the button for one that opens the thing. Each landed copy is recorded in `StaffRequestDM` via `send_dm(on_sent=...)`; the edit runs on the same serial queue, so it always sees the records of sends queued before it. Only DMs sent after this shipped can be edited, and the web-push copy is never changed.
 
 ## Interaction handlers (`discordbot/`)
 
@@ -308,23 +313,26 @@ Ephemeral confirmation strings sit beside their domain's builders: `match_ack_co
 | Harder settings offered | `notify_match_scheduled` (create / request / time change) → `MatchHardPresetService.send_offer(match)` (skipped when the tournament has no `hard_preset`, the seed is already rolled, or staff set a `preset_override`) | `send_dm_with_hard_preset_buttons` | Play the harder preset **or** Back out — one, chosen from the reader's own answer |
 | Harder settings agreed / broken | `MatchHardPresetService` on the unanimity transition, and on a roster change that breaks one | `send_dm` via `notify_hard_preset_agreement` | Link only |
 | Match preset set by staff | `MatchHardPresetService.set_override` | `send_dm` via `notify_hard_preset_override` | Link only |
-| Scheduled/rescheduled — crew & watcher info | same call sites → `notify_match_crew(match, msg)` | `send_dm` (crew) / `send_dm_with_unwatch_button` (watchers) | Unwatch (watchers only) |
-| Crew signup invitation (subscribers) | same call sites → `notify_tournament_subscribers_scheduled(match, msg, notified_ids)` | `send_dm_with_crew_buttons` | Sign up as Commentator / Tracker |
+| Scheduled/rescheduled — crew & watcher info | same call sites → `notify_match_crew(match, msg)`; the watcher copy is silent | `send_dm` (crew) / `send_dm_with_unwatch_button` (watchers) | Unwatch (watchers only) |
+| Crew signup invitation (subscribers) | same call sites → `notify_tournament_subscribers_scheduled(match, msg, notified_ids)`, silent | `send_dm_with_crew_buttons` | Sign up as Commentator / Tracker |
 | Stream candidate alert | `MatchService.create_match` (flagged) / `set_stream_candidate(flag=True)` → `notify_stream_candidate_subscribers` | `send_dm_with_crew_buttons` | Sign up as Commentator / Tracker |
 | Crew approved — ack request | `CrewService.update_crew_approval(approved=True)` → `_request_crew_acknowledgment` | `send_dm_with_crew_acknowledgment_button` | Acknowledge |
 | Match seated (checked in) | `MatchScheduleService.seat_match` → `notify_match_participants` | `send_dm` / `send_dm_with_unwatch_button` | Unwatch (watchers only) |
-| Match started / finished / confirmed | `MatchScheduleService.start_match` / `finish_match` / `confirm_match` → `notify_match_participants` | `send_dm` / `send_dm_with_unwatch_button` | Unwatch (watchers only) |
+| Match started / finished | `MatchScheduleService.start_match` / `finish_match` → `notify_match_participants(silent=True, players=False)`: crew and watchers only, no ping | `send_dm` / `send_dm_with_unwatch_button` | Unwatch (watchers only) |
+| Match result confirmed | `MatchScheduleService.confirm_match` → `notify_match_participants(silent=True)`: everyone, no ping | `send_dm` / `send_dm_with_unwatch_button` | Unwatch (watchers only) |
 | Match cancelled | `MatchService._cancel_match` (the `CancellationMixin` in `match_cancellation.py`) → `notify_match_cancelled(recipients, message, embed)` (recipients collected before the delete) | `send_dm` | none |
-| Stage assigned / cleared | `MatchService.assign_stage` → `notify_stage_changed` | `send_dm` | View your match (link) |
-| Stage reminder | `stage_reminder` loop → `notify_stage_reminder` | `send_dm` | View your match (link) |
+| Stage assigned / cleared | `MatchService.assign_stage` → `notify_stage_changed` (watcher copy silent) | `send_dm` | View your match (link) |
+| Stage reminder | `stage_reminder` loop → `notify_stage_reminder` (watcher copy silent) | `send_dm` | View your match (link) |
 | Crew withdrew (approved) | `CrewService.undo_crew_signup` → `_notify_crew_withdrawal` (tournament crew owners + approver) | `send_dm` | Fill the slot (link) |
 | Crew approval withdrawn | `CrewService.update_crew_approval(approved=False)` → `_notify_crew_approval_withdrawn` | `send_dm` | none |
 | Bracket matchup ready | `_bracket/notifications.py` → `_send_matchup_ready(...)` per entrant (opt-in only) | `send_dm` | Pick a time (link) |
 | Seed generated | `MatchScheduleService.generate_seed` → inline `_send_seed_dms()` per opted-in player | `send_dm` | Open your seed (link, off-site); for a pasted seed (WWR, Z1R) Copy it from Wizzrobe → `player_match` |
 | Volunteer shift assigned — ack request | `VolunteerScheduleService.assign(notify=True)` | `send_dm_with_volunteer_acknowledgment_button` | Acknowledge |
 | Volunteer shift starting | `volunteer_reminder` loop (`_start_dms`), once per published assignment whose shift started in the last 30 minutes and that isn't checked in | `send_dm_with_volunteer_arrival_buttons` | I'm here / Running late / I can't make it, plus a My Shifts link |
-| Volunteer running late | `VolunteerArrivalService.report_late` → coordinators + staff | `send_dm` | Open the schedule |
+| Volunteer running late / shift given back | `VolunteerArrivalService.report_late` / `VolunteerScheduleService.release` → `notify_coordinators`: coordinators + `StaffAlertService.volunteer_alert_recipients` (on duty, else all staff) | `send_dm` | Open the schedule |
 | Volunteer shift reminder | `volunteer_reminder` loop, per un-reminded upcoming assignment | `send_dm_with_volunteer_acknowledgment_button` | Acknowledge |
 | Admin direct message | `SendMessageDialog.send` — awaited inline, **not** queued | `send_dm` | none |
 
-Note the asymmetry in lifecycle notifications: scheduling/rescheduling DMs are split (players get the Acknowledge DM via `notify_acknowledgment_request`; crew, watchers, and subscribers get informational variants), while seated/started/finished/confirmed DMs go to everyone at once via `notify_match_participants`.
+Note the asymmetry in lifecycle notifications: scheduling/rescheduling DMs are split (players get the Acknowledge DM via `notify_acknowledgment_request`; crew, watchers, and subscribers get informational variants), while seated/confirmed DMs go to everyone at once via `notify_match_participants` (confirmed silently) and started/finished skip the players and go out silent. A DM nobody has to act on goes out silent: watchers and tournament followers never get pinged for scheduling or stage news.
+
+`send_dm(..., silent=True)` sends with Discord's `SUPPRESS_NOTIFICATIONS` flag (`@silent`): the DM lands but doesn't ping. The web-push copy carries `silent: true` and the Telegram copy `disable_notification`; email has no quiet mode.

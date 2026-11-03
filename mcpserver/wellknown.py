@@ -19,8 +19,6 @@ from fastapi.responses import JSONResponse
 from application.services.mcp_auth_service import READ_SCOPE, WRITE_SCOPE
 from application.utils.environment import get_base_url
 
-# Advertised, not promised: a client may request the write scope, but only the
-# person on the consent screen can grant it.
 SCOPES_SUPPORTED = [READ_SCOPE, WRITE_SCOPE]
 
 _METADATA_PATHS = (

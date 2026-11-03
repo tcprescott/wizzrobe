@@ -46,9 +46,6 @@ async def open_tournament(db):
     )
 
 
-# --- The window, in isolation ------------------------------------------------
-
-
 def test_a_tournament_with_no_window_is_open():
     """Both bounds null is the state every tournament predating these columns
     is in, so it has to keep meaning "signups are open"."""
@@ -73,9 +70,6 @@ def test_a_naive_bound_is_read_as_utc_rather_than_raising():
     """SQLite hands back naive datetimes where Postgres returns aware ones, and
     comparing the two raises. Storage is UTC on both."""
     assert signup_window_state(None, datetime(2026, 7, 1), NOW) is SignupWindow.OPEN
-
-
-# --- Signing up --------------------------------------------------------------
 
 
 async def test_a_member_can_sign_themselves_up(open_tournament, player):
@@ -135,9 +129,6 @@ async def test_signup_for_an_inactive_tournament_is_refused(player, db):
         await TournamentService().self_enroll(tournament.id, player)
 
 
-# --- Withdrawing -------------------------------------------------------------
-
-
 async def test_a_player_can_withdraw_while_the_window_is_open(open_tournament, player):
     service = TournamentService()
     await service.self_enroll(open_tournament.id, player)
@@ -190,9 +181,6 @@ async def test_a_missing_tournament_is_not_found_rather_than_refused(player, db)
         await TournamentService().self_withdraw(999, player)
 
 
-# --- The Challonge carve-out -------------------------------------------------
-
-
 async def test_a_challonge_linked_tournament_refuses_self_signup(player, db):
     tournament = await Tournament.create(name='Bracket Cup', challonge_tournament_id='T1')
     with pytest.raises(ValueError) as exc:
@@ -226,9 +214,6 @@ async def test_a_leftover_challonge_link_stops_mattering_with_the_feature_off(
     assert await TournamentPlayers.filter(tournament=tournament, user=player).count() == 1
 
 
-# --- Staff enrolment ignores the window --------------------------------------
-
-
 async def test_staff_can_enrol_after_signups_close(staff, player, db):
     """Closing signups stops players adding themselves; it is not meant to stop
     staff fixing a roster."""
@@ -238,9 +223,6 @@ async def test_staff_can_enrol_after_signups_close(staff, player, db):
     )
     await TournamentService().enroll_player(tournament, player, staff)
     assert await TournamentPlayers.filter(tournament=tournament, user=player).count() == 1
-
-
-# --- The card the tab, REST and MCP all read ---------------------------------
 
 
 async def test_the_card_reports_the_viewers_own_state(open_tournament, player, staff):
@@ -272,9 +254,6 @@ async def test_inactive_tournaments_are_not_offered(player, db):
     await Tournament.create(name='Archived', is_active=False)
     names = {c.tournament.name for c in await TournamentService().list_signup_cards(player)}
     assert 'Archived' not in names
-
-
-# --- Events ------------------------------------------------------------------
 
 
 async def test_signing_up_and_withdrawing_publish_events(open_tournament, player):

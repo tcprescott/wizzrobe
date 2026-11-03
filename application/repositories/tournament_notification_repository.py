@@ -1,5 +1,6 @@
-from typing import List, Optional
+from typing import List, Optional, Set, cast
 
+from application.repositories._save import save_fields
 from application.repositories._tenant import current_tenant_id, scoped
 from models import MatchNotificationLevel, Tournament, TournamentNotificationPreference, User
 
@@ -25,8 +26,24 @@ class TournamentNotificationRepository:
             tournament=tournament,
         )
         pref.match_notifications = match_notifications
-        await pref.save()
+        await save_fields(pref, 'match_notifications')
         return pref
+
+    async def set_staff_alerts(self, user: User, tournament: Tournament, on: bool) -> TournamentNotificationPreference:
+        pref, _ = await TournamentNotificationPreference.get_or_create(
+            tenant_id=current_tenant_id(),
+            user=user,
+            tournament=tournament,
+        )
+        pref.staff_alerts = on
+        await pref.save(update_fields=['staff_alerts', 'updated_at'])
+        return pref
+
+    async def staff_alert_opt_out_user_ids(self, tournament_id: int) -> Set[int]:
+        """Users who switched off match alerts for this tournament."""
+        return set(cast(List[int], await scoped(TournamentNotificationPreference.filter(
+            tournament_id=tournament_id, staff_alerts=False,
+        )).values_list('user_id', flat=True)))
 
     async def get_match_notification_subscribers(self, tournament_id: int, has_stage: bool) -> List[User]:
         """
@@ -66,3 +83,10 @@ class TournamentNotificationRepository:
             p.user for p in prefs
             if p.user.discord_id
         ]
+
+    async def get_followers(self, tournament_id: int) -> List[User]:
+        """Users following the tournament at any level."""
+        prefs = await scoped(TournamentNotificationPreference.filter(
+            tournament_id=tournament_id,
+        ).exclude(match_notifications=MatchNotificationLevel.NONE)).prefetch_related('user').all()
+        return [p.user for p in prefs if p.user.discord_id]

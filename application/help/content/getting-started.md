@@ -8,69 +8,68 @@ summary: Signing in, joining the community, finishing your profile, and where to
 
 ## Sign in with Discord
 
-Everything is tied to your Discord account, so there's no separate password. Tap
-**Sign in** (or **Login with Discord**), approve the request in Discord, and you
-land back on the page you started from. Once you've approved Wizzrobe, Discord
-skips that screen next time.
+Your account is your Discord account, so there's no separate password. Tap
+**Sign in** (or **Login with Discord**), approve it in Discord, and you're back on
+the page you started from. Discord skips the approval screen after the first time.
 
-On a phone, it's often quicker to sign in from Discord itself. In a server
-that's linked to the community, type `/login` (or press **Log in** on the
-community's login panel, if staff have posted one). The bot replies with a link
-only you can see. Tap it and you're signed in, with no Discord login page. The
-link works once and disappears after two minutes, so don't share it.
+On a phone it's often quicker to sign in from Discord itself. In a server linked
+to the community, type `/login`, or press **Log in** on the community's login panel
+if staff have posted one. The bot replies with a link only you can see. Tap it and
+you're signed in without a Discord login page. The link works once and expires
+after two minutes, so don't share it.
 
 Staff with Manage Server in Discord can post that panel by running
-`/wizzrobe login-panel` in the channel they want it in.
+`/wizzrobe login-panel` in whichever channel they want it.
 
 You don't need an account to watch. **Watch live** on the community's front door
-shows the streams and what's on now without signing in.
+shows the streams and what's on now, signed out. The front door itself also
+lists the published brackets and today's matches.
 
 ## Joining the community
 
-Signing in proves who you are. Being a member is a separate step, and until
-you're in, every page shows you the community's front door instead.
+Signing in proves who you are. Joining the community is a separate step, and until
+you've joined, every page shows you the community's front door.
 
 :::snippet join-community
-What the door offers depends on how the community is set up, and it says which
-one applies to you:
+What the door offers depends on how the community is set up, and it tells you
+which applies to you.
 
-- **Open communities** let you straight in the moment you sign in.
-- **Discord members get in automatically** in communities linked to a Discord
-  server. Tap **Join the Discord server**, accept the invite, then come back and
-  tap **I’ve joined, check again**.
-- **Everyone else asks.** Write a line in *Anything they should know?* if it
-  helps (who you are, which tournament you're here for), then tap **Request
-  access**. Staff get your request and you get a message either way.
+- In an open community you're let in as soon as you sign in.
+- In a community linked to a Discord server, Discord members get in automatically.
+  Tap **Join the Discord server**, accept the invite, then come back and tap
+  **I’ve joined, check again**.
+- Everywhere else you ask. Add a line under *Anything they should know?* if it
+  helps (who you are, which tournament you're here for), then tap
+  **Request access**. Staff get your request, and you'll hear back either way.
 
-If a request is declined, the door tells you the date you can ask again. If
-staff removed you, it says so, and asking again goes back to them.
+If you're turned down, the door tells you when you can ask again. If staff removed
+you, it says so, and asking again goes back to them.
 :::
 
-![The community front door on a phone, signed out: Watch live, Sign in, Join the Discord server and the published brackets](/static/help/getting-started/join-door-phone.webp "What you see before you're a member.")
+![The community front door on a phone, signed out: Watch live, Sign in, Join the Discord server, the published brackets and today's matches](/static/help/getting-started/join-door-phone.webp "What you see before you're a member.")
 
 ## Finish your profile
 
-**Profile** is the last tab. Its changes save as you type, so there's no Save
-button to hunt for.
+Profile is the last tab. Changes save as you type, so there's no Save button.
 
-- **Display name** is what people see on schedules, brackets and crew lists.
-  Leave it blank and your Discord username is used instead.
-- **Pronouns** show next to your name, so commentators and crew get them right.
-- **Timezone** decides which clock times are shown in. Leave it on *Detect
-  automatically from my device* to follow whatever you're using. If the community shows every time in one
-  zone, the box is replaced by a line naming that zone.
+Your display name is what people see on schedules, brackets and crew lists. Leave
+it blank and your Discord username is used. Pronouns show next to your name, so
+commentators and crew get them right. Timezone decides which clock times are shown
+in. Leave it on *Detect automatically from my device* to follow whatever you're
+using. If the community shows every time in one zone, you'll see a line naming
+that zone instead of the box.
 
 ### The red reminder at the top of the page
 
 :::snippet profile-reminder
-Staff can ask every member to fill in certain things: link Challonge, Twitch or
+Staff can ask every member to fill certain things in: link Challonge, Twitch or
 racetime.gg, add pronouns, pick a timezone, or enter your Matcherino handle. Until
-you do, a red banner sits at the top of every page saying what's missing, often
-with a line from staff explaining why.
+you do, a red banner at the top of every page says what's missing, often with a
+line from staff saying why.
 
-Its button opens your Profile scrolled to the exact field, and the banner goes
-away once the field is filled in. Some reminders also have **Dismiss**, which
-hides that one for good in this community; you can still fill the field in later.
+Its button opens your Profile at the exact field, and the banner goes away once
+it's filled in. Some reminders also have **Dismiss**, which hides that one for good
+in this community. You can still fill the field in later.
 :::
 
 ![A red profile reminder asking for pronouns, with Add pronouns and Dismiss buttons](/static/help/getting-started/profile-reminder-phone.webp "A dismissible reminder.")
@@ -79,11 +78,11 @@ hides that one for good in this community; you can still fill the field in later
 
 :::snippet getting-started-optin
 You have to sign up for a tournament before anyone can schedule you in it, and
-before you can request a match yourself. The **Tournaments** tab lists what's
-open and takes one tap. If a tournament is missing from a dropdown, not being
-signed up is almost always the reason.
+before you can request a match yourself. The Tournaments tab lists what's open, and
+signing up is one tap. If a tournament's missing from a dropdown, it's almost
+always because you haven't signed up.
 
-More on windows, withdrawing and Challonge rosters:
+Signup windows, withdrawing and Challonge rosters are covered in
 [Signing up for a tournament](/help/tournament-signup).
 :::
 
@@ -99,17 +98,41 @@ More on windows, withdrawing and Challonge rosters:
 | Proctoring | [Running matches as a proctor](/help/proctor) |
 | Just watching | [Reading the schedule board](/help/schedule-board) |
 
-Every member sees the same four tabs: **Event** is the whole schedule, **My Schedule** is only what you're
-in, **Tournaments** is where you sign up, and **Profile** is you.
+Every member gets the same four tabs. Event is the whole schedule, My Schedule is
+only what you're in, Tournaments is where you sign up, and Profile is you.
+
+:::snippet my-schedule-timeline
+My Schedule has two views, switched at the top. **List** shows it as sections:
+your matches, crew slots, volunteer shifts and when you can't play. **Timeline** puts one day's matches, crew slots and shifts on a clock in
+one column, so anything that clashes sits side by side. Meetups you're
+hosting or going to show there too, and so do ones you asked a reminder for, drawn
+with a dashed outline because they're optional. A crew slot you're approved for
+is dashed too, with a "No stage yet" tag, until its match is given a stage. Times you said you can't
+play show as a hatched band behind them, which makes a match booked into one easy
+to spot. Tap the band to change those times.
+
+Pick a day from the chips above it. Tap a block to open it. A match or crew slot
+opens in the List view, a shift shows its details, and a meetup opens
+its own page. The page remembers which
+view you used last, but a link from a DM always opens the List.
+:::
+
+## More than one event
+
+A community can run more than one event, like this year's weekend and an online
+season. When it does, the event you're looking at is named in the header; tap
+it to switch. Event and Tournaments show the event you picked, and Tournaments
+lists every live event's tournaments. My Schedule shows what you're in across
+all the live events. Past events stay in that list, read-only, so last year's
+brackets and results are still there.
 
 ## Turn on notifications
 
-Wizzrobe sends you a Discord DM when something happens to a match you're in.
-Those DMs are how you find out you've been scheduled, moved, or that your seed is
-ready, so make sure the bot can reach you. See
-[Notifications](/help/notifications).
+Wizzrobe DMs you on Discord when something happens to a match you're in. That's
+how you find out you've been scheduled or moved, or that your seed is ready, so
+make sure the bot can reach you. See [Notifications](/help/notifications).
 
 > Not sure what something does? The **?** at the end of a section heading, or
-> **Help** in a dialog's title bar, opens the help for just that part of the
-> page. For a word you don't know, the [glossary](/help/glossary) defines every
-> term the app uses.
+> **Help** in a dialog's title bar, opens help for just that part of the page. For
+> a word you don't know, the [glossary](/help/glossary) covers every term the app
+> uses.

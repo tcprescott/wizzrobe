@@ -8,8 +8,6 @@ load-or-404 reads in the action routers.
 
 from tests.api_helpers import client_for
 
-# ``two_tenant_api`` is the canonical fixture in tests/conftest.py.
-
 
 async def test_matches_list_is_tenant_isolated(two_tenant_api):
     ctx = two_tenant_api
@@ -25,10 +23,8 @@ async def test_matches_list_is_tenant_isolated(two_tenant_api):
 async def test_cannot_read_other_tenant_match_by_id(two_tenant_api):
     ctx = two_tenant_api
     async with client_for(ctx['app'], ctx['token_a']) as client:
-        # A's token requesting B's match by id -> 404 (scoped load).
         r = await client.get(f"/api/matches/{ctx['mb'].id}")
         assert r.status_code == 404
-        # A's own match resolves fine.
         r = await client.get(f"/api/matches/{ctx['ma'].id}")
         assert r.status_code == 200
 
@@ -36,6 +32,5 @@ async def test_cannot_read_other_tenant_match_by_id(two_tenant_api):
 async def test_action_router_load_is_tenant_scoped(two_tenant_api):
     ctx = two_tenant_api
     async with client_for(ctx['app'], ctx['token_a']) as client:
-        # Seating B's match with A's staff token -> the load-or-404 helper 404s.
         r = await client.post(f"/api/matches/{ctx['mb'].id}/seat")
         assert r.status_code == 404

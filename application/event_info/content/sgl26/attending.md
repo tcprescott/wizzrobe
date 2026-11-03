@@ -8,145 +8,149 @@ summary: The venue, check-in and badges, what to bring, playing in the tournamen
 
 ## Getting there
 
-**DoubleTree by Hilton Washington Dulles Airport**
+DoubleTree by Hilton Washington Dulles Airport
 13869 Park Center Road, Herndon, VA 20171
 +1 703-478-2900
 
-Directions by plane, train and car are in the event guide. The closest airport
-is Dulles (IAD), and the hotel runs a free shuttle; call to confirm a pickup.
+Directions by plane, train and car are in the event guide. If you're flying,
+Dulles (IAD) is the closest airport and the hotel runs a free shuttle. Give the
+hotel a call to set up a pickup.
 
-Arrive Wednesday 21 October and check out Monday 26 October. The hotel takes no
-deposit when you book, but charges **$50 a night for incidentals** at check-in,
-refunded when you leave.
+We recommend arriving Wednesday 21 October and checking out Monday 26 October.
+The hotel doesn't take a deposit when you book, but it does put a $50 a night
+hold on your card at check-in for incidentals. You get that back when you check
+out.
 
 ## Check-in and badges
 
-The check-in desk is on the **1st floor, outside the fitness center**: 4–10 PM
-Wednesday, 10 AM–8 PM Thursday and Friday, 10 AM–4 PM Saturday.
+Pick up your badge at the check-in desk, on the 1st floor just outside the
+fitness center. It's open 4 to 10 PM Wednesday, 10 AM to 8 PM Thursday and
+Friday, and 10 AM to 4 PM Saturday.
 
-Show the **QR code Matcherino emailed you**, or your photo ID, and collect your
-badge. **Keep it visible for the whole event.** No ticket yet? The desk sells
-them, **cash only**: $40 for a day, $80 for the event.
+Bring the QR code from your Matcherino email, or a photo ID. Wear your badge
+where people can see it all weekend.
 
-Outside those hours, go to the **admin desk in the tournament room** (Sully), or
-ping an admin.
+Haven't bought a ticket? The desk sells them, cash only: $40 for a day pass,
+$80 for the full event.
+
+Desk closed? Head to the admin desk in Sully (the tournament room) or grab an
+admin.
 
 ## What to bring
 
-- **1/8" wired earbuds.** Stage matches put white-noise headphones over them.
-  There are a few spares, but bring your own.
-- **Your console, controller and game or flash cart**, or the laptop you play
-  on if you use an emulator. Contact the organisers before the event if you
-  can't bring one.
-- **A tracking device** if your tournament allows a tracking program. Pencil
-  and paper are at the admin desk.
-- Displays are **LCD monitors through a RetroTINK** (composite, component,
-  S-Video). Bring your own screen if you want something else.
+- Wired earbuds with a 1/8" plug. On stage you'll wear white-noise headphones
+  over them. We have a few spares, but please bring your own.
+- Whatever you play on: your console, controller and game or flash cart, or your
+  laptop if you play on emulator. If you can't bring one, get in touch with us
+  before the event.
+- A phone, tablet or laptop for tracking, if your tournament allows a tracking
+  program. Pencil and paper are at the admin desk.
+- Our displays are LCD monitors running through a RetroTINK (composite,
+  component or S-Video). If you want a different screen, bring it.
 
 ## Check-in and stations
 
 :::snippet check-in
-**Check in at the admin desk**, just inside the tournament room (Sully) to the
-left of the doors, not with the proctor. The admin checks your match in and the
-board flips to {state:Checked In}. If they're tied up and your match is due, the
-**proctor** checks you in instead.
+When it's time for your match, check in at the admin desk, just inside Sully on
+the left as you walk in. Check in there, not with the proctor. The admin checks
+your match in and the board switches to {state:Checked In}. If the admin's busy
+and your match is due, the proctor can check you in instead.
 
-You're given a **station**, the seat you play at, and its number shows next to
-your name on the board. You don't pick your own.
+You'll be given a station, which is the seat you play at, and its number shows
+next to your name on the board.
 :::
 
-There's also a PC by the admin desk for putting a match on the schedule or
-signing up to volunteer.
+There's also a PC by the admin desk where you can put a match on the schedule or
+sign up to volunteer.
 
 ## In the tournament room
 
 :::snippet player-room
-Set up your own machine at your station. Once you're seated, use the
-self-service PC to get your seed onto your device (or your seed number, for
-Zelda 1 Randomizer). The proctor checks both players' hash codes, then counts
-you down quietly.
+Set up at your station, then use the self-service PC to load your seed. Zelda 1
+players get a seed number instead. The proctor checks both hash codes and counts
+you down. Make sure you can hear your game before the countdown, not after. Any
+headphones are fine in here.
 
-Check **sound is reaching your headphones** before the countdown. Any
-headphones are fine in this room.
+Need a RetroTINK 2X? We have some to lend. Scan the QR code on it to check it
+out, and hand it to an admin when you're done.
 
-**RetroTINK 2X units are available to borrow.** Scan the QR code on the device
-and check it out to yourself; hand it back to an admin when you're done.
+When you finish, raise your hand. The proctor confirms it and lets your opponent
+know. Close finishes go to the admin desk.
 
-When you finish, **raise your hand**. The proctor verifies it and tells your
-opponent. A close finish goes to the admin desk.
-
-**The room and the hallway outside are a quiet zone.** Take the post-match
-talk down the hall. The room isn't open to spectators; an on-site admin can make
-an exception.
+Keep it quiet in the room and the hallway outside, and take the post-race chat
+further down the hall. No spectators in the room unless an admin says so.
 :::
 
 ## If your match is on a stage
 
 :::snippet player-stage
-A stage match shows a **Stage** on its DM and on the schedule board, so you'll
-know in advance.
+You'll know ahead of time: stage matches show a Stage on the DM and on the
+schedule board.
 
-**Report to the broadcast room first** (Piedmont I + II, 2nd floor). The
-broadcast tech shows you where to sit and set up. For a randomizer, go down to
-the tournament room for your seed; a vanilla game skips that. When the broadcast
-starts, tell the tech you're ready and they count you down.
+Go to the broadcast room first (Piedmont I + II, 2nd floor). The broadcast tech
+will show you where to sit and set up. If you're playing a randomizer, head down
+to the tournament room to get your seed, then come back up. Vanilla games can
+skip that step. When the broadcast starts, tell the tech you're ready and
+they'll count you down.
 
-Bring your 1/8" wired earbuds: you hear the game through them, under the
+Don't forget your wired earbuds. You'll hear the game through them, under the
 white-noise headphones.
 :::
 
 ## If something goes wrong
 
 :::snippet player-trouble
-Tell the proctor. An admin makes the call on all of these, so raising it early
-is the fastest route.
+Tell the proctor. An admin makes the call on all of these, so the sooner you say
+something, the sooner it gets sorted.
 
-| What has happened | What you do |
+| What happened | What to do |
 |---|---|
-| **Your opponent hasn't turned up** | Tell the proctor. An admin decides whether to wait, reschedule or forfeit. |
-| **Hardware or the game fails mid-match** | Tell the proctor. Fix your own kit if you're comfortable; whether the match resumes or restarts is the tournament's call. |
-| **Something isn't right** about how the match is played | Tell the proctor or an admin quietly, not your opponent. |
-| **You disagree on the result** | Tell the proctor before you leave. Staff settle it. |
+| Your opponent hasn't shown up | Tell the proctor. An admin decides whether to wait, reschedule or call a forfeit. |
+| Your hardware or the game breaks mid-match | Tell the proctor. You're welcome to fix your own gear, and the tournament decides whether the match carries on or restarts. |
+| Something about the match doesn't look right | Quietly tell the proctor or an admin. Don't take it up with your opponent. |
+| You can't agree on the result | Tell the proctor before you leave and staff will settle it. |
 :::
 
 ## When your match ends
 
 :::snippet player-turnover
-If you've lost, put the controller down. Collect your things and leave the
-station free, since the next pair are usually waiting. Nothing to do in the app:
-the station frees itself once the proctor records the result.
+If you've lost, put the controller down. Pack up your things and free up the
+station, because the next pair is usually waiting. You don't need to do anything
+in the app. The station frees up once the proctor records the result.
 :::
 
 ## Food
 
-**Breakfast** is a buffet, 6:30 to about 10 AM daily: **Old Ox** on Wednesday,
-**Colvin** Thursday to Monday.
+Breakfast is a buffet from 6:30 to around 10 AM every day, in Old Ox on Wednesday
+and Colvin Thursday through Monday.
 
-Nearby:
+Close by:
 
-- **Sheetz**, round the corner at Towerview Road and McLearen Road, with
+- Sheetz is right around the corner at Towerview and McLearen, with
   made-to-order food.
-- **About ¾ mile**, at Centreville Road and McLearen Road: Taco Bell, Burger
-  King, Popeyes, a Food Lion, a CVS, Indian, breakfast and pizza places.
-- **A mile south** (next exit on Route 28): Wawa and Chick-fil-A.
-- **About 3 miles south** in Chantilly: Walmart, Costco and more. Reston Town
-  Center is a short drive north.
+- About ¾ mile away at Centreville and McLearen there's Taco Bell, Burger King,
+  Popeyes, a Food Lion, a CVS, an Indian place, a breakfast spot and a couple of
+  pizza chains.
+- A mile south (the next exit on Route 28) there's a Wawa and a Chick-fil-A.
+- About 3 miles south in Chantilly there's a Walmart, a Costco and plenty more.
+  Reston Town Center is a short drive north.
 
 MisterAngryPants keeps a list of local restaurants:
 [MAP's SGL Restaurant Big Board](https://docs.google.com/spreadsheets/d/10PKJV1Y62e3ZnFXR3s349YBm9H6GSkyrKDOe4s8puHw/edit?usp=sharing).
 
 ## Medical
 
-The nearest hospital is **Reston Hospital Center**, 1850 Town Center Parkway.
-For urgent care, **CareNow Urgent Care** is at 3456 Historic Sully Way,
-Chantilly, about a mile south near the Wawa.
+The nearest hospital is Reston Hospital Center, 1850 Town Center Parkway. For
+urgent care, CareNow Urgent Care is at 3456 Historic Sully Way in Chantilly,
+about a mile south near the Wawa.
 
 ## Conduct and safety
 
-SpeedGaming's code of conduct covers the event and the Discord:
-[quick reference](https://docs.google.com/document/d/1y-j3aeNmoEYZL7Tn5nPbtBSapU0MykZm1m9rtZ2fGwo/edit),
+SpeedGaming's code of conduct applies at the event and on the Discord. Here's the
+[quick reference](https://docs.google.com/document/d/1y-j3aeNmoEYZL7Tn5nPbtBSapU0MykZm1m9rtZ2fGwo/edit)
+and the
 [full version](https://docs.google.com/document/d/1ROnq2Iu1shplVljjqljK0WjrV3OWLWILRnA1awPAVG8/edit).
-Please read the
+Please also read the
 [SGLive safety and security policy](https://docs.google.com/document/d/1ijdnmjl-s1tEvTpergVNKKAECAntnml-_FjhIQpOPOU/edit#heading=h.tb9nufn3z8e1)
-in full. Report a problem to an admin or any SGLive staff member, or ping
-**@Staff** in the [event Discord](https://discord.com/invite/T6qzxNJ).
+all the way through. If something's wrong, tell an admin or anyone on SGLive
+staff, or ping @Staff in the [event Discord](https://discord.com/invite/T6qzxNJ).

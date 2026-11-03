@@ -10,14 +10,22 @@ because every attempt consumes a real, publicly-numbered seed upstream and a
 silent retry loop spends them where nobody is watching.
 """
 
+import asyncio
 import logging
 from typing import Optional
+
+import aiohttp
 
 from application.errors import MissingCredentialError
 from application.events import EventType, match_live
 from application.services.audit_service import AuditActions, AuditService
 from application.services.provider_task_service import ProviderTaskService
 from application.services.seedgen_service import SeedGenerationService
+from application.utils.seed_provider import (
+    SeedProviderRateLimited,
+    SeedProviderTimeout,
+    SeedProviderUnavailable,
+)
 from models import Match, Preset, ProviderTask, ProviderTaskStatus, User
 
 logger = logging.getLogger(__name__)
@@ -71,12 +79,7 @@ class SeedRollService:
         without re-reading the row.
         """
         if task.provider_task_id is None:
-            # No upstream handle yet, so there is nothing to poll — but this is
-            # **not** a failure. It is also the state of a task whose submit is
-            # still in flight, and the submit takes as long as the provider takes
-            # to answer. Failing here would let a tick that lands in that window
-            # kill a live roll. ``sweep_stale`` retires the ones that really are
-            # stuck, on a timer long enough to tell the two apart.
+            # Not a failure: the submit may still be in flight. sweep_stale retires the really stuck ones.
             return ProviderTaskStatus(task.status)
 
         try:
@@ -86,6 +89,12 @@ class SeedRollService:
                 task.provider_params,
                 task.settings_snapshot,
             )
+        except (aiohttp.ClientError, asyncio.TimeoutError, SeedProviderTimeout,
+                SeedProviderUnavailable, SeedProviderRateLimited) as exc:
+            # A poll error is the provider blipping, not the roll: retry next tick.
+            logger.warning('Provider task %s (%s) poll failed, will retry: %s',
+                           task.id, task.provider, exc or type(exc).__name__)
+            return ProviderTaskStatus(task.status)
         except Exception as exc:
             logger.error(
                 'Provider task %s (%s) failed: %s', task.id, task.provider, exc, exc_info=exc,
@@ -96,8 +105,7 @@ class SeedRollService:
         if result.seed is None:
             return ProviderTaskStatus(task.status)
 
-        # Claim before completing: a duplicate tick that loses this race must not
-        # write a second GeneratedSeeds row or DM both players twice.
+        # Claim first, or a duplicate tick writes a second GeneratedSeeds row and DMs twice.
         if not await self.task_service.claim(task, ProviderTaskStatus.SUCCEEDED):
             return ProviderTaskStatus.SUCCEEDED
 
@@ -147,12 +155,13 @@ class SeedRollService:
         match_id = task.match_id  # type: ignore[attr-defined]
         if match_id is None:
             return
+        from application.services import opt_in_notifications
+        from application.services.discord import discord_queue
+        discord_queue.enqueue(opt_in_notifications.seed_failed(match_id, error))
 
         requester = await self._relation(User, task.requested_by_id)  # type: ignore[attr-defined]
         if requester is None:
-            # No requester means nothing to attribute the failure to, and the
-            # audit layer refuses a null actor by design. The task row still
-            # carries the error, and match_live still clears the UI below.
+            # No requester, no audit: the audit layer refuses a null actor.
             match_live.publish(match_id)
             return
 
@@ -168,8 +177,6 @@ class SeedRollService:
             EventType.MATCH_SEED_ROLL_FAILED,
             event_details={'match_id': match_id, 'error': error},
         )
-        # Puts the failure in front of whoever is looking at the schedule, and
-        # returns the row's Generate button to a usable state.
         match_live.publish(match_id)
 
     @staticmethod

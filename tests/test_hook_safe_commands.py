@@ -82,32 +82,19 @@ def test_ordinary_commands_pass(remote: bool) -> None:
     assert run_hook(BENIGN, remote=remote) == ALLOWED
 
 
-# `-f` process matching kills the shell that runs it: `-f` matches full command
-# lines, and that shell has the whole command — pattern included — in its own.
-# The pattern is always there, because it is the argument, so this is a
-# certainty rather than a risk. The shell dies (exit 143/144, no output) and the
-# intended target keeps running. It cost a session three attempts and two wrong
-# diagnoses; `./start.sh stop` exists so nobody repeats it.
-#
+# `-f` matches full command lines, so it kills the shell running it (the pattern is its argument).
 # Assembled from fragments for the same reason as the constants above.
 _KILL = "pk" + "ill"
 _FIND = "pg" + "rep"
 
 KILL_QUOTED = f'{_KILL} -f "uvicorn main:app"'
 KILL_BARE = f"{_KILL} -f uvicorn"
-# Naming a different process does not save it: the pattern is still in the
-# command line of the shell doing the matching.
 KILL_OTHER_PROCESS = f"{_KILL} -f some-other-daemon"
-# The bracket "trick" that looks like it dodges the match and does not.
 FIND_THEN_KILL = f"for pid in $({_FIND} -f 'uvi[c]orn'); do kill $pid; done"
 
-# Safe: looking is harmless — it only becomes the hazard when piped into kill.
 FIND_ONLY = f"{_FIND} -af 'uvicorn' | head"
-# Safe: no -f at all, so it matches process *names*, not full command lines.
 BY_NAME = f"{_KILL} uvicorn"
 STOP_SCRIPT = "./start.sh stop"
-# Safe: prose, not a command. Writing a doc or a test about this hazard must not
-# trip the hook that guards it — which it did, on the first attempt.
 IN_A_COMMENT = f"echo hello  # never run {_KILL} -f uvicorn here"
 
 

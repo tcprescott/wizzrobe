@@ -1,28 +1,35 @@
-"""Tournament write endpoints: create/update/delete, admins, crew coordinators, roster and Challonge link."""
+"""Tournament write endpoints: create/update/delete, admins, crew coordinators, roster, Challonge link and round schedule."""
 
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query, status
 
 from api._helpers import load_user_or_404
-from api.dependencies import ServiceErrorRoute, require_api_actor, require_write_actor
+from api.dependencies import ServiceErrorRoute, event_binding, require_api_actor, require_write_actor
 from api.schemas.detail import DetailResponse
 from api.schemas.match_actions import MatchSuggestionResponse
 from api.schemas.tournament_actions import (
     ChallongeLinkRequest,
     ChallongeSyncResponse,
     MembershipRequest,
+    RoundScheduleStageResponse,
+    StageBestOfRequest,
     TournamentCreateRequest,
     TournamentUpdateRequest,
 )
 from api.schemas.tournaments import TournamentResponse
 from api.schemas.users import UserListItem
 from application.errors import require_found
-from application.services import ChallongeService, MatchSuggestionService, TournamentService
+from application.services import (
+    ChallongeService,
+    MatchSuggestionService,
+    RoundScheduleService,
+    TournamentService,
+)
 from application.tenant_context import require_tenant_id
 from models import Tournament, User
 
-router = APIRouter(prefix="/tournaments", tags=["Tournaments"], route_class=ServiceErrorRoute)
+router = APIRouter(prefix="/tournaments", tags=["Tournaments"], route_class=ServiceErrorRoute, dependencies=[Depends(event_binding(tournament_id=Tournament))])
 
 
 async def _load_tournament_or_404(tournament_id: int) -> Tournament:
@@ -62,8 +69,6 @@ async def update_tournament(
     tournament_id: int, body: TournamentUpdateRequest, actor: User = Depends(require_write_actor),
 ):
     tournament = await _load_tournament_or_404(tournament_id)
-    # The repository mutates ``tournament`` in place (and returns None), so we
-    # return the now-updated instance.
     await TournamentService().update_tournament(
         tournament, actor=actor, **body.model_dump(exclude_unset=True),
     )
@@ -255,12 +260,12 @@ async def list_players(tournament_id: int, actor: User = Depends(require_api_act
 @router.post(
     "/{tournament_id}/players",
     response_model=DetailResponse,
-    summary="Enroll a player (Staff only)",
+    summary="Enroll a player (Staff or Tournament Admin)",
     description=(
         "Adds a member to the tournament's roster. Unlike self-signup this ignores the signup "
         "window. Fails with 400 when the person isn't a member of this community or is already "
         "enrolled.\n\n"
-        "**Who can call this:** Staff."
+        "**Who can call this:** Staff or Admins of this tournament."
     ),
 )
 async def enroll_player(tournament_id: int, body: MembershipRequest, actor: User = Depends(require_write_actor)):
@@ -273,10 +278,10 @@ async def enroll_player(tournament_id: int, body: MembershipRequest, actor: User
 @router.delete(
     "/{tournament_id}/players/{user_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    summary="Remove a player from the roster (Staff only)",
+    summary="Remove a player from the roster (Staff or Tournament Admin)",
     description=(
         "Takes the person off the tournament's roster, whatever the signup window says.\n\n"
-        "**Who can call this:** Staff."
+        "**Who can call this:** Staff or Admins of this tournament."
     ),
 )
 async def unenroll_player(tournament_id: int, user_id: int, actor: User = Depends(require_write_actor)):
@@ -288,12 +293,12 @@ async def unenroll_player(tournament_id: int, user_id: int, actor: User = Depend
 @router.put(
     "/{tournament_id}/challonge",
     response_model=TournamentResponse,
-    summary="Link a tournament to a Challonge bracket (Staff or Tournament Admin)",
+    summary="Link a tournament to a Challonge bracket (Staff only)",
     description=(
         "Links the tournament to a Challonge bracket by its URL or ID and imports it. Needs the "
         "Challonge feature on and the community's Challonge connection set up. Fails with 400 "
         "when the tournament already has a native bracket or Challonge can't find the bracket.\n\n"
-        "**Who can call this:** Staff or Admins of this tournament."
+        "**Who can call this:** Staff."
     ),
 )
 async def link_challonge(
@@ -306,11 +311,11 @@ async def link_challonge(
 @router.delete(
     "/{tournament_id}/challonge",
     response_model=TournamentResponse,
-    summary="Unlink a tournament from Challonge (Staff or Tournament Admin)",
+    summary="Unlink a tournament from Challonge (Staff only)",
     description=(
         "Detaches the tournament from Challonge and drops the mirrored bracket here. Nothing on "
         "Challonge is deleted, and linking again re-imports it.\n\n"
-        "**Who can call this:** Staff or Admins of this tournament."
+        "**Who can call this:** Staff."
     ),
 )
 async def unlink_challonge(tournament_id: int, actor: User = Depends(require_write_actor)):
@@ -321,13 +326,51 @@ async def unlink_challonge(tournament_id: int, actor: User = Depends(require_wri
 @router.post(
     "/{tournament_id}/challonge/sync",
     response_model=ChallongeSyncResponse,
-    summary="Sync a tournament's Challonge bracket now (Staff or Tournament Admin)",
+    summary="Sync a tournament's Challonge bracket now",
     description=(
-        "Pulls the latest entrants and matches from Challonge, the same as Sync now on the "
-        "Challonge tab.\n\n"
-        "**Who can call this:** Staff or Admins of this tournament."
+        "Pulls the latest entrants and matches from Challonge, the same as Sync bracket in "
+        "the tournament's ⋮ on Admin → Tournaments.\n\n"
+        "**Who can call this:** Staff, or an admin of this tournament."
     ),
 )
 async def sync_challonge(tournament_id: int, actor: User = Depends(require_write_actor)):
     await _load_tournament_or_404(tournament_id)
     return {"counts": await ChallongeService().sync_bracket(tournament_id, actor, force=True)}
+
+
+@router.get(
+    "/{tournament_id}/round-schedule",
+    response_model=List[RoundScheduleStageResponse],
+    summary="List a bracket tournament's round schedule",
+    description=(
+        "The stages of a Challonge or start.gg tournament in play order, each with its booking "
+        "window, how many games its matchups play and how many are already booked: what "
+        "Round schedule in the tournament's ⋮ on Admin → Tournaments shows. Fails with 400 for a "
+        "tournament with no Challonge or start.gg bracket.\n\n"
+        "**Who can call this:** Staff, or an admin of this tournament."
+    ),
+)
+async def list_round_schedule(tournament_id: int, actor: User = Depends(require_api_actor)):
+    await _load_tournament_or_404(tournament_id)
+    stages = await RoundScheduleService().list_stages(tournament_id, actor)
+    return [RoundScheduleStageResponse.from_stage(s) for s in stages]
+
+
+@router.put(
+    "/{tournament_id}/round-schedule/{stage_key}/best-of",
+    response_model=RoundScheduleStageResponse,
+    summary="Set how many games a stage's matchups play",
+    description=(
+        "Sets Best of 1, 3 or 5 for one stage, leaving its booking window alone. Each game is then "
+        "booked as its own match. Matches already booked for the stage keep the length they were "
+        "booked with. Fails with 400 when the tournament has no such stage.\n\n"
+        "**Who can call this:** Staff, or an admin of this tournament."
+    ),
+)
+async def set_stage_best_of(
+    tournament_id: int, stage_key: str, body: StageBestOfRequest,
+    actor: User = Depends(require_write_actor),
+):
+    await _load_tournament_or_404(tournament_id)
+    stage = await RoundScheduleService().set_best_of(tournament_id, stage_key, body.best_of, actor)
+    return RoundScheduleStageResponse.from_stage(stage)

@@ -38,7 +38,6 @@ async def test_events_rosters_and_badges_do_not_leak_across_tenants(two_tenants)
         entrant_a = (await service.roster(event_a))[0]
 
     with tenant_scope(b.id):
-        # The same venue is free in B: uniqueness is per community.
         event_b = await service.create_event(staff, 'B event', venue_id=VENUE)
         assert [e.id for e in await service.list_events()] == [event_b.id]
         assert await service.get_event(event_a.id) is None
@@ -90,7 +89,6 @@ async def test_the_worker_scan_is_cross_tenant_but_each_sync_stays_home(two_tena
 
     await check_in_sync_worker._tick()
 
-    # One service serves both tenants; each sync must still sign in as its own community.
     assert sorted(signed_in_as) == sorted(f'login-{t.slug}' for t in (a, b))
     for tenant in (a, b):
         rows = await CheckInEntrant.filter(tenant_id=tenant.id).prefetch_related('event')

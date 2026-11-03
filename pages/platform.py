@@ -5,13 +5,14 @@ global ``SUPER_ADMIN`` role. Manages tenant CRUD (name, slug, domain, guild id,
 active). Runs tenant-agnostically — its queries pass explicit ids, so the
 per-tenant scoping never applies.
 
-The page is six tabs (``?tab=`` opens one); this module owns the communities
+The page is eight tabs (``?tab=`` opens one); this module owns the communities
 tab and builds the rest from their own modules, which is what keeps it inside the file-length
 guideline: :mod:`pages.platform_bots` (racetime bots),
 :mod:`pages.platform_feature_groups` (tiers, and one tenant's overrides),
 :mod:`pages.platform_tenant_admins` (a community's first staff member),
 :mod:`pages.platform_users` (every account, and password sign-in),
-:mod:`pages.platform_logging` (runtime log levels) and
+:mod:`pages.platform_logging` (runtime log levels),
+:mod:`pages.platform_monitoring` (browser-side Sentry) and
 :mod:`pages.service_health_view` (the health board, shared with the admin tab).
 """
 
@@ -28,12 +29,14 @@ from application.services import (
 from application.services.auth_service import AuthService
 from application.table_preferences_context import table_prefs_scope
 from application.tenant_context import get_current_tenant_id
+from pages.platform_apps import render_apps_section
 from pages.platform_bots import render_bots_section
 from pages.platform_feature_groups import (
     open_tenant_features_dialog,
     render_feature_groups_section,
 )
 from pages.platform_logging import render_logging_section
+from pages.platform_monitoring import render_monitoring_section
 from pages.platform_shared import ACTIVE_ICON_SLOT, section_intro
 from pages.platform_tenant_admins import open_tenant_admins_dialog
 from pages.platform_users import render_users_section
@@ -48,26 +51,25 @@ from theme.tables.preferences import (
     preferences_button,
     search_input,
 )
+from theme.url_state import bind_url
 
 _bot_service = RacetimeBotService()
 
-# (key, label, icon) per tab. The key is the ``?tab=`` value a link can open.
 _SECTIONS: tuple[tuple[str, str, str], ...] = (
     ('communities', 'Communities', 'groups'),
     ('users', 'Users', 'person'),
     ('bots', 'Racetime bots', 'smart_toy'),
+    ('apps', 'Apps', 'apps'),
     ('features', 'Feature groups', 'toggle_on'),
     ('logging', 'Logging', 'tune'),
+    ('monitoring', 'Monitoring', 'bug_report'),
     ('health', 'Service health', 'monitor_heart'),
 )
 _SECTION_KEYS = {key for key, _, _ in _SECTIONS}
 
-# NiceGUI's own 16px panel padding, on top of the page's, cost a phone 64px of a
-# 390px screen. The page column already supplies the gutter.
 _PANEL_STYLE = 'padding-left: 0; padding-right: 0'
 
-# Readiness chip, shared by the desktop Setup cell and the mobile card. Rows must
-# carry ``setup`` (text), ``setup_ready`` and ``setup_missing`` (tooltip).
+# Rows must carry `setup`, `setup_ready` and `setup_missing`.
 _SETUP_CHIP = '''
     <span class="wiz-chip" :class="props.row.setup_ready ? 'wiz-chip--ok' : 'wiz-chip--neutral'">
         {{ props.row.setup }}
@@ -104,8 +106,7 @@ def create() -> None:
     async def platform(tab: str = '') -> None:
         from theme.error_page import render_error_page
 
-        # /platform is a platform-level page: reached via /t/<slug>/platform it
-        # would carry a tenant — that is not a tenant page, so 404.
+        # Reached via /t/<slug>/platform it carries a tenant; this isn't a tenant page, so 404.
         if get_current_tenant_id() is not None:
             render_error_page(
                 status_code=404, headline='Not Found',
@@ -123,9 +124,7 @@ def create() -> None:
 
         ui.page_title('Platform administration')
         _render_platform_chrome()
-        # This surface builds its own chrome rather than BaseLayout, so it primes
-        # the viewer's table layouts itself — without this the gears below would
-        # save preferences that never came back.
+        # Own chrome, not BaseLayout: prime the table layouts here, or the gears save preferences that never come back.
         prefs = await TablePreferenceService().prime(user)
         current = tab if tab in _SECTION_KEYS else _SECTIONS[0][0]
         with table_prefs_scope(prefs), \
@@ -136,10 +135,9 @@ def create() -> None:
             ).classes('w-full') as tabs:
                 for key, label, icon in _SECTIONS:
                     ui.tab(key, label=label, icon=icon)
-            # Keep ?tab= in step so a reload or a shared link reopens the same
-            # section; replaceState, because a tab switch is not a navigation.
-            tabs.on_value_change(lambda e: ui.run_javascript(
-                f"history.replaceState(null, '', '/platform?tab={e.value}')"))
+            labels = {key: label for key, label, _icon in _SECTIONS}
+            bind_url('tab', tabs, default=_SECTIONS[0][0], choices=_SECTION_KEYS,
+                     label=labels.get)
             with ui.tab_panels(tabs, value=current).classes('w-full'):
                 with ui.tab_panel('communities').style(_PANEL_STYLE):
                     await _render_tenants_section(user)
@@ -147,10 +145,14 @@ def create() -> None:
                     await render_users_section(user)
                 with ui.tab_panel('bots').style(_PANEL_STYLE):
                     await render_bots_section(user)
+                with ui.tab_panel('apps').style(_PANEL_STYLE):
+                    await render_apps_section(user)
                 with ui.tab_panel('features').style(_PANEL_STYLE):
                     await render_feature_groups_section(user)
                 with ui.tab_panel('logging').style(_PANEL_STYLE):
                     await render_logging_section(user)
+                with ui.tab_panel('monitoring').style(_PANEL_STYLE):
+                    await render_monitoring_section(user)
                 with ui.tab_panel('health').style(_PANEL_STYLE):
                     _render_health_section()
 
@@ -162,7 +164,6 @@ async def _render_tenants_section(user) -> None:
         'Admins grants its first staff member.'
     )
     with actions:
-        # Filled once the table exists; the toolbar is drawn first.
         header_row = ui.row().classes('items-center no-wrap gap-2')
         ui.button('New tenant', icon='add', on_click=lambda: _open_create_dialog(user, table)).props('color=primary')
 
@@ -216,8 +217,7 @@ async def _render_tenants_section(user) -> None:
         preferences_button(table)
 
     async def _on_edit(e) -> None:
-        # Awaited by NiceGUI within the client's slot context (not a
-        # background task), so ui.* calls in the dialog are safe.
+        # Awaited within the client's slot context (not a background task), so ui.* calls are safe.
         await _open_edit_dialog(user, table, e.args)
 
     async def _on_features(e) -> None:
@@ -253,10 +253,6 @@ async def _refresh(table) -> None:
     tenants = await TenantService.list_tenants()
     rows = []
     for t in tenants:
-        # Five existence checks per tenant, so N×5 queries. Deliberate: /platform
-        # is super-admin-only, lists tens of tenants and is not a hot path, and
-        # this is simpler than a bespoke aggregate. Past a few hundred tenants
-        # the fix is one grouped query in TenantSetupService, not caching here.
         steps = await TenantSetupService.status_for(t.id)
         outstanding = TenantSetupService.outstanding(steps)
         required = sum(1 for s in steps if s.required)
@@ -302,9 +298,6 @@ def _open_create_dialog(actor, table) -> None:
             ui.notify('Tenant created', color='positive')
             dialog.close()
             await _refresh(table)
-            # A community with no staff cannot be administered, so ask who runs
-            # it now rather than leaving the super-admin to find the Admins row
-            # action on their own.
             await open_tenant_admins_dialog(actor, tenant.id, tenant.name)
 
         with dialog_actions().classes('justify-end'):

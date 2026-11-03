@@ -16,10 +16,7 @@ from models import User
 
 _SLUG = "URL slug, as in `/t/<slug>`: lowercase letters, digits and hyphens."
 _DOMAIN = "Custom domain the community is served on, such as `example.com`. No scheme or path."
-_GUILD = "Discord server id. One server may back several communities."
-
-
-# --- Communities --------------------------------------------------------------
+_GUILD = "Discord server id. One server may back several communities. A string of digits is accepted too."
 
 
 class SetupStepResponse(BaseModel):
@@ -48,6 +45,10 @@ class CommunityResponse(BaseModel):
     slug: str = Field(..., description=_SLUG)
     domain: Optional[str] = Field(None, description=_DOMAIN + " Null when unset.")
     discord_guild_id: Optional[int] = Field(None, description=_GUILD + " Null when unlinked.")
+    discord_guild_id_str: Optional[str] = Field(
+        None,
+        description="The same id as a string, for clients (JavaScript) whose numbers can't hold a Discord id exactly.",
+    )
     is_active: bool = Field(..., description="Whether the community is switched on. An inactive one is hidden everywhere.")
     feature_group_id: Optional[int] = Field(
         None, description="Feature group (tier) the community is on. Null means the default group."
@@ -62,7 +63,9 @@ class CommunityResponse(BaseModel):
         tenant = overview.tenant
         return cls(
             id=tenant.id, name=tenant.name, slug=tenant.slug, domain=tenant.domain,
-            discord_guild_id=tenant.discord_guild_id, is_active=tenant.is_active,
+            discord_guild_id=tenant.discord_guild_id,
+            discord_guild_id_str=str(tenant.discord_guild_id) if tenant.discord_guild_id is not None else None,
+            is_active=tenant.is_active,
             feature_group_id=tenant.feature_group_id,  # type: ignore[attr-defined]
             feature_group=overview.feature_group,
             setup_ready=overview.setup_ready, setup_missing=overview.setup_missing,
@@ -94,9 +97,6 @@ class CommunityUpdateRequest(BaseModel):
 
 class StaffGrantRequest(BaseModel):
     user_id: int = Field(..., description="Id of the account to make Staff, from `GET /platform/users`.")
-
-
-# --- Feature availability -----------------------------------------------------
 
 
 class CommunityFeatureResponse(BaseModel):
@@ -152,9 +152,6 @@ class FeatureGroupUpdateRequest(BaseModel):
     )
 
 
-# --- Accounts -----------------------------------------------------------------
-
-
 class PlatformUserResponse(BaseModel):
     id: int = Field(..., description="User id.")
     username: str = Field(..., description="Discord username, or sign-in name for a password-only account.")
@@ -180,9 +177,6 @@ class UserActivationRequest(BaseModel):
     is_active: bool = Field(..., description="`false` signs the account out everywhere and blocks sign-in; `true` restores it.")
 
 
-# --- Log levels ---------------------------------------------------------------
-
-
 class LogLevelResponse(BaseModel):
     logger: str = Field(..., description="Logger name, as in `logging.getLogger(__name__)`. Empty string is the root logger.")
     description: str = Field(..., description="What the logger covers. `Custom` for one added by hand.")
@@ -202,3 +196,67 @@ class LogLevelResponse(BaseModel):
 class LogLevelSetRequest(BaseModel):
     logger: str = Field(..., description="Logger name. Empty string or `root` is the root logger.")
     level: str = Field(..., description="`TRACE`, `DEBUG`, `INFO`, `WARNING`, `ERROR` or `CRITICAL`.")
+
+
+class PlatformAppResponse(BaseModel):
+    id: int = Field(..., description="App id.")
+    name: str = Field(..., description="App name.")
+    owner: str = Field(..., description="Name of the person who registered it.")
+    kind: str = Field(..., description="`website` (holds a client secret) or `device` (public client, PKCE only).")
+    first_party: bool = Field(..., description="Whether this is Wizzrobe's own app.")
+    people: int = Field(..., description="How many people have connected it.")
+    communities: int = Field(..., description="In how many communities.")
+    disabled: bool = Field(..., description="Whether it's switched off everywhere.")
+    disabled_reason: Optional[str] = Field(None, description="Why it was disabled; the owner sees this. Null when active.")
+    disabled_at: Optional[datetime] = Field(None, description="When it was disabled (UTC). Null when active.")
+
+
+class AppDisableRequest(BaseModel):
+    reason: str = Field(..., max_length=300, description="Why it's being switched off. Shown to the app's owner.")
+
+
+class BrowserMonitoringSettingsResponse(BaseModel):
+    enabled: bool = Field(..., description="Whether people's browsers report errors to Sentry at all.")
+    replay_on_error: bool = Field(..., description="Whether an error carries a masked session replay.")
+    sample_rate: float = Field(..., description="Share of browser errors sent, one of `sample_rates`.")
+    sample_rates: List[float] = Field(..., description="The shares that may be picked.")
+    updated_by: Optional[str] = Field(None, description="Who last changed these. Null when never changed.")
+    updated_at: Optional[datetime] = Field(None, description="When (UTC). Null when never changed.")
+
+
+class BrowserMonitoringSettingsRequest(BaseModel):
+    enabled: bool = Field(..., description="Report browser errors to Sentry.")
+    replay_on_error: bool = Field(..., description="Attach a masked session replay to each error.")
+    sample_rate: float = Field(..., description="Share of errors sent: 1.0, 0.5, 0.25 or 0.1.")
+
+
+class IgnoreRuleResponse(BaseModel):
+    id: Optional[int] = Field(None, description="Rule id. Null for a built-in rule, which can't be removed.")
+    pattern: str = Field(..., description="Text that, when found, drops the error.")
+    match: str = Field(..., description="Where to look: `message` (the error message) or `url` (a script URL in the stack).")
+    builtin: bool = Field(..., description="Whether it ships with Wizzrobe.")
+    created_by: Optional[str] = Field(None, description="Who added it. Null for a built-in.")
+    created_at: Optional[datetime] = Field(None, description="When (UTC). Null for a built-in.")
+
+
+class IgnoreRuleCreateRequest(BaseModel):
+    pattern: str = Field(..., max_length=200, description="A distinctive part of the error, 3 to 200 characters.")
+    match: str = Field("message", description="`message` or `url`.")
+
+
+class FeatureCatalogResponse(BaseModel):
+    flag: str = Field(..., description="Feature key, as used in feature groups and overrides.")
+    label: str = Field(..., description="Display name.")
+    description: str = Field(..., description="What turning it on gives a community.")
+    category: str = Field(..., description="Group it's listed under.")
+
+
+class PasswordAccountCreateRequest(BaseModel):
+    display_name: str = Field(..., max_length=150, description="Name shown everywhere.")
+    login_name: str = Field(..., description="Sign-in name: 3 to 64 letters, digits, dots, dashes and underscores.")
+    password: str = Field(..., description="At least 12 characters. Never returned.")
+
+
+class PasswordSetRequest(BaseModel):
+    login_name: str = Field(..., description="Sign-in name: 3 to 64 letters, digits, dots, dashes and underscores.")
+    password: str = Field(..., description="At least 12 characters. Never returned.")

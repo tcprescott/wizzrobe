@@ -11,7 +11,7 @@ date-range/tournament filters, the export button and the URL-param navigation.
 |---|---|---|
 | Dashboard | `dashboard.py` | Landing page: KPI summary + cards linking to each report. Takes a date window like every other report (absent ⇒ the event window); no CSV, since each KPI links to a report that already exports the data it comes from |
 | Insights & Trends | `insights.py` | Crew participation, volunteer hours, tournament health and admin activity trended weekly/monthly across events (`AnalyticsService`). Defaults to the window `AnalyticsService.activity_extent` reports — floored at four weeks, capped near a year, most-recent slice — rather than a fixed trailing range, so the charts open on buckets that have data in them |
-| Capacity Forecast | `capacity.py` | Concurrent player count over a date range vs. configured capacity |
+| Capacity Forecast | `capacity.py` | Concurrent players over a date range vs. configured capacity, as stacked off-stream (floor) and on-stream (`stage_id` set) bands whose top edge is the total. Busiest times ranks by off-stream, since stage matches have their own setups. Off-stage matches of a tournament with `uses_tournament_room` off are left out entirely |
 | Match Operations | `match_ops.py` | Per-match start delay, duration, confirmation lag; per-tournament aggregates |
 | Staff / Crew Activity | `crew.py` | Coverage by match and contribution (hours, assignments) by person. A stream candidate is short only against its own tournament's `required_commentators`/`required_trackers` (see [What "covered" means](#what-covered-means)) |
 | Stage Utilization | `stages.py` | Per-stage scheduled hours, gaps, back-to-back transitions |
@@ -81,6 +81,15 @@ Aggregation always happens in a service, never in the page: most reports call
 `ReportsService`, Insights calls `AnalyticsService`, and the three that read one
 subsystem call its owner (`VolunteerScheduleService`, `TelemetryService`,
 `AuditService`).
+
+**Insights edge rules** (`analytics_service.py`):
+
+- The composite tournament-health score drops a component with no data (no
+  stream candidates, say) and renormalizes the remaining `HEALTH_WEIGHTS`, so a
+  tournament is never marked down for a dimension that doesn't apply.
+- A trend range wider than `MAX_BUCKETS` (240) keeps only the most recent 240,
+  and the query is clamped to the same window so the reported totals match the
+  chart.
 
 **CSV exports escape formula injection.** `application/utils/csv_export.py`
 prefixes a `'` to any cell whose first non-whitespace character is `=`, `+`, `-` or `@`; numerics are left alone

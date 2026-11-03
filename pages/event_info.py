@@ -34,11 +34,13 @@ from application.utils.tenant_urls import login_path
 from middleware.auth import public_page
 from models import FeatureFlag
 from theme.a11y import make_activatable
+from theme.assets import asset_url
 from theme.banner import banner
 from theme.base import BaseLayout, current_local_url
 from theme.error_page import render_not_found
 from theme.event_info_tournaments import render_tournament_list
 from theme.help.article import render_article
+from theme.links import app_href, link_button
 from theme.page_header import page_header
 
 __all__ = ['create']
@@ -75,32 +77,42 @@ async def _embeds(article: ContentArticle) -> dict:
     if not any(block.kind == 'embed' and block.name == 'tournaments' for block in article.blocks):
         return {}
     rows = await EventInfoService.list_tournaments()
-    # The prose around the list states times on the venue's clock, so the
-    # close times use it too rather than each reader's own zone.
+    # Venue clock, not the reader's: the prose around the list states times on it.
     tz = await TimezoneService.tenant_timezone_name(require_tenant_id())
     return {'tournaments': lambda: render_tournament_list(rows, tz=tz)}
 
 
-#: The organisers' own guide, served beside the articles. A fixed path rather
-#: than the file's name so a printed link survives a new revision of the PDF.
 GUIDE_PATH = '/event-info/guide.pdf'
-
-
-def _open_guide() -> None:
-    ui.navigate.to(GUIDE_PATH, new_tab=True)
+GUIDE_PAGE_PATH = '/event-info/guide'
 
 
 def _guide_banner(guide: EventGuide) -> None:
     with banner(f'Directions, the hotel map and every detail. PDF, {guide.size_label}.',
                 title='The full event guide', icon='picture_as_pdf'):
-        ui.button('Open guide', on_click=_open_guide).props('unelevated no-caps color=primary')
+        link_button('Open guide', GUIDE_PAGE_PATH, new_tab=False).props('unelevated no-caps color=primary')
 
 
 def _guide_link() -> None:
     with ui.row().classes('items-center gap-1 no-wrap q-mt-xs'):
         ui.icon('picture_as_pdf').props('size=xs').classes('text-primary')
-        link = ui.link('Full details in the event guide (PDF)', GUIDE_PATH, new_tab=True)
-        link.props['aria-label'] = 'Full details in the event guide (PDF, opens in a new tab)'
+        ui.link('Full details in the event guide', GUIDE_PAGE_PATH)
+
+
+def _guide_viewer(guide: EventGuide) -> None:
+    ui.link('← Event information', '/event-info').classes('wiz-help-back-link')
+    with page_header('Event guide'):
+        ui.space()
+        download = link_button('PDF', GUIDE_PATH, icon='download', new_tab=False) \
+            .props('outline no-caps color=primary')
+        download.props['download'] = guide.filename
+        download.props['aria-label'] = f'Download the event guide PDF ({guide.size_label})'
+    with ui.element('div').classes('wiz-guide-pages') as box:
+        box.props['data-src'] = app_href(GUIDE_PATH)
+        box.props['data-lib'] = asset_url('vendor/pdfjs/pdf.min.mjs')
+        box.props['data-worker'] = asset_url('vendor/pdfjs/pdf.worker.min.mjs')
+        ui.label('Loading the guide…').classes('wiz-guide-status text-muted')
+        ui.element('div').classes('wiz-guide-page-list')
+    ui.add_body_html(f'<script defer src="{asset_url("js/guide-viewer.js")}"></script>')
 
 
 def _nothing_published() -> None:
@@ -114,8 +126,7 @@ def _nothing_published() -> None:
 
 
 def create() -> None:
-    # Registered before the article route so ``guide.pdf`` is never read as an
-    # article slug.
+    # Registered before the article route so guide.pdf is never read as an article slug.
     @app.get(GUIDE_PATH, include_in_schema=False)
     async def event_guide_pdf() -> Response:
         try:
@@ -159,12 +170,23 @@ def create() -> None:
                 for article in articles:
                     _article_card(article)
 
-            # The boundary between the two sections, stated where a reader who
-            # came looking for the wrong one will see it.
             ui.separator().classes('separator-spacing')
-            with ui.row().classes('items-center gap-1 no-wrap'):
+            with ui.row().classes('items-baseline gap-1 no-wrap'):
                 ui.label('Looking for how the app works?').classes('text-muted')
                 ui.link('Help', '/help')
+
+    # Before the article route, so `guide` is never read as a slug.
+    @public_page(GUIDE_PAGE_PATH, feature=FeatureFlag.EVENT_INFO)
+    async def event_info_guide() -> None:
+        user = await _viewer()
+        guide = await EventInfoService.get_guide()
+        if guide is None:
+            await render_not_found(user=user, actions=[('All event information', 'event_note', '/event-info')])
+            return
+        ui.page_title(await _title('Event guide', 'Event Information'))
+        await _render_chrome(user)
+        with ui.column().classes('page-container-narrow w-full'):
+            _guide_viewer(guide)
 
     @public_page('/event-info/{slug}', feature=FeatureFlag.EVENT_INFO)
     async def event_info_article(slug: str) -> None:
@@ -173,10 +195,6 @@ def create() -> None:
         if article is None:
             back = ('All event information', 'event_note', '/event-info')
             if user is None:
-                # Not revealing which role-gated pages exist is deliberate, but
-                # a signed-out reader holds no role by definition, so saying
-                # some pages need one leaks nothing — and it is the proctor on
-                # a borrowed laptop's only way forward.
                 await render_not_found(
                     user=None,
                     message=(

@@ -46,7 +46,6 @@ def _apply_results(state, pairings):
             continue
         state[a]['opponents'].add(b)
         state[b]['opponents'].add(a)
-        # Winner: higher points, tie broken by lower ref.
         if (state[a]['points'], -a) >= (state[b]['points'], -b):
             winner = a
         else:
@@ -86,7 +85,6 @@ def test_swiss_invariants(n):
         byes = [a for a, b in pairings if b is None]
         non_bye_refs = []
 
-        # At most one bye, and only when the active count is odd.
         assert len(byes) <= 1
         if len(active) % 2 == 0:
             assert byes == []
@@ -94,19 +92,16 @@ def test_swiss_invariants(n):
             assert len(byes) == 1
 
         for a, b in pairings:
-            # No dropped player is ever paired.
             assert a not in dropped
             if b is None:
                 continue
             assert b not in dropped
             non_bye_refs.extend((a, b))
 
-            # No rematch across the whole run.
             key = frozenset((a, b))
             assert key not in seen_pairs, f"rematch {a}-{b}"
             seen_pairs.add(key)
 
-        # Everyone active is placed exactly once (paired or bye).
         placed = non_bye_refs + byes
         assert sorted(placed) == sorted(active)
         assert len(placed) == len(set(placed))
@@ -116,7 +111,6 @@ def test_bye_goes_to_low_standing_not_leader():
     """The bye must not land on the points leader while lower players qualify."""
     n = 5
     _, all_rounds = _run(n)
-    # Reconstruct standings entering each round to check the bye recipient.
     state = {
         ref: {'points': 0.0, 'opponents': set(), 'received_bye': False}
         for ref in range(1, n + 1)
@@ -128,13 +122,11 @@ def test_bye_goes_to_low_standing_not_leader():
             saw_bye = True
             bye_ref = byes[0]
             leader_pts = max(s['points'] for s in state.values())
-            # There exist lower-standing eligible players, so the leader
-            # (max points) should not be the one receiving the bye.
             assert state[bye_ref]['points'] < leader_pts or all(
                 s['points'] == leader_pts for s in state.values()
             )
         _apply_results(state, pairings)
-    assert saw_bye  # odd field must produce a bye each round
+    assert saw_bye
 
 
 def test_no_second_bye_while_others_eligible():
@@ -146,7 +138,6 @@ def test_no_second_bye_while_others_eligible():
         byes = [a for a, b in pairings if b is None]
         for bye_ref in byes:
             if bye_ref in got_bye:
-                # Only acceptable if literally everyone already had a bye.
                 assert got_bye >= set(range(1, n + 1))
             got_bye.add(bye_ref)
 
@@ -188,15 +179,11 @@ def test_none_config_treated_as_empty():
 
 def test_fewer_than_two_active():
     engine = _engine()
-    # Zero active players.
     assert engine.pair_round([], {}) == []
-    # One active, bye-eligible -> single bye.
     one = [PairingPlayer(ref=7, points=0.0, can_bye=True, received_bye=False)]
     assert engine.pair_round(one, {}) == [(7, None)]
-    # One active, not bye-eligible -> nothing.
     ineligible = [PairingPlayer(ref=7, can_bye=False)]
     assert engine.pair_round(ineligible, {}) == []
     already = [PairingPlayer(ref=7, received_bye=True)]
     assert engine.pair_round(already, {}) == []
-    # All dropped -> nothing.
     assert engine.pair_round([PairingPlayer(ref=1, dropped=True)], {}) == []

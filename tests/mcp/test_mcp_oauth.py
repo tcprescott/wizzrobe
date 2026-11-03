@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 
 import pytest
 
+from application.api_scopes import ApiScope
 from application.services import McpAuthService
 from application.services.api_token_service import MCP_TOKEN_PREFIX
 from models import User
@@ -66,7 +67,7 @@ async def authorize_and_approve(client, client_id, challenge, user, redirect_uri
     location = resp.headers['location']
     assert '/oauth/mcp/consent' in location, location
     txn = location.split('txn=')[1].split('&')[0]
-    code, _, returned_state = await McpAuthService().approve(txn, user)
+    code, _, returned_state = await McpAuthService().approve(txn, user, scopes={ApiScope.SCHEDULE_READ})
     assert returned_state == state
     return code
 
@@ -87,7 +88,6 @@ class TestDiscoveryMetadata:
             resp = await client.get('/.well-known/oauth-authorization-server')
         assert resp.status_code == 200
         body = resp.json()
-        # A client that cannot find these three cannot complete the flow.
         for key in ('issuer', 'authorization_endpoint', 'token_endpoint',
                     'registration_endpoint'):
             assert body.get(key), key
@@ -113,8 +113,6 @@ class TestFullFlow:
             assert body['refresh_token']
             assert body['expires_in'] > 0
 
-            # The issued token must actually work against the endpoint it was
-            # minted for — the flow succeeding is not the same as it being useful.
             call = await rpc(client, body['access_token'], 'tools/list')
             assert call.status_code == 200
 
@@ -174,7 +172,6 @@ class TestFullFlow:
             assert second['access_token'] != first['access_token']
             assert second['refresh_token'] != first['refresh_token']
 
-            # The old refresh token is dead...
             replay = await client.post('/token', data={
                 'grant_type': 'refresh_token',
                 'client_id': client_id,
@@ -182,7 +179,6 @@ class TestFullFlow:
             })
             assert replay.status_code == 400
 
-            # ...and the old access token with it, since rotation re-keys the row.
             stale = await rpc(client, first['access_token'], 'tools/list')
             assert stale.status_code == 401
             fresh = await rpc(client, second['access_token'], 'tools/list')
@@ -200,9 +196,7 @@ class TestFullFlow:
             tokens = (await exchange(client, client_id, code, verifier, redirect_uri)).json()
             assert (await rpc(client, tokens['access_token'], 'tools/list')).status_code == 200
 
-            # client_secret must be *present* even for a public client: the
-            # SDK's RevocationRequest types it `str | None` with no default, so
-            # pydantic requires the key. Empty is what a public client sends.
+            # client_secret must be present (empty) even for a public client: pydantic requires the key.
             revoke = await client.post('/revoke', data={
                 'client_id': client_id,
                 'client_secret': '',
@@ -278,7 +272,7 @@ class TestRedirectUriRules:
             scopes=['mcp'], resource=None, created_at=datetime.now(timezone.utc),
         ))
         with pytest.raises(ValueError):
-            await service.approve(txn, user)
+            await service.approve(txn, user, scopes={ApiScope.SCHEDULE_READ})
 
 
 class TestSecretBasedRegistration:
@@ -394,7 +388,7 @@ class TestConsentPage:
         user = await User.create(discord_id=555007, username='oauth-expired')
         service = McpAuthService()
         try:
-            await service.approve('not-a-real-transaction', user)
+            await service.approve('not-a-real-transaction', user, scopes={ApiScope.SCHEDULE_READ})
         except Exception as exc:
             assert 'expired' in str(exc).lower()
         else:
@@ -416,9 +410,9 @@ class TestConsentPage:
             })
             txn = resp.headers['location'].split('txn=')[1].split('&')[0]
             service = McpAuthService()
-            await service.approve(txn, user)
+            await service.approve(txn, user, scopes={ApiScope.SCHEDULE_READ})
             try:
-                await service.approve(txn, user)
+                await service.approve(txn, user, scopes={ApiScope.SCHEDULE_READ})
             except Exception as exc:
                 assert 'expired' in str(exc).lower()
             else:

@@ -11,7 +11,7 @@ import pytest
 
 from application.tenant_context import tenant_scope
 from models import AsyncQualifier, AsyncQualifierRun, Role, Tenant, User
-from tests.api_helpers import build_api_app, client_for, create_user_token, enable_all_features
+from tests.api_helpers import build_api_app, client_for, create_community_member, create_user_token, enable_all_features
 
 UTC = timezone.utc
 
@@ -22,7 +22,6 @@ def past_iso():
 
 def future_iso():
     return (datetime.now(UTC) + timedelta(days=1)).isoformat()
-
 
 
 async def _backdate(run_id: int, seconds: int):
@@ -62,8 +61,6 @@ async def _pool_with_permalink(client, qualifier_id, pool_name='Pool A'):
     return pool_id
 
 
-# --- baseline auth --------------------------------------------------------
-
 class TestBaseline:
     async def test_list_qualifiers_admin_ok(self, db, app):
         _, raw = await _admin_token()
@@ -96,8 +93,6 @@ class TestBaseline:
             resp = await c.post('/api/async-qualifiers', json={'name': 'X'})
             assert resp.status_code == 403
 
-
-# --- admin management (QUALIFIER_ADMIN, not STAFF) ------------------------
 
 class TestAdminManagement:
     async def test_qualifier_admin_can_create_and_get(self, db, app):
@@ -138,7 +133,7 @@ class TestAdminManagement:
 
     async def test_add_and_remove_admin(self, db, app):
         _, raw = await _admin_token()
-        target = await User.create(discord_id=778899, username='reviewer')
+        target = await create_community_member(discord_id=778899, username='reviewer')
         async with client_for(app, raw) as c:
             qid = await _open_qualifier(c, name='With Admins')
             add = await c.post(f'/api/async-qualifiers/{qid}/admins', json={'user_id': target.id})
@@ -147,6 +142,16 @@ class TestAdminManagement:
             assert target.id in {u['id'] for u in listed.json()}
             remove = await c.delete(f'/api/async-qualifiers/{qid}/admins/{target.id}')
             assert remove.status_code == 204
+
+    async def test_add_admin_from_outside_the_community_404(self, db, app):
+        _, raw = await _admin_token()
+        outsider = await User.create(discord_id=778900, username='elsewhere')
+        async with client_for(app, raw) as c:
+            qid = await _open_qualifier(c)
+            resp = await c.post(f'/api/async-qualifiers/{qid}/admins', json={'user_id': outsider.id})
+            assert resp.status_code == 404
+            listed = await c.get(f'/api/async-qualifiers/{qid}/admins')
+            assert outsider.id not in {u['id'] for u in listed.json()}
 
     async def test_add_admin_unknown_user_404(self, db, app):
         _, raw = await _admin_token()
@@ -188,8 +193,6 @@ class TestAdminManagement:
             assert [p['url'] for p in body['created']] == [
                 'https://example.com/a', 'https://example.com/b',
             ]
-            # A bad line is reported with its position rather than silently dropped:
-            # line 3 of the submitted list, blank line included in the count.
             assert [(r['line'], r['value']) for r in body['rejected']] == [(3, 'not-a-url')]
 
             upd = await c.patch(
@@ -204,8 +207,6 @@ class TestAdminManagement:
             deleted_pool = await c.delete(f'/api/async-qualifiers/pools/{pool_id}')
             assert deleted_pool.status_code == 204
 
-
-# --- open / public reads --------------------------------------------------
 
 class TestPublicReads:
     async def test_open_route_precedes_id_and_lists_active(self, db, app):
@@ -227,9 +228,6 @@ class TestPublicReads:
             assert resp.json()['name'] == 'Public Shell'
 
     async def test_ungated_reads_omit_internal_config(self, db, app):
-        # ``config`` holds internal draw-fairness / par-scoring knobs and messaging
-        # templates. The admin-gated GET exposes it; the two ungated player-facing
-        # surfaces (/{id}/public and /open) must NOT leak it.
         _, admin_raw = await _admin_token()
         async with client_for(app, admin_raw) as c:
             qid = await _open_qualifier(c, name='Config Guard')
@@ -248,8 +246,6 @@ class TestPublicReads:
             rows = [q for q in open_list.json() if q['id'] == qid]
             assert rows and 'config' not in rows[0]
 
-
-# --- player run lifecycle + review ---------------------------------------
 
 class TestRunLifecycle:
     async def test_start_then_submit_own_run(self, db, app):
@@ -294,7 +290,6 @@ class TestRunLifecycle:
             assert resp.status_code == 400, resp.text
             assert 'longer than the run itself' in resp.json()['detail']
 
-            # Refused, not terminated — the run is still submittable.
             active = await c.get(f'/api/async-qualifiers/{qid}/me/active-run')
             assert active.json()['id'] == run_id
 
@@ -359,7 +354,6 @@ class TestRunLifecycle:
             run_id = start.json()['id']
             await rc.post(f'/api/async-qualifiers/runs/{run_id}/forfeit')
 
-            # The runner has no allowance of their own (default 0).
             own = await rc.post(f'/api/async-qualifiers/runs/{run_id}/reattempt',
                                 json={'reason': 'mis-click'})
             assert own.status_code == 400
@@ -376,8 +370,6 @@ class TestRunLifecycle:
             assert [r['id'] for r in page['items']] == [run_id]
             assert (page['total'], page['offset']) == (1, 0)
 
-            # A page past the end is empty and still reports the total, so a client
-            # paging through knows it has reached the end rather than guessing.
             beyond = await c.get(f'/api/async-qualifiers/{qid}/runs?limit=1&offset=5')
             assert beyond.json()['items'] == []
             assert beyond.json()['total'] == 1
@@ -392,7 +384,6 @@ class TestRunLifecycle:
             assert granted.json()['reattempted'] is True
 
         async with client_for(app, runner_raw) as rc:
-            # The slot is free again despite the spent-nothing allowance.
             pools = await rc.get(f'/api/async-qualifiers/{qid}/pools/available')
             assert [p['id'] for p in pools.json()] == [pool_id]
 
@@ -414,14 +405,11 @@ class TestRunLifecycle:
             assert resp.json() == []
 
 
-# --- leaderboard lockdown -------------------------------------------------
-
 class TestLeaderboard:
     async def test_hidden_while_open_for_non_admin(self, db, app):
         _, admin_raw = await _admin_token()
         async with client_for(app, admin_raw) as c:
             qid = await _open_qualifier(c, name='Locked')
-            # Admin can see it even while open.
             admin_board = await c.get(f'/api/async-qualifiers/{qid}/leaderboard')
             assert admin_board.status_code == 200
         _, plain_raw = await create_user_token(username='peeker')

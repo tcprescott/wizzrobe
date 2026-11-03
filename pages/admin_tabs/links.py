@@ -7,7 +7,7 @@ presentation module). Import from here inside ``pages/``; import from
 """
 
 from application.utils.app_links import (
-    CHALLONGE,
+    INTEGRATIONS,
     REPORTS,
     SCHEDULE,
     USERS,
@@ -15,4 +15,4 @@ from application.utils.app_links import (
     admin_url,
 )
 
-__all__ = ['CHALLONGE', 'REPORTS', 'SCHEDULE', 'USERS', 'VOL_SCHEDULE', 'admin_url']
+__all__ = ['INTEGRATIONS', 'REPORTS', 'SCHEDULE', 'USERS', 'VOL_SCHEDULE', 'admin_url']

@@ -83,14 +83,12 @@ async def test_import_is_idempotent_unchanged(db):
         {'id': 9, 'displayName': 'A', 'discordId': None, 'discordTag': 'a'},
     ])
     assert await etl.import_episode(link, raw, actor=system) == 'imported'
-    # Same payload again → recognized as unchanged, not re-materialized.
     assert await etl.import_episode(link, raw, actor=system) == 'unchanged'
     assert await Match.filter(speedgaming_episode__sg_episode_id='50').count() == 1
 
 
 async def test_placeholder_upgraded_in_place_when_discord_id_appears(db):
     system, tourn, link, etl = await _setup(db)
-    # First sync: no discord id → placeholder created keyed on sg id 7.
     raw1 = _episode(60, '2026-07-20T18:00:00+00:00', [
         {'id': 7, 'displayName': 'Later', 'discordId': None, 'discordTag': 'later'},
     ])
@@ -98,7 +96,6 @@ async def test_placeholder_upgraded_in_place_when_discord_id_appears(db):
     placeholder = await UserRepository.get_placeholder_by_speedgaming_id('7')
     assert placeholder is not None and placeholder.is_placeholder
 
-    # Second sync: same sg id now carries a discord id → upgraded in place.
     raw2 = _episode(60, '2026-07-20T19:00:00+00:00', [
         {'id': 7, 'displayName': 'Later', 'discordId': '777', 'discordTag': 'later'},
     ])
@@ -106,7 +103,6 @@ async def test_placeholder_upgraded_in_place_when_discord_id_appears(db):
     upgraded = await User.get(id=placeholder.id)
     assert upgraded.is_placeholder is False
     assert upgraded.discord_id == 777
-    # No second user row was forked for the same person.
     assert await User.filter(speedgaming_id='7').count() == 1
 
 
@@ -169,7 +165,6 @@ async def test_sync_event_link_cancels_vanished_episode(db):
     result = await etl.sync_event_link(link, actor=system, now=now)
     assert result.imported == 2
 
-    # Next poll: 102 vanished upstream → soft-detached (Match survives).
     etl.client = MockSpeedGamingClient([two[0]])
     result2 = await etl.sync_event_link(link, actor=system, now=now + timedelta(minutes=30))
     assert result2.cancelled == 1
@@ -181,7 +176,6 @@ async def test_sync_event_link_cancels_vanished_episode(db):
 async def test_auto_finishes_stale_match(db):
     system, tourn, link, etl = await _setup(db)
     now = datetime(2026, 7, 20, 23, 0, tzinfo=timezone.utc)
-    # Episode scheduled >4h before ``now`` and never progressed.
     stale = [_episode(110, '2026-07-20T18:00:00+00:00', [{'id': 13, 'discordTag': 'c'}])]
     etl.client = MockSpeedGamingClient(stale)
     result = await etl.sync_event_link(link, actor=system, now=now)
@@ -189,14 +183,6 @@ async def test_auto_finishes_stale_match(db):
     match = await Match.filter(speedgaming_episode__sg_episode_id='110').first()
     assert match.finished_at is not None
 
-
-# --- Acknowledgment rows on a sourced match --------------------------------
-#
-# The ETL used to sync players and no acknowledgment rows, which made a synced
-# match's players invisible to the entire acknowledgment surface: no confirmed
-# or pending icon in the board's players cell, no Acknowledge button for the
-# player (it is gated on the row existing), and an admin dialog that reported
-# "No players assigned." for a match with two of them.
 
 async def test_import_gives_every_synced_player_an_acknowledgment_row(db):
     system, _tourn, link, etl = await _setup(db)
@@ -211,7 +197,6 @@ async def test_import_gives_every_synced_player_an_acknowledgment_row(db):
     match = await Match.filter(speedgaming_episode__sg_episode_id='60').first()
     acks = await MatchAcknowledgment.filter(match=match)
     assert len(acks) == 2
-    # Created un-answered: the sync assigns people, it does not speak for them.
     assert all(a.acknowledged_at is None for a in acks)
     assert all(a.auto_acknowledged is False for a in acks)
 
@@ -305,10 +290,7 @@ async def test_a_player_dropped_upstream_loses_their_hard_preset_opt_in(db):
     assert len(survivors) == 1
 
 
-# --- The live wire shape ---------------------------------------------------
-#
-# Captured from GET https://speedgaming.org/api/schedule/ — the conventions
-# below are what the real feed does, not what a simplified reading assumes.
+# Captured from the real SG feed: keep its quirks, they're what the parser has to handle.
 
 async def test_a_tbd_matchup_is_labelled_by_its_note(db):
     """The episode and matchup titles are empty far more often than not.
@@ -373,7 +355,6 @@ async def test_crew_churn_does_not_force_a_re_import(db):
                        trackers=[], broadcasters=[], helpers=[])
 
     assert await etl.import_episode(link, churned, actor=system) == 'unchanged'
-    # The raw snapshot still tracks upstream — only re-materialization is skipped.
     episode = await SpeedGamingEpisode.get(sg_episode_id='210')
     assert episode.payload['commentators'][0]['ready'] is True
 

@@ -7,6 +7,7 @@ from application.services import (
     TenantMembershipService,
     TenantService,
 )
+from application.services.join_mode_copy import join_mode_help, offered_join_modes
 from application.services.tenant_membership_service import JoinMode
 from application.tenant_context import require_tenant_id
 from application.utils.app_links import USERS, admin_url
@@ -15,40 +16,6 @@ from theme.notify import notify_error
 from theme.save_footer import SaveFooter
 from theme.section import section_panel
 
-#: The choices, most open first, in the words staff would use for them.
-JOIN_MODE_LABELS = {
-    JoinMode.OPEN: 'Anyone who signs in',
-    JoinMode.DISCORD_OR_REQUEST: 'Discord server members, and others can ask',
-    JoinMode.DISCORD: 'Discord server members only',
-    JoinMode.REQUEST: 'Everyone asks, and staff approve',
-    JoinMode.STAFF_ONLY: 'Only people staff add',
-}
-
-#: One line under the choice saying what it means in practice.
-JOIN_MODE_HELP = {
-    JoinMode.OPEN: (
-        'Signing in with Discord makes someone a member on the spot. Nobody gets '
-        'a role from it. Removing a member doesn’t keep them out: they’re back '
-        'the next time they open the community.'
-    ),
-    JoinMode.DISCORD_OR_REQUEST: (
-        'Members of the linked Discord server get in the first time they open the '
-        'community. Anyone else can ask from the join page, and Staff decide on '
-        'the Users tab.'
-    ),
-    JoinMode.DISCORD: (
-        'Members of the linked Discord server get in the first time they open the '
-        'community. Nobody else can ask.'
-    ),
-    JoinMode.REQUEST: (
-        'People ask from the join page and Staff approve or decline them on the '
-        'Users tab. Requests already waiting stay there whichever option you pick.'
-    ),
-    JoinMode.STAFF_ONLY: (
-        'The join page takes no requests. Staff add people from the Users tab.'
-    ),
-}
-
 
 async def _joining_card(can_edit: bool) -> None:
     join_mode = await TenantMembershipService.get_join_mode()
@@ -56,30 +23,19 @@ async def _joining_card(can_edit: bool) -> None:
     tenant = await TenantService.get_by_id(require_tenant_id())
     guild_linked = bool(tenant and tenant.discord_guild_id)
 
-    # Who can join is one choice, not two switches whose combinations staff had
-    # to reason out from four paragraphs of caption.
     card = await section_panel(
         'Joining this community', icon='meeting_room',
         subtitle='Who becomes a member, and what the join page shows everyone else.',
     )
     with card.body.classes('gap-3'):
-        modes = {
-            mode: label for mode, label in JOIN_MODE_LABELS.items()
-            if guild_linked or not mode.uses_discord or mode is join_mode
-        }
         join_mode_input = ui.radio(
-            {m.value: label for m, label in modes.items()}, value=join_mode.value,
+            {m.value: label for m, label in offered_join_modes(join_mode, guild_linked).items()},
+            value=join_mode.value,
         ).props('dense')
         join_mode_caption = ui.label('').classes('wiz-field-hint')
 
         def describe_mode() -> None:
-            mode = JoinMode(join_mode_input.value)
-            caption = JOIN_MODE_HELP[mode]
-            if mode.uses_discord and not guild_linked:
-                caption = 'No Discord server is linked, so nobody gets in this way until one is.'
-            elif not guild_linked and mode is not JoinMode.OPEN:
-                caption += ' Link a Discord server under Settings → Discord to let its members in.'
-            join_mode_caption.text = caption
+            join_mode_caption.text = join_mode_help(JoinMode(join_mode_input.value), guild_linked)
 
         describe_mode()
         join_mode_input.on_value_change(lambda _: describe_mode())

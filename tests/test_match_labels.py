@@ -8,8 +8,9 @@ id from coming back into the surfaces that used it.
 
 import re
 from pathlib import Path
+from types import SimpleNamespace
 
-from application.utils.match_labels import match_label, match_row_label, players_label
+from application.utils.match_labels import entrant_name, match_label, match_row_label, players_label
 
 REPO = Path(__file__).resolve().parents[1]
 
@@ -92,3 +93,11 @@ def test_no_crew_or_watch_copy_quotes_a_match_id():
             if re.search(r'match ID \{', line):
                 offenders.append(f'{path.relative_to(REPO)}:{number}')
     assert not offenders, f"user-facing copy still quotes a match id: {offenders}"
+
+
+def test_entrant_name_prefers_the_linked_member():
+    member = SimpleNamespace(preferred_name='Racer Six')
+    assert entrant_name(SimpleNamespace(user=member, name='MockPlayerFour')) == 'Racer Six'
+    assert entrant_name(SimpleNamespace(user=None, name='Walk-in')) == 'Walk-in'
+    assert entrant_name(SimpleNamespace(user=None, name=None)) == 'TBD'
+    assert entrant_name(None) == 'TBD'

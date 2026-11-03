@@ -30,7 +30,6 @@ class TestRateLimitKey:
         assert _client_key(req) == f'token:{hashlib.sha256(token.encode()).hexdigest()}'
 
     def test_garbage_token_falls_back_to_ip(self):
-        # Malformed bearer values must not get their own bucket (bypass risk).
         req = _request({'authorization': 'Bearer abc'}, host='10.0.0.1')
         assert _client_key(req) == 'ip:10.0.0.1'
 
@@ -42,6 +41,11 @@ class TestRateLimitKey:
     def test_forwarded_for_used_when_trusted(self, monkeypatch):
         monkeypatch.setenv('TRUST_PROXY_FORWARDED_FOR', 'true')
         req = _request({'x-forwarded-for': '9.9.9.9, 10.0.0.1'}, host='10.0.0.1')
+        assert _client_key(req) == 'ip:9.9.9.9'
+
+    def test_last_mode_ignores_a_forged_prefix(self, monkeypatch):
+        monkeypatch.setenv('TRUST_PROXY_FORWARDED_FOR', 'last')
+        req = _request({'x-forwarded-for': '6.6.6.6, 9.9.9.9'}, host='10.0.0.1')
         assert _client_key(req) == 'ip:9.9.9.9'
 
 

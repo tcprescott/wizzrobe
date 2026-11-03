@@ -7,16 +7,14 @@ response with it. A header set on every response (``X-Fun-Fact``) turns that
 into a site-wide outage, so the text is reduced here rather than trusted.
 """
 
-# Punctuation that appears in prose and has a clean latin-1 equivalent, mapped
-# so the common cases stay readable instead of degrading to '?'.
 _HEADER_TRANS = str.maketrans({
-    '–': '-',   # en-dash
-    '—': '-',   # em-dash
-    '‘': "'",   # left single quote
-    '’': "'",   # right single quote
-    '“': '"',   # left double quote
-    '”': '"',   # right double quote
-    '·': '.',   # middle dot
+    '–': '-',
+    '—': '-',
+    '‘': "'",
+    '’': "'",
+    '“': '"',
+    '”': '"',
+    '·': '.',
 })
 
 

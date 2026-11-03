@@ -61,9 +61,9 @@ def test_a_sticky_notice_survives_a_reload_until_dismissed(storage, monkeypatch)
     monkeypatch.setattr('theme.notice.ui.notification', _FakeNotification)
     stash_notice('Welcome in.', color='positive', sticky=True)
 
-    drain_notice()  # the first-visit timezone reload throws this page away
+    drain_notice()
     assert _KEY in storage
-    shown[-1][1]['on_dismiss']()  # Got it on the page that stayed
+    shown[-1][1]['on_dismiss']()
     drain_notice()
     assert [m for m, _ in shown] == ['Welcome in.']
     assert shown[0][1]['timeout'] is None
@@ -86,7 +86,7 @@ def test_a_tenant_notice_waits_for_its_own_community(storage, monkeypatch):
     monkeypatch.setattr('theme.notice.get_current_tenant_id', lambda: 2)
     stash_notice('Welcome to One.', sticky=True, tenant_id=1)
 
-    drain_notice()  # a page in another community
+    drain_notice()
     assert shown == []
     assert storage[_KEY]['message'] == 'Welcome to One.'
 
@@ -101,8 +101,6 @@ def test_drain_with_nothing_stashed_is_a_noop(storage, notified):
 
 
 def test_stash_is_single_slot_last_write_wins(storage, notified):
-    # A queue would let an aborted redirect chain leave a stale notice behind to
-    # surface on some later, unrelated page.
     stash_notice('first')
     stash_notice('second')
     drain_notice()
@@ -123,16 +121,12 @@ def test_drain_tolerates_junk_in_the_slot(storage, notified):
 
 
 def test_drain_survives_having_no_user_storage(monkeypatch, notified):
-    # Bare routes can run before a session exists; a drain point must never be
-    # the thing that raises out of a page build.
     def boom(self):
         raise RuntimeError('app.storage.user needs a request context')
     monkeypatch.setattr(type(app.storage), 'user', property(boom))
     drain_notice()
     assert notified == []
 
-
-# --- the shape guard ----------------------------------------------------------
 
 _SCANNED = ('pages/_oauth_link.py', 'pages/challonge_oauth.py', 'pages/auth.py')
 _LEAVES = re.compile(r'^\s*(ui\.navigate\.to\(|return\s+RedirectResponse\(|RedirectResponse\()')
@@ -156,8 +150,6 @@ def test_no_link_page_notifies_immediately_before_navigating():
         for i, line in enumerate(lines):
             if 'ui.notify(' not in line:
                 continue
-            # Skip past the notify's own (possibly multi-line) argument list and
-            # any blank/comment lines to find the next statement.
             depth = line.count('(') - line.count(')')
             j = i + 1
             while j < len(lines) and depth > 0:

@@ -6,6 +6,11 @@ Wizzrobe ships as a single application container plus PostgreSQL and a Redis ses
 
 ## Topology
 
+> **Cloud Run (staging, not live yet).** The serverless layout from the mobile
+> app spec (an `api` and a `bots` service, Scheduler jobs, Cloud Tasks queues) is
+> described in [deploy/cloudrun/README.md](../deploy/cloudrun/README.md). Production
+> stays the single process below until the switch-over.
+
 [`docker-compose.yml`](../docker-compose.yml) defines four services and three named volumes. The fourth, `door-rando`, is the [Door Randomizer sidecar](#door-rando-service), left out of the diagram:
 
 ```
@@ -87,7 +92,7 @@ See [seed-generation.md](reference/seed-generation.md#alttprdr) for the API.
 
 [`.github/workflows/publish.yml`](../.github/workflows/publish.yml) builds and pushes the image to GitHub Container Registry:
 
-- **Triggers:** every push to `main`, and tags matching `v*`.
+- **Triggers:** paused. It runs only by hand (`workflow_dispatch` from the Actions tab), because production deploys are a `git pull` + restart and never use the image. To resume, restore the `push` trigger (`main` and `v*` tags) and remove `push` from `test.yml`.
 - **Gate:** the `build-and-push` job `needs` a `test` job that calls [`test.yml`](../.github/workflows/test.yml) via `workflow_call`, so an image is only built once the full CI suite passes ([development.md](development.md#continuous-integration)).
 - **Image:** `ghcr.io/<owner>/<repo>` — registry `ghcr.io`, name taken from `github.repository` (currently `ghcr.io/tcprescott/wizzrobe`; images published before the repository was renamed from `sglman` live under `ghcr.io/tcprescott/sglman`).
 - **Tag scheme** (`docker/metadata-action`):
@@ -124,6 +129,8 @@ Every boolean variable below uses one grammar (`env_flag` in `application/utils/
 | `NICEGUI_REDIS_KEY_PREFIX` | no | `nicegui:` | `nicegui.storage` | Key namespace, so one Redis can serve more than one deployment. |
 | `LOG_LEVEL` | no | `INFO` | `main.py`, `application/utils/log_levels.py` | Root level for the application logger (`TRACE` accepted); separate from uvicorn's `--log-level`, which `start.sh` pins to `info`. Per-module levels set on `/platform` → Logging override it and persist across restarts. See [observability.md](features/observability.md). |
 | `DISCORD_TOKEN` | yes, unless mock | — | `main.py`, `pages/auth.py`, `application/services/service_health_service.py` | Bot token, also used by the OAuth API client. Unset → bot skipped with a warning and Discord features dead. |
+| `DISCORD_PUBLIC_KEY` | no | — | `discordbot/http_interactions.py`, `api/inbound_webhooks.py` | The application's public key (Developer Portal → General Information). Turns on `POST /discord/interactions`; unset → that path answers 404. Only takes effect once the portal's **Interactions Endpoint URL** is set to `<BASE_URL>/discord/interactions`, after which Discord sends button presses and slash commands there instead of down the gateway. See [discord.md](features/discord.md#interactions-over-http). |
+| `DISCORD_GATEWAY` | no | on | `application/utils/environment.py`, `application/bot_runtime.py` | Off → this process signs in for REST only: DMs and edits still send, but there are no member events, no slash-command sync and no gateway button presses. For the API beside `bots.py`, which always runs the gateway; needs `DISCORD_PUBLIC_KEY` and the endpoint URL so buttons keep working. |
 | `DISCORD_CLIENT_ID` | yes, for real OAuth | — | `pages/auth.py` | Discord application client ID; derives `OAUTH_URL`. |
 | `DISCORD_CLIENT_SECRET` | yes, for real OAuth | — | `pages/auth.py` | OAuth authorization-code exchange. |
 | `BASE_URL` | no | `http://localhost:8000` | `application/utils/environment.py` | Public base URL (trailing `/` stripped) for deep links, and the fallback for `PLATFORM_HOST`. **Not** the source of the OAuth callback. Set it in production — a stale value bakes an unreachable host into printed equipment QR labels, which is why the label sheet names the host it encodes and warns when that is not the host you are browsing ([frontend.md](reference/frontend.md#encoded-host-check)). |
@@ -144,12 +151,15 @@ Every boolean variable below uses one grammar (`env_flag` in `application/utils/
 | `MOCK_DK64_SECONDS` | no | `20` | `application/utils/mocks/mock_dk64.py` | Wall-clock seconds a simulated DK64 roll takes, so the waiting UI can be exercised. Only read when `MOCK_SEEDGEN` is on; the test suite pins it to `0`. |
 | `MOCK_DK64_OUTCOME` | no | `finished` | `application/utils/mocks/mock_dk64.py` | Ending the simulated DK64 task reaches: `finished`, `failed`, `http_error`, or `stuck` (never finishes, for the generation-timeout branch). |
 | `MOCK_DK64_BROKEN_STAGE` | no | unset | `application/utils/mocks/mock_dk64.py` | Fails a pre-poll DK64 call instead: `convert` or `submit`. |
-| `SENTRY_DSN` | no | `''` | `application/utils/sentry.py` | Enables Sentry error reporting; events tagged with `ENVIRONMENT`, the release, the tenant and the logged-in user. No-op when blank. See [observability.md](features/observability.md). |
+| `SENTRY_DSN` | no | `''` | `application/utils/sentry.py` | Enables Sentry error reporting; events tagged with `ENVIRONMENT`, the release, the tenant and the logged-in user. No-op when blank. Also handed to the browser SDK on every page (a DSN is public by design), so browser errors land in the same project; see [Browser errors](features/observability.md#browser-errors-platform--monitoring). |
 | `SENTRY_TRACES_SAMPLE_RATE` | no | `0.1` in production, else `0` | `application/utils/sentry.py` | Fraction (`0`–`1`) of requests traced for performance. Only read when `SENTRY_DSN` is set. |
 | `SENTRY_LOGS_LEVEL` | no | `INFO` | `application/utils/sentry.py` | Minimum level shipped to Sentry Logs; `off` disables them. Access and outbound-HTTP lines are never shipped. |
 | `SENTRY_PROFILES_SAMPLE_RATE` | no | `1.0` in production, else `0` | `application/utils/sentry.py` | Share of *traced* requests also profiled, so a slow trace shows which functions burned the CPU. Relative to `SENTRY_TRACES_SAMPLE_RATE`: the defaults profile 10% of requests. |
 | `SENTRY_RELEASE` | no | `wizzrobe@<GIT_SHA>` | `application/utils/sentry.py` | Release name on every Sentry event. Defaults from `GIT_SHA`; unset when neither is present. |
-| `GIT_SHA` | no | baked in by `publish.yml` | `Dockerfile` | The commit the image was built from (a build arg). Feeds the Sentry release. |
+| `SENTRY_METRICS` | no | on | `application/utils/sentry_metrics.py` | `off` stops application metrics (load every 30s, per-route request counts and timings, worker tick times). Only read when `SENTRY_DSN` is set. See [observability.md](features/observability.md#metrics). |
+| `GIT_SHA` | no | baked in by `publish.yml` | `Dockerfile` | The commit the image was built from (a build arg). Feeds the Sentry release, `/about`, `GET /api/version` and the MCP `server_version` tool. |
+| `GIT_COMMIT_DATE` | no | baked in by `publish.yml` | `application/utils/build_info.py` | ISO time of that commit (a build arg). Dates the version as `YYYY.MM.DD` (UTC) when `APP_VERSION` is unset. |
+| `APP_VERSION` | no | the tag on a `v*` tag build | `application/utils/build_info.py` | Overrides the version outright (a leading `v` is dropped). With neither this nor `GIT_COMMIT_DATE`, the version reads `dev`. |
 | `TELEMETRY_ENABLED` | no | `true` | `application/utils/environment.py` | Runtime kill-switch for telemetry **capture**; reads and reports are unaffected. See [telemetry.md](features/telemetry.md). |
 | `CHALLONGE_CLIENT_ID` | no | — | `application/services/challonge_service.py` | Challonge OAuth client ID. The integration counts as configured only when this and the secret are both set. |
 | `CHALLONGE_CLIENT_SECRET` | no | — | `application/services/challonge_service.py` | Used for the service-account and per-player authorization-code exchanges. |
@@ -157,6 +167,19 @@ Every boolean variable below uses one grammar (`env_flag` in `application/utils/
 | `CHALLONGE_SCOPES` | no | `me tournaments:read tournaments:write matches:read matches:write participants:read participants:write communities:manage` | `application/services/challonge_service.py` | Scopes for the shared **service-account** connection. `communities:manage` is what lets it reach tournaments on an organization subdomain (`<org>.challonge.com`); the connected Challonge account must administer that community, and adding the scope means reconnecting. `tournaments:write` lets staff advance a bracket's stage (start, finalize groups, finalize) from Admin → Challonge; a connection made before it was added shows those buttons disabled until staff reconnect. `participants:write` lets players sign themselves up for a Challonge bracket from the Tournaments tab; until staff reconnect, Admin → Challonge says so and those sign-ups are refused. Per-player linking always uses `me` only. |
 | `MOCK_CHALLONGE` | no | off | `application/utils/mocks/mock_challonge.py` | Swaps in a stub Challonge client/connection for local dev. **Refused in production.** |
 | `MOCK_CHALLONGE_IDENTITY` | no | `1` | `application/utils/clients/challonge_client.py` | Which canned mock identity the mock player-OAuth flow returns. Only read under `MOCK_CHALLONGE`. |
+| `MOCK_AI` | no | off | `application/utils/mocks/mock_ai.py` | Survey "Suggest questions" returns canned drafts instead of calling the community's AI provider. A saved key starting `mock-` does the same without the variable. **Ignored in production.** |
+| `MOCK_STRIPE` | no | off | `application/utils/clients/stripe_client.py` | Ticket sales: Stripe calls succeed without leaving the app; checkout returns straight to the success page. **Refused in production.** |
+| `MOCK_PAYPAL` | no | off | `application/utils/clients/paypal_client.py` | Ticket sales: PayPal calls succeed without leaving the app; a webhook passes the signature check when `PayPal-Transmission-Sig` is `mock-<webhook id>`. **Refused in production.** |
+| `PATREON_CLIENT_ID` | no | — | `application/services/_patreon_oauth.py` | The platform's Patreon OAuth client (patreon.com/portal). One app serves every community: the creator's campaign sign-in and each member's link. Patreon counts as configured only with the secret too. |
+| `PATREON_CLIENT_SECRET` | no | — | `application/services/_patreon_oauth.py` | Code and refresh-token exchanges for both sign-ins. A member's token is used once and dropped; a creator's is sealed per community. |
+| `PATREON_REDIRECT_URI` | no | `{BASE_URL}/api/patreon/callback` | `application/services/_patreon_oauth.py` | Must match the redirect URI registered on the Patreon client. |
+| `MOCK_PATREON` | no | off | `application/utils/mocks/mock_patreon.py` | Patreon sign-ins finish without leaving the app against a canned campaign (two tiers, three members). **Refused in production.** |
+| `STARTGG_API_TOKEN` | no | — | `application/services/startgg_connection_service.py` | Optional platform-wide start.gg Personal Access Token. A community with no start.gg sign-in (Settings → Integrations) syncs and reports with it; one that has signed in uses its own account instead. |
+| `STARTGG_CLIENT_ID` | no | — | `application/services/startgg_link_service.py` | start.gg OAuth client ID for the player **identity link** (`user.identity`) and the staff **community sign-in** (`user.identity tournament.reporter`). Both share one redirect URI. |
+| `STARTGG_CLIENT_SECRET` | no | — | `application/services/startgg_link_service.py` | Code exchange for both flows. A player link's token is discarded; a community sign-in's tokens are stored in `StartggConnection` and refreshed. |
+| `STARTGG_REDIRECT_URI` | no | `{BASE_URL}/startgg/oauth/callback` | `application/services/startgg_link_service.py` | Must match the URI registered with the start.gg OAuth app. |
+| `MOCK_STARTGG` | no | off | `application/utils/mocks/mock_startgg.py` | Serves one canned event for any linked start.gg event and fakes the identity link. Set by `./start.sh mock` and `validate`. **Refused in production.** |
+| `MOCK_STARTGG_IDENTITY` | no | `1` | `application/utils/clients/startgg_client.py` | Which canned mock identity the mock link flow returns. Only read under `MOCK_STARTGG`. |
 | `RACETIME_CLIENT_ID` | no | — | `application/services/racetime_service.py` | racetime.gg **identity-link** OAuth client ID (read scope). Distinct from the per-category race-room bot credentials on `RacetimeBot` rows. |
 | `RACETIME_CLIENT_SECRET` | no | — | `application/services/racetime_service.py` | Used once per link for the code exchange, then discarded (no token stored). |
 | `RACETIME_REDIRECT_URI` | no | `{BASE_URL}/racetime/oauth/callback` | `application/services/racetime_service.py` | Must match the URI registered with the racetime OAuth app. |
@@ -169,22 +192,42 @@ Every boolean variable below uses one grammar (`env_flag` in `application/utils/
 | `MOCK_TWITCH` | no | off | `application/utils/mocks/mock_twitch.py` | Records a fake verified Twitch identity so link/unlink works without a real OAuth app. **Refused in production.** |
 | `MOCK_TWITCH_IDENTITY` | no | `1` | `application/utils/clients/twitch_client.py` | Which canned mock identity the mock link flow returns. Only read under `MOCK_TWITCH`. |
 | `LOOP_WATCHDOG_ENABLED` | no | on | `application/utils/environment.py`, `main.py` | Kill switch for the event-loop watchdog thread ([observability.md](features/observability.md#blocked-event-loop-watchdog)). |
+| `GC_FREEZE` | no | on | `main.py` | Freezes every object alive at the end of startup out of garbage collection (`gc.freeze()`), so full collections skip them ([observability.md](features/observability.md#garbage-collection-pauses)). `false` turns it off. |
+| `GC_REFREEZE` | no | on | `main.py` | Freezes the survivors of each full collection too, handing them back every `GC_THAW_MINUTES`, so pauses stay short as tabs pile up ([observability.md](features/observability.md#garbage-collection-pauses)). `false` turns it off; off whenever `GC_FREEZE` is. |
+| `GC_THAW_MINUTES` | no | 10 | `main.py` | How often the frozen survivors are handed back for one ordinary full collection, which frees any garbage cycles among them ([observability.md](features/observability.md#garbage-collection-pauses)). Longer means fewer slow passes but more memory held between them. |
+| `MEMORY_CENSUS_DUMP` | no | unset | `main.py` | CI only. A file path: each `SIGUSR1` writes a `memory_census` there as JSON (the pid goes to `<path>.pid`), for `scripts/ui_leak_check.js`. Leave unset in production. |
 | `SPEEDGAMING_SYNC_ENABLED` | no | off | `application/utils/environment.py` | Master switch for the SpeedGaming ETL sync worker. Off → no outbound polls. On → each active `SpeedGamingEventLink` is polled on its cadence and materialized into `Match` rows. |
+| `WORKER_MODE` | no | `loop` | `application/worker_registry.py` | `loop` runs every background worker in-process (today). `scheduled` stops the Scheduler-placed workers' loops and opens `POST /internal/workers/<key>/tick` for Cloud Scheduler ([scheduled-workers.md](features/scheduled-workers.md)). |
+| `CLOUD_TASKS_LOCATION` | no | unset | `application/task_queue.py` | `projects/<p>/locations/<region>`. With `WORKER_MODE=scheduled`, seed rolls and data exports schedule their own follow-up checks as Cloud Tasks instead of bursting every minute ([scheduled-workers.md](features/scheduled-workers.md#cloud-tasks-follow-ups)). Unset → they poll as before. |
+| `CLOUD_TASKS_QUEUE_PREFIX` | no | `wizzrobe-` | `application/task_queue.py` | Queue names are this prefix plus the worker key, hyphenated (`wizzrobe-staging-seed-roll`). |
+| `WORKER_TICK_AUDIENCE` | in `scheduled` mode | — | `api/worker_ticks.py` | The OIDC audience set on the Cloud Scheduler jobs; a token for any other audience is refused. |
+| `WORKER_TICK_SERVICE_ACCOUNT` | in `scheduled` mode | — | `api/worker_ticks.py` | The service-account email the Scheduler jobs sign as; any other caller is refused. |
+| `WORKER_TICK_WINDOW_SECONDS` | no | 55 | `api/worker_ticks.py` | How long one tick call keeps ticking a worker faster than once a minute. |
 | `MOCK_SPEEDGAMING` | no | off | `application/utils/clients/speedgaming_client.py` | Scripted fake returning canned episodes, so the ETL is exercisable without speedgaming.org. **Refused in production.** |
 | `MOCK_MATCHERINO` | no | off | `application/utils/clients/matcherino_client.py` | Dev only. Swaps in `MockMatcherinoClient`, whose canned venue badge sales line up with the dev-seed fixtures, so event check-in syncs without calling Matcherino's unofficial API. Set by `./start.sh mock` and `validate`. **Refused in production.** |
 | `DISCORD_EVENTS_SYNC_ENABLED` | no | off | `application/utils/environment.py` | Master switch for the Discord Scheduled Events reconciler worker. Off → nothing runs on a timer; the admin **Discord Events** tab still reconciles on demand. |
-| `SERVICE_HEALTH_ENABLED` | no | off | `application/utils/environment.py` | Master switch for the platform service-health probe loop (~2 min cadence, some probes reach external hosts). Off → `/platform` still probes on demand. |
 | `SERVICE_HEALTH_ALERT_DM` | no | off | `application/utils/environment.py` | Opt in to DMing every super-admin on an unhealthy transition. Transitions always publish a `service_health.alert` event and capture to Sentry regardless. |
 | `VAPID_PRIVATE_KEY` | no | — | `application/services/web_push_service.py` | Enables web push. Base64url raw 32-byte P-256 key from `scripts/generate_vapid_keys.py`. **Keep secret and stable** — rotating it invalidates every subscription. See [web-push.md](features/web-push.md). |
 | `VAPID_SUBJECT` | no | `BASE_URL` when https | `application/services/web_push_service.py` | `mailto:` or `https:` contact sent to push services (RFC 8292). Without a usable value web push stays off even with a key. |
+| `APNS_KEY` | no | — | `application/services/native_push_service.py` | Enables iPhone push from the store app (with the three below). The `.p8` auth key's PEM text from Apple Developer › Keys (APNs enabled); `\n` escapes are accepted. **Keep secret.** See [native-apps.md](features/native-apps.md). |
+| `APNS_KEY_ID` | with `APNS_KEY` | — | `application/services/native_push_service.py` | The 10-character id Apple shows for that key. |
+| `APNS_TEAM_ID` | with `APNS_KEY` | — | `application/services/native_push_service.py` | The Apple developer team id. |
+| `APNS_TOPIC` | with `APNS_KEY` | — | `application/services/native_push_service.py` | The iOS app's bundle id (same as `APP_ID`). |
+| `APNS_SANDBOX` | no | off | `application/services/native_push_service.py` | Try Apple's development gateway first (Xcode builds). Either way a token the first gateway rejects is retried once on the other. |
+| `FCM_SERVICE_ACCOUNT` | no | — | `application/services/native_push_service.py` | Enables Android push from the store app: the Firebase service account's JSON (Firebase console › Project settings › Service accounts). Also carries iPhone push when APNs isn't set. **Keep secret.** |
+| `APP_ID` | no | — | `application/services/app_association_service.py` | The store apps' id (iOS bundle id = Android package). With the two below, serves the `/.well-known` files that let community links open the app. |
+| `APPLE_TEAM_ID` | no | — | `application/services/app_association_service.py` | Turns on `/.well-known/apple-app-site-association` (universal links). |
+| `ANDROID_CERT_SHA256` | no | — | `application/services/app_association_service.py` | Turns on `/.well-known/assetlinks.json` (app links). Comma-separated SHA-256 signing-certificate fingerprints: Play's app-signing key plus any upload or debug key. |
 | `SENDGRID_API_KEY` | no | — | `application/utils/clients/sendgrid_client.py` | Enables email notifications (with `EMAIL_FROM_ADDRESS`). A SendGrid key with Mail Send access. See [notification-channels.md](features/notification-channels.md). |
 | `EMAIL_FROM_ADDRESS` | no | — | `application/utils/clients/sendgrid_client.py` | Sender address; its domain must be authenticated in SendGrid (SPF/DKIM) or mail lands in spam. |
 | `EMAIL_FROM_NAME` | no | `Wizzrobe` | `application/utils/clients/sendgrid_client.py` | Sender display name. |
 | `TELEGRAM_BOT_TOKEN` | no | — | `application/utils/clients/telegram_client.py`, `main.py` | Enables Telegram notifications and starts the long-polling bot worker. The token @BotFather gives for `/newbot`. **Keep secret.** |
+| `TELEGRAM_WEBHOOK_SECRET` | no | — | `application/utils/clients/telegram_client.py`, `application/services/telegram_bot_worker.py`, `api/inbound_webhooks.py` | Switches the Telegram bot from long polling to a webhook: at boot it registers `<BASE_URL>/telegram/webhook` with this secret and doesn't poll; Telegram echoes the secret in `X-Telegram-Bot-Api-Secret-Token` on each update. 1–256 of `A-Z a-z 0-9 _ -`. Unset → polling, which first deletes any webhook left behind. Required when the API runs on instances that scale to zero. **Keep secret.** |
 | `DISCORD_EMAIL_REDIRECT_URI` | no | `{BASE_URL}/discord/email/callback` | `application/services/discord/discord_email_service.py` | Callback for "Use my Discord email". Must be added to the Discord application's OAuth2 redirects. |
 | `API_RATE_LIMIT_PER_MIN` | no | `120` | `api/rate_limit.py` | Per-client budget per minute, keyed by token (or client IP). Shared by the REST API and MCP, so one credential gets one budget. |
+| `API_APP_RATE_LIMIT_PER_MIN` | no | `600` | `api/rate_limit.py` | Ceiling per third-party app across all of its users' grants, on top of each grant's own budget. |
 | `MCP_ENABLED` | no | on | `mcpserver/__init__.py` | Kill switch for the remote MCP server: off removes `/mcp`, its OAuth and discovery routes, and the lifespan hook. See [mcp-server.md](features/mcp-server.md). |
-| `TRUST_PROXY_FORWARDED_FOR` | no | off | `api/rate_limit.py` | Rate limiter trusts `X-Forwarded-For` for the client IP — only behind a trusted proxy. |
+| `TRUST_PROXY_FORWARDED_FOR` | no | off | `api/rate_limit.py` | Rate limiter trusts `X-Forwarded-For` for the client IP — only behind a trusted proxy. `on` takes the first entry (a proxy that overwrites the header); `last` takes the last (a proxy that appends, such as Cloud Run). |
 
 See [reference/authentication.md](reference/authentication.md) for how the OAuth variables are wired into the login flow.
 
@@ -208,9 +251,9 @@ Four independent checks abort the process before it serves a request:
 Boot sequence (`main.py` lifespan, after the import-time checks above):
 
 1. **Migrations auto-apply** — `init_db()` runs Aerich `upgrade()` against `./migrations` under a PostgreSQL advisory lock (so two overlapping container starts cannot apply the chain twice), then `Tortoise.init()`. Every boot applies any pending migrations; deploys need no manual `aerich upgrade` step.
-2. **Discord bot** — `init_discord_bot()` starts the bot with `DISCORD_TOKEN` as a background task on the shared event loop. Skipped entirely under `MOCK_DISCORD`; without a token it logs a warning and continues.
-3. **Racetime bot runtime and workers** — the racetime runtime and the env-gated workers (`RACETIME_BOT_ENABLED`, `SPEEDGAMING_SYNC_ENABLED`, `DISCORD_EVENTS_SYNC_ENABLED`, `SERVICE_HEALTH_ENABLED`) start only when switched on; the async-qualifier expiry, seed-roll polling, volunteer and stage reminders always start.
-4. **DM queue and event bus** — `discord_queue.start()` launches a single in-process worker that drains queued Discord notification coroutines sequentially; the event dispatch queue starts and the webhook and telemetry subscribers register.
+2. **Discord bot** — `bot_runtime.start_discord()` starts the bot with `DISCORD_TOKEN` as a background task on the shared event loop: the gateway by default, a REST-only sign-in with `DISCORD_GATEWAY=off`. Skipped entirely under `MOCK_DISCORD`; without a token it logs a warning and continues.
+3. **Racetime bot runtime and workers** — the racetime runtime and the env-gated workers (`RACETIME_BOT_ENABLED`, `SPEEDGAMING_SYNC_ENABLED`, `DISCORD_EVENTS_SYNC_ENABLED`) start only when switched on; the service-health probe loop, the async-qualifier expiry, seed-roll polling, volunteer and stage reminders always start.
+4. **DM queue and event bus** — `bot_runtime.start_delivery()`: `discord_queue.start()` launches a single in-process worker that drains queued Discord notification coroutines sequentially; the event dispatch queue starts and the webhook and telemetry subscribers register.
 
 Each step is timed in the log (`wizzrobe.main` at INFO), so a slow restart names its own culprit:
 
@@ -243,7 +286,9 @@ Shutdown reverses this: the workers stop, the queue workers are cancelled (any s
 | Host binding | uvicorn default (`127.0.0.1`) | uvicorn default (`127.0.0.1`) | uvicorn default (`127.0.0.1`) | `0.0.0.0` (required in a container) |
 | Workers | n/a (reload implies one process) | n/a | one | `--workers 1` |
 | Port | 8000 | 8000 | 8000 | 8000 |
-| Forced env | — | `ENVIRONMENT=development`, `MOCK_DISCORD`, `MOCK_SEEDGEN`, `MOCK_CHALLONGE`, `MOCK_TWITCH`, `MOCK_RACETIME`, `MOCK_MATCHERINO` | same as `mock` | `ENVIRONMENT=production` |
+| Forced env | — | `ENVIRONMENT=development`, `MOCK_DISCORD`, `MOCK_SEEDGEN`, `MOCK_CHALLONGE`, `MOCK_TWITCH`, `MOCK_RACETIME`, `MOCK_MATCHERINO`, `MOCK_STARTGG` | same as `mock` | `ENVIRONMENT=production` |
+
+`./start.sh bots` runs `bots.py` (Discord gateway and racetime room bot) the way `prod` runs `main.py`, on `$PORT` (default 8000). Only the Cloud Run bot service uses it; see [deploy/cloudrun/README.md](../deploy/cloudrun/README.md).
 
 `mock` is the one-command offline dev loop — no Discord, Challonge, Twitch, racetime.gg, Matcherino or randomizer credentials needed. `validate` is `mock` without the watcher, for browser runs where a mid-run reload would tear down open pages and fill the log with teardown tracebacks; see [development.md](development.md#running-the-server-and-the-two-ways-it-bites).
 

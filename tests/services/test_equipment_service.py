@@ -31,7 +31,7 @@ class TestAssetNumbering:
 
     async def test_bulk_create_contiguous_range(self, db, service):
         manager = await _user(1, 'manager', Role.EQUIPMENT_MANAGER)
-        await service.create_asset(manager, name='Cable')  # number 1
+        await service.create_asset(manager, name='Cable')
         created = await service.bulk_create_assets(manager, name='HDMI', count=5)
         numbers = sorted(a.asset_number for a in created)
         assert numbers == [2, 3, 4, 5, 6]
@@ -141,7 +141,6 @@ class TestCheckoutCheckin:
         loan = await EquipmentLoan.get(equipment=refreshed, borrower=volunteer)
         assert loan.checked_in_at is not None
         assert loan.checked_in_by_id == manager.id
-        # Asset is checkout-able again afterward.
         assert await service.current_loan(refreshed) is None
 
 
@@ -169,12 +168,11 @@ class TestDelete:
 class TestGetAssetsByIds:
     async def test_returns_selected_ordered_by_number(self, db, service):
         manager = await _user(1, 'manager', Role.EQUIPMENT_MANAGER)
-        a = await service.create_asset(manager, name='A')  # number 1
-        b = await service.create_asset(manager, name='B')  # number 2
-        c = await service.create_asset(manager, name='C')  # number 3
+        a = await service.create_asset(manager, name='A')
+        b = await service.create_asset(manager, name='B')
+        c = await service.create_asset(manager, name='C')
 
         got = await service.get_assets_by_ids([c.id, a.id])
-        # Selection honored, and ordered by asset_number regardless of input order.
         assert [x.asset_number for x in got] == [a.asset_number, c.asset_number]
         assert b.id not in {x.id for x in got}
 
@@ -182,19 +180,14 @@ class TestGetAssetsByIds:
         manager = await _user(1, 'manager', Role.EQUIPMENT_MANAGER)
         asset = await service.create_asset(manager, name='A')
         assert await service.get_assets_by_ids([]) == []
-        # Unknown ids are silently dropped; known ones still come back.
         got = await service.get_assets_by_ids([asset.id, 999_999])
         assert [x.id for x in got] == [asset.id]
 
     async def test_does_not_leak_across_tenants(self, service, two_tenants):
         tenant_a, tenant_b = two_tenants
-        # Create assets directly per tenant (asset_number is unique per tenant,
-        # so both can be #1) — this exercises the repo's tenant scoping, not the
-        # per-tenant role gate.
         a_asset = await Equipment.create(tenant_id=tenant_a.id, asset_number=1, name='A-asset')
         b_asset = await Equipment.create(tenant_id=tenant_b.id, asset_number=1, name='B-asset')
 
-        # Asking for both ids from within tenant A returns only tenant A's asset.
         with tenant_scope(tenant_a.id):
             got = await service.get_assets_by_ids([a_asset.id, b_asset.id])
         assert [x.id for x in got] == [a_asset.id]
@@ -206,7 +199,6 @@ class TestOwnerLabel:
         owner = await _user(2, 'owner', Role.VOLUNTEER)
 
         house = await service.create_asset(manager, name='House asset')
-        # An un-owned asset falls back to the owning community's name.
         assert house.owner_label('Acme Community') == 'Acme Community'
 
         owned = await service.create_asset(manager, name='Owned asset', owner_user_id=owner.id)
@@ -260,7 +252,6 @@ class TestLoanHistoryBound:
         every = await service.loan_history(asset)
         page = await service.loan_history(asset, limit=3)
         assert [loan.id for loan in page] == [loan.id for loan in every[:3]]
-        # Newest first, so the page's oldest row is no older than the rest.
         assert page[0].checked_out_at >= page[-1].checked_out_at
 
     async def test_an_asset_with_no_loans_is_clean(self, db, service):
@@ -317,12 +308,8 @@ class TestBorrowerRules:
         assert await service.current_loan(refreshed) is None
 
     async def test_someone_outside_the_community_can_still_be_lent_to(self, db, service):
-        # This test documents the decision, not an accident: the picker narrows
-        # by default and can be widened, and the service must honour the widened
-        # choice. Hard-rejecting a non-member would break the venue case the
-        # whole feature exists for.
         manager = await _user(1, 'manager', Role.EQUIPMENT_MANAGER)
-        walk_in = await User.create(discord_id=99, username='walk_in')  # no role, no tournament
+        walk_in = await User.create(discord_id=99, username='walk_in')
         asset = await service.create_asset(manager, name='Console')
 
         loan = await service.checkout(manager, asset.id, borrower_id=walk_in.id)
@@ -357,7 +344,6 @@ class TestConcurrentLending:
         asset = await service.create_asset(manager, name='Console')
         await service.checkout(first, asset.id)
 
-        # The losing request read "no open loan" before the winner committed.
         async def stale_read(_equipment):
             return None
 
@@ -440,7 +426,7 @@ class TestAssetNumberClash:
 
     async def test_create_retries_past_a_taken_number(self, db, service, monkeypatch):
         manager = await _user(1, 'manager', Role.EQUIPMENT_MANAGER)
-        await service.create_asset(manager, name='Console')  # takes #1
+        await service.create_asset(manager, name='Console')
         real = service.repository.next_asset_number
         reads = iter([1])
 
@@ -465,7 +451,7 @@ class TestAssetNumberClash:
 
     async def test_bulk_create_retries_without_leaving_a_partial_block(self, db, service, monkeypatch):
         manager = await _user(1, 'manager', Role.EQUIPMENT_MANAGER)
-        await service.create_asset(manager, name='Console')  # takes #1
+        await service.create_asset(manager, name='Console')
         real = service.repository.next_asset_number
         reads = iter([1])
 

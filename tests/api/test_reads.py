@@ -14,15 +14,11 @@ from models import (
 )
 from tests.api_helpers import client_for, create_user_token
 
-# ---------------------------------------------------------------------------
-# Tournaments / stages — any authenticated user
-# ---------------------------------------------------------------------------
-
 
 class TestTournamentsAndStages:
     async def test_list_and_get_tournament(self, db, app):
         _, raw = await create_user_token()
-        t = await Tournament.create(name='Cup A')
+        t = await Tournament.create(name='Cup A', is_active=True)
         async with client_for(app, raw) as c:
             listed = await c.get('/api/tournaments')
             assert listed.status_code == 200
@@ -31,6 +27,24 @@ class TestTournamentsAndStages:
             detail = await c.get(f'/api/tournaments/{t.id}')
             assert detail.status_code == 200
             assert detail.json()['name'] == 'Cup A'
+
+    async def test_inactive_tournaments_are_hidden_from_players(self, db, app):
+        _, raw = await create_user_token(username='player')
+        live = await Tournament.create(name='Live Cup', is_active=True)
+        old = await Tournament.create(name='Old Cup', is_active=False)
+        async with client_for(app, raw) as c:
+            listed = (await c.get('/api/tournaments')).json()
+            assert [t['id'] for t in listed] == [live.id]
+            assert (await c.get(f'/api/tournaments/{old.id}')).status_code == 404
+
+    async def test_admins_still_see_inactive_tournaments(self, db, app):
+        _, raw = await create_user_token(username='staffer', roles=[Role.STAFF])
+        old = await Tournament.create(name='Old Cup', is_active=False)
+        async with client_for(app, raw) as c:
+            assert old.id in {t['id'] for t in (await c.get('/api/tournaments')).json()}
+            assert (await c.get(f'/api/tournaments/{old.id}')).status_code == 200
+            active = (await c.get('/api/tournaments', params={'active_only': 'true'})).json()
+            assert old.id not in {t['id'] for t in active}
 
     async def test_get_missing_tournament_is_404(self, db, app):
         _, raw = await create_user_token()
@@ -44,11 +58,6 @@ class TestTournamentsAndStages:
             resp = await c.get('/api/stages')
             assert resp.status_code == 200
             assert resp.json()[0]['name'] == 'Stage 1'
-
-
-# ---------------------------------------------------------------------------
-# Users — staff gated, plus self access
-# ---------------------------------------------------------------------------
 
 
 class TestUsers:
@@ -78,8 +87,6 @@ class TestUsers:
             assert any(u['username'] == 'someone' for u in resp.json())
 
     async def test_list_users_returns_members_not_the_whole_platform(self, db, app):
-        # A token belongs to one community; identity is global but this list is
-        # not. A user with no membership here must not appear.
         _, raw = await create_user_token(username='boss2', roles=[Role.STAFF])
         await User.create(discord_id=556, username='stranger')
         async with client_for(app, raw) as c:
@@ -92,11 +99,6 @@ class TestUsers:
         other = await User.create(discord_id=777, username='target')
         async with client_for(app, raw) as c:
             assert (await c.get(f'/api/users/{other.id}')).status_code == 403
-
-
-# ---------------------------------------------------------------------------
-# Audit — admin gated
-# ---------------------------------------------------------------------------
 
 
 class TestAudit:
@@ -124,11 +126,6 @@ class TestAudit:
             assert entry['details'] == {'match_id': 1}
 
 
-# ---------------------------------------------------------------------------
-# System config — staff gated
-# ---------------------------------------------------------------------------
-
-
 class TestConfig:
     async def test_config_requires_staff(self, db, app):
         _, raw = await create_user_token(username='plain')
@@ -142,11 +139,6 @@ class TestConfig:
             resp = await c.get('/api/config/event_start_date')
             assert resp.status_code == 200
             assert resp.json()['value'] == '2026-06-01'
-
-
-# ---------------------------------------------------------------------------
-# Triforce texts — own vs moderation
-# ---------------------------------------------------------------------------
 
 
 class TestTriforce:
@@ -165,11 +157,6 @@ class TestTriforce:
         async with client_for(app, raw) as c:
             resp = await c.get(f'/api/triforce-texts?tournament_id={t.id}')
             assert resp.status_code == 403
-
-
-# ---------------------------------------------------------------------------
-# Match detail
-# ---------------------------------------------------------------------------
 
 
 class TestMatchDetail:

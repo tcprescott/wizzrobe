@@ -6,16 +6,13 @@ Initializes the database, sets up API and frontend routes, and manages applicati
 
 import time
 
-# Taken before the heavy imports below so the lifespan can report how long
-# importing the app took. A fresh container has no bytecode cache, so this phase
-# alone can run several seconds and is otherwise invisible in the log.
 _IMPORT_STARTED = time.perf_counter()
 
 import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager, contextmanager
-from typing import AsyncGenerator, Iterator, Optional
+from typing import AsyncGenerator, Iterator
 
 from aerich import Command
 from fastapi import FastAPI
@@ -25,46 +22,33 @@ from tortoise import Tortoise
 import api
 import frontend
 
-# Safe to import at module scope: mcpserver builds its MCPServer instance inside
-# mount(), not at import time. MCPServer.__init__ calls logging.basicConfig, which
-# would otherwise win the race against the basicConfig below and strip the log
-# format for the whole process.
+# mcpserver must not build MCPServer at import: its logging.basicConfig would beat ours.
 import mcpserver
-from api.openapi_docs import api_description
+from api import app_association, inbound_webhooks, oauth_server, worker_ticks
+from api.openapi_docs import api_description, warm_openapi
 from api.openapi_docs import install as install_openapi_docs
-from application.events import dispatch_queue as event_dispatch_queue
-from application.events import event_bus
-from application.services import TelemetryService, WebhookService, web_push_service
-from application.services.discord import discord_queue
-from application.services.discord.discord_service import get_discord_bot
-from application.services.match import stage_reminder
-from application.services.volunteer import volunteer_reminder
+from application import bot_runtime, worker_registry
+from application.events import live_relay
+from application.utils import element_cycles, gc_monitor, memory_census, metrics_sampler, worker_watchdog
 from application.utils.easter_eggs import random_fact
-from application.utils.environment import loop_watchdog_enabled
+from application.utils.environment import discord_gateway_enabled, env_flag, loop_watchdog_enabled
 from application.utils.http_headers import header_safe
 from application.utils.log_levels import default_root_level, register_trace_level
 from application.utils.loop_watchdog import watchdog as loop_watchdog
 from application.utils.migration_lock import migration_lock
-from application.utils.mocks.mock_discord import is_mock_discord
 from application.utils.sentry import flush_sentry, init_sentry
+from middleware.app_cors import AppCorsMiddleware
 from middleware.inflight_requests import InFlightRequestLogMiddleware
+from middleware.request_metrics import RequestMetricsMiddleware
 from middleware.security_headers import SecurityHeadersMiddleware
 from migrations.tortoise_config import DB_URL, TORTOISE_ORM
 
-# Configure application logging once, at import of the entrypoint. Without this
-# app loggers fall through to Python's lastResort handler: INFO is dropped and
-# WARNING+ has no timestamps. basicConfig is a no-op if handlers already exist.
 register_trace_level()
 logging.basicConfig(
     level=default_root_level(),
     format='%(asctime)s %(levelname)s %(name)s: %(message)s',
 )
 logger = logging.getLogger('wizzrobe.main')
-
-# Reference to the Discord bot's background task, kept so it is not garbage
-# collected and so shutdown can cancel it cleanly.
-_bot_task: Optional[asyncio.Task] = None
-
 
 @contextmanager
 def _startup_step(name: str) -> Iterator[None]:
@@ -105,51 +89,6 @@ async def close_db() -> None:
     """
     await Tortoise.close_connections()
 
-def _log_bot_task_result(task: asyncio.Task) -> None:
-    """Surface a bot startup/gateway failure immediately instead of letting it
-    sit unobserved in a GC-able task (bad token, intents, gateway crash)."""
-    if task.cancelled():
-        return
-    exc = task.exception()
-    if exc is not None:
-        logger.error('Discord bot task exited with an exception', exc_info=exc)
-
-
-async def init_discord_bot() -> None:
-    """
-    Initialize the Discord bot.
-    """
-    global _bot_task
-    if is_mock_discord():
-        logger.info('MOCK_DISCORD enabled — skipping Discord bot start.')
-        return
-    token = os.environ.get('DISCORD_TOKEN')
-    bot = get_discord_bot()
-    if token:
-        _bot_task = asyncio.create_task(bot.start(token))
-        _bot_task.add_done_callback(_log_bot_task_result)
-    else:
-        logger.warning('DISCORD_TOKEN not set. Discord features will not work.')
-
-async def close_discord_bot() -> None:
-    """
-    Close the Discord bot connection.
-    """
-    global _bot_task
-    if is_mock_discord():
-        return
-    bot = get_discord_bot()
-    await bot.close()
-    if _bot_task is not None:
-        _bot_task.cancel()
-        try:
-            await _bot_task
-        except asyncio.CancelledError:
-            pass
-        except Exception:
-            logger.exception('Discord bot task errored during shutdown')
-        _bot_task = None
-
 async def _apply_stored_log_levels() -> None:
     """Reapply the log levels a super-admin set on /platform before a restart.
 
@@ -162,6 +101,18 @@ async def _apply_stored_log_levels() -> None:
     except Exception:
         logger.exception('Could not apply stored log levels; continuing with defaults')
 
+async def _load_browser_monitoring() -> None:
+    """Load the browser Sentry settings a super-admin set on /platform.
+
+    Same rule as the log levels: a failure leaves the defaults in place rather
+    than stopping boot.
+    """
+    from application.services import BrowserMonitoringService
+    try:
+        await BrowserMonitoringService().load()
+    except Exception:
+        logger.exception('Could not load browser monitoring settings; continuing with defaults')
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """
@@ -172,124 +123,57 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info('startup: module imports took %.2fs', lifespan_started - _IMPORT_STARTED)
     with _startup_step('database'):
         await init_db()
+    with _startup_step('live relay'):
+        await live_relay.start(DB_URL)
     with _startup_step('stored log levels'):
         await _apply_stored_log_levels()
+        await _load_browser_monitoring()
     with _startup_step('discord bot'):
-        # Importing discordbot registers its interaction handlers and DM view
-        # factories with discord_service's registries — the one-way wiring that
-        # replaced the old bidirectional import cycle.
         import discordbot  # noqa: F401
-        await init_discord_bot()
-    # Racetime bot runtime: one long-lived connection per active RacetimeBot
-    # category. Gated by RACETIME_BOT_ENABLED (off by default) and mockable via
-    # MOCK_RACETIME; a no-op when the switch is off, so it is always safe to call.
+        await bot_runtime.start_discord(gateway=discord_gateway_enabled())
     from racetimebot import close_racetime_bot, init_racetime_bot
     with _startup_step('racetime bot'):
         await init_racetime_bot()
     with _startup_step('background workers'):
-        # Auto-open worker: opens a racetime room ahead of each eligible scheduled
-        # match (opt-in per tournament). Runs only when the racetime runtime is on.
-        from application.services import race_room_worker
-        from application.utils.environment import racetime_bot_enabled
-        if racetime_bot_enabled():
-            race_room_worker.start()
-        # SpeedGaming ETL sync worker: polls active event links on their cadence and
-        # materializes SG episodes into Match rows. Gated by SPEEDGAMING_SYNC_ENABLED
-        # (off by default); mockable via MOCK_SPEEDGAMING.
-        from application.services import speedgaming_sync_worker
-        from application.utils.environment import speedgaming_sync_enabled
-        if speedgaming_sync_enabled():
-            speedgaming_sync_worker.start()
-        # Discord Scheduled Events reconciler: mirrors opted-in tournaments' schedules
-        # into each linked guild's Discord events. Gated by DISCORD_EVENTS_SYNC_ENABLED
-        # (off by default); uses the mock transport under MOCK_DISCORD.
-        from application.services.discord import discord_event_worker
-        from application.utils.environment import discord_events_sync_enabled
-        if discord_events_sync_enabled():
-            discord_event_worker.start()
-        # Platform external-service health monitor: periodically probes every external
-        # dependency so the /platform board is warm and alerts fire on transitions.
-        # Gated by SERVICE_HEALTH_ENABLED (off by default).
-        from application.services import service_health_worker
-        from application.utils.environment import service_health_enabled
-        if service_health_enabled():
-            service_health_worker.start()
-        # Async-qualifier run expiry: forfeits runs a player drew and abandoned, after
-        # one warning. Ungated by an env switch — it only ever touches tenants that
-        # have the qualifier feature on, and a tenant without it has no runs to find.
-        from application.services.async_qualifier import async_qualifier_worker
-        async_qualifier_worker.start()
-        # Seed-roll polling: advances every in-flight ProviderTask, which is the only
-        # thing that finishes a task-queue roll (DK64). Ungated — with no async
-        # randomizer in use there is simply nothing in the queue to poll, and gating
-        # it would mean a restart silently stranding rolls that were already running.
-        from application.services import seed_roll_worker
-        seed_roll_worker.start()
-        # Check-in roster sync: polls each open check-in event's Matcherino venue
-        # on its cadence. No env switch — it only touches events staff have opened,
-        # and skips tenants with EVENT_CHECK_IN off.
-        from application.services import check_in_sync_worker
-        check_in_sync_worker.start()
-        # Telegram bot: binds chats from profile Connect links and answers /stop.
-        # Only with a bot token, and never against a mocked Discord.
-        from application.services import telegram_bot_worker
-        from application.utils.clients import telegram_client
-        from application.utils.mocks.mock_discord import is_mock_discord
-        if telegram_client.is_configured() and not is_mock_discord():
-            telegram_bot_worker.start()
-        discord_queue.start()
-        volunteer_reminder.start()
-        # Pre-match stage reminder: DMs a stage match's players and approved crew
-        # shortly before it starts. Ungated — a community with no staged matches has
-        # nothing for it to find.
-        stage_reminder.start()
-        # Community event reminders: DMs subscribers shortly before an approved
-        # event starts. Skips tenants with COMMUNITY_EVENTS off.
-        from application.services import community_event_reminder
-        community_event_reminder.start()
-        # Central event bus: start the async-subscriber worker and register the
-        # webhook delivery subscriber (fans published events out to staff webhooks).
-        event_dispatch_queue.start()
-        event_bus.subscribe_async(WebhookService().deliver_event)
-        # Engagement telemetry: mirror every published domain event into the
-        # TelemetryEvent log (page views / interactions are captured separately from
-        # the presentation layer). No event_types filter — record them all.
-        event_bus.subscribe_async(TelemetryService().record_event)
+        worker_registry.start_in_process()
+        bot_runtime.start_delivery()
     # Started after boot so migrations and the first imports don't read as stalls.
     if loop_watchdog_enabled():
+        gc_monitor.install()
         loop_watchdog.start()
-    # The MCP transport's session manager owns a task group that each per-request
-    # server task is started on; entering it here (and exiting it around the
-    # yield) means /mcp stops accepting calls before the workers below tear down,
-    # rather than after.
+    warm_openapi(app)
+    metrics_sampler.start()
+    worker_watchdog.start()
+    element_cycles.install()
+    if env_flag('GC_FREEZE', default=True):
+        logger.info('startup: froze %d objects out of garbage collection', gc_monitor.freeze())
+        if env_flag('GC_REFREEZE', default=True):
+            thaw_minutes = float(os.environ.get('GC_THAW_MINUTES') or gc_monitor.THAW_SECONDS / 60)
+            gc_monitor.refreeze_after_full_passes(asyncio.get_running_loop(), thaw_minutes * 60)
+    if census_dump := os.environ.get('MEMORY_CENSUS_DUMP'):
+        memory_census.dump_on_signal(census_dump)
+    # Entered around the yield so /mcp stops taking calls before the workers below tear down.
     async with mcpserver.session_lifespan():
         logger.info('startup: complete in %.2fs (lifespan %.2fs)',
                     time.perf_counter() - _IMPORT_STARTED, time.perf_counter() - lifespan_started)
         yield
     try:
-        await race_room_worker.stop()
-        await seed_roll_worker.stop()
-        await check_in_sync_worker.stop()
-        await telegram_bot_worker.stop()
-        await speedgaming_sync_worker.stop()
-        await discord_event_worker.stop()
-        await service_health_worker.stop()
+        # Must flush before the workers that carry its DMs and webhooks stop.
+        from application import pending_actions
+        await pending_actions.flush_all()
+        await worker_registry.stop_all()
         await close_racetime_bot()
-        await async_qualifier_worker.stop()
-        await volunteer_reminder.stop()
-        await stage_reminder.stop()
-        await community_event_reminder.stop()
-        await event_dispatch_queue.stop()
-        await discord_queue.stop()
-        await web_push_service.aclose_http_client()
-        await close_discord_bot()
+        await live_relay.stop()
+        await bot_runtime.stop_delivery()
+        await bot_runtime.close_discord()
         await close_db()
     finally:
+        await worker_watchdog.stop()
+        await metrics_sampler.stop()
         loop_watchdog.stop()
         await flush_sentry()
 
-# Initialize Sentry before the app/middleware are constructed so its
-# instrumentation wraps the request path. No-op when SENTRY_DSN is unset.
+# Init before the app is constructed so Sentry's instrumentation wraps the request path.
 init_sentry()
 
 app: FastAPI = FastAPI(
@@ -310,6 +194,8 @@ class FunFactMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(FunFactMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RequestMetricsMiddleware)
+app.add_middleware(AppCorsMiddleware)
 # Added last so it is outermost and sees every request the shutdown cancels.
 app.add_middleware(InFlightRequestLogMiddleware)
 
@@ -320,8 +206,12 @@ app.include_router(
 install_openapi_docs(app)
 
 # ORDER IS LOAD-BEARING: frontend.init() hands the app to NiceGUI, which mounts
-# itself at '/' and would swallow /mcp. Register the MCP routes first.
+# itself at '/' and would swallow /mcp, /oauth and /internal. Register those routes first.
 mcpserver.mount(app)
+oauth_server.mount(app)
+inbound_webhooks.mount(app)
+worker_ticks.mount(app)
+app_association.mount(app)
 
 frontend.init(app)
 

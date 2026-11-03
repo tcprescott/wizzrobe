@@ -11,29 +11,32 @@ crash and therefore only breaks after a crash.
 """
 
 import logging
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from application.utils.background_loop import for_each_tenant_scoped, run_worker_loop
 
+if TYPE_CHECKING:
+    from models import ProviderTask
+
 logger = logging.getLogger(__name__)
 
-# Matches the cadence the reference web client polls at, and the one the
-# blocking path uses. Rolls take minutes; a tighter loop would only add load.
 TICK_SECONDS = 5
 
 
 async def _tick() -> None:
     from application.services.provider_task_service import ProviderTaskService
-    from application.services.seed_roll_service import SeedRollService
 
     task_service = ProviderTaskService()
 
-    # Retire the dead before polling the living, so a task that has outlived its
-    # budget stops being re-checked on every tick from here on.
     await task_service.sweep_stale()
 
     tasks = await task_service.due_for_poll()
-    if not tasks:
-        return
+    if tasks:
+        await _poll_all(tasks)
+
+
+async def _poll_all(tasks: "List[ProviderTask]") -> None:
+    from application.services.seed_roll_service import SeedRollService
 
     seed_roll_service = SeedRollService()
 
@@ -51,9 +54,26 @@ async def _tick() -> None:
     await for_each_tenant_scoped(
         tasks, _poll,
         tenant_id_of=lambda task: task.tenant_id,  # type: ignore[attr-defined]
+        event_id_of=lambda task: task.match.event_id if task.match_id else None,  # type: ignore[attr-defined, union-attr]
         logger=logger,
         describe=lambda task: f'provider task {task.id} ({task.provider})',
     )
+
+
+async def handle_task(payload: Dict[str, Any]) -> Optional[float]:
+    """Cloud Tasks: poll one provider task; check again in :data:`TICK_SECONDS` while it runs."""
+    from application.services.provider_task_service import ProviderTaskService
+
+    task_id = payload.get('task_id')
+    if not isinstance(task_id, int):
+        logger.warning('seed roll task with no task_id: %r', payload)
+        return None
+    task_service = ProviderTaskService()
+    task = await task_service.pollable(task_id)
+    if task is None:
+        return None
+    await _poll_all([task])
+    return TICK_SECONDS if await task_service.pollable(task_id) is not None else None
 
 
 _loop = run_worker_loop(_tick, TICK_SECONDS, 'seed roll polling', logger)
