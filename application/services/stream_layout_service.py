@@ -143,6 +143,7 @@ class StageOverlayRow:
     overlay: StageOverlay
     showing: Optional[Match]
     pinned: bool
+    up_next: Optional[Match] = None
 
 
 def _names(signups) -> str:
@@ -377,8 +378,17 @@ class StreamLayoutService:
         for stage in await self.repository.stages():
             overlay = await self._overlay(stage)
             showing, pinned = await self._showing(stage, overlay)
-            rows.append(StageOverlayRow(stage=stage, overlay=overlay, showing=showing, pinned=pinned))
+            _, up_next = await self._current_and_next(stage.id, showing)
+            rows.append(StageOverlayRow(stage=stage, overlay=overlay, showing=showing, pinned=pinned, up_next=up_next))
         return rows
+
+    @requires_feature(FeatureFlag.STREAM_LAYOUTS)
+    async def stage_preview(self, actor: User, stage_id: int) -> OverlayFeed:
+        """What a stage's overlay draws right now, for a thumbnail on the admin screen."""
+        await self._ensure(actor)
+        overlay = await self._overlay(await self._stage(stage_id))
+        await overlay.fetch_related('stage', 'layout')
+        return await self.overlay_feed(overlay)
 
     @requires_feature(FeatureFlag.STREAM_LAYOUTS)
     async def obs_scene_collection(self, actor: User, stage_id: Optional[int] = None) -> tuple[str, bytes]:

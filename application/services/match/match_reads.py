@@ -189,6 +189,10 @@ class MatchReadsMixin:
         start, end = local_day_bounds(first_day, first_day + timedelta(days=days - 1))
         return await self.repository.scheduled_between(start, end, True, True)
 
+    async def streamed_between(self, start: datetime, end: datetime) -> List[Match]:
+        """Unfinished matches on a stage scheduled in ``[start, end)``, for the app's stage cards."""
+        return await self.repository.scheduled_between(start, end, True, True)
+
     async def group_matches_by_stage(
         self,
         matches: List[Match]

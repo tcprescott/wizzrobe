@@ -56,6 +56,16 @@ export function UnsavedChangesGuard({ children }: { children: ReactNode }) {
   )
 }
 
+/** Tells the surrounding UnsavedChangesGuard whether this editor holds unsaved changes. */
+export function useUnsavedFlag(dirty: boolean) {
+  const id = useId()
+  const register = useContext(DirtyContext)
+  useEffect(() => {
+    register?.(id, dirty)
+  }, [register, id, dirty])
+  useEffect(() => () => register?.(id, false), [register, id])
+}
+
 /** A form's value: the saved one until someone edits, then their draft. */
 export function useDraft<T>(saved: T | undefined) {
   const [draft, setDraft] = useState<T | null>(null)

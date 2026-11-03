@@ -113,5 +113,6 @@ class TournamentBracketResponse(_Base):
     url: Optional[str] = Field(None, description="The bracket's page on its site (a Wizzrobe path for native).")
     last_synced_at: Optional[datetime] = Field(None, description="When the start.gg or Challonge mirror last synced (UTC).")
     filtered: bool = Field(False, description="True when filters trimmed the phases, pools or sets.")
+    your_entrant_ids: List[int] = Field(default_factory=list, description="The entrants that are you, so the app can mark your own sets. Empty when you don't play in it.")
     phases: List[BracketPhaseResponse]
     entrants: List[BracketEntrantSummary]
