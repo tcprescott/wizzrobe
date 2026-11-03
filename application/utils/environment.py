@@ -5,8 +5,10 @@ security-critical configuration (session secret, DB credentials) so the app
 refuses to start in an insecure state rather than silently degrading.
 """
 
+import logging
 import os
 
+_logger = logging.getLogger(__name__)
 _TRUTHY = frozenset({'1', 'true', 'yes', 'on'})
 
 
@@ -21,6 +23,25 @@ def env_flag(name: str, default: bool = False) -> bool:
     if raw is None:
         return default
     return raw.strip().lower() in _TRUTHY
+
+
+def sandbox_mode() -> bool:
+    """Whether this is a throwaway stack (the beta) that must never reach a real person.
+
+    ``SANDBOX_MODE=on`` stops every outbound channel at its last step: Discord
+    (no client at all), email, Telegram, web and native push, community and
+    personal webhooks, and the racetime, SpeedGaming and Discord-events workers.
+    Independent of ``ENVIRONMENT``, so a sandbox keeps production's hardening.
+    """
+    return env_flag('SANDBOX_MODE')
+
+
+def outbound_blocked(channel: str) -> bool:
+    """True, with a log line, when ``SANDBOX_MODE`` holds back a send on ``channel``."""
+    if not sandbox_mode():
+        return False
+    _logger.info('SANDBOX_MODE: not sending %s', channel)
+    return True
 
 
 def get_environment() -> str:
@@ -94,6 +115,8 @@ def racetime_bot_enabled() -> bool:
     the switch says "run the runtime", the mock flag says "run it against a
     scripted fake instead of live racetime".
     """
+    if sandbox_mode():
+        return False
     return os.environ.get('RACETIME_BOT_ENABLED', '').strip().lower() in ('1', 'true', 'yes', 'on')
 
 
@@ -125,6 +148,8 @@ def speedgaming_sync_enabled() -> bool:
     ``MOCK_SPEEDGAMING``: the switch says "run the worker", the mock flag says
     "run it against scripted fixtures instead of the live SG API".
     """
+    if sandbox_mode():
+        return False
     return os.environ.get('SPEEDGAMING_SYNC_ENABLED', '').strip().lower() in ('1', 'true', 'yes', 'on')
 
 
@@ -137,6 +162,8 @@ def discord_events_sync_enabled() -> bool:
     on-demand from the admin UI regardless of this switch; this only gates the
     periodic worker. Independent of ``MOCK_DISCORD`` (which swaps the transport).
     """
+    if sandbox_mode():
+        return False
     return os.environ.get('DISCORD_EVENTS_SYNC_ENABLED', '').strip().lower() in ('1', 'true', 'yes', 'on')
 
 
@@ -147,6 +174,8 @@ def service_health_alert_dm_enabled() -> bool:
     and capture to Sentry; this opt-in (``SERVICE_HEALTH_ALERT_DM``) additionally
     Discord-DMs every super-admin so a deployment can choose the noisier channel.
     """
+    if sandbox_mode():
+        return False
     return os.environ.get('SERVICE_HEALTH_ALERT_DM', '').strip().lower() in ('1', 'true', 'yes', 'on')
 
 

@@ -11,6 +11,8 @@ from typing import Dict, Optional
 
 import httpx
 
+from application.utils.environment import outbound_blocked
+
 logger = logging.getLogger(__name__)
 
 _API_URL = 'https://api.sendgrid.com/v3/mail/send'
@@ -45,6 +47,8 @@ async def send_email(
     headers: Optional[Dict[str, str]] = None,
 ) -> bool:
     """Send one message. ``True`` once SendGrid accepted it; never raises."""
+    if outbound_blocked('email'):
+        return False
     payload: dict = {
         'personalizations': [{'to': [{'email': to}]}],
         'from': {

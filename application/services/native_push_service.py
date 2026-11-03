@@ -38,7 +38,7 @@ import jwt
 from application.errors import NotFoundError
 from application.repositories import DevicePushTokenRepository
 from application.services.audit_service import AuditActions, AuditService
-from application.utils.environment import env_flag
+from application.utils.environment import env_flag, outbound_blocked
 from models import DevicePushToken, User
 
 logger = logging.getLogger(__name__)
@@ -268,6 +268,8 @@ class NativePushService:
         return sum(1 for delivered in results if delivered)
 
     async def _deliver_one(self, row: DevicePushToken, message: _Message) -> bool:
+        if outbound_blocked('native push'):
+            return False
         apns, fcm = _apns_config(), _fcm_config()
         if row.platform == 'ios' and apns is not None:
             outcome = await self._send_apns(row.token, message, apns)
