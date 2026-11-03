@@ -7,7 +7,7 @@ runtime (``RACETIME_BOT_ENABLED`` off, or a test that registered nothing) every
 call returns ``False``, the same as a room the bot isn't connected to.
 
 When the runtime lives in another process (the ``bots`` container beside the
-API, both with ``MULTI_INSTANCE`` on), a process with no sender hands the action
+API, both with ``SEPARATE_BOTS`` on), a process with no sender hands the action
 to the live relay and the process holding the runtime sends it. That hand-off
 returns ``True`` once queued: whether racetime took it is only known over there.
 """

@@ -1,5 +1,9 @@
 # Scheduled workers
 
+> Every Docker stack runs `WORKER_MODE=loop`. The `scheduled` mode, its Cloud
+> Scheduler tick endpoint and the Cloud Tasks follow-ups below were built for
+> Cloud Run and are kept switched off since hosting moved to Docker (2026-11-03).
+
 Every periodic background worker (a `run_worker_loop` module) is listed once, in
 `application/worker_registry.py` `WORKERS`, with a **placement** and an optional
 env gate. `main.py`, `scripts/run_worker_tick.py` and the Cloud Scheduler tick

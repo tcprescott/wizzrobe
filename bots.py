@@ -13,7 +13,7 @@ Run it with ``uvicorn bots:app`` beside the API started with
 ``DISCORD_GATEWAY=off`` and ``RACETIME_BOT_ENABLED=off``, so exactly one
 process holds each connection. It serves only ``/api/health``, so Docker's
 health check has something to probe. The API applies migrations; this process
-only connects to the database. With ``MULTI_INSTANCE`` on in both, the live
+only connects to the database. With ``SEPARATE_BOTS`` on in both, the live
 relay carries the API's racetime room messages and bot restarts here, and this
 process's live refreshes back to the API.
 

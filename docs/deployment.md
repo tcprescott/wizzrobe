@@ -6,10 +6,21 @@ Wizzrobe ships as a single application container plus PostgreSQL and a Redis ses
 
 ## Topology
 
-> **Cloud Run (staging, not live yet).** The serverless layout from the mobile
-> app spec (an `api` and a `bots` service, Scheduler jobs, Cloud Tasks queues) is
-> described in [deploy/cloudrun/README.md](../deploy/cloudrun/README.md). Production
-> stays the single process below until the switch-over.
+> **Docker only, no Google Cloud.** Everything runs as Docker containers on our
+> own server. Three compose stacks:
+>
+> - [`docker-compose.yml`](../docker-compose.yml): local dev and today's single
+>   process (below).
+> - [`deploy/production/`](../deploy/production/README.md): production as an `api`
+>   container and a `bots` container (Discord gateway + racetime) beside it, Redis,
+>   the host's Postgres, and the new app from the cutover. Deployed from GHCR
+>   images by the manual **Deploy production** workflow on the self-hosted runner.
+>   Until its first run, production keeps deploying by git pull + restart.
+> - [`deploy/beta/`](../deploy/beta/README.md): the new app on seeded data.
+>
+> The Cloud Run config in [`deploy/cloudrun/`](../deploy/cloudrun/README.md), the
+> Cloud Scheduler tick endpoint and Cloud Tasks are kept but switched off (Thomas,
+> 2026-11-03); nothing uses them.
 
 [`docker-compose.yml`](../docker-compose.yml) defines three services and two named volumes:
 
@@ -122,7 +133,7 @@ Every boolean variable below uses one grammar (`env_flag` in `application/utils/
 | `LOG_LEVEL` | no | `INFO` | `main.py`, `application/utils/log_levels.py` | Root level for the application logger (`TRACE` accepted); separate from uvicorn's `--log-level`, which `start.sh` pins to `info`. Per-module levels set on `/platform` → Logging override it and persist across restarts. See [observability.md](features/observability.md). |
 | `DISCORD_TOKEN` | yes, unless mock | — | `main.py`, `pages/auth.py`, `application/services/service_health_service.py` | Bot token, also used by the OAuth API client. Unset → bot skipped with a warning and Discord features dead. |
 | `DISCORD_PUBLIC_KEY` | no | — | `discordbot/http_interactions.py`, `api/inbound_webhooks.py` | The application's public key (Developer Portal → General Information). Turns on `POST /discord/interactions`; unset → that path answers 404. Only takes effect once the portal's **Interactions Endpoint URL** is set to `<BASE_URL>/discord/interactions`, after which Discord sends button presses and slash commands there instead of down the gateway. See [discord.md](features/discord.md#interactions-over-http). |
-| `DISCORD_GATEWAY` | no | on | `application/utils/environment.py`, `application/bot_runtime.py` | Off → this process signs in for REST only: DMs and edits still send, but there are no member events, no slash-command sync and no gateway button presses. For the API beside `bots.py`, which always runs the gateway; needs `DISCORD_PUBLIC_KEY` and the endpoint URL so buttons keep working. |
+| `DISCORD_GATEWAY` | no | on | `application/utils/environment.py`, `application/bot_runtime.py` | Off → this process signs in for REST only: DMs and edits still send, but there are no member events, no slash-command sync and no gateway button presses. For the API beside `bots.py`, which always runs the gateway and so takes the button presses; `DISCORD_PUBLIC_KEY` and the interactions endpoint URL are only needed to take them over HTTP instead. |
 | `DISCORD_CLIENT_ID` | yes, for real OAuth | — | `pages/auth.py` | Discord application client ID; derives `OAUTH_URL`. |
 | `DISCORD_CLIENT_SECRET` | yes, for real OAuth | — | `pages/auth.py` | OAuth authorization-code exchange. |
 | `BASE_URL` | no | `http://localhost:8000` | `application/utils/environment.py` | Public base URL (trailing `/` stripped) for deep links, and the fallback for `PLATFORM_HOST`. **Not** the source of the OAuth callback. Set it in production — a stale value bakes an unreachable host into printed equipment QR labels, which is why the label sheet names the host it encodes and warns when that is not the host you are browsing ([frontend.md](reference/frontend.md#encoded-host-check)). |
@@ -173,6 +184,7 @@ Every boolean variable below uses one grammar (`env_flag` in `application/utils/
 | `RACETIME_REDIRECT_URI` | no | `{BASE_URL}/racetime/oauth/callback` | `application/services/racetime_service.py` | Must match the URI registered with the racetime OAuth app. |
 | `MOCK_RACETIME` | no | off | `application/utils/mocks/mock_racetime.py` | Fakes a verified racetime identity, drives the bot runtime against a scripted event-emitting fake, **and** opens race rooms without calling racetime.gg (their `mock-room-…` slugs don't exist there). **Refused in production.** |
 | `RACETIME_BOT_ENABLED` | no | off | `application/utils/environment.py` | Master switch for the racetime bot runtime (`racetimebot/`). Off → lifespan skips it, no outbound connections. On → one connection per active `RacetimeBot` category. |
+| `SEPARATE_BOTS` | no | off | `application/events/live_relay.py` | Set on both the API and the `bots` container (`deploy/production/`). Opens the Postgres live relay between them, so the API's racetime room messages and bot restarts reach the bots, and the bots' live refreshes reach open screens. Unlike `MULTI_INSTANCE` it leaves rate limits counted in memory. |
 | `SANDBOX_MODE` | no | off | `application/utils/environment.py` | The beta stack's switch ([deploy/beta/](../deploy/beta/README.md)). On → Discord never signs in, and email, Telegram, web and native push and both kinds of webhook stop at their last step; the racetime, SpeedGaming, Discord-events and health-DM workers stay off. Independent of `ENVIRONMENT`, so a sandbox keeps production's hardening, and it lets `scripts/seed_dev.py` run under `ENVIRONMENT=production` without the fixtures whose secrets are published in the repo (dev password, bearer and room tokens, confidential OAuth secret). |
 | `APP_REDIRECT_URIS` | no | — | `scripts/seed_dev.py` | Comma-separated sign-in returns the dev seed adds to the first-party app (`wizzrobe-app`), beside the Vite dev servers. The beta stack sets its app's `/auth/callback`; CORS follows from it. |
 | `MOCK_RACETIME_IDENTITY` | no | `1` | `application/utils/clients/racetime_client.py` | Which canned mock identity the mock link flow returns. Only read under `MOCK_RACETIME`. |
@@ -187,7 +199,7 @@ Every boolean variable below uses one grammar (`env_flag` in `application/utils/
 | `GC_THAW_MINUTES` | no | 10 | `main.py` | How often the frozen survivors are handed back for one ordinary full collection, which frees any garbage cycles among them ([observability.md](features/observability.md#garbage-collection-pauses)). Longer means fewer slow passes but more memory held between them. |
 | `MEMORY_CENSUS_DUMP` | no | unset | `main.py` | CI only. A file path: each `SIGUSR1` writes a `memory_census` there as JSON (the pid goes to `<path>.pid`), for `scripts/ui_leak_check.js`. Leave unset in production. |
 | `SPEEDGAMING_SYNC_ENABLED` | no | off | `application/utils/environment.py` | Master switch for the SpeedGaming ETL sync worker. Off → no outbound polls. On → each active `SpeedGamingEventLink` is polled on its cadence and materialized into `Match` rows. |
-| `WORKER_MODE` | no | `loop` | `application/worker_registry.py` | `loop` runs every background worker in-process (today). `scheduled` stops the Scheduler-placed workers' loops and opens `POST /internal/workers/<key>/tick` for Cloud Scheduler ([scheduled-workers.md](features/scheduled-workers.md)). |
+| `WORKER_MODE` | no | `loop` | `application/worker_registry.py` | `loop` runs every background worker in-process (every Docker stack). `scheduled` (unused; Cloud Run only) stops the Scheduler-placed workers' loops and opens `POST /internal/workers/<key>/tick` for Cloud Scheduler ([scheduled-workers.md](features/scheduled-workers.md)). |
 | `CLOUD_TASKS_LOCATION` | no | unset | `application/task_queue.py` | `projects/<p>/locations/<region>`. With `WORKER_MODE=scheduled`, seed rolls and data exports schedule their own follow-up checks as Cloud Tasks instead of bursting every minute ([scheduled-workers.md](features/scheduled-workers.md#cloud-tasks-follow-ups)). Unset → they poll as before. |
 | `CLOUD_TASKS_QUEUE_PREFIX` | no | `wizzrobe-` | `application/task_queue.py` | Queue names are this prefix plus the worker key, hyphenated (`wizzrobe-staging-seed-roll`). |
 | `WORKER_TICK_AUDIENCE` | in `scheduled` mode | — | `api/worker_ticks.py` | The OIDC audience set on the Cloud Scheduler jobs; a token for any other audience is refused. |
@@ -278,7 +290,7 @@ Shutdown reverses this: the workers stop, the queue workers are cancelled (any s
 | Port | 8000 | 8000 | 8000 | 8000 |
 | Forced env | — | `ENVIRONMENT=development`, `MOCK_DISCORD`, `MOCK_SEEDGEN`, `MOCK_CHALLONGE`, `MOCK_TWITCH`, `MOCK_RACETIME`, `MOCK_MATCHERINO`, `MOCK_STARTGG` | same as `mock` | `ENVIRONMENT=production` |
 
-`./start.sh bots` runs `bots.py` (Discord gateway and racetime room bot) the way `prod` runs `main.py`, on `$PORT` (default 8000). Only the Cloud Run bot service uses it; see [deploy/cloudrun/README.md](../deploy/cloudrun/README.md).
+`./start.sh bots` runs `bots.py` (Discord gateway and racetime room bot) the way `prod` runs `main.py`, on `$PORT` (default 8000). The `bots` container in [deploy/production/](../deploy/production/README.md) runs it, beside an API with `DISCORD_GATEWAY=off`, `RACETIME_BOT_ENABLED=off` and `SEPARATE_BOTS=on` in both.
 
 `mock` is the one-command offline dev loop — no Discord, Challonge, Twitch, racetime.gg, Matcherino or randomizer credentials needed. `validate` is `mock` without the watcher, for browser runs where a mid-run reload would tear down open pages and fill the log with teardown tracebacks; see [development.md](development.md#running-the-server-and-the-two-ways-it-bites).
 

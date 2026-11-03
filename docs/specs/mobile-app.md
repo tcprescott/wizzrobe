@@ -24,8 +24,10 @@ In:
   generated from its OpenAPI schema.
 - Live screens (run sheets, check-in desk, brackets, Watch) kept current through
   Postgres LISTEN/NOTIFY streamed to the app as server-sent events.
-- The backend made stateless and deployed to Google Cloud Run (API service), with
-  background workers as Cloud Scheduler jobs and one small always-on bot service.
+- The backend made stateless and run as Docker containers on our own server: an
+  API container (website, REST, MCP, background workers) and a bots container
+  (Discord gateway, racetime room bot), deployed from GHCR images by the
+  self-hosted GitHub runner. No Google Cloud (changed 2026-11-03, see Decisions).
 - Push notifications: web push (already built) plus native push through APNs/FCM
   in the store apps.
 - One switch-over before SGL27: every screen and the new backend go live together,
@@ -94,20 +96,23 @@ Images: `/mnt/project-files/mobile-app/mockups/{A,B,C}-{phone,desktop}-{light,da
     in CI with a drift check.
   - Live updates: `match_live` / `check_in_live` publish via `NOTIFY`; a
     `GET /api/live` SSE endpoint fans out per community/event.
-  - Workers: each `run_worker_loop` worker becomes a Cloud Scheduler-triggered tick
-    (`application/worker_registry.py`, `POST /internal/workers/<key>/tick`,
-    switched on by `WORKER_MODE=scheduled`; see `docs/features/scheduled-workers.md`).
+  - Workers: stay in-process loops in the API container (`WORKER_MODE=loop`), all
+    listed in `application/worker_registry.py`. The Cloud Scheduler tick endpoint
+    (`WORKER_MODE=scheduled`) is built but switched off; see
+    `docs/features/scheduled-workers.md`.
   - Discord: buttons move to the HTTP interactions endpoint (signed POSTs, no
     gateway). DMs already go over Discord's REST API. Member update/remove events
     (inbound role sync) need the gateway, so they stay on the bot service.
   - Telegram: switches from polling to Telegram's webhook.
   - racetime: room bot stays on websockets, on the bot service.
-  - MCP: already stateless HTTP; moves to Cloud Run unchanged.
-- **Hosting:** Cloud Run `api` service (scales to zero or a floor of 1 during
-  events), Cloud Run `bots` service (min 1 instance, CPU always on: Discord
-  gateway + racetime), Cloud Scheduler for worker ticks, Cloud SQL Postgres (or
-  Neon) with a small pool per instance. Static app on Cloud Storage + CDN (or
-  Firebase Hosting).
+  - MCP: already stateless HTTP; unchanged.
+- **Hosting:** Docker on the production machine, `deploy/production/`: `api`
+  (one container, applies migrations, runs the workers), `bots` (`bots.py`:
+  Discord gateway + racetime), `app` (the built `web/` behind nginx, from the
+  cutover), Redis for sessions, and the host's Postgres. The API and bots talk
+  over the Postgres live relay (`SEPARATE_BOTS=on`). A manual "Deploy production"
+  workflow builds the images to GHCR and the self-hosted runner restarts the
+  stack. The beta stack (`deploy/beta/`) is the same shape on seeded data.
 - **Player input:** unchanged; the threat model applies to the API as today.
 
 ## PR plan
@@ -121,11 +126,13 @@ switch-over, so nothing here may break it.
    personal webhooks and for Discord DMs, with sweeper workers that resend.
    NiceGUI keeps working on top.
 3. **Backend: workers as ticks.** HTTP tick endpoint guarded by Cloud Scheduler's
-   OIDC token; leader-only fallback for the current single process.
+   OIDC token; leader-only fallback for the current single process. (Built, then
+   left switched off when hosting moved to Docker.)
 4. **Backend: Discord interactions over HTTP + Telegram webhook**, bot service
    entry point (gateway + racetime only).
-5. **Cloud Run deploy**: Dockerfiles, `api`/`bots` services, Scheduler jobs,
-   staging environment against a copy of prod data.
+5. **Deploy**: first built for Cloud Run (#770, left in `deploy/cloudrun/`, never
+   applied); replaced by Docker: `deploy/beta/` (#814) and `deploy/production/`
+   (API + bots containers, manual deploy workflow on the self-hosted runner).
 6. **App skeleton** in `web/`: Vite, routing, Studio tokens and base components,
    sign-in via PKCE, generated client, shell (picked option), a11y + contrast CI.
    Plus the shared reads every screen needs (from the screen inventory): one
@@ -147,7 +154,8 @@ in TypeScript.
 10. **Admin screens** (several PRs, one per admin area).
 11. **Platform screens.**
 12. **Capacitor iOS/Android shells, native push, app links.**
-13. **Switch-over**: point the domain at Cloud Run, remove NiceGUI, `pages/`,
+13. **Switch-over**: run the production deploy with the app on, point the domain
+    at the `app` container, remove NiceGUI, `pages/`,
     `theme/`, the browser a11y config for old pages; fold this spec into
     `docs/features/` and delete it.
 
@@ -158,9 +166,11 @@ in TypeScript.
 - [ ] On a phone (360–440px) and on desktop (1440px), every screen uses the picked
       shell and passes the axe + contrast scan in light and dark.
 - [ ] A run sheet open on two devices updates on both within 2 seconds of a change
-      made on either, with the API running on more than one Cloud Run instance.
-- [ ] The API runs on Cloud Run with `min-instances=0` and serves a cold request.
-- [ ] Every background worker runs from Cloud Scheduler; none runs in the API process.
+      made on either, including a change made by the bots container.
+- [ ] Production runs as the `deploy/production/` containers, deployed from the
+      manual workflow, with no Google Cloud resource in use.
+- [ ] Restarting the API container leaves the Discord gateway and racetime rooms
+      connected, and restarting the bots container leaves the website up.
 - [ ] Killing an API instance mid-request loses no DM or webhook (outbox delivers it).
 - [ ] Discord buttons on DMs work with the bot service stopped (HTTP interactions).
 - [ ] racetime room bot and inbound Discord role sync run on the bot service.
@@ -279,6 +289,12 @@ in TypeScript.
   Communities and people / Connections / Operations. Super-admin routes now bind no
   community, so the app calls them without the header. Mockups:
   `/mnt/project-files/mobile-app/platform-mockups/`.
+- 2026-11-03 — Thomas: "Can we avoid using GCP for now? I just want everything to
+  run in docker." Hosting moves from Cloud Run to Docker. His picks: keep the
+  Cloud Run, Cloud Scheduler and Cloud Tasks code in the repo, switched off;
+  run the API and the bots as separate containers; deploy production from GHCR
+  images through the self-hosted runner, on a manual button only; Door Rando
+  runs as a sidecar container with its patches on a Docker volume.
 - 2026-11-02 — Thomas picked app-only endpoints for passwords and password accounts:
   `require_app_super_admin_write` accepts only Wizzrobe's own app, so personal tokens
   and MCP never carry a password. Platform ships as one PR (all eight sections).

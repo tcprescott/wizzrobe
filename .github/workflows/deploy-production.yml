@@ -1,0 +1,140 @@
+name: Deploy production
+
+# Production as Docker containers (deploy/production/): builds the backend and
+# app images to GHCR and the self-hosted runner on the server pulls them and
+# restarts the stack. Manual only, never on push: Actions → Deploy production →
+# Run workflow, picking the branch (normally main). Until it's run the first
+# time, production keeps deploying by git pull + restart.
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: Also run the new app (only from the cutover on)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# Never two production deploys at once, and never cancel one halfway.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  API_IMAGE: ghcr.io/${{ github.repository }}
+  APP_IMAGE: ghcr.io/${{ github.repository }}-app
+  # Repository variables (Settings → Secrets and variables → Actions → Variables).
+  PROD_API_ORIGIN: ${{ vars.PROD_API_ORIGIN }}
+
+jobs:
+  test:
+    # The whole suite on the commit being shipped, the same gate a pull request gets.
+    uses: ./.github/workflows/test.yml
+
+  build:
+    needs: test
+    if: github.repository == 'tcprescott/wizzrobe'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      sha: ${{ steps.commit.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Read commit
+        id: commit
+        run: |
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "date=$(git log -1 --format=%cI)" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push the backend
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.API_IMAGE }}:prod
+            ${{ env.API_IMAGE }}:prod-${{ steps.commit.outputs.sha }}
+          build-args: |
+            GIT_SHA=${{ steps.commit.outputs.sha }}
+            GIT_COMMIT_DATE=${{ steps.commit.outputs.date }}
+          cache-from: type=gha,scope=prod-api
+          cache-to: type=gha,mode=max,scope=prod-api
+
+      - name: Build and push the new app
+        if: inputs.app
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: web/Dockerfile
+          push: true
+          tags: |
+            ${{ env.APP_IMAGE }}:prod
+            ${{ env.APP_IMAGE }}:prod-${{ steps.commit.outputs.sha }}
+          build-args: |
+            VITE_API_BASE=${{ env.PROD_API_ORIGIN }}
+            VITE_AUTH_ORIGIN=${{ env.PROD_API_ORIGIN }}
+          cache-from: type=gha,scope=prod-app
+          cache-to: type=gha,mode=max,scope=prod-app
+
+  deploy:
+    needs: build
+    # Only the runner registered on the server carries this label.
+    runs-on: [self-hosted, wizzrobe-prod]
+    timeout-minutes: 20
+    # Limit it to main and add yourself as a required reviewer under
+    # Settings → Environments → production.
+    environment: production
+    permissions:
+      contents: read
+      packages: read
+    env:
+      STACK_DIR: ${{ vars.PROD_STACK_DIR || '/opt/wizzrobe' }}
+      # Pin to the exact build, so a later :prod push can't sneak into a restart.
+      WIZZROBE_TAG: prod-${{ needs.build.outputs.sha }}
+      COMPOSE_PROFILES: ${{ inputs.app && 'app' || '' }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.build.outputs.sha }}
+          sparse-checkout: deploy/production
+          sparse-checkout-cone-mode: false
+
+      - name: Check the stack folder
+        run: |
+          test -f "$STACK_DIR/production.env" || {
+            echo "::error::$STACK_DIR/production.env is missing; see deploy/production/README.md."
+            exit 1
+          }
+          cp deploy/production/docker-compose.yml "$STACK_DIR/docker-compose.yml"
+          # Read by compose on its own (manual) runs too, so `docker compose up`
+          # by hand restarts the same build.
+          printf 'WIZZROBE_TAG=%s\nCOMPOSE_PROFILES=%s\n' "$WIZZROBE_TAG" "$COMPOSE_PROFILES" > "$STACK_DIR/.env"
+
+      - name: Sign in to the registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Pull and restart
+        working-directory: ${{ env.STACK_DIR }}
+        run: |
+          docker compose pull
+          docker compose up -d --remove-orphans --wait --wait-timeout 300
+
+      - name: Tidy up
+        if: always()
+        run: |
+          docker logout ghcr.io || true
+          docker image prune -f
