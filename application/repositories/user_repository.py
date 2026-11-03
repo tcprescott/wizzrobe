@@ -212,6 +212,17 @@ class UserRepository(TenantScopedRepository[User]):
         return roles, admins, coordinators
 
     @staticmethod
+    async def member_table_values() -> List[dict]:
+        """Every member of the tenant in scope as plain columns, inactive ones included,
+        for the admin Members table: no ``User`` hydration on a 2,000-row read."""
+        return await UserRepository._community_people_query(include_inactive=True).order_by(
+            'username',
+        ).distinct().values(
+            'id', 'username', 'display_name', 'pronouns', 'discord_id',
+            'challonge_username', 'challonge_user_id', 'is_active', 'discord_avatar',
+        )
+
+    @staticmethod
     def _community_people_query(
         *,
         role: Optional[Role] = None,

@@ -9,10 +9,529 @@ export const targets = [
   { name: 'work-schedule-columns', path: '/t/sgl/work/schedule', act: (p) => p.getByRole('button', { name: /Columns/ }).click(), wait: 'role=dialog' },
   { name: 'work-schedule-shift', path: '/t/sgl/work/schedule', act: (p) => p.getByRole('button', { name: /^Check-in, .*Sam/ }).click(), wait: 'role=dialog' },
   { name: 'work-availability', path: '/t/sgl/work/availability' },
-  { name: 'work-proctor', path: '/t/sgl/work/proctor' },
+  { name: 'work-proctor', path: '/t/sgl/work/proctor?day=2026-10-24' },
+  { name: 'work-proctor-match', path: '/t/sgl/work/proctor/301?day=2026-10-24' },
 ]
 
 export const fixtures = {
+  "/api/work/proctor": {
+    "zone": "America/New_York",
+    "days": [
+      "2026-10-22",
+      "2026-10-23",
+      "2026-10-24",
+      "2026-10-25"
+    ],
+    "tournaments": [
+      {
+        "id": 1,
+        "name": "ALTTPR Open"
+      },
+      {
+        "id": 2,
+        "name": "SMZ3"
+      }
+    ],
+    "stages": [
+      {
+        "id": 1,
+        "name": "Stage 1"
+      },
+      {
+        "id": 2,
+        "name": "Stage 2"
+      },
+      {
+        "id": 3,
+        "name": "Stage 3"
+      }
+    ],
+    "scoped_tournaments": null,
+    "can_create": false,
+    "groups": [
+      {
+        "label": "Late, check in now",
+        "folded_by_default": false,
+        "rows": [
+          {
+            "id": 303,
+            "tournament_id": 1,
+            "tournament": "FF Randomizer",
+            "tournament_name": "FF Randomizer",
+            "bracket": null,
+            "game": null,
+            "best_of": null,
+            "set_label": null,
+            "scheduled_at": "2026-10-24T19:00:00Z",
+            "started_at": null,
+            "until_at": null,
+            "until_estimated": false,
+            "overrun": false,
+            "state": "Scheduled",
+            "status": "Scheduled",
+            "tone": "neutral",
+            "group": "Late, check in now",
+            "players": [
+              {
+                "id": 3031,
+                "user_id": 3031,
+                "name": "Lee",
+                "station": null,
+                "ada": false
+              },
+              {
+                "id": 3032,
+                "user_id": 3032,
+                "name": "Marco P.",
+                "station": null,
+                "ada": false
+              }
+            ],
+            "placeholders": [],
+            "stage_id": null,
+            "stage": null,
+            "stream_candidate": false,
+            "seat_line": "No stations yet",
+            "crew": [],
+            "late": [
+              {
+                "label": "Not checked in, 10 min past",
+                "note": null
+              }
+            ],
+            "comments": {},
+            "winners": [],
+            "pending_result": null,
+            "next_step": {
+              "event": "seat",
+              "label": "Check in",
+              "primary": false,
+              "rolling": false
+            },
+            "seed_url": null,
+            "seed_code": null,
+            "seed_rolling": false,
+            "seed_error": null,
+            "is_racetime": false,
+            "played_on_site": null,
+            "racetime_held": null,
+            "needs_review": false,
+            "can": {
+              "edit": false,
+              "run": true,
+              "confirm": false,
+              "stage": false,
+              "crew": false
+            }
+          }
+        ]
+      },
+      {
+        "label": "Ready to start",
+        "folded_by_default": false,
+        "rows": [
+          {
+            "id": 301,
+            "tournament_id": 1,
+            "tournament": "SMZ3",
+            "tournament_name": "SMZ3",
+            "bracket": "Round 2",
+            "game": null,
+            "best_of": null,
+            "set_label": null,
+            "scheduled_at": "2026-10-24T18:30:00Z",
+            "started_at": null,
+            "until_at": null,
+            "until_estimated": false,
+            "overrun": false,
+            "state": "Checked In",
+            "status": "Checked in",
+            "tone": "info",
+            "group": "Ready to start",
+            "players": [
+              {
+                "id": 3011,
+                "user_id": 3011,
+                "name": "Priya N.",
+                "station": null,
+                "ada": false
+              },
+              {
+                "id": 3012,
+                "user_id": 3012,
+                "name": "Jordan Lee",
+                "station": null,
+                "ada": true
+              }
+            ],
+            "placeholders": [],
+            "stage_id": 3,
+            "stage": "Stage 3",
+            "stream_candidate": false,
+            "seat_line": null,
+            "crew": [],
+            "late": [
+              {
+                "label": "Jordan Lee ~10 min late \u00b7 said 1:22 PM",
+                "note": "Bus"
+              }
+            ],
+            "comments": {
+              "player": 1,
+              "staff": 1
+            },
+            "winners": [],
+            "pending_result": null,
+            "next_step": {
+              "event": "start",
+              "label": "Start",
+              "primary": true,
+              "rolling": false
+            },
+            "seed_url": null,
+            "seed_code": null,
+            "seed_rolling": false,
+            "seed_error": null,
+            "is_racetime": false,
+            "played_on_site": null,
+            "racetime_held": null,
+            "needs_review": false,
+            "can": {
+              "edit": false,
+              "run": true,
+              "confirm": false,
+              "stage": false,
+              "crew": false
+            }
+          }
+        ]
+      },
+      {
+        "label": "In play",
+        "folded_by_default": false,
+        "rows": [
+          {
+            "id": 302,
+            "tournament_id": 1,
+            "tournament": "ALTTPR Open",
+            "tournament_name": "ALTTPR Open",
+            "bracket": "Quarterfinal",
+            "game": null,
+            "best_of": null,
+            "set_label": null,
+            "scheduled_at": "2026-10-24T18:00:00Z",
+            "started_at": "2026-10-24T18:02:00Z",
+            "until_at": null,
+            "until_estimated": false,
+            "overrun": false,
+            "state": "Started",
+            "status": "Live",
+            "tone": "live",
+            "group": "In play",
+            "players": [
+              {
+                "id": 3021,
+                "user_id": 3021,
+                "name": "Sam Ruiz",
+                "station": null,
+                "ada": false
+              },
+              {
+                "id": 3022,
+                "user_id": 3022,
+                "name": "Alex Chen",
+                "station": null,
+                "ada": false
+              }
+            ],
+            "placeholders": [],
+            "stage_id": 1,
+            "stage": "Stage 1",
+            "stream_candidate": false,
+            "seat_line": null,
+            "crew": [],
+            "late": [],
+            "comments": {},
+            "winners": [
+              {
+                "id": 3021,
+                "name": "Sam Ruiz"
+              },
+              {
+                "id": 3022,
+                "name": "Alex Chen"
+              }
+            ],
+            "pending_result": null,
+            "next_step": null,
+            "seed_url": null,
+            "seed_code": null,
+            "seed_rolling": false,
+            "seed_error": null,
+            "is_racetime": false,
+            "played_on_site": null,
+            "racetime_held": null,
+            "needs_review": false,
+            "can": {
+              "edit": false,
+              "run": true,
+              "confirm": false,
+              "stage": false,
+              "crew": false
+            }
+          }
+        ]
+      },
+      {
+        "label": "Done",
+        "folded_by_default": true,
+        "rows": [
+          {
+            "id": 300,
+            "tournament_id": 1,
+            "tournament": "Super Metroid",
+            "tournament_name": "Super Metroid",
+            "bracket": "Round 1",
+            "game": null,
+            "best_of": null,
+            "set_label": null,
+            "scheduled_at": "2026-10-24T17:30:00Z",
+            "started_at": null,
+            "until_at": null,
+            "until_estimated": false,
+            "overrun": false,
+            "state": "Finished",
+            "status": "Played on Challonge",
+            "tone": "pending",
+            "group": "Done",
+            "players": [
+              {
+                "id": 3001,
+                "user_id": 3001,
+                "name": "Kai",
+                "station": null,
+                "ada": false
+              },
+              {
+                "id": 3002,
+                "user_id": 3002,
+                "name": "Morgan Wu",
+                "station": null,
+                "ada": false
+              }
+            ],
+            "placeholders": [],
+            "stage_id": 2,
+            "stage": "Stage 2",
+            "stream_candidate": false,
+            "seat_line": null,
+            "crew": [],
+            "late": [],
+            "comments": {},
+            "winners": [],
+            "pending_result": null,
+            "next_step": null,
+            "seed_url": null,
+            "seed_code": null,
+            "seed_rolling": false,
+            "seed_error": null,
+            "is_racetime": false,
+            "played_on_site": {
+              "site": "Challonge",
+              "winner": "Kai",
+              "winner_user_id": 3001,
+              "no_winner": false
+            },
+            "racetime_held": null,
+            "needs_review": false,
+            "can": {
+              "edit": false,
+              "run": true,
+              "confirm": false,
+              "stage": false,
+              "crew": false
+            }
+          },
+          {
+            "id": 304,
+            "tournament_id": 1,
+            "tournament": "OoTR",
+            "tournament_name": "OoTR",
+            "bracket": null,
+            "game": null,
+            "best_of": null,
+            "set_label": null,
+            "scheduled_at": "2026-10-24T16:00:00Z",
+            "started_at": null,
+            "until_at": null,
+            "until_estimated": false,
+            "overrun": false,
+            "state": "Confirmed",
+            "status": "Confirmed",
+            "tone": "ok",
+            "group": "Done",
+            "players": [
+              {
+                "id": 3041,
+                "user_id": 3041,
+                "name": "Riley",
+                "station": null,
+                "ada": false
+              },
+              {
+                "id": 3042,
+                "user_id": 3042,
+                "name": "Dana Ortiz",
+                "station": null,
+                "ada": false
+              }
+            ],
+            "placeholders": [],
+            "stage_id": null,
+            "stage": null,
+            "stream_candidate": false,
+            "seat_line": null,
+            "crew": [],
+            "late": [],
+            "comments": {},
+            "winners": [],
+            "pending_result": null,
+            "next_step": null,
+            "seed_url": null,
+            "seed_code": null,
+            "seed_rolling": false,
+            "seed_error": null,
+            "is_racetime": false,
+            "played_on_site": null,
+            "racetime_held": null,
+            "needs_review": false,
+            "can": {
+              "edit": false,
+              "run": true,
+              "confirm": false,
+              "stage": false,
+              "crew": false
+            }
+          }
+        ]
+      }
+    ],
+    "needs_you": []
+  },
+  "/api/work/proctor/matches/301": {
+    "id": 301,
+    "tournament_id": 1,
+    "tournament": "SMZ3",
+    "tournament_name": "SMZ3",
+    "bracket": "Round 2",
+    "game": null,
+    "best_of": null,
+    "set_label": null,
+    "scheduled_at": "2026-10-24T18:30:00Z",
+    "started_at": null,
+    "until_at": null,
+    "until_estimated": false,
+    "overrun": false,
+    "state": "Checked In",
+    "status": "Checked in",
+    "tone": "info",
+    "group": "Ready to start",
+    "players": [
+      {
+        "id": 3011,
+        "user_id": 3011,
+        "name": "Priya N.",
+        "station": null,
+        "ada": false
+      },
+      {
+        "id": 3012,
+        "user_id": 3012,
+        "name": "Jordan Lee",
+        "station": null,
+        "ada": true
+      }
+    ],
+    "placeholders": [],
+    "stage_id": 3,
+    "stage": "Stage 3",
+    "stream_candidate": false,
+    "seat_line": null,
+    "crew": [],
+    "late": [
+      {
+        "label": "Jordan Lee ~10 min late \u00b7 said 1:22 PM",
+        "note": "Bus"
+      }
+    ],
+    "comments": {
+      "player": 1,
+      "staff": 1
+    },
+    "winners": [],
+    "pending_result": null,
+    "next_step": {
+      "event": "roll",
+      "label": "Roll seed",
+      "primary": true,
+      "rolling": false
+    },
+    "seed_url": null,
+    "seed_code": null,
+    "seed_rolling": false,
+    "seed_error": null,
+    "is_racetime": false,
+    "played_on_site": null,
+    "racetime_held": null,
+    "needs_review": false,
+    "can": {
+      "edit": false,
+      "run": true,
+      "confirm": false,
+      "stage": false,
+      "crew": false
+    },
+    "zone": "America/New_York",
+    "description": null,
+    "state_since": "2026-10-24T18:20:00Z",
+    "checklist": [
+      {
+        "key": "players",
+        "label": "Players confirmed",
+        "ready": true,
+        "detail": "Everyone has confirmed"
+      },
+      {
+        "key": "stations",
+        "label": "Stations",
+        "ready": null,
+        "detail": "Priya N. 4"
+      },
+      {
+        "key": "stage",
+        "label": "Stage",
+        "ready": true,
+        "detail": "Stage 3"
+      },
+      {
+        "key": "seed",
+        "label": "Seed",
+        "ready": false,
+        "detail": "Not rolled"
+      }
+    ],
+    "rewind_to": [
+      {
+        "step": "scheduled",
+        "explanation": "Clears the check-in."
+      }
+    ],
+    "seed_dm_blocked": [],
+    "stage_url": null,
+    "ada_notes": {
+      "3012": "Needs a seat near the aisle."
+    }
+  },
   "/api/work": {
     "zone": "America/Denver",
     "desk": {

@@ -12,7 +12,11 @@ from api.dependencies import require_feature, tenant_context_scope
 from api.rate_limit import rate_limit
 from api.routers import (
     admin_brackets,
+    admin_check_in,
+    admin_equipment,
     admin_match_schedule,
+    admin_meetups,
+    admin_members,
     admin_nav,
     admin_notifications,
     admin_payouts,
@@ -32,6 +36,7 @@ from api.routers import (
     discord_role_mappings,
     equipment,
     event_hub,
+    event_settings,
     events,
     exports,
     feedback,
@@ -105,6 +110,7 @@ router.include_router(my_surveys.router)
 router.include_router(admin_nav.router)
 router.include_router(work.router)
 router.include_router(community_settings.router)
+router.include_router(event_settings.router)
 router.include_router(my_profile.router)
 router.include_router(admin_tournaments.router)
 router.include_router(
@@ -116,6 +122,7 @@ router.include_router(admin_match_schedule.router)
 router.include_router(my_notifications.router)
 router.include_router(my_developer.apps_router)
 router.include_router(my_developer.webhooks_router)
+router.include_router(admin_members.router)
 router.include_router(users.router)
 router.include_router(memberships.router)
 # Include before /users/{user_id}/availability, or `me` hits the int param and 422s.
@@ -205,6 +212,18 @@ router.include_router(
 router.include_router(
     async_qualifiers.router,
     dependencies=[Depends(require_feature(FeatureFlag.ASYNC_QUALIFIERS))],
+)
+router.include_router(
+    admin_check_in.router,
+    dependencies=[Depends(require_feature(FeatureFlag.EVENT_CHECK_IN))],
+)
+router.include_router(
+    admin_equipment.router,
+    dependencies=[Depends(require_feature(FeatureFlag.EQUIPMENT))],
+)
+router.include_router(
+    admin_meetups.router,
+    dependencies=[Depends(require_feature(FeatureFlag.COMMUNITY_EVENTS))],
 )
 router.include_router(
     admin_qualifiers.router,

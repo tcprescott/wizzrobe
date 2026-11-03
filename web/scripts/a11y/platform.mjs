@@ -343,6 +343,14 @@ export const fixtures = {
       "status": "down",
       "message": "Token rejected 12 minutes ago.",
       "checked_at": "{{now-2m}}"
+    },
+    {
+      "key": "racetime_bots",
+      "label": "Racetime bots",
+      "category": "racetime",
+      "status": "credential_warning",
+      "message": "The ALTTPR bot's secret is close to expiring.",
+      "checked_at": "{{now-2m}}"
     }
   ]
 }

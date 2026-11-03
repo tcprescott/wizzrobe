@@ -43,7 +43,10 @@ function useReloadOnReturn(reload: () => void): void {
   }, [reload])
 }
 
-export function useBoard(filters: BoardFilters) {
+/** `proctor` reads the same board from Proctor Station's routes: proctor groups, no crew. */
+export type BoardSource = 'admin' | 'proctor'
+
+export function useBoard(filters: BoardFilters, source: BoardSource = 'admin') {
   const { community } = useCommunity()
   const event = useEventQuery()
   const query = {
@@ -54,23 +57,27 @@ export function useBoard(filters: BoardFilters) {
     ...(filters.stage ? { stage_id: filters.stage } : {}),
     ...(filters.q.trim() ? { q: filters.q.trim() } : {}),
   }
-  const result = useQuery(`admin/schedule@${community.slug}/${JSON.stringify(query)}`, () =>
-    api.GET('/api/admin/match-schedule', { params: { query } }).then(unwrap),
+  const result = useQuery(`${source}/schedule@${community.slug}/${JSON.stringify(query)}`, () =>
+    (source === 'proctor'
+      ? api.GET('/api/work/proctor', { params: { query } })
+      : api.GET('/api/admin/match-schedule', { params: { query } })
+    ).then(unwrap),
   )
   useReloadOnReturn(result.reload)
   return result
 }
 
-export function usePane(matchId: number | null) {
+export function usePane(matchId: number | null, source: BoardSource = 'admin') {
   const { community } = useCommunity()
   const event = useEventQuery()
-  return useQuery(matchId === null ? null : `admin/schedule/match@${community.slug}/${matchId}`, () =>
-    api
-      .GET('/api/admin/match-schedule/matches/{match_id}', {
-        params: { path: { match_id: matchId as number }, query: { ...event, tz: deviceZone() } },
-      })
-      .then(unwrap),
-  )
+  return useQuery(matchId === null ? null : `${source}/schedule/match@${community.slug}/${matchId}`, () => {
+    const params = { path: { match_id: matchId as number }, query: { ...event, tz: deviceZone() } }
+    return (
+      source === 'proctor'
+        ? api.GET('/api/work/proctor/matches/{match_id}', { params })
+        : api.GET('/api/admin/match-schedule/matches/{match_id}', { params })
+    ).then(unwrap)
+  })
 }
 
 export function useComments(matchId: number) {

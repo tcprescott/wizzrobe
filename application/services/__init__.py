@@ -79,6 +79,7 @@ from .bracket_service import BracketService
 from .bracket_set_service import BracketSetService
 from .browser_monitoring_service import BrowserMonitoringService
 from .challonge_service import ChallongeService
+from .check_in_admin_service import CheckInAdminService
 from .check_in_desk_service import CheckInDeskService
 from .check_in_service import CheckInService
 from .commentary_invite_service import CommentaryInviteService
@@ -100,6 +101,7 @@ from .discord import (
     discord_role_sync_worker,
 )
 from .emergency_contact_service import EmergencyContactService
+from .equipment_admin_service import EquipmentAdminService
 from .equipment_service import EquipmentService
 from .event_hub_service import EventHubService
 from .event_info_service import EventGuide, EventInfoService
@@ -134,6 +136,7 @@ from .match_reschedule_service import MatchRescheduleService
 from .matcherino_login_service import MatcherinoLoginService, MatcherinoLoginStatus
 from .mcp_auth_service import McpAuthService
 from .member_details_service import MemberDetails, MemberDetailsService
+from .members_admin_service import MembersAdminService
 from .my_profile_service import MyProfileService
 from .my_timeline_service import MyTimelineService
 from .native_push_service import NativePushService
@@ -149,6 +152,7 @@ from .platform_admin_service import AccountOverview, CommunityOverview, Platform
 from .player_availability_service import PlayerAvailabilityService
 from .player_home_service import PlayerHomeService
 from .preset_service import PresetService
+from .proctor_station_service import ProctorStationService
 from .profile_nudge_service import ProfileNudgeService
 from .provider_task_service import ProviderTaskService
 from .race_room_bot_service import RaceRoomBotService
@@ -171,6 +175,7 @@ from .service_health_service import ProbeResult, ServiceHealthService, ServiceSt
 from .speedgaming_etl_service import SpeedGamingETLService
 from .speedgaming_sync_service import SpeedGamingSyncService
 from .staff_alert_service import StaffAlertService
+from .staff_message_service import StaffMessageService
 from .stage_service import StageService
 from .startgg_connection_service import StartggConnectionService
 from .startgg_link_service import StartggLinkService
@@ -257,6 +262,7 @@ __all__ = [
     'BuilderSummary',
     'CancellationMixin',
     'ChallongeService',
+    'CheckInAdminService',
     'CheckInDeskService',
     'CheckInService',
     'CommentInbox',
@@ -277,6 +283,7 @@ __all__ = [
     'DiscordService',
     'DraftPolicy',
     'EmergencyContactService',
+    'EquipmentAdminService',
     'EquipmentService',
     'EventDraft',
     'EventGuide',
@@ -312,6 +319,7 @@ __all__ = [
     'McpAuthService',
     'MemberDetails',
     'MemberDetailsService',
+    'MembersAdminService',
     'MissingAnswer',
     'MyProfileService',
     'MyTimelineService',
@@ -331,6 +339,7 @@ __all__ = [
     'PlayerLateService',
     'PresetService',
     'ProbeResult',
+    'ProctorStationService',
     'ProfileNudgeService',
     'ProviderTaskService',
     'RaceRoomBotService',
@@ -362,6 +371,7 @@ __all__ = [
     'SpeedGamingETLService',
     'SpeedGamingSyncService',
     'StaffAlertService',
+    'StaffMessageService',
     'StageService',
     'StartggConnectionService',
     'StartggLinkService',
