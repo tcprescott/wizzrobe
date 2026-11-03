@@ -1,10 +1,11 @@
 """The app's Work tab: your areas, the volunteer schedule grid, and the desk's reads."""
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 
 import pytest
 
 from application.services.work_service import FULL_SCHEDULE_PREFS_KEY, event_days, opening_day
+from application.utils.timezone import combine_local, today_local
 from models import (
     CheckInEntrant,
     CheckInEntrantSource,
@@ -23,7 +24,7 @@ from tests.api_helpers import client_for, create_community_member, create_user_t
 
 @pytest.fixture(autouse=True)
 async def _event_runs_this_week(db):
-    today = date.today()
+    today = today_local()
     await Event.filter(is_default=True).update(
         starts_on=today - timedelta(days=1), ends_on=today + timedelta(days=2),
     )
@@ -31,6 +32,11 @@ async def _event_runs_this_week(db):
 
 def _now() -> datetime:
     return datetime.now(timezone.utc).replace(microsecond=0)
+
+
+def _today_noon() -> datetime:
+    """Inside the grid the tab opens on (06:00 to 06:00 local), whatever the hour."""
+    return combine_local(today_local(), time(12, 0))
 
 
 async def _shift(position: VolunteerPosition, start: datetime, hours: int = 2, slots: int = 2) -> VolunteerShift:
@@ -99,8 +105,7 @@ class TestSchedule:
         me, raw = await create_user_token(username='vol', roles=[Role.VOLUNTEER])
         desk = await VolunteerPosition.create(name='Desk', display_order=1)
         runner = await VolunteerPosition.create(name='Runner', display_order=2)
-        now = _now()
-        shift = await _shift(desk, now.replace(minute=0, second=0) + timedelta(minutes=0))
+        shift = await _shift(desk, _today_noon())
         await VolunteerAssignment.create(shift=shift, user=me)
         await _shift(runner, shift.starts_at)
         async with client_for(app, raw) as c:
@@ -116,9 +121,9 @@ class TestSchedule:
         _, raw = await create_user_token(username='vol', roles=[Role.VOLUNTEER])
         desk = await VolunteerPosition.create(name='Desk', display_order=1)
         runner = await VolunteerPosition.create(name='Runner', display_order=2)
-        now = _now()
-        await _shift(desk, now)
-        await _shift(runner, now)
+        noon = _today_noon()
+        await _shift(desk, noon)
+        await _shift(runner, noon)
         async with client_for(app, raw) as c:
             roles = (await c.put('/api/work/schedule/columns', json={'columns': [
                 {'position_id': runner.id, 'visible': True}, {'position_id': desk.id, 'visible': False},
