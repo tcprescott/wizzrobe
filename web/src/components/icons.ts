@@ -42,6 +42,7 @@ import ContactEmergency from '@material-symbols/svg-400/outlined/contact_emergen
 import IContactPhone from '@material-symbols/svg-400/outlined/contact_phone.svg?react'
 import IContactSupport from '@material-symbols/svg-400/outlined/contact_support.svg?react'
 import ContentCopy from '@material-symbols/svg-400/outlined/content_copy.svg?react'
+import CreditCard from '@material-symbols/svg-400/outlined/credit_card.svg?react'
 import DarkMode from '@material-symbols/svg-400/outlined/dark_mode.svg?react'
 import DashboardIcon from '@material-symbols/svg-400/outlined/dashboard.svg?react'
 import DateRangeIcon from '@material-symbols/svg-400/outlined/date_range.svg?react'
@@ -141,6 +142,7 @@ import RateReviewIcon from '@material-symbols/svg-400/outlined/rate_review.svg?r
 import IRecordVoiceOver from '@material-symbols/svg-400/outlined/record_voice_over.svg?react'
 import IRefresh from '@material-symbols/svg-400/outlined/refresh.svg?react'
 import IReleaseAlert from '@material-symbols/svg-400/outlined/release_alert.svg?react'
+import RemoveIcon from '@material-symbols/svg-400/outlined/remove.svg?react'
 import RestartAlt from '@material-symbols/svg-400/outlined/restart_alt.svg?react'
 import Schedule from '@material-symbols/svg-400/outlined/schedule.svg?react'
 import SchemaIcon from '@material-symbols/svg-400/outlined/schema.svg?react'
@@ -224,6 +226,7 @@ export const ICONS = {
   contact_phone: IContactPhone,
   contact_support: IContactSupport,
   content_copy: ContentCopy,
+  credit_card: CreditCard,
   dark_mode: DarkMode,
   dashboard: DashboardIcon,
   date_range: DateRangeIcon,
@@ -321,6 +324,7 @@ export const ICONS = {
   record_voice_over: IRecordVoiceOver,
   refresh: IRefresh,
   release_alert: IReleaseAlert,
+  remove: RemoveIcon,
   restart_alt: RestartAlt,
   schedule: Schedule,
   schema: SchemaIcon,

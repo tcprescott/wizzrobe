@@ -8,6 +8,7 @@ import { PushNotifications } from '@capacitor/push-notifications'
 import { api } from '../api/client'
 import { beforeSignOut } from '../auth/session'
 import { isNative } from '../lib/platform'
+import { isCheckoutReturn } from './checkout'
 import { createChannels, rememberDeviceId, rememberedDeviceId } from './push'
 import { closeSignInPage } from './signIn'
 
@@ -37,7 +38,7 @@ export function startNativeBridge(navigate: Navigate): void {
   void App.addListener('appUrlOpen', (event: URLOpenListenerEvent) => {
     const path = inAppPath(event.url, appId)
     if (!path) return
-    if (path.startsWith('/auth/callback')) void closeSignInPage()
+    if (path.startsWith('/auth/callback') || isCheckoutReturn(path)) void closeSignInPage()
     navigate(path)
   })
 

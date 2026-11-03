@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from application.services.feature_flag_service import reset_flag_cache
 from application.services.ticket_checkout_service import TicketCheckoutService
 from application.services.ticket_gateways import GatewaySignatureError
 from application.services.ticket_service import TicketService
@@ -13,7 +14,9 @@ from application.utils.clients import paypal_client as paypal_module
 from application.utils.clients.paypal_client import parse_event, to_cents, to_value
 from application.utils.secret_box import open_
 from models import (
+    FeatureFlag,
     Role,
+    TenantFeatureFlag,
     TenantMembership,
     Ticket,
     TicketOrder,
@@ -164,3 +167,20 @@ def test_amounts_follow_paypals_decimal_rules():
 def test_unhandled_events_are_ignored():
     body = json.dumps({'id': 'WH', 'event_type': 'CUSTOMER.DISPUTE.CREATED', 'resource': {}}).encode()
     assert parse_event(body) is None
+
+
+async def test_the_hub_card_and_claim_links_follow_the_buyers_order(buyer, weekend, store):
+    teaser = await TicketService().hub_teaser(buyer)
+    assert (teaser.on_sale, teaser.from_cents, teaser.currency, teaser.owned) == (1, 6000, 'usd', 0)
+
+    await _approved(buyer, weekend, store, quantity=2)
+    assert (await TicketService().hub_teaser(buyer)).owned == 1
+    (extra,) = (await TicketService().my_badges(buyer)).extras
+    assert extra.claim_path.startswith('/badges/claim/')
+    assert extra.claim_url.startswith('http') and extra.claim_url.endswith(extra.claim_path)
+
+
+async def test_no_hub_card_with_sales_off(buyer, weekend):
+    await TenantFeatureFlag.filter(tenant_id=DEFAULT_TEST_TENANT_ID, flag=FeatureFlag.TICKET_SALES.value).update(enabled=False)
+    reset_flag_cache()
+    assert await TicketService().hub_teaser(buyer) is None

@@ -26,6 +26,7 @@ from application.repositories import (
 )
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
+from application.services.feature_flag_service import FeatureFlagService
 from application.services.tenant_membership_service import TenantMembershipService
 from application.services.ticket_dm import ticket_claimed
 from application.services.ticket_store_service import store_gateway
@@ -74,12 +75,23 @@ class TypeAvailability:
 class ExtraBadge:
     ticket: Ticket
     claim_path: Optional[str]
+    claim_url: Optional[str] = None
 
 
 @dataclass(frozen=True)
 class MyBadges:
     own: List[Ticket]
     extras: List[ExtraBadge]
+
+
+@dataclass(frozen=True)
+class BadgesTeaser:
+    """The Event hub's Badges card: the cheapest badge on sale, and how many the viewer holds."""
+
+    on_sale: int
+    from_cents: Optional[int]
+    currency: Optional[str]
+    owned: int
 
 
 @dataclass(frozen=True)
@@ -240,13 +252,29 @@ class TicketService:
             return []
         return await self._availability(await self.types.list_all(active_only=True))
 
+    async def hub_teaser(self, actor: User) -> Optional[BadgesTeaser]:  # feature-gate: exempt (soft integration point on the Event hub)
+        """None when sales are off, or nothing is on sale and the viewer holds no badge."""
+        if not await FeatureFlagService().is_enabled(FeatureFlag.TICKET_SALES):
+            return None
+        owned = len([t for t in await self.tickets.owned_by(actor.id) if t.status is TicketStatus.VALID])
+        selling = [a.ticket_type for a in await self._availability(await self.types.list_all(active_only=True)) if a.on_sale] \
+            if await self.stores.list_all() else []
+        if not selling and not owned:
+            return None
+        cheapest = min(selling, key=lambda t: t.price_cents, default=None)
+        return BadgesTeaser(len(selling), cheapest.price_cents if cheapest else None,
+                            cheapest.currency if cheapest else None, owned)
+
     @requires_feature(FeatureFlag.TICKET_SALES)
     async def my_badges(self, actor: User) -> MyBadges:
         own = await self.tickets.owned_by(actor.id)
-        extras = [
-            ExtraBadge(t, None if t.owner_id else (CLAIM_PATH + token if (token := open_claim_token(t)) else None))
-            for t in await self.tickets.extras_bought_by(actor.id)
-        ]
+        from application.services import notification_links
+
+        extras = []
+        for t in await self.tickets.extras_bought_by(actor.id):
+            path = None if t.owner_id else (CLAIM_PATH + token if (token := open_claim_token(t)) else None)
+            link = await notification_links.link_for('Claim badge', path) if path else None
+            extras.append(ExtraBadge(t, path, link.url if link else None))
         return MyBadges(own, extras)
 
     @requires_feature(FeatureFlag.TICKET_SALES)

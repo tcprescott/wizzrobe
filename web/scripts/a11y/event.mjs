@@ -11,6 +11,7 @@ export const targets = [
 export const fixtures = {
   "/api/event/hub": {
     "zone": "America/New_York",
+    "badges": { "on_sale": 3, "from_cents": 3000, "currency": "usd", "owned": 1 },
     "stages": [
       {
         "id": 1,

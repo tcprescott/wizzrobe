@@ -34,6 +34,11 @@ export const fixtures = {
         "summary": "Sam Ruiz"
       },
       {
+        "key": "tickets",
+        "title": "Tickets",
+        "summary": "1 badge · 1 to hand out"
+      },
+      {
         "key": "notifications",
         "title": "Notifications",
         "summary": "Discord DMs, 2 devices"

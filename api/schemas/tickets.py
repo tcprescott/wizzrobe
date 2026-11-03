@@ -8,7 +8,8 @@ from pydantic import BaseModel, Field
 from application.services.ticket_comp_refund_service import CompRefundOwed, CompRefundResult, CompRefundsView
 from application.services.ticket_service import ClaimPreview, ExtraBadge, MyBadges, TypeAvailability
 from application.services.ticket_store_service import StoreView
-from models import CheckInTierLanyard, Ticket, TicketOrder, TicketProvider
+from application.utils.qrcode_util import asset_qr_svg_data_uri
+from models import CheckInTierLanyard, Ticket, TicketOrder, TicketProvider, TicketStatus
 
 
 class StoreResponse(BaseModel):
@@ -130,19 +131,29 @@ class BadgeResponse(BaseModel):
 class ExtraBadgeResponse(BaseModel):
     badge: BadgeResponse
     claim_path: Optional[str] = Field(None, description="In-app path of the claim link while nobody has claimed it.")
+    claim_url: Optional[str] = Field(None, description="The same link, absolute: what the buyer sends to the person it's for.")
 
     @classmethod
     def from_extra(cls, e: ExtraBadge) -> 'ExtraBadgeResponse':
-        return cls(badge=BadgeResponse.from_row(e.ticket), claim_path=e.claim_path)
+        return cls(badge=BadgeResponse.from_row(e.ticket), claim_path=e.claim_path, claim_url=e.claim_url)
+
+
+class OwnBadgeResponse(BadgeResponse):
+    qr: Optional[str] = Field(None, description="The code as an SVG QR data URI, for the desk to scan; empty once refunded.")
+
+    @classmethod
+    def from_owned(cls, t: Ticket) -> 'OwnBadgeResponse':
+        qr = asset_qr_svg_data_uri(t.code) if t.status is TicketStatus.VALID else None
+        return cls(**BadgeResponse.from_row(t).model_dump(), qr=qr)
 
 
 class MyBadgesResponse(BaseModel):
-    own: List[BadgeResponse]
+    own: List[OwnBadgeResponse]
     extras: List[ExtraBadgeResponse]
 
     @classmethod
     def from_view(cls, v: MyBadges) -> 'MyBadgesResponse':
-        return cls(own=[BadgeResponse.from_row(t) for t in v.own],
+        return cls(own=[OwnBadgeResponse.from_owned(t) for t in v.own],
                    extras=[ExtraBadgeResponse.from_extra(e) for e in v.extras])
 
 

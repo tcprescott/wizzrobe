@@ -10,8 +10,8 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, Query
 
 from api.dependencies import ServiceErrorRoute, event_binding, require_api_actor
-from api.schemas.event_hub import EventHubResponse, RunSheetResponse, WatchResponse
-from application.services import EventHubService, PlayerHomeService
+from api.schemas.event_hub import BadgesCardResponse, EventHubResponse, RunSheetResponse, WatchResponse
+from application.services import EventHubService, PlayerHomeService, TicketService
 from models import User
 
 router = APIRouter(
@@ -32,6 +32,8 @@ router = APIRouter(
 async def event_hub(actor: User = Depends(require_api_actor)) -> EventHubResponse:
     body = EventHubResponse.model_validate(await EventHubService().hub(actor), from_attributes=True)
     body.zone = await PlayerHomeService().viewer_zone(actor)
+    teaser = await TicketService().hub_teaser(actor)
+    body.badges = BadgesCardResponse.model_validate(teaser, from_attributes=True) if teaser else None
     return body
 
 
