@@ -9,8 +9,9 @@
 from datetime import timedelta
 
 from application.utils.timezone import now_local
-from models import Match, Role, SystemConfiguration, TenantMembership, Tournament, User
+from models import Match, Role, TenantMembership, Tournament, User
 from tests.api_helpers import client_for, create_community_member, create_user_token
+from tests.factories import set_setting
 
 
 class TestMatchWatchers:
@@ -187,11 +188,11 @@ class TestReadingAnotherPlayersAvailability:
 class TestMatchSuggestion:
     async def test_suggests_a_time(self, db, app):
         _, raw = await create_user_token(username='ta', roles=[Role.STAFF])
+        # A bare SystemConfiguration row is no longer read for event dates; the
+        # window then fell back to today alone, with no slot left late at night.
         today = now_local().date()
-        await SystemConfiguration.create(name='event_start_date', value=today.isoformat())
-        await SystemConfiguration.create(
-            name='event_end_date', value=(today + timedelta(days=2)).isoformat(),
-        )
+        await set_setting(name='event_start_date', value=today.isoformat())
+        await set_setting(name='event_end_date', value=(today + timedelta(days=2)).isoformat())
         t = await Tournament.create(name='Cup', is_active=True, average_match_duration=60)
         p1 = await create_community_member(discord_id=201, username='p1')
         p2 = await create_community_member(discord_id=202, username='p2')

@@ -13,6 +13,7 @@ from typing import List, Mapping, Optional, Sequence, Tuple
 from application.services.auth_service import AuthService
 from application.services.check_in_desk_service import CheckInDeskService
 from application.services.feature_flag_service import FeatureFlagService
+from application.services.my_timeline_service import event_day
 from application.services.system_config_service import SystemConfigService
 from application.services.table_preference_service import TablePreferenceService
 from application.services.volunteer.volunteer_availability_service import VolunteerAvailabilityService
@@ -24,7 +25,7 @@ from application.services.volunteer.volunteer_schedule_grid import (
     roles_config,
 )
 from application.services.volunteer.volunteer_schedule_service import VolunteerScheduleService
-from application.utils.timezone import today_local
+from application.utils.timezone import now_local
 from models import CheckInEventStatus, FeatureFlag, Role, User
 
 # Shared with the website's Full Schedule (TableKeys.VOLUNTEER_FULL_SCHEDULE), so
@@ -146,7 +147,7 @@ class WorkService:
         roles = arrange_roles(positions, saved)
         start, end = await SystemConfigService.get_event_window()
         days = event_days(start, end) if start and end else []
-        chosen = opening_day(days, day, today_local())
+        chosen = opening_day(days, day, event_day(now_local()))
         customized = any(not r.visible for r in roles) or [r.position_id for r in roles] != [p for p, _ in positions]
         if chosen is None:
             return ScheduleView(days=days, day=None, roles=roles, grid=None, customized=customized)
