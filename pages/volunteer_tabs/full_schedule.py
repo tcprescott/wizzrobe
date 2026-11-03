@@ -11,6 +11,7 @@ from application.services import (
     TablePreferenceService,
     get_user_from_discord_id,
 )
+from application.services.my_timeline_service import event_day
 from application.services.volunteer import (
     GridRole,
     GridShift,
@@ -19,7 +20,7 @@ from application.services.volunteer import (
     arrange_roles,
 )
 from application.utils.tenant_session import tenant_session_get, tenant_session_set
-from application.utils.timezone import timezone_label, today_local
+from application.utils.timezone import now_local, timezone_label
 from theme.dialog._helpers import form_dialog
 from theme.empty_state import empty_panel
 from theme.help import help_icon
@@ -73,7 +74,7 @@ async def full_schedule_tab() -> None:
     saved = (stored or {}).get('columns') or []
     state = _ViewState(
         day=opening_day(days, _event_day(days, url_state().requested('day')) or tenant_session_get(_DAY_KEY),
-                        today_local()),
+                        event_day(now_local())),
         roles=arrange_roles(positions, saved),
         saved=saved,
     )
@@ -141,7 +142,7 @@ async def full_schedule_tab() -> None:
         day_param.set(d.isoformat())
 
     async def restore_day(value: str) -> None:
-        await show_day(opening_day(days, _event_day(days, value), today_local()))
+        await show_day(opening_day(days, _event_day(days, value), event_day(now_local())))
 
     with ui.column().classes('page-container-wide') as page:
         with page_header(

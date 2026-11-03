@@ -518,6 +518,11 @@ class AuthService:
         return await AuthService.is_staff(user)
 
     @staticmethod
+    async def can_manage_tickets(user: Optional[User]) -> bool:
+        """Connect stores, set up badge types, and refund orders."""
+        return await AuthService.is_staff(user)
+
+    @staticmethod
     async def can_run_check_in_desk(user: Optional[User]) -> bool:
         """Work the desk: check people in, link registrants, run a sync."""
         if AuthService.is_system(user):

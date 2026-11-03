@@ -69,7 +69,7 @@ class Notice:
 
 GROUPS = (
     'Matches', 'Brackets', 'Reschedule requests', 'Crew', 'Volunteer shifts',
-    'Community', 'Event check-in', 'Async qualifiers',
+    'Community', 'Event check-in', 'Tickets', 'Async qualifiers',
 )
 
 CATALOG: Dict[str, Notice] = {}
@@ -518,6 +518,15 @@ MATCHERINO_REFUSED = _notice(
     'The roster sync is refused by Matcherino',
     {STAFF: PING}, {STAFF: 'The staff member who saved the login'},
 )
+
+_BUYER = {MEMBERS: 'The buyer'}
+TICKETS_BOUGHT = _notice('tickets_bought', 'Tickets', 'Badges bought', 'The store confirms a badge order',
+                         {MEMBERS: PING}, _BUYER)
+TICKET_CLAIMED = _notice('ticket_claimed', 'Tickets', 'Badge claimed',
+                         'Someone claims an extra badge with the link the buyer sent them', {MEMBERS: PING}, _BUYER)
+COMP_REFUND_SENT = _notice('comp_refund_sent', 'Tickets', 'Comp refund sent',
+                           'Staff refund someone who was comped for the badge they bought',
+                           {MEMBERS: PING}, {MEMBERS: 'The comped badge holder'})
 
 RUN_APPROVED = _notice(
     'run_approved', 'Async qualifiers', 'Run approved',

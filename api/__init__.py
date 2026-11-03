@@ -34,6 +34,7 @@ from api.routers import (
     crew,
     discord_events,
     discord_role_mappings,
+    discord_settings,
     equipment,
     event_hub,
     event_settings,
@@ -41,6 +42,7 @@ from api.routers import (
     exports,
     feedback,
     health,
+    integration_settings,
     match_actions,
     match_comments,
     matches,
@@ -73,6 +75,7 @@ from api.routers import (
     surveys,
     system_config,
     telemetry,
+    tickets,
     tokens,
     tournament_actions,
     tournaments,
@@ -110,6 +113,8 @@ router.include_router(my_surveys.router)
 router.include_router(admin_nav.router)
 router.include_router(work.router)
 router.include_router(community_settings.router)
+router.include_router(discord_settings.router)
+router.include_router(integration_settings.router)
 router.include_router(event_settings.router)
 router.include_router(my_profile.router)
 router.include_router(admin_tournaments.router)
@@ -173,6 +178,16 @@ router.include_router(
     surveys.router,
     dependencies=[Depends(require_feature(FeatureFlag.SURVEYS))],
 )
+router.include_router(
+    tickets.router,
+    dependencies=[Depends(require_feature(FeatureFlag.TICKET_SALES))],
+)
+router.include_router(
+    tickets.me_router,
+    dependencies=[Depends(require_feature(FeatureFlag.TICKET_SALES))],
+)
+# No token on purpose: a store posts it, and its signature, checked against that store's secret, is the proof.
+router.include_router(tickets.webhook_router)
 # No auth dependency on purpose: the service worker has no session and proves subscription ownership instead.
 router.include_router(web_push.router)
 router.include_router(webhooks.router)

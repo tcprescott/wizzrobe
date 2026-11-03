@@ -96,6 +96,7 @@ from .tenant_join_request_repository import TenantJoinRequestRepository
 from .tenant_logo_repository import TenantLogoRepository
 from .tenant_membership_repository import TenantMembershipRepository
 from .tenant_repository import TenantRepository
+from .ticket_repository import TicketOrderRepository, TicketRepository, TicketStoreRepository, TicketTypeRepository
 from .tournament_export_repository import TournamentExportRepository
 from .tournament_notification_repository import TournamentNotificationRepository
 from .tournament_payout_repository import TournamentPayoutRepository
@@ -200,6 +201,10 @@ __all__ = [
     'TenantLogoRepository',
     'TenantMembershipRepository',
     'TenantRepository',
+    'TicketOrderRepository',
+    'TicketRepository',
+    'TicketStoreRepository',
+    'TicketTypeRepository',
     'TournamentExportRepository',
     'TournamentNotificationRepository',
     'TournamentPayoutRepository',

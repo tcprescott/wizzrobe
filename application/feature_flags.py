@@ -293,6 +293,18 @@ FEATURE_FLAG_REGISTRY: Dict[FeatureFlag, FeatureFlagSpec] = {
             'Community',
             service_modules=('application/services/survey/',),
         ),
+        FeatureFlagSpec(
+            FeatureFlag.TICKET_SALES,
+            'Ticket Sales',
+            "Sell this event's badges in Wizzrobe through the community's own Stripe "
+            'or PayPal account. Buyers pay on the store\'s checkout page, extras go out '
+            'by claim link, and staff refund comped people with one press.',
+            'Operations',
+            service_modules=('application/services/ticket_service.py',
+                             'application/services/ticket_checkout_service.py',
+                             'application/services/ticket_comp_refund_service.py',
+                             'application/services/ticket_store_service.py'),
+        ),
     )
 }
 

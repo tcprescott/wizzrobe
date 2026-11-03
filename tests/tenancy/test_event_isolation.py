@@ -125,6 +125,32 @@ async def test_meetups_list_per_event(two_events):
         assert _ids(await CommunityEventRepository.list_by_status([CommunityEventStatus.APPROVED])) == [meetup_b.id]
 
 
+
+async def test_badges_and_orders_list_per_event(two_events):
+    from application.repositories import TicketOrderRepository, TicketRepository, TicketTypeRepository
+    from models import Ticket, TicketOrder, TicketProvider, TicketType
+
+    buyer = await make_member(discord_id=7003)
+
+    async def make(n):
+        kind = await TicketType.create(name=f'Weekend {n}', price_cents=6000)
+        order = await TicketOrder.create(
+            buyer=buyer, provider=TicketProvider.STRIPE, total_cents=6000, currency='usd',
+            hold_expires_at=NOW, status='paid',
+        )
+        await Ticket.create(order=order, ticket_type=kind, price_cents=6000, code=f'CODE{n}', owner=buyer, status='valid')
+        return kind
+
+    kind_a, kind_b = await _in_each(two_events, make)
+    a, b = two_events
+    with event_scope(a):
+        assert _ids(await TicketTypeRepository.list_all()) == [kind_a.id]
+        assert [t.ticket_type_id for t in await TicketRepository.owned_by(buyer.id)] == [kind_a.id]
+        assert len(await TicketOrderRepository.list_for_event()) == 1
+    with event_scope(b):
+        assert _ids(await TicketTypeRepository.list_all()) == [kind_b.id]
+        assert [t.ticket_type_id for t in await TicketRepository.owned_by(buyer.id)] == [kind_b.id]
+
 async def test_surveys_list_per_event(two_events):
     from application.repositories.survey_repository import SurveyRepository
     from models import Survey

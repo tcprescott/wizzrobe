@@ -18,6 +18,7 @@ from application.services import (
     TablePreferenceService,
     get_user_from_session,
 )
+from application.services.my_timeline_service import event_day
 from application.services.volunteer import (
     DayGrid,
     GridRole,
@@ -29,7 +30,7 @@ from application.services.volunteer import (
 from application.services.volunteer.volunteer_position_service import VolunteerPositionService
 from application.utils.app_links import VOL_SCHEDULE, admin_url
 from application.utils.tenant_session import tenant_session_get, tenant_session_set
-from application.utils.timezone import timezone_label, today_local
+from application.utils.timezone import now_local, timezone_label
 from theme.dialog.volunteer_export_dialog import VolunteerExportDialog
 from theme.dialog.volunteer_shift_dialog import VolunteerShiftDialog
 from theme.dialog.volunteer_shift_sheet import DayShifts, VolunteerShiftSheet
@@ -106,7 +107,7 @@ async def admin_shift_board_page(day: Optional[str] = None) -> None:
     day = url_state().requested('day')
     wanted = day if day in {d.isoformat() for d in days} else tenant_session_get(_DAY_KEY)
     state = _BoardState(
-        day=opening_day(days, wanted, today_local()),
+        day=opening_day(days, wanted, event_day(now_local())),
         roles=arrange_roles(positions, saved),
         saved=saved,
     )
@@ -180,7 +181,7 @@ async def admin_shift_board_page(day: Optional[str] = None) -> None:
         day_param.set(d.isoformat())
 
     async def restore_day(value: str) -> None:
-        await show_day(opening_day(days, value, today_local()))
+        await show_day(opening_day(days, value, event_day(now_local())))
 
     def toolbar() -> None:
         ui.button('Add shift', icon='add', on_click=lambda: add_shift()) \

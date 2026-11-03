@@ -31,6 +31,7 @@ import ChangeHistoryIcon from '@material-symbols/svg-400/outlined/change_history
 import ChatIcon from '@material-symbols/svg-400/outlined/chat.svg?react'
 import ChatBubbleIcon from '@material-symbols/svg-400/outlined/chat_bubble.svg?react'
 import Check from '@material-symbols/svg-400/outlined/check.svg?react'
+import CheckBox from '@material-symbols/svg-400/outlined/check_box.svg?react'
 import CheckCircle from '@material-symbols/svg-400/outlined/check_circle.svg?react'
 import ChecklistIcon from '@material-symbols/svg-400/outlined/checklist.svg?react'
 import ChevronLeft from '@material-symbols/svg-400/outlined/chevron_left.svg?react'
@@ -81,6 +82,7 @@ import KeepIcon from '@material-symbols/svg-400/outlined/keep.svg?react'
 import KeyIcon from '@material-symbols/svg-400/outlined/key.svg?react'
 import KeyOffIcon from '@material-symbols/svg-400/outlined/key_off.svg?react'
 import KeyboardArrowDown from '@material-symbols/svg-400/outlined/keyboard_arrow_down.svg?react'
+import Label from '@material-symbols/svg-400/outlined/label.svg?react'
 import LeaderboardIcon from '@material-symbols/svg-400/outlined/leaderboard.svg?react'
 import LightMode from '@material-symbols/svg-400/outlined/light_mode.svg?react'
 import ILightbulb from '@material-symbols/svg-400/outlined/lightbulb.svg?react'
@@ -95,6 +97,8 @@ import Login from '@material-symbols/svg-400/outlined/login.svg?react'
 import Logout from '@material-symbols/svg-400/outlined/logout.svg?react'
 import MailIcon from '@material-symbols/svg-400/outlined/mail.svg?react'
 import ManageAccountsIcon from '@material-symbols/svg-400/outlined/manage_accounts.svg?react'
+import MarkEmailRead from '@material-symbols/svg-400/outlined/mark_email_read.svg?react'
+import MarkEmailUnread from '@material-symbols/svg-400/outlined/mark_email_unread.svg?react'
 import MeetingRoomIcon from '@material-symbols/svg-400/outlined/meeting_room.svg?react'
 import IMenuBook from '@material-symbols/svg-400/outlined/menu_book.svg?react'
 import Mic from '@material-symbols/svg-400/outlined/mic.svg?react'
@@ -131,6 +135,7 @@ import ProgressActivity from '@material-symbols/svg-400/outlined/progress_activi
 import PublicIcon from '@material-symbols/svg-400/outlined/public.svg?react'
 import QrCode2Icon from '@material-symbols/svg-400/outlined/qr_code_2.svg?react'
 import QueryStatsIcon from '@material-symbols/svg-400/outlined/query_stats.svg?react'
+import RadioButtonChecked from '@material-symbols/svg-400/outlined/radio_button_checked.svg?react'
 import RadioButtonUncheckedIcon from '@material-symbols/svg-400/outlined/radio_button_unchecked.svg?react'
 import RateReviewIcon from '@material-symbols/svg-400/outlined/rate_review.svg?react'
 import IRecordVoiceOver from '@material-symbols/svg-400/outlined/record_voice_over.svg?react'
@@ -155,8 +160,10 @@ import SwapHoriz from '@material-symbols/svg-400/outlined/swap_horiz.svg?react'
 import SwapVertIcon from '@material-symbols/svg-400/outlined/swap_vert.svg?react'
 import SyncIcon from '@material-symbols/svg-400/outlined/sync.svg?react'
 import SyncAltIcon from '@material-symbols/svg-400/outlined/sync_alt.svg?react'
+import TableRows from '@material-symbols/svg-400/outlined/table_rows.svg?react'
 import TaskAlt from '@material-symbols/svg-400/outlined/task_alt.svg?react'
 import TextFieldsIcon from '@material-symbols/svg-400/outlined/text_fields.svg?react'
+import ThumbUp from '@material-symbols/svg-400/outlined/thumb_up.svg?react'
 import TimerIcon from '@material-symbols/svg-400/outlined/timer.svg?react'
 import ToggleOffIcon from '@material-symbols/svg-400/outlined/toggle_off.svg?react'
 import ToggleOnIcon from '@material-symbols/svg-400/outlined/toggle_on.svg?react'
@@ -175,6 +182,7 @@ import ViewTimelineIcon from '@material-symbols/svg-400/outlined/view_timeline.s
 import VisibilityIcon from '@material-symbols/svg-400/outlined/visibility.svg?react'
 import VisibilityOffIcon from '@material-symbols/svg-400/outlined/visibility_off.svg?react'
 import VolunteerActivismIcon from '@material-symbols/svg-400/outlined/volunteer_activism.svg?react'
+import WandStars from '@material-symbols/svg-400/outlined/wand_stars.svg?react'
 import Warning from '@material-symbols/svg-400/outlined/warning.svg?react'
 import Webhook from '@material-symbols/svg-400/outlined/webhook.svg?react'
 
@@ -207,6 +215,7 @@ export const ICONS = {
   chat: ChatIcon,
   chat_bubble: ChatBubbleIcon,
   check: Check,
+  check_box: CheckBox,
   check_circle: CheckCircle,
   checklist: ChecklistIcon,
   chevron_left: ChevronLeft,
@@ -256,6 +265,7 @@ export const ICONS = {
   key: KeyIcon,
   key_off: KeyOffIcon,
   keyboard_arrow_down: KeyboardArrowDown,
+  label: Label,
   leaderboard: LeaderboardIcon,
   light_mode: LightMode,
   lightbulb: ILightbulb,
@@ -270,6 +280,8 @@ export const ICONS = {
   logout: Logout,
   mail: MailIcon,
   manage_accounts: ManageAccountsIcon,
+  mark_email_read: MarkEmailRead,
+  mark_email_unread: MarkEmailUnread,
   meeting_room: MeetingRoomIcon,
   menu_book: IMenuBook,
   mic: Mic,
@@ -305,6 +317,7 @@ export const ICONS = {
   public: PublicIcon,
   qr_code_2: QrCode2Icon,
   query_stats: QueryStatsIcon,
+  radio_button_checked: RadioButtonChecked,
   radio_button_unchecked: RadioButtonUncheckedIcon,
   rate_review: RateReviewIcon,
   record_voice_over: IRecordVoiceOver,
@@ -328,8 +341,10 @@ export const ICONS = {
   swap_vert: SwapVertIcon,
   sync: SyncIcon,
   sync_alt: SyncAltIcon,
+  table_rows: TableRows,
   task_alt: TaskAlt,
   text_fields: TextFieldsIcon,
+  thumb_up: ThumbUp,
   timer: TimerIcon,
   toggle_off: ToggleOffIcon,
   toggle_on: ToggleOnIcon,
@@ -348,6 +363,7 @@ export const ICONS = {
   visibility: VisibilityIcon,
   visibility_off: VisibilityOffIcon,
   volunteer_activism: VolunteerActivismIcon,
+  wand_stars: WandStars,
   warning: Warning,
   webhook: Webhook,
 } satisfies Record<string, Svg>

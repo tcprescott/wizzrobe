@@ -43,11 +43,14 @@ NON_ACTOR = {"require_feature"}
 #   version  — the build version, also printed on the public /about page.
 #   rotate   — a push service reissued an endpoint; the caller proves itself by
 #              knowing the old endpoint and auth, and has no token to send.
+#   store_webhook — Stripe/PayPal post it; the store's signature, checked
+#              against that store's sealed secret, is the proof.
 ALLOWLIST = {
     ("health", "health"), ("version", "version"), ("web_push", "rotate"),
     # What's new, About and facts describe the app itself, like /version.
     ("reading", "changelog"), ("reading", "about"), ("reading", "privacy"),
     ("reading", "notices"), ("reading", "notice"), ("reading", "facts"),
+    ("tickets", "store_webhook"),
     # POST only to carry a body; both read and save nothing (READ_ONLY_POSTS in api/scopes.py).
     ("admin_match_schedule", "check_time"), ("admin_match_schedule", "suggest_time"),
 }

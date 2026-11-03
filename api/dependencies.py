@@ -462,6 +462,26 @@ async def require_staff_write(
     return user
 
 
+async def require_app_staff_write(
+    resolved: Tuple[User, ApiToken] = Depends(resolve_token),
+) -> User:
+    """Staff, calling from Wizzrobe's own app.
+
+    For the few actions Thomas kept off the open API (sending, reminding and
+    closing a survey DM everyone it reaches): a personal token or a third-party
+    app gets a 403 even when its owner is staff.
+    """
+    user, token = resolved
+    if not _is_first_party(token):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the Wizzrobe app can do this",
+        )
+    _reject_read_only(token)
+    await AuthService.ensure(await AuthService.is_staff(user), "Staff access required")
+    return user
+
+
 async def require_super_admin(actor: User = Depends(require_identity)) -> User:
     """Authenticated user holding the global ``SUPER_ADMIN`` role.
 

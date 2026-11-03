@@ -44,6 +44,8 @@ from . import (
     stream_layout_starters,
     telegram_bot_worker,
     telemetry_retention,
+    ticket_dm,
+    ticket_gateways,
     webhook_outbox_worker,
 )
 from .accommodation_service import AccommodationService
@@ -96,6 +98,7 @@ from .discord import (
     DiscordRoleMappingService,
     DiscordRoleSyncService,
     DiscordService,
+    DiscordSettingsService,
     discord_event_worker,
     discord_queue,
     discord_role_sync_worker,
@@ -112,6 +115,7 @@ from .feedback_service import FeedbackService
 from .friend_service import FriendService
 from .help_service import HelpService
 from .identity_link_service import IdentityLinkProvider, IdentityLinkService
+from .integration_settings_service import IntegrationSettingsService
 from .item_tracker_service import ItemTrackerService
 from .log_level_service import LoggerLevelRow, LogLevelService
 from .match import (
@@ -202,6 +206,10 @@ from .tenant_membership_service import TenantMembershipService
 from .tenant_service import TenantService
 from .tenant_setup_service import SetupStep, TenantSetupService
 from .tenant_theme_service import TenantThemeService
+from .ticket_checkout_service import CheckoutStart, TicketCheckoutService
+from .ticket_comp_refund_service import TicketCompRefundService
+from .ticket_service import TicketService
+from .ticket_store_service import TicketStoreService
 from .timezone_service import TimezoneService
 from .tournament_config import TournamentConfig, validate_tournament_config
 from .tournament_notification_service import TournamentNotificationService
@@ -265,6 +273,7 @@ __all__ = [
     'CheckInAdminService',
     'CheckInDeskService',
     'CheckInService',
+    'CheckoutStart',
     'CommentInbox',
     'CommentaryInviteService',
     'CommunityEventService',
@@ -281,6 +290,7 @@ __all__ = [
     'DiscordRoleMappingService',
     'DiscordRoleSyncService',
     'DiscordService',
+    'DiscordSettingsService',
     'DraftPolicy',
     'EmergencyContactService',
     'EquipmentAdminService',
@@ -300,6 +310,7 @@ __all__ = [
     'HoursSummary',
     'IdentityLinkProvider',
     'IdentityLinkService',
+    'IntegrationSettingsService',
     'ItemTrackerService',
     'LogLevelService',
     'LoggerLevelRow',
@@ -392,6 +403,10 @@ __all__ = [
     'TenantService',
     'TenantSetupService',
     'TenantThemeService',
+    'TicketCheckoutService',
+    'TicketCompRefundService',
+    'TicketService',
+    'TicketStoreService',
     'TimezoneService',
     'TournamentConfig',
     'TournamentNotificationService',
@@ -460,6 +475,8 @@ __all__ = [
     'stream_layout_starters',
     'telegram_bot_worker',
     'telemetry_retention',
+    'ticket_dm',
+    'ticket_gateways',
     'validate_async_qualifier_config',
     'validate_bracket_config',
     'validate_counts',

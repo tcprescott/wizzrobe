@@ -55,6 +55,12 @@ _EVENT_CANDIDATES = frozenset({
     AuditActions.TRIFORCE_TEXT_REJECTED,
     AuditActions.EQUIPMENT_CHECKED_OUT,
     AuditActions.EQUIPMENT_CHECKED_IN,
+    AuditActions.TICKET_TYPE_CREATED,
+    AuditActions.TICKET_TYPE_UPDATED,
+    AuditActions.TICKET_TYPE_DELETED,
+    AuditActions.TICKET_ORDER_PAID,
+    AuditActions.TICKET_ORDER_REFUNDED,
+    AuditActions.TICKET_CLAIMED,
 })
 
 _EXCLUDED_BY_DESIGN = frozenset({
@@ -108,6 +114,10 @@ _EXCLUDED_BY_DESIGN = frozenset({
     AuditActions.PRESET_IMPORTED,
     AuditActions.PRESET_TEST_ROLLED,
     # Secrets — leaking these to arbitrary receivers is a risk.
+    AuditActions.TICKET_STORE_CONNECTED,
+    AuditActions.TICKET_STORE_DISCONNECTED,
+    # A volunteer's comp refund is between them and staff, not an outside listener.
+    AuditActions.TICKET_COMP_REFUNDED,
     AuditActions.APITOKEN_CREATED,
     AuditActions.APITOKEN_REVOKED,
     AuditActions.OAUTH_APP_CREATED,

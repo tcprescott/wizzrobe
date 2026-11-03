@@ -320,6 +320,10 @@ Used by `Equipment.status` (`max_length=20`, default `AVAILABLE`), kept in sync 
 
 Used by `Event.status` (`max_length=16`, default `DRAFT`): `DRAFT` = `'draft'` (being set up; seen by staff and that event's role holders), `LIVE` = `'live'` (any number at once; workers and DMs run), `ARCHIVED` = `'archived'` (read-only, same viewers). See [events.md](../features/events.md).
 
+### `TicketProvider` / `TicketOrderStatus` / `TicketStatus`
+
+`TicketStore.provider` and `TicketOrder.provider` (`max_length=16`): `STRIPE` = `'stripe'`, `PAYPAL` = `'paypal'` (a REST app; its sealed secret is JSON client id + secret + sandbox, and an approved order is captured by the `CHECKOUT.ORDER.APPROVED` webhook). `TicketOrder.status` (`max_length=16`, default `PENDING`): `PENDING` = `'pending'` (sent to the store, badges held until `hold_expires_at`), `PAID` = `'paid'` (only the store's signed webhook sets it), `EXPIRED` = `'expired'` (abandoned; holds released), `REFUNDED` = `'refunded'` (fully refunded, from Wizzrobe or the store's dashboard). `Ticket.status`: `PENDING`, `VALID`, `VOID` (its order expired), `REFUNDED`. Spec: [docs/specs/ticket-sales.md](../specs/ticket-sales.md).
+
 ### `CheckInEventStatus` / `CheckInEntrantSource` / `CheckInLinkMethod`
 
 `CheckInEvent.status` (`max_length=16`, default `DRAFT`): `DRAFT` = `'draft'` (being set up; can still be synced by hand), `OPEN` = `'open'` (the only status the sync worker polls and the desk lists), `CLOSED` = `'closed'`. `CheckInEntrant.source` (`max_length=16`): `MATCHERINO` = `'matcherino'` (a buyer on the event's Matcherino venue), `WALK_UP` = `'walk_up'` (added by staff at the desk), `COMP` = `'comp'` (comped by the event's comp rules without buying a badge). `CheckInEntrant.link_method` (`max_length=24`, null = unlinked) records how the row got its `user`: the four automatic rules `MATCHERINO_ID` = `'matcherino_id'`, `DISCORD_ID` = `'discord_id'`, `TWITCH_ID` = `'twitch_id'`, `MATCHERINO_HANDLE` = `'matcherino_handle'` (tried in that order; the former `TWITCH_LOGIN` was folded into `TWITCH_ID` by migration 83), then `MANUAL` = `'manual'` (a staff link; with `user` NULL it marks a deliberate unlink the sync never overrides), `WALK_UP` = `'walk_up'` and `COMP` = `'comp'` (a `COMP` row's account). See [event-check-in.md](../features/event-check-in.md#matching-buyers-to-accounts).
@@ -1826,6 +1830,26 @@ The Matcherino account a community's check-in sync signs in as — the per-tenan
 | `created_at` / `updated_at` | `DatetimeField` | auto | `updated_at` is shown as "saved …" |
 
 Constraint: `unique_together (('tenant',),)`.
+
+### Ticket sales
+
+Event badges sold through each community's own store account. Gated by `FeatureFlag.TICKET_SALES`; managed by `TicketStoreService`, `TicketService`, `TicketCheckoutService` and `TicketCompRefundService`. Lives in `models/ticket.py`. Spec: [docs/specs/ticket-sales.md](../specs/ticket-sales.md).
+
+#### `TicketStore` (tenant-owned)
+
+One per provider per community (`unique_together (('tenant', 'provider'),)`). `secret` (the restricted key) and `webhook_secret` are sealed with `secret_box` (purposes `ticket_store` / `ticket_store_webhook`, tenant id as context) and never leave the service. `webhook_token` (unique) is the opaque part of `/api/ticket-webhooks/{provider}/{token}`; `webhook_id` is the endpoint registered on the account. Also `account_label`, `test_mode`, `connected_by`.
+
+#### `TicketType` (event-owned)
+
+A badge kind staff sell: `name`, `description`, `price_cents`, `currency` (one per event), `quantity` (null = unlimited), `max_per_order`, `sales_open_at` / `sales_close_at`, `lanyard` (`CheckInTierLanyard`), `covers_comp` (at most one per event: the badge a comp stands in for), `is_active`, `sort_order`.
+
+#### `TicketOrder` (event-owned)
+
+One checkout: `buyer`, `provider`, `status`, `total_cents`, `refunded_cents`, `currency`, `provider_ref` (checkout session), `payment_ref` (what refunds go against), `hold_expires_at`, `paid_at`. Reverse accessor `tickets`.
+
+#### `Ticket` (event-owned)
+
+One badge: `order`, `ticket_type`, `owner` (null until an extra is claimed), `status`, `price_cents`, `code` (unique; what the desk scans), `claim_token` (sealed, purpose `ticket_claim`) + `claim_lookup` (sha256, unique), `claimed_at`, `comp_refund_cents` / `comp_refunded_at` / `comp_refunded_by` (money sent back because the owner was comped; the badge stays valid), `refunded_at`.
 
 ### Volunteering
 

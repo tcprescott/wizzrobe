@@ -16,9 +16,11 @@ from application.services import (
     get_user_from_session,
 )
 from application.services.discord.discord_link_service import connect_redirect_uri
+from application.services.discord.discord_settings_service import GRANT_LABELS
+from application.services.discord.discord_settings_service import mapping_labels as _mapping_labels
 from application.tenant_context import get_current_tenant_id, is_host_mode, require_tenant_id
 from application.utils.mocks.mock_discord import is_mock_discord
-from models import EventStatus, Role, TournamentGrant
+from models import Role, TournamentGrant
 from pages.admin_tabs.volunteer_role_mappings import TAB_LABEL, volunteer_role_mappings_section
 from theme.busy import busy, busy_click, is_busy
 from theme.dialog._helpers import dialog_actions, form_dialog
@@ -34,7 +36,7 @@ from theme.tables.preferences import TableKeys, search_input
 _ROLE_OPTIONS = {
     r.value: r.label for r in Role.tenant_grantable()
 }
-_GRANT_OPTIONS = {g.value: g.value.replace('_', ' ').title() for g in TournamentGrant}
+_GRANT_OPTIONS = {g.value: label for g, label in GRANT_LABELS.items()}
 
 # The prefix keeps a Role and a tournament grant of the same name apart once the value comes back.
 _ROLE_PREFIX = 'role:'
@@ -91,21 +93,6 @@ def _discord_role_extras(discord_roles: list[dict], mappings) -> dict[int, dict[
 def _plural(count: int, noun: str) -> str:
     return f'{count} {noun}' + ('' if count == 1 else 's')
 
-
-def _mapping_labels(mapping) -> tuple[str, str]:
-    """(what it grants, where it applies) for one mapping row."""
-    if mapping.app_role is not None:
-        label = _ROLE_OPTIONS.get(mapping.app_role.value, mapping.app_role.value)
-        if not mapping.app_role.is_per_event:
-            return label, 'Community-wide'
-        event = mapping.event
-        if event is None:
-            return label, 'No event: grants nothing'
-        suffix = {EventStatus.DRAFT: ' (Draft)', EventStatus.ARCHIVED: ' (Archived)'}.get(event.status, '')
-        return label, f'{event.name}{suffix}'
-    grant = _GRANT_OPTIONS.get(mapping.tournament_grant.value, mapping.tournament_grant.value)
-    tournament = mapping.tournament.name if mapping.tournament else f'#{mapping.tournament_id}'
-    return grant, tournament
 
 _ROW_ACTIONS = '''
     <q-btn flat round dense icon="delete" color="negative"
