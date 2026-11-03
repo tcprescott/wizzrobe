@@ -99,7 +99,9 @@ New models (community-owned: `tenant_id`, no `event_id`):
 
 Global, on `User` (through `IdentityLinkService`, like Twitch and racetime):
 `patreon_user_id` (unique, nullable), `patreon_username`, `patreon_linked_at`,
-`patreon_badge_hidden` (if the hide switch is picked).
+`patreon_badge_hidden` (a "Show my badge" switch on Me → Accounts; hiding
+removes the chip everywhere but leaves `get_patron_status` and the staff
+member sheet unchanged).
 
 Modules: `application/utils/clients/patreon_client.py` (async httpx, OAuth,
 identity, campaigns, members, webhooks) + `application/utils/mocks/mock_patreon.py`
@@ -163,7 +165,6 @@ dependencies, so pip-audit is unaffected. A service health probe joins
 
 ## Open questions
 
-- Who sees the badge, and whether a member can hide it.
 - Where the badge appears in phase 1.
 - Risk to check in the build: Patreon may only return memberships to the OAuth
   client owner's campaign from `identity.memberships`. If so, linking queues a
@@ -176,5 +177,6 @@ dependencies, so pip-audit is unaffected. A service health probe joins
   Integrations card, Me → Accounts); NiceGUI untouched.
 - 2026-11-03 — Thomas picked drop after linking: only the member's Patreon
   user id is kept; their OAuth token is used once and discarded.
+- 2026-11-03 — Thomas picked everyone sees the badge, member can hide it.
 - 2026-11-03 — Thomas: Patreon phase 1 is badges only; Wizzrobe never handles
   money; future perks gate on `get_patron_status`.
