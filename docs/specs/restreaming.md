@@ -96,8 +96,8 @@ stage's OBS beside it, tap-in on phone) before any screen is built.
   go-live, never stored by Wizzrobe, never shown in the app, and sits in the
   broadcaster's OBS only while the stream runs.
 - **Other surfaces:** REST for the app; the agent connection lives on the
-  always-on bot service (Cloud Run caps a websocket at the request timeout, so
-  the agent reconnects with backoff anyway).
+  always-on bot service (the `bots` container); the agent reconnects with
+  backoff anyway.
 
 ## PR plan
 

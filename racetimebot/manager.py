@@ -14,7 +14,9 @@ Responsibilities:
   slug-based routing the rooms stay resolvable, and logging them makes the
   re-adoption explicit and auditable.
 * **Restart.** ``/platform`` can restart a single bot (cancel + respawn),
-  auditing ``racetime_bot.restarted`` as the acting super-admin.
+  auditing ``racetime_bot.restarted`` as the acting super-admin. A restart asked
+  for in a process without the runtime (the API beside a ``bots`` container)
+  arrives here over the live relay as :data:`RESTART_KIND`, already audited.
 * **Crash isolation.** A connection task that dies logs and is not allowed to
   take down the manager or sibling connections.
 
@@ -30,15 +32,19 @@ import logging
 from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
 
+from application.events import live_relay
 from application.services import RacetimeBotService, RacetimeRoomService, UserService
 from application.services.audit_service import AuditActions, AuditService
 from application.utils.clients import racetime_room_actions
+from application.utils.coroutine_queue import CoroutineQueue
 from application.utils.environment import racetime_bot_enabled
 from models import User
 from racetimebot.connection import CategoryConnection
 from racetimebot.handler import RaceHandler
 
 logger = logging.getLogger(__name__)
+
+RESTART_KIND = racetime_room_actions.RESTART_KIND
 
 
 class RacetimeBotManager:
@@ -50,18 +56,21 @@ class RacetimeBotManager:
         self.audit_service = AuditService()
         self._system_user: Optional[User] = None
         self._connections: Dict[int, Tuple[CategoryConnection, asyncio.Task]] = {}
+        self.running = False
 
     async def start(self) -> None:
         if not racetime_bot_enabled():
             logger.info('RACETIME_BOT_ENABLED is off — racetime bot runtime not started.')
             return
         self._system_user = await UserService().get_system_user()
+        self.running = True
         await self.readopt_open_rooms()
+        # Registered even with no bots yet: one restarted later must be reachable.
+        racetime_room_actions.register_sender(self.send)
         bots = await self.bot_service.list_active_bots()
         if not bots:
             logger.info('No active racetime bots configured — nothing to connect.')
             return
-        racetime_room_actions.register_sender(self.send)
         for bot in bots:
             self._spawn(bot.id, bot.category, bot.client_id, bot.client_secret)
         logger.info('Started %d racetime bot connection(s).', len(self._connections))
@@ -127,13 +136,20 @@ class RacetimeBotManager:
         bot = await self.bot_service.get_runtime_bot(bot_id)
         if bot is None:
             raise ValueError('Racetime bot not found')
-        await self._cancel(bot_id)
-        if self._system_user is None:
-            self._system_user = await UserService().get_system_user()
         await self.audit_service.write_log(
             actor, AuditActions.RACETIME_BOT_RESTARTED,
             {'bot_id': bot_id, 'category': bot.category},
         )
+        await self.respawn(bot_id)
+
+    async def respawn(self, bot_id: int) -> None:
+        """Drop the bot's connection and, while the bot is active, open a fresh one."""
+        bot = await self.bot_service.get_runtime_bot(bot_id)
+        await self._cancel(bot_id)
+        if bot is None:
+            return
+        if self._system_user is None:
+            self._system_user = await UserService().get_system_user()
         if bot.is_active:
             self._spawn(bot.id, bot.category, bot.client_id, bot.client_secret)
 
@@ -152,6 +168,7 @@ class RacetimeBotManager:
             logger.exception('racetime connection for bot %s errored during cancel', bot_id)
 
     async def stop(self) -> None:
+        self.running = False
         racetime_room_actions.register_sender(None)
         for bot_id in list(self._connections.keys()):
             await self._cancel(bot_id)
@@ -172,6 +189,23 @@ def get_racetime_manager() -> RacetimeBotManager:
 async def init_racetime_bot() -> None:
     """Start the racetime bot runtime (called from the FastAPI lifespan)."""
     await get_racetime_manager().start()
+
+
+_restarts: Optional[CoroutineQueue] = None
+
+
+def _deliver_restart(bot_id: int) -> None:
+    """A restart another process asked for: act on it if this process runs the bots."""
+    global _restarts
+    if not racetime_bot_enabled() or _manager is None or not _manager.running:
+        return
+    if _restarts is None:
+        _restarts = CoroutineQueue('racetime relayed restarts', logger=logger)
+        _restarts.start()
+    _restarts.enqueue(_manager.respawn(int(bot_id)))
+
+
+live_relay.register(RESTART_KIND, _deliver_restart)
 
 
 async def close_racetime_bot() -> None:

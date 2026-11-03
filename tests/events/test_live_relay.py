@@ -72,5 +72,12 @@ def test_own_echo_and_garbage_are_ignored():
 
 async def test_start_is_off_without_multi_instance(monkeypatch):
     monkeypatch.delenv('MULTI_INSTANCE', raising=False)
+    monkeypatch.delenv('SEPARATE_BOTS', raising=False)
     assert await live_relay.start('postgres://example/db') is False
     assert not live_relay.active()
+
+
+def test_separate_bots_turns_the_relay_on(monkeypatch):
+    monkeypatch.delenv('MULTI_INSTANCE', raising=False)
+    monkeypatch.setenv('SEPARATE_BOTS', 'on')
+    assert live_relay.multi_instance()

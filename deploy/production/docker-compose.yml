@@ -1,0 +1,86 @@
+# Production as Docker containers: the API, the bot service beside it, Redis for
+# sign-in sessions, and (at the new-app cutover) the app. Postgres stays on the
+# host, as it is today. See README.md.
+#
+# The "Deploy production" workflow (.github/workflows/deploy-production.yml)
+# copies this file into the stack folder on the server, next to production.env,
+# and runs it from there. It only ever runs when someone presses its button.
+
+name: wizzrobe
+
+x-backend: &backend
+  image: ghcr.io/tcprescott/wizzrobe:${WIZZROBE_TAG:-prod}
+  env_file:
+    - production.env
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+  networks: [prod]
+  restart: unless-stopped
+  # Room for uvicorn's graceful window plus the lifespan shutdown (queue drain,
+  # Sentry flush) before Docker falls back to SIGKILL.
+  stop_grace_period: 30s
+
+services:
+  # The website, REST, GraphQL, MCP, Discord DMs (signed in over REST only) and
+  # every background worker except the racetime room opener. Applies migrations
+  # on start.
+  api:
+    <<: *backend
+    environment:
+      DISCORD_GATEWAY: "off"
+      RACETIME_BOT_ENABLED: "off"
+      SEPARATE_BOTS: "on"
+      DB_HOST: host.docker.internal
+      NICEGUI_REDIS_URL: redis://redis:6379/0
+    ports:
+      - "127.0.0.1:${WIZZROBE_API_PORT:-8000}:8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # The Discord gateway (buttons, member updates, slash commands) and the
+  # racetime room bot. An API restart doesn't drop them, and the other way round.
+  # RACETIME_BOT_ENABLED comes from production.env.
+  bots:
+    <<: *backend
+    command: ["./start.sh", "bots"]
+    environment:
+      SEPARATE_BOTS: "on"
+      DB_HOST: host.docker.internal
+    depends_on:
+      # The API runs the migrations; the bots start on the schema it leaves.
+      api:
+        condition: service_healthy
+
+  # The new app (web/). Off until the cutover: `docker compose --profile app up -d`.
+  app:
+    image: ghcr.io/tcprescott/wizzrobe-app:${WIZZROBE_TAG:-prod}
+    profiles: [app]
+    ports:
+      - "127.0.0.1:${WIZZROBE_APP_PORT:-8001}:8080"
+    networks: [prod]
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "60", "1", "--appendonly", "no"]
+    volumes:
+      - redis_data:/data
+    networks: [prod]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+networks:
+  # A fixed subnet so the host's pg_hba.conf can allow exactly this stack. The
+  # beta stack uses 172.30.42.0/24.
+  prod:
+    ipam:
+      config:
+        - subnet: 172.30.43.0/24
+
+volumes:
+  redis_data:
