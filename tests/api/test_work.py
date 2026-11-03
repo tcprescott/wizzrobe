@@ -112,6 +112,21 @@ class TestSchedule:
         assert desk_shift['open_slots'] == 1
         assert body['first_hour'] <= desk_shift['start_hour'] < body['last_hour']
 
+    async def test_before_six_opens_on_the_event_day_still_running(self, db, app, monkeypatch):
+        import application.services.work_service as work_service
+        from application.utils.timezone import now_local, to_utc_aware
+
+        late = now_local().replace(hour=1, minute=30, second=0, microsecond=0)
+        monkeypatch.setattr(work_service, 'now_local', lambda tz=None: late)
+        me, raw = await create_user_token(username='owl', roles=[Role.VOLUNTEER])
+        desk = await VolunteerPosition.create(name='Desk', display_order=1)
+        shift = await _shift(desk, to_utc_aware(late.replace(hour=1, minute=0)))
+        await VolunteerAssignment.create(shift=shift, user=me)
+        async with client_for(app, raw) as c:
+            body = (await c.get('/api/work/schedule')).json()
+        assert body['day'] == (late.date() - timedelta(days=1)).isoformat()
+        assert [c['position'] for c in body['columns']] == ['Desk']
+
     async def test_columns_save_hide_and_reset(self, db, app):
         _, raw = await create_user_token(username='vol', roles=[Role.VOLUNTEER])
         desk = await VolunteerPosition.create(name='Desk', display_order=1)

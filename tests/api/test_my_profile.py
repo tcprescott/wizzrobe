@@ -1,10 +1,11 @@
 """The app's Me screen: the settings list and each section's own routes."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 import pytest
 
 from models import (
+    Event,
     FeatureFlag,
     TenantFeatureFlag,
     Tournament,
@@ -161,6 +162,12 @@ class TestDeveloperTools:
 class TestShiftCheckIn:
     @pytest.fixture
     async def shift(self, db):
+        # With no event dates the window is today from 06:00, which misses a shift
+        # starting before then.
+        today = date.today()
+        await Event.filter(is_default=True).update(
+            starts_on=today - timedelta(days=1), ends_on=today + timedelta(days=2),
+        )
         alice = await make_member(discord_id=9551, username='alice')
         pos = await VolunteerPosition.create(name='Desk')
         shift = await VolunteerShift.create(position=pos, starts_at=_soon(15), ends_at=_soon(135))
