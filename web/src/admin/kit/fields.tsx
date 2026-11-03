@@ -122,3 +122,44 @@ export function LoadError({ error, onRetry }: { error: Error; onRetry: () => voi
     </Banner>
   )
 }
+
+/** A group of checkboxes in a bordered list, for picking several of a short set. */
+export function CheckList<V extends string>({
+  legend,
+  items,
+  value,
+  onChange,
+}: {
+  legend: string
+  items: { value: V; label: string; hint?: string; color?: number }[]
+  value: V[]
+  onChange: (value: V[]) => void
+}) {
+  return (
+    <fieldset className="settings-checks">
+      <legend className="field__label">{legend}</legend>
+      <div className="settings-checks__box">
+        {items.map((item) => (
+          <label key={item.value} className="t-check">
+            <input
+              type="checkbox"
+              checked={value.includes(item.value)}
+              onChange={(e) => onChange(e.target.checked ? [...value, item.value] : value.filter((v) => v !== item.value))}
+            />
+            {item.color !== undefined && (
+              <span
+                className="settings-checks__dot"
+                aria-hidden="true"
+                style={{ background: item.color ? `#${item.color.toString(16).padStart(6, '0')}` : undefined }}
+              />
+            )}
+            <span>
+              {item.label}
+              {item.hint && <span className="settings-row__sub"> · {item.hint}</span>}
+            </span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  )
+}

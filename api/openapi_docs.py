@@ -136,6 +136,7 @@ TAG_GROUPS: List[tuple[str, List[tuple[str, str]]]] = [
         ('Admin shell', "Which admin areas and settings panes the caller may open, for the app's admin menu."),
         ('Community settings', "A community's own settings, one group per pane of Admin → Settings: colours and logo, clock, joining, profile reminders, Watch page, volunteers, meetups, features and connected apps."),
         ('Discord settings', "The Discord pane of Admin → Settings: the linked server, its role mappings with labels, adding several at once, syncing everyone, and the events mirror per tournament."),
+        ('Integration settings', "The Integrations pane of Admin → Settings: the Challonge and start.gg sign-ins, webhooks with their delivery health, randomizer keys, and the AI provider for survey suggestions."),
         ('Event settings', "One event's own settings, one group per pane of Admin → Event settings: dates and daily hours, capacity, clock, broadcasters, volunteer reward tiers, and the venue's stations and room screens."),
         ('Matches', 'The schedule, and running a match from seating to a confirmed result.'),
         ('Admin: Match Schedule', "The staff run sheet as the app's admin Match Schedule draws it: grouped rows and one match's pane."),

@@ -3,6 +3,7 @@ import { useCommunity } from '../../community/CommunityProvider'
 import { PaneScreen, useAdmin } from '../kit'
 import { ConnectedApps } from './panes/ConnectedApps'
 import { Discord } from './panes/Discord'
+import { Integrations } from './panes/Integrations'
 import { Features } from './panes/Features'
 import { General } from './panes/General'
 import { Meetups, Volunteers } from './panes/Lead'
@@ -16,6 +17,7 @@ const PANES: Partial<Record<string, () => ReactNode>> = {
   volunteers: () => <Volunteers />,
   'community-events': () => <Meetups />,
   discord: () => <Discord />,
+  integrations: () => <Integrations />,
   apps: () => <ConnectedApps />,
   features: () => <Features />,
 }

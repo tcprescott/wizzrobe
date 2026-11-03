@@ -359,3 +359,21 @@
   flex: none;
   background: var(--fg-muted);
 }
+.settings-secret {
+  display: block;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono, monospace);
+  word-break: break-all;
+}
+.settings-link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--link);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+  min-height: 24px;
+}

@@ -5,7 +5,7 @@ export { ListCard, RadioRows, SettingsCard, SwitchRow, UnsavedChangesGuard, useD
 export { SectionNav, type SectionGroup, type SectionItem } from './SectionNav'
 export type { AdminAreaInfo, AdminAreaRoute, AdminNav } from './types'
 export { useAdmin } from './useAdminNav'
-export { InstantField, LoadError, MinutesField, NumberField } from './fields'
+export { CheckList, InstantField, LoadError, MinutesField, NumberField } from './fields'
 export { useAdminQuery } from './useAdminQuery'
 export { PaneScreen } from './PaneScreen'
 import './forms.css'
