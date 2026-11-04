@@ -16,7 +16,9 @@ under Operations next to Tournaments. Staff and anyone with the Preset Manager r
 There are three ways to add one.
 
 - **Import → Built-in presets** adds the presets that ship with Wizzrobe. Run it
-  again and it only adds the ones you don't have yet.
+  again and it only adds the ones you don't have yet. In the app, the built-ins
+  live in the preset library instead, as `wizzrobe/<name>`: open one and choose
+  **Copy to this community**.
 - **Import → From a randomizer** pulls in the presets a randomizer publishes on its
   own site. Pick the randomizer, press **Fetch presets**, then type in
   **Presets to import** to filter and pick the ones you want. What you import is

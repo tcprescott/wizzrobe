@@ -1,0 +1,12 @@
+description: Hard logic, 5/5/3 crystal/boss requirements, pyramid hole open.
+settings:
+  smlogic: hard
+  goal: fastganondefeatmotherbrain
+  ganonvulnerable: fivecrystals
+  opentower: fivecrystals
+  opentourian: threebosses
+  swordlocation: randomized
+  morphlocation: randomized
+  keyshuffle: none
+  gamemode: normal
+  players: '1'

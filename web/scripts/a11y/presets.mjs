@@ -8,6 +8,7 @@ export const targets = [
   { name: 'presets-new', path: '/t/sgl/presets', act: async (p) => { await p.getByRole('button', { name: 'New preset' }).click() }, wait: 'role=dialog' },
   { name: 'presets-edit', path: '/t/sgl/presets/15', act: async (p) => { await p.getByRole('button', { name: 'Actions' }).last().click(); await p.getByRole('menuitem', { name: 'Edit…' }).click() }, wait: 'role=dialog' },
   { name: 'presets-copy-mine', path: '/t/sgl/presets/13', act: async (p) => { await p.getByRole('button', { name: 'Actions' }).last().click(); await p.getByRole('menuitem', { name: /Copy to my presets/ }).click() }, wait: 'role=dialog' },
+  { name: 'presets-sahasrahbot', path: '/t/sgl/presets', act: async (p) => { await p.getByRole('button', { name: 'Actions' }).first().click(); await p.getByRole('menuitem', { name: /Import from SahasrahBot/ }).click(); await p.getByLabel('SahasrahBot namespace').fill('tom'); await p.getByRole('button', { name: 'Look up' }).click(); await p.getByText('casualboots').waitFor() }, wait: 'role=dialog' },
   { name: 'presets-space', path: '/t/sgl/presets', act: async (p) => { await p.getByRole('button', { name: 'Actions' }).first().click(); await p.getByRole('menuitem', { name: /My preset space/ }).click() }, wait: 'role=dialog' },
 ]
 
@@ -49,6 +50,11 @@ export const fixtures = {
   '/api/preset-library/spaces': [
     { id: 3, slug: 'tom', owner: { id: 1, name: 'Tom' }, is_owner: true, preset_count: 4, max_presets: 50, editors: [{ id: 7, name: 'Ann' }], max_editors: 10 },
     { id: 9, slug: 'league-crew', owner: { id: 8, name: 'Bea' }, is_owner: false, preset_count: 12, max_presets: 50, editors: [], max_editors: 10 },
+  ],
+  '/api/preset-library/sahasrahbot/tom': [
+    { randomizer: 'alttpr', name: 'casualboots', exists: false },
+    { randomizer: 'alttpr', name: 'fastboots', exists: true },
+    { randomizer: 'smz3', name: 'normal', exists: false },
   ],
   '/api/preset-library/randomizers': [
     { slug: 'alttpr', name: 'A Link to the Past', available: true, paste_key: null, paste_label: null, paste_hint: null },

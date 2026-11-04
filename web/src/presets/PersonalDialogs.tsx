@@ -396,3 +396,138 @@ export function SpaceDialog({ space, onClose, onChange }: { space: Space; onClos
     </FormDialog>
   )
 }
+
+const GAME_NAMES: Record<string, string> = { alttpr: 'A Link to the Past', sm: 'Super Metroid', smz3: 'SMZ3' }
+
+/** Look up a SahasrahBot namespace, tick its presets, copy them into a personal space. */
+export function SahasrahBotImportDialog({ spaces, onClose, onImported }: { spaces: Space[]; onClose: () => void; onImported: () => void }) {
+  const [namespace, setNamespace] = useState('')
+  const [looked, setLooked] = useState<string | null>(null)
+  const [found, setFound] = useState<Schemas['SahasrahBotPresetResponse'][] | null>(null)
+  const [picked, setPicked] = useState<Set<string>>(new Set())
+  const [spaceId, setSpaceId] = useState<number | null>(spaces[0]?.id ?? null)
+  const [busy, setBusy] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [results, setResults] = useState<Schemas['SahasrahBotImportResult'][] | null>(null)
+  const key = (p: { randomizer: string; name: string }) => `${p.randomizer}/${p.name}`
+
+  async function lookUp() {
+    const ns = namespace.trim()
+    if (!ns) return
+    setBusy('look')
+    setError(null)
+    setResults(null)
+    try {
+      const rows = await api.GET('/api/preset-library/sahasrahbot/{namespace}', { params: { path: { namespace: ns } } }).then(unwrap)
+      setFound(rows)
+      setLooked(ns)
+      setPicked(new Set(rows.filter((r) => !r.exists).slice(0, 25).map(key)))
+    } catch (err) {
+      setError(message(err))
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function run() {
+    if (!looked || picked.size === 0) {
+      setError('Look up a namespace and tick at least one preset.')
+      return
+    }
+    setBusy('import')
+    setError(null)
+    try {
+      const chosen = (found ?? []).filter((r) => picked.has(key(r))).map((r) => ({ randomizer: r.randomizer, name: r.name }))
+      const done = await api
+        .POST('/api/preset-library/sahasrahbot/{namespace}/import', {
+          params: { path: { namespace: looked } },
+          body: { presets: chosen, space_id: spaceId },
+        })
+        .then(unwrap)
+      setResults(done)
+      setFound(null)
+      setPicked(new Set())
+      onImported()
+    } catch (err) {
+      setError(message(err))
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const toggle = (k: string) => {
+    const next = new Set(picked)
+    if (next.has(k)) next.delete(k)
+    else next.add(k)
+    setPicked(next)
+  }
+  const imported = results?.filter((r) => r.preset_id != null) ?? []
+  const problems = results?.filter((r) => r.problem) ?? []
+
+  return (
+    <FormDialog
+      open
+      onOpenChange={(o) => !o && onClose()}
+      title="Import from SahasrahBot"
+      description="Copies presets from a SahasrahBot namespace into your space. ALTTPR, Super Metroid and SMZ3 presets come across."
+      primaryLabel={picked.size ? `Import ${picked.size}` : 'Import'}
+      cancelLabel={results ? 'Close' : 'Cancel'}
+      busy={busy === 'import'}
+      busyLabel="Importing…"
+      onPrimary={() => void run()}
+    >
+      <div className="t-form">
+        {error && <Banner tone="error">{error}</Banner>}
+        {results && (
+          <Banner tone={problems.length ? 'warning' : 'info'}>
+            {imported.length ? `Imported ${imported.length} ${imported.length === 1 ? 'preset' : 'presets'}.` : 'Nothing imported.'}
+            {problems.length > 0 && (
+              <ul className="preset-problems">
+                {problems.map((p) => (
+                  <li key={key(p)}>
+                    <span className="preset-ref">{p.name}</span>: {p.problem}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Banner>
+        )}
+        <SpacePicker spaces={spaces} value={spaceId} onChange={setSpaceId} />
+        <form
+          className="preset-lookup"
+          onSubmit={(e) => {
+            e.preventDefault()
+            void lookUp()
+          }}
+        >
+          <label className="field">
+            <span className="field__label">SahasrahBot namespace</span>
+            <input className="input mono" value={namespace} maxLength={64} placeholder="e.g. tom" onChange={(e) => setNamespace(e.target.value)} />
+            <span className="field__hint">The part before the slash in your SahasrahBot preset names.</span>
+          </label>
+          <Button type="submit" variant="outline" busy={busy === 'look'} disabled={!namespace.trim()}>
+            Look up
+          </Button>
+        </form>
+        {busy === 'look' && <Spinner label="Asking SahasrahBot" />}
+        {found && found.length === 0 && <p className="preset-muted">{looked} has no ALTTPR, Super Metroid or SMZ3 presets on SahasrahBot.</p>}
+        {found && found.length > 0 && (
+          <fieldset className="field preset-fieldset">
+            <legend className="field__label">
+              Presets in {looked} ({picked.size} of {found.length} ticked, 25 at a time)
+            </legend>
+            {found.map((r) => (
+              <label key={key(r)} className="t-check">
+                <input type="checkbox" checked={picked.has(key(r))} disabled={r.exists} onChange={() => toggle(key(r))} />
+                <span>
+                  {r.name}
+                  <span className="t-row__sub"> · {GAME_NAMES[r.randomizer] ?? r.randomizer}{r.exists ? ' · already in your space' : ''}</span>
+                </span>
+              </label>
+            ))}
+          </fieldset>
+        )}
+      </div>
+    </FormDialog>
+  )
+}

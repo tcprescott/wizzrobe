@@ -1,0 +1,13 @@
+description: Normal logic keysanity, 7/7/4 crystal/boss requirements, pyramid hole
+  open.
+settings:
+  smlogic: normal
+  goal: fastganondefeatmotherbrain
+  ganonvulnerable: sevencrystals
+  opentower: sevencrystals
+  opentourian: fourbosses
+  swordlocation: randomized
+  morphlocation: randomized
+  keyshuffle: keysanity
+  gamemode: normal
+  players: '1'

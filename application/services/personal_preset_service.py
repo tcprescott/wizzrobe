@@ -33,6 +33,7 @@ from application.services.seedgen_service import SeedGenerationService
 from application.services.tenant_service import TenantService
 from application.services.user_service import UserService
 from application.tenant_context import require_tenant_id
+from application.utils.clients import sahasrahbot_client as sahasrahbot
 from models import Preset, PresetSpace, PresetSpaceKind, User
 
 MAX_PRESETS_PER_SPACE = 50
@@ -44,6 +45,9 @@ WRITE_WINDOW_SECONDS = 600
 
 _NAME_RE = re.compile(r'^[a-z0-9_-]{2,32}$')
 _NAME_RULE = "2 to 32 lowercase letters, numbers, - or _"
+_NAMESPACE_RE = re.compile(r'^[A-Za-z0-9_.-]{1,64}$')
+RESERVED_SLUGS = frozenset({'wizzrobe', 'wizzrobe-presets'})
+MAX_IMPORT_PER_CALL = 25
 
 _writes: Dict[int, Deque[float]] = defaultdict(deque)
 
@@ -67,6 +71,21 @@ def slugify(text: str) -> str:
     """A best-effort name in the allowed alphabet, for a default or a suggestion."""
     slug = re.sub(r'[^a-z0-9_-]+', '-', (text or '').lower()).strip('-_')
     return slug[:32].strip('-_')
+
+
+@dataclass(frozen=True)
+class SahasrahBotPreset:
+    randomizer: str
+    name: str
+    exists: bool
+
+
+@dataclass(frozen=True)
+class ImportResult:
+    randomizer: str
+    name: str
+    preset_id: Optional[int]
+    problem: Optional[str]
 
 
 @dataclass(frozen=True)
@@ -99,7 +118,7 @@ class PersonalPresetService:
         slug = (slug or '').strip().lower()
         self._check_name(slug, 'Space name')
         if slug != space.slug:
-            if await self.spaces.slug_taken(slug, except_id=space.id):
+            if slug in RESERVED_SLUGS or await self.spaces.slug_taken(slug, except_id=space.id):
                 raise ValueError(f"{slug} is taken. Try another name.")
             old = space.slug
             self._throttle(actor)
@@ -153,24 +172,90 @@ class PersonalPresetService:
     ) -> Preset:
         """Save a new preset in a personal space; the actor's own, made now if needed, when none is named."""
         space = await self._target_space(actor, space_id)
-        name = (name or '').strip()
-        randomizer = (randomizer or '').strip()
+        self._throttle(actor)
+        preset = await self._add(space, (name or '').strip(), (randomizer or '').strip(), settings, description)
+        await self.audit_service.write_log(
+            actor, AuditActions.PRESET_CREATED,
+            {'preset_id': preset.id, 'name': preset.name, 'randomizer': preset.randomizer, 'space': space.slug},
+        )
+        return preset
+
+    async def sahasrahbot_presets(self, actor: User, namespace: str) -> List[SahasrahBotPreset]:
+        """A SahasrahBot namespace's presets for the games Wizzrobe imports, marking ones you already have."""
+        namespace = self._check_namespace(namespace)
+        own = await self.spaces.owned_by(actor.id)
+        found: List[SahasrahBotPreset] = []
+        for randomizer in sahasrahbot.RANDOMIZERS:
+            try:
+                names = await sahasrahbot.namespace_presets(randomizer, namespace)
+            except sahasrahbot.SahasrahBotAPIError as e:
+                raise ValueError(str(e)) from e
+            for name in sorted(names, key=str.lower):
+                exists = own is not None and any([
+                    await self.spaces.find_preset(own.id, r, slugify(name)) is not None
+                    for r in self._landing_randomizers(randomizer)
+                ])
+                found.append(SahasrahBotPreset(randomizer, name, exists))
+        return found
+
+    @staticmethod
+    def _landing_randomizers(randomizer: str) -> tuple:
+        """Where an import of this game can land: SahasrahBot kept AVIANART presets under ALTTPR."""
+        return (randomizer, 'avianart') if randomizer == 'alttpr' else (randomizer,)
+
+    async def import_from_sahasrahbot(
+        self, actor: User, namespace: str, picks: List[Tuple[str, str]], *, space_id: Optional[int] = None,
+    ) -> List[ImportResult]:
+        """Copy chosen presets from a SahasrahBot namespace into a personal space, one result each.
+
+        A preset Wizzrobe can't roll, or whose name is taken, is reported and
+        skipped; the rest still import.
+        """
+        namespace = self._check_namespace(namespace)
+        picks = list(dict.fromkeys((r, n) for r, n in picks))
+        if not picks:
+            raise ValueError("Pick at least one preset to import")
+        if len(picks) > MAX_IMPORT_PER_CALL:
+            raise ValueError(f"Import up to {MAX_IMPORT_PER_CALL} presets at a time")
+        if any(r not in sahasrahbot.RANDOMIZERS for r, _ in picks):
+            raise ValueError("Wizzrobe imports ALTTPR, Super Metroid and SMZ3 presets from SahasrahBot")
+        space = await self._target_space(actor, space_id)
+        self._throttle(actor)
+        results: List[ImportResult] = []
+        for randomizer, original in picks:
+            name = slugify(original)
+            try:
+                data = await sahasrahbot.fetch_preset(randomizer, namespace, original)
+                mapped = sahasrahbot.to_wizzrobe(randomizer, data)
+                preset = await self._add(space, name, mapped.randomizer, mapped.settings, mapped.description)
+            except sahasrahbot.SahasrahBotAPIError as e:
+                results.append(ImportResult(randomizer, original, None, str(e)))
+            except ValueError as e:
+                results.append(ImportResult(randomizer, original, None, str(e)))
+            else:
+                results.append(ImportResult(randomizer, original, preset.id, None))
+        imported = [r for r in results if r.preset_id is not None]
+        if imported:
+            await self.audit_service.write_log(
+                actor, AuditActions.PRESET_IMPORTED,
+                {'source': 'sahasrahbot', 'namespace': namespace, 'space': space.slug, 'count': len(imported),
+                 'presets': [f'{r.randomizer}/{r.name}' for r in imported]},
+            )
+        return results
+
+    async def _add(
+        self, space: PresetSpace, name: str, randomizer: str, settings: Any, description: Optional[str],
+    ) -> Preset:
         self._check_name(name, 'Preset name')
         settings = self._check_settings(randomizer, settings)
         if await self.spaces.count_presets(space.id) >= MAX_PRESETS_PER_SPACE:
             raise ValueError(f"A space holds {MAX_PRESETS_PER_SPACE} presets at most. Delete one to make room.")
         if await self.spaces.find_preset(space.id, randomizer, name) is not None:
             raise ValueError(f"{space.slug} already has a {randomizer} preset named {name}")
-        self._throttle(actor)
-        preset = await self.spaces.create_preset(
+        return await self.spaces.create_preset(
             space.id, name=name, randomizer=randomizer, settings=settings,
             description=self._check_description(description),
         )
-        await self.audit_service.write_log(
-            actor, AuditActions.PRESET_CREATED,
-            {'preset_id': preset.id, 'name': name, 'randomizer': randomizer, 'space': space.slug},
-        )
-        return preset
 
     async def update_preset(
         self,
@@ -267,7 +352,7 @@ class PersonalPresetService:
             base = f"player{actor.id}"
         slug = base
         n = 2
-        while await self.spaces.slug_taken(slug):
+        while slug in RESERVED_SLUGS or await self.spaces.slug_taken(slug):
             suffix = f"-{n}"
             slug = f"{base[:32 - len(suffix)]}{suffix}"
             n += 1
@@ -310,6 +395,13 @@ class PersonalPresetService:
     def _throttle(actor: User) -> None:
         if not _take_write_slot(actor.id):
             raise ValueError("You've made a lot of changes quickly. Try again in a few minutes.")
+
+    @staticmethod
+    def _check_namespace(namespace: str) -> str:
+        namespace = (namespace or '').strip().strip('/')
+        if not _NAMESPACE_RE.match(namespace):
+            raise ValueError("Type the SahasrahBot namespace, the part before the slash in its preset names")
+        return namespace
 
     @staticmethod
     def _check_name(name: str, what: str) -> None:

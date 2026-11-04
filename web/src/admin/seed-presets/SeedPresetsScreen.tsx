@@ -65,19 +65,8 @@ function PresetsBoard() {
   if (!phone && openId == null && shown[0]) return <Navigate to={`${base}/${shown[0].id}`} replace />
   const inUse = [...new Set(presets.data.map((p) => p.randomizer))].sort()
 
-  async function importBuiltins() {
-    setNote(null)
-    try {
-      const added = await api.POST('/api/presets/import-builtins').then(unwrap)
-      setNote({ tone: 'info', text: added.length ? `Imported ${added.length} built-in presets.` : 'You already have every built-in preset.' })
-      reload()
-    } catch (err) {
-      setNote({ tone: 'error', text: message(err) })
-    }
-  }
   const actions: MenuItem[] = [
     { label: 'Browse the preset library', icon: 'public', onSelect: () => navigate(`${communityBase}/presets`) },
-    { label: 'Import built-in presets', icon: 'add', onSelect: () => void importBuiltins() },
     ...editor.data.randomizers
       .filter((r) => r.offers_remote_presets && r.available)
       .map((r) => ({ label: `Import from ${r.name}…`, icon: 'add_link' as const, onSelect: () => setImporting(r) })),
@@ -163,7 +152,7 @@ function PresetsBoard() {
         }
         empty={
           <EmptyState icon="tune" title={presets.data.length ? 'Nothing matches' : 'No presets yet'}>
-            {presets.data.length ? 'Try another randomizer or search.' : 'Add one, import the built-in presets, or copy one from the preset library (all under Actions).'}
+            {presets.data.length ? 'Try another randomizer or search.' : 'Add one, or copy one from the preset library, built-in presets included (both under Actions).'}
           </EmptyState>
         }
       />

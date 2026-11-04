@@ -1,0 +1,12 @@
+description: Hard logic, Pyramid open, randomized GT, Ganon, and Tourian requirements.
+settings:
+  smlogic: hard
+  goal: fastganondefeatmotherbrain
+  ganonvulnerable: random
+  opentower: random
+  opentourian: random
+  swordlocation: randomized
+  morphlocation: randomized
+  keyshuffle: none
+  gamemode: normal
+  players: '1'

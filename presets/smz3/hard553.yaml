@@ -1,0 +1,13 @@
+description: Hard logic, Ganon's Tower and Ganon require 5 crystals, Tourian requires
+  3 boss tokens, morph and sword randomized.
+settings:
+  smlogic: hard
+  goal: defeatboth
+  ganonvulnerable: fivecrystals
+  opentower: fivecrystals
+  opentourian: threebosses
+  swordlocation: randomized
+  morphlocation: randomized
+  keyshuffle: none
+  gamemode: normal
+  players: '1'

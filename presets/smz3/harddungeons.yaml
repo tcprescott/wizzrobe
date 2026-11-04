@@ -1,0 +1,12 @@
+description: Hard logic, all dungeons + SM bosses.
+settings:
+  smlogic: hard
+  goal: alldungeonsdefeatmotherbrain
+  ganonvulnerable: sevencrystals
+  opentower: sevencrystals
+  opentourian: fourbosses
+  swordlocation: randomized
+  morphlocation: randomized
+  keyshuffle: none
+  gamemode: normal
+  players: '1'

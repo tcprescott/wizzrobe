@@ -1,6 +1,6 @@
 # Community presets
 
-Status: Building · Size: full · PRs: #816 (PR 1, merged), #819 (PR 2) · Requested: 2026-11-03, Thomas
+Status: Building · Size: full · PRs: #816 (PR 1, merged), #819 (PR 2, merged), PR 3 built-ins + SahasrahBot import · Requested: 2026-11-03, Thomas
 
 ## Problem
 

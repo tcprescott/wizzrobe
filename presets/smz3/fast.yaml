@@ -1,0 +1,12 @@
+description: Normal logic, 7/7/4 crystal/boss requirements, pyramid hole open.
+settings:
+  smlogic: normal
+  goal: fastganondefeatmotherbrain
+  ganonvulnerable: sevencrystals
+  opentower: sevencrystals
+  opentourian: fourbosses
+  swordlocation: randomized
+  morphlocation: randomized
+  keyshuffle: none
+  gamemode: normal
+  players: '1'

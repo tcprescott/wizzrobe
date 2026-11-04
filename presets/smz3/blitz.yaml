@@ -1,0 +1,12 @@
+description: Normal logic, 0/0/0 crystal/boss requirements, pyramid hole open.
+settings:
+  smlogic: normal
+  goal: fastganondefeatmotherbrain
+  ganonvulnerable: nocrystals
+  opentower: nocrystals
+  opentourian: nobosses
+  swordlocation: randomized
+  morphlocation: randomized
+  keyshuffle: none
+  gamemode: normal
+  players: '1'

@@ -195,13 +195,16 @@ def _reset_app_registration_limit():
 @pytest.fixture(autouse=True)
 def _reset_preset_roll_limit():
     """Isolate the per-person library roll window; user ids repeat across tests."""
+    from application.services.builtin_preset_service import reset_builtin_sync
     from application.services.personal_preset_service import reset_write_limits
     from application.services.preset_library_service import reset_roll_limits
     reset_roll_limits()
     reset_write_limits()
+    reset_builtin_sync()
     yield
     reset_roll_limits()
     reset_write_limits()
+    reset_builtin_sync()
 
 
 @pytest.fixture(autouse=True)
