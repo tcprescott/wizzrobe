@@ -52,6 +52,7 @@ class RaceRoomSettings:
     start_delay: int = 15
     time_limit: int = 24
     streaming_required: bool = False
+    team_race: bool = False
 
     @classmethod
     def from_profile(cls, profile, *, goal: str, info_user: str = '') -> 'RaceRoomSettings':
@@ -80,7 +81,7 @@ class RaceRoomSettings:
 
         body = {
             'info_user': self.info_user[:1000],
-            'team_race': 'false',
+            'team_race': flag(self.team_race),
             'invitational': flag(self.invitational),
             'unlisted': flag(self.unlisted),
             'auto_start': flag(self.auto_start),

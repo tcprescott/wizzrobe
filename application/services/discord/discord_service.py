@@ -16,15 +16,13 @@ from discord.ext import commands
 from application.events import dispatch_queue as event_dispatch_queue
 from application.services.discord import dm_outbox
 from application.services.discord.bot_state import bot_ready
+from application.services.discord.discord_channel_posts import ChannelPostMixin, MockChannelPostMixin
 from application.services.discord.discord_guild_ops import (
     GuildMember,
     GuildOpsMixin,
     MockGuildOpsMixin,
 )
-from application.services.discord.discord_member_events import (
-    sync_member_avatar,
-    sync_member_roles,
-)
+from application.services.discord.discord_member_events import sync_member_avatar, sync_member_roles
 from application.services.discord.discord_scheduled_events import (
     MockScheduledEventsMixin,
     ScheduledEventsMixin,
@@ -378,7 +376,7 @@ async def ensure_rest_client() -> Optional[commands.Bot]:
     return None
 
 
-class DiscordService(GuildOpsMixin, ScheduledEventsMixin):
+class DiscordService(GuildOpsMixin, ScheduledEventsMixin, ChannelPostMixin):
     """Service for Discord-related operations.
 
     This module owns the DM surface — the one path every notification flows
@@ -661,7 +659,7 @@ class DiscordService(GuildOpsMixin, ScheduledEventsMixin):
         return self._bot
 
 
-class MockDiscordService(MockGuildOpsMixin, MockScheduledEventsMixin):
+class MockDiscordService(MockGuildOpsMixin, MockScheduledEventsMixin, MockChannelPostMixin):
     """Stub Discord service for local development without a real bot.
 
     Mirrors the public surface of DiscordService. Methods log to stdout and

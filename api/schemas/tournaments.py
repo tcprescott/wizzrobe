@@ -107,6 +107,16 @@ class TournamentResponse(BaseModel):
     room_open_minutes_before: int = Field(30, description="Minutes before the match an automatic room opens.")
     require_racetime_link: bool = Field(False, description="Whether players need a linked racetime account.")
     racetime_default_goal: Optional[str] = Field(None, description="Racetime goal new rooms use.")
+    racetime_bot_runs_room: bool = Field(False, description="Whether the racetime bot sits in each room and runs it.")
+    racetime_seed_post_minutes: int = Field(10, description="Minutes before the start the bot posts the seed.")
+    racetime_group_race: bool = Field(
+        False, description="Group race: matches have no player list and rooms are open to anyone.",
+    )
+    racetime_lock_at_seed: bool = Field(False, description="Whether a group race room locks as the seed posts.")
+    racetime_announce_channel_id: Optional[str] = Field(
+        None, description="Discord channel id where opened group race rooms are announced.",
+    )
+    racetime_announce_role_id: Optional[str] = Field(None, description="Discord role id the announcement pings.")
     challonge_tournament_url: Optional[str] = Field(
         None, description="The linked Challonge bracket's page, when the tournament mirrors one.",
     )

@@ -164,6 +164,7 @@ from .preset_service import PresetService
 from .proctor_station_service import ProctorStationService
 from .profile_nudge_service import ProfileNudgeService
 from .provider_task_service import ProviderTaskService
+from .group_race_service import GroupRaceService
 from .race_room_bot_service import RaceRoomBotService
 from .race_room_profile_service import RaceRoomProfileService
 from .race_room_service import RaceRoomService
@@ -366,6 +367,7 @@ __all__ = [
     'ProctorStationService',
     'ProfileNudgeService',
     'ProviderTaskService',
+    'GroupRaceService',
     'RaceRoomBotService',
     'RaceRoomProfileService',
     'RaceRoomService',

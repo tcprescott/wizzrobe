@@ -45,6 +45,12 @@ async def _tick() -> None:
     except Exception:
         logger.exception('posting due racetime room seeds failed')
 
+    from application.services.group_race_service import GroupRaceService
+    try:
+        await GroupRaceService().announce_pending()
+    except Exception:
+        logger.exception('retrying group race announcements failed')
+
     repo = RacetimeRoomRepository()
     bracket_service = BracketService()
     candidates = await repo.matches_due_for_auto_open(window_start, window_end)

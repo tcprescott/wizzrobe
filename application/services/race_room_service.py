@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import logging
 from contextlib import AbstractAsyncContextManager
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
 
@@ -164,6 +164,10 @@ class RaceRoomService:
             actor, room, match, AuditActions.RACE_ROOM_OPENED, EventType.RACE_ROOM_OPENED,
         )
         await self._notify_players_room_open(match, room)
+        if tournament.racetime_group_race:
+            from application.services.group_race_service import GroupRaceService
+
+            await GroupRaceService().announce(room, match, actor=actor)
         if attach_seed and not tournament.racetime_bot_runs_room:
             await self._attach_seed(match, actor)
         return room
@@ -178,7 +182,13 @@ class RaceRoomService:
                 'profile) before opening a room.'
             )
         info = f'{tournament.name} — {match.title}' if match.title else tournament.name
-        return RaceRoomSettings.from_profile(profile, goal=goal, info_user=info)
+        settings = RaceRoomSettings.from_profile(profile, goal=goal, info_user=info)
+        if tournament.racetime_group_race:
+            settings = replace(
+                settings, invitational=False,
+                team_race='co-op' in (match.title or '').lower(),
+            )
+        return settings
 
     @staticmethod
     def _goal_for(tournament: Tournament, profile) -> str:
@@ -283,7 +293,7 @@ class RaceRoomService:
             logger.info('auto-open skipped for match %s: no racetime goal set', match.id)
             return None
         players = list(match.players)
-        if not players:
+        if not players and not match.tournament.racetime_group_race:
             return None
         if not match.tournament.racetime_bot_runs_room and not all(
             getattr(p.user, 'racetime_user_id', None) for p in players
@@ -367,6 +377,10 @@ class RaceRoomService:
         actor = actor or await self._system_actor()
         match = await self._match_of(room, with_players=True)
 
+        if match is not None and match.tournament.racetime_group_race:
+            await self._record_group_finish(room, match, entrants, actor)
+            return
+
         if match is not None and match.tournament.racetime_bot_runs_room:
             hold = hold_for(
                 [RacePlayer(mp.user.preferred_name, mp.user.racetime_user_id) for mp in match.players],  # type: ignore[attr-defined]
@@ -388,6 +402,27 @@ class RaceRoomService:
         await self._report_results(
             room, match, results, actor, first_result=first_result,
             extra={'unmatched_handles': unmatched},
+        )
+
+    async def _record_group_finish(
+        self, room: RacetimeRoom, match: Match, entrants: List[RaceEntrant], actor: User,
+    ) -> None:
+        """A group race records everyone it can and holds nothing for staff."""
+        from application.services.group_race_service import GroupRaceService
+
+        unmatched = await GroupRaceService().add_linked_entrants(match, entrants)
+        match = require_found(await self._match_of(room, with_players=True), 'Match')
+        results, _handles = self._map_results(match, entrants)
+        await self._write_results(match, results)
+        await self.room_repository.update(
+            room, status=RaceRoomStatus.FINISHED, unmatched_entrants=unmatched or None,
+        )
+        await self._audit_and_emit(
+            actor, room, match, AuditActions.RACE_ROOM_FINISHED, EventType.RACE_ROOM_FINISHED,
+        )
+        await self._report_results(
+            room, match, results, actor, first_result=False,
+            extra={'unmatched_handles': [e['name'] for e in unmatched]},
         )
 
     async def _write_results(

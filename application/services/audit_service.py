@@ -331,6 +331,8 @@ class AuditActions:
     RACE_ROOM_RESULT_RECORDED = 'race_room.result_recorded'
     RACE_ROOM_RESULT_HELD = 'race_room.result_held'
     RACE_ROOM_FPA_CALLED = 'race_room.fpa_called'
+    RACE_ROOM_ANNOUNCED = 'race_room.announced'
+    RACE_ROOM_LOCKED = 'race_room.locked'
 
     VOLUNTEER_POSITION_CREATED = 'volunteer.position_created'
     VOLUNTEER_POSITION_UPDATED = 'volunteer.position_updated'
