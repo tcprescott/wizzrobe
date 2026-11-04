@@ -6,8 +6,9 @@ or Preset manager there. Any member keeps presets of their own in a personal
 space, which they and their co-editors change.
 """
 
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
+import yaml
 from fastapi import APIRouter, Depends, Query
 
 from api.dependencies import ServiceErrorRoute, require_api_actor, require_write_actor
@@ -18,6 +19,8 @@ from api.schemas.preset_library import (
     LibraryPresetResponse,
     LibraryRandomizerResponse,
     LibraryRollResponse,
+    MysteryCheckRequest,
+    MysteryCheckResponse,
     PersonalPresetCreateRequest,
     PersonalPresetUpdateRequest,
     PresetSpaceEditorRequest,
@@ -97,9 +100,20 @@ def _space(view: SpaceView) -> dict:
     }
 
 
+def _odds(rows: list) -> List[Dict[str, Any]]:
+    return [
+        {'setting': r.setting, 'options': [{'value': v, 'percent': p} for v, p in r.options]} for r in rows
+    ]
+
+
 async def _detail(actor: User, preset_id: int) -> dict:
     view = await PresetLibraryService().get_preset(actor, preset_id)
-    return {**_row(view), 'settings': view.preset.settings}
+    detail = {**_row(view), 'settings': view.preset.settings}
+    mystery = PresetLibraryService.describe_mystery(view.preset)
+    if mystery is not None:
+        detail['odds'] = _odds(mystery.odds)
+        detail['settings_yaml'] = yaml.safe_dump(view.preset.settings, sort_keys=False, allow_unicode=True)
+    return detail
 
 
 @router.get(
@@ -113,6 +127,21 @@ async def _detail(actor: User, preset_id: int) -> dict:
 )
 async def list_randomizers(actor: User = Depends(require_api_actor)):
     return [r.__dict__ for r in await PresetLibraryService().randomizers(actor)]
+
+
+@router.post(
+    "/mystery/check",
+    response_model=MysteryCheckResponse,
+    summary="Check a mystery weightset",
+    description=(
+        "Parses an ALTTPR mystery weightset (SahasrahBot's YAML format), rolls it a few times to "
+        "make sure it rolls, and returns it with each setting's odds. Saves nothing. **400** says "
+        "what's wrong with it.\n\n**Who can call this:** Any member."
+    ),
+)
+async def check_mystery(body: MysteryCheckRequest, actor: User = Depends(require_api_actor)):
+    checked = PresetLibraryService.check_mystery(body.weightset)
+    return {'settings': checked.settings, 'odds': _odds(checked.odds)}
 
 
 @router.get(

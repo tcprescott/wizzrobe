@@ -1,0 +1,93 @@
+description: A pseudoblast from PogChampionship past
+settings:
+  accessibility:
+    items: 50
+    locations: 10
+    none: 40
+  boss_shuffle:
+    full: 15
+    none: 60
+    random: 15
+    simple: 10
+  dungeon_items:
+    full: 30
+    mc: 15
+    mcs: 25
+    standard: 30
+  enemy_damage:
+    default: 60
+    random: 20
+    shuffled: 20
+  enemy_health:
+    default: 60
+    easy: 10
+    expert: 10
+    hard: 20
+  enemy_shuffle:
+    none: 50
+    random: 30
+    shuffled: 20
+  entrance_shuffle:
+    crossed: 20
+    full: 5
+    insanity: 5
+    none: 60
+    restricted: 5
+    simple: 5
+  ganon_open:
+    '0': 5
+    '1': 5
+    '2': 5
+    '3': 5
+    '4': 5
+    '5': 5
+    '6': 5
+    '7': 40
+    random: 25
+  glitches_required:
+    major_glitches: 0
+    no_logic: 0
+    none: 100
+    overworld_glitches: 0
+  goals:
+    dungeons: 10
+    fast_ganon: 35
+    ganon: 30
+    pedestal: 20
+    triforce-hunt: 5
+  hints:
+    'off': 50
+    'on': 50
+  item_functionality:
+    expert: 15
+    hard: 35
+    normal: 50
+  item_placement:
+    advanced: 67
+    basic: 33
+  item_pool:
+    crowd_control: 0
+    expert: 20
+    hard: 30
+    normal: 50
+  pseudoboots: true
+  tower_open:
+    '0': 5
+    '1': 5
+    '2': 5
+    '3': 5
+    '4': 5
+    '5': 5
+    '6': 5
+    '7': 40
+    random: 25
+  weapons:
+    assured: 25
+    randomized: 40
+    swordless: 10
+    vanilla: 25
+  world_state:
+    inverted: 20
+    open: 25
+    retro: 15
+    standard: 40

@@ -1,0 +1,212 @@
+description: Season Three weights for [ALTTPR League](https://alttprleague.com)
+settings:
+  allow_quickswap: true
+  options:
+    FillItemPoolWith: TwentyRupees2
+  glitches_required: none
+  item_functionality: normal
+  item_placement: advanced
+  hints: 'off'
+  weapons:
+    randomized: 45
+    assured: 25
+    vanilla: 20
+    swordless: 10
+  boss_shuffle:
+    none: 70
+    simple: 10
+    full: 10
+    random: 10
+  enemy_shuffle:
+    none: 80
+    shuffled: 20
+  enemy_damage: default
+  enemy_health: default
+  subweights:
+    entrance:
+      chance: 30
+      weights:
+        dungeon_items:
+          standard: 30
+          full: 70
+        accessibility:
+          items: 65
+          locations: 10
+          none: 25
+        goals:
+          ganon: 30
+          fast_ganon: 60
+          dungeons: 10
+          pedestal: 10
+          triforce-hunt: 0
+        tower_open:
+          '0': 1
+          '1': 1
+          '2': 1
+          '3': 1
+          '4': 1
+          '5': 1
+          '6': 1
+          '7': 1
+        ganon_open:
+          '0': 2
+          '1': 2
+          '2': 2
+          '3': 10
+          '4': 20
+          '5': 24
+          '6': 20
+          '7': 20
+        world_state:
+          standard: 30
+          open: 35
+          inverted: 25
+          retro: 10
+        entrance_shuffle:
+          simple: 31
+          crossed: 69
+        item_pool:
+          normal: 90
+          hard: 10
+          expert: 0
+    normal:
+      chance: 60
+      weights:
+        dungeon_items: standard
+        accessibility:
+          items: 55
+          locations: 10
+          none: 35
+        goals:
+          ganon: 45
+          fast_ganon: 35
+          dungeons: 10
+          pedestal: 10
+          triforce-hunt: 0
+        tower_open:
+          '0': 0
+          '1': 0
+          '2': 0
+          '3': 15
+          '4': 15
+          '5': 20
+          '6': 25
+          '7': 25
+        ganon_open:
+          '0': 0
+          '1': 0
+          '2': 0
+          '3': 10
+          '4': 10
+          '5': 20
+          '6': 20
+          '7': 40
+        world_state:
+          standard: 45
+          open: 45
+          inverted: 10
+          retro: 0
+        entrance_shuffle: none
+        item_pool:
+          normal: 70
+          hard: 25
+          expert: 5
+        customizer:
+          eq:
+            PegasusBoots:
+              true: 50
+              false: 50
+            OcarinaActive:
+              true: 50
+              false: 50
+          custom:
+            customPrizePacks: false
+            region.wildMaps:
+              true: 40
+              false: 60
+            region.wildCompasses:
+              true: 40
+              false: 60
+            region.wildKeys:
+              true: 40
+              false: 60
+            region.wildBigKeys:
+              true: 40
+              false: 60
+            rom.rupeeBow:
+              true: 10
+              false: 90
+            rom.genericKeys:
+              true: 10
+              false: 90
+            spoil.BootsLocation:
+              true: 70
+              false: 30
+    triforce:
+      chance: 10
+      weights:
+        dungeon_items: standard
+        accessibility:
+          items: 90
+          locations: 10
+          none: 0
+        goals: triforce-hunt
+        tower_open:
+          '0': 0
+          '1': 0
+          '2': 0
+          '3': 15
+          '4': 15
+          '5': 20
+          '6': 25
+          '7': 25
+        ganon_open: '7'
+        world_state:
+          standard: 45
+          open: 45
+          inverted: 10
+          retro: 0
+        entrance_shuffle: none
+        item_pool:
+          normal: 70
+          hard: 25
+          expert: 5
+        customizer:
+          triforce-hunt:
+            goal:
+            - 20
+            - 50
+            pool:
+            - 30
+            - 60
+            min_difference: 10
+          eq:
+            PegasusBoots:
+              true: 50
+              false: 50
+            OcarinaActive:
+              true: 50
+              false: 50
+          custom:
+            customPrizePacks: false
+            region.wildMaps:
+              true: 40
+              false: 60
+            region.wildCompasses:
+              true: 40
+              false: 60
+            region.wildKeys:
+              true: 40
+              false: 60
+            region.wildBigKeys:
+              true: 40
+              false: 60
+            rom.rupeeBow:
+              true: 10
+              false: 90
+            rom.genericKeys:
+              true: 10
+              false: 90
+            spoil.BootsLocation:
+              true: 70
+              false: 30

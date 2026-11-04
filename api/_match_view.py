@@ -7,6 +7,7 @@ return the updated match).
 from typing import Optional
 
 from api.schemas.matches import MatchResponse
+from application.services.seedgen_service import SeedGenerationService
 from application.tenant_context import require_tenant_id
 from models import Match
 
@@ -31,6 +32,9 @@ def serialize_match(match: Match) -> MatchResponse:
     resp.commentators = [c for c in resp.commentators if c.approved]
     resp.trackers = [t for t in resp.trackers if t.approved]
     resp.broadcasters = [b for b in resp.broadcasters if b.approved]
+    if resp.generated_seed is not None:
+        seed = resp.generated_seed
+        seed.settings_snapshot = SeedGenerationService.public_settings(seed.randomizer, seed.settings_snapshot)
     return resp
 
 

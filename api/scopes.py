@@ -5,12 +5,7 @@ hold to call it, under ``PAT_ONLY`` (no app may call it, whatever it holds), or
 under ``PUBLIC`` (no token at all). ``tests/api/test_scopes.py`` fails when a
 route is missing. Personal access tokens skip this table (:func:`api.dependencies.resolve_token`).
 
-How a route is placed: by who it serves, not by HTTP verb (a player
-acknowledging their match is ``play``, a proctor starting it is ``staff:write``);
-a route acting on *any* user by id is a staff route, since ``/me`` serves the
-self case; a read every member may make is ``schedule:read`` even where Staff
-see more; anything that mints or reveals credentials, or is platform-wide, is
-``PAT_ONLY``.
+How a route is placed: see "App scopes" in docs/reference/rest-api.md.
 """
 
 from typing import Dict, Final, Optional, Union
@@ -107,6 +102,7 @@ _ROUTES: Dict[RouteScope, tuple[str, ...]] = {
         'GET /preset-library/members',
         'GET /preset-library/sahasrahbot/{namespace}',
         'GET /preset-library/{preset_id}',
+        'POST /preset-library/mystery/check',
         'GET /race-room-profiles/selectable',
         'GET /race-rooms/by-match/{match_id}',
         'GET /brackets',
@@ -771,6 +767,7 @@ READ_ONLY_POSTS: Final = frozenset({
     'POST /admin/match-schedule/suggest-time',
     'POST /admin/tournaments/{tournament_id}/seed-rules/preview',
     'POST /admin/tournaments/{tournament_id}/seed-rules/text',
+    'POST /preset-library/mystery/check',
 })
 
 

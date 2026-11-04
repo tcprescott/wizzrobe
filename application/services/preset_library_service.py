@@ -19,7 +19,9 @@ import time
 from collections import defaultdict, deque
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Deque, Dict, List, Optional, Set
+from typing import Any, Deque, Dict, List, Optional, Set
+
+import yaml
 
 from application.errors import NotFoundError
 from application.repositories import PresetLibraryRepository, PresetRepository, PresetSpaceRepository
@@ -97,6 +99,24 @@ class LibraryRandomizer:
     paste_hint: Optional[str]
 
 
+MAX_WEIGHTSET_BYTES = 64 * 1024
+
+
+class _NoAliasLoader(yaml.SafeLoader):
+    """SafeLoader without anchors and aliases, which let a small paste expand into a huge tree."""
+
+    def compose_node(self, parent: Any, index: Any) -> Any:
+        if self.check_event(yaml.AliasEvent):
+            raise yaml.YAMLError('aliases are not allowed')
+        return super().compose_node(parent, index)
+
+
+@dataclass(frozen=True)
+class MysteryCheck:
+    settings: Dict[str, Any]
+    odds: list
+
+
 @dataclass(frozen=True)
 class LibraryRoll:
     preset_id: int
@@ -104,6 +124,7 @@ class LibraryRoll:
     seed_url: str
     code: Optional[List[str]]
     roll_count: int
+    instructions: Optional[str] = None
 
 
 class PresetLibraryService:
@@ -147,6 +168,29 @@ class PresetLibraryService:
             ))
         return sorted(out, key=lambda r: r.name.lower())
 
+    @staticmethod
+    def check_mystery(text: str) -> MysteryCheck:
+        """A weightset pasted as YAML, checked by rolling it a few times, with its odds; ``ValueError`` if it won't roll."""
+        if len(text.encode()) > MAX_WEIGHTSET_BYTES:
+            raise ValueError('That weightset is too big. Keep it under 64 KB.')
+        try:
+            weights = yaml.load(text, Loader=_NoAliasLoader)
+        except yaml.YAMLError as e:
+            mark = getattr(e, 'problem_mark', None)
+            where = f' near line {mark.line + 1}' if mark is not None else ''
+            raise ValueError(f"That isn't valid YAML{where}.") from None
+        if isinstance(weights, dict):
+            weights.pop('description', None)
+        weights = SeedGenerationService.normalize_preset_settings('alttprmystery', weights)
+        return MysteryCheck(settings=weights, odds=SeedGenerationService.mystery_odds(weights))
+
+    @staticmethod
+    def describe_mystery(preset: Preset) -> Optional[MysteryCheck]:
+        """A mystery preset's odds per setting, or ``None`` for any other preset."""
+        if preset.randomizer != 'alttprmystery':
+            return None
+        return MysteryCheck(settings=preset.settings, odds=SeedGenerationService.mystery_odds(preset.settings))
+
     async def visible_preset(self, actor: User, preset_id: int) -> Preset:
         """A preset the actor may see in the library, or not-found."""
         return await self._visible(actor, preset_id)
@@ -178,6 +222,7 @@ class PresetLibraryService:
             seed_url=call.value.url,
             code=list(call.value.code) if call.value.code else None,
             roll_count=preset.roll_count + 1,
+            instructions=SeedGenerationService.seed_instructions(preset.randomizer, call.value.settings),
         )
 
     async def copy_to_community(self, actor: User, preset_id: int, *, name: Optional[str] = None) -> Preset:

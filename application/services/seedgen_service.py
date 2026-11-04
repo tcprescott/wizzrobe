@@ -14,13 +14,14 @@ import re
 import secrets
 import urllib.parse
 from pathlib import Path
-from typing import ClassVar, Dict, List, Optional, Set
+from typing import Any, ClassVar, Dict, List, Optional, Set
 
 import aiohttp
 import yaml
 from pyz3r import ALTTPR
 from pyz3r.exceptions import Pyz3rException
 
+import application.services._seedgen_alttprmystery as mystery
 import application.services._seedgen_codes as seed_codes
 import application.services._seedgen_local as local_rolls
 import application.services._seedgen_wwr as wwr_permalinks
@@ -89,11 +90,12 @@ async def _read_bundled_preset(path: str) -> str:
 _DASH_BASE_URL = 'https://www.dashrando.net'
 
 
-class SeedGenerationService(DK64RBackend, DoorRandoBackend):
+class SeedGenerationService(DK64RBackend, DoorRandoBackend, mystery.MysteryBackend):
     """Service for generating seeds for various randomizers."""
 
     AVAILABLE_RANDOMIZERS: ClassVar[List[str]] = [
         'alttpr',
+        'alttprmystery',
         'alttprdr',
         'avianart',
         'ff1r',
@@ -114,6 +116,7 @@ class SeedGenerationService(DK64RBackend, DoorRandoBackend):
 
     RANDOMIZER_NAMES: ClassVar[Dict[str, str]] = {
         'alttpr': 'A Link to the Past',
+        'alttprmystery': 'A Link to the Past (mystery)',
         'alttprdr': 'ALttP Door Randomizer',
         'avianart': 'A Link to the Past (AVIANART)',
         'ff1r': 'Final Fantasy',
@@ -135,7 +138,7 @@ class SeedGenerationService(DK64RBackend, DoorRandoBackend):
     STUB_RANDOMIZERS: ClassVar[Set[str]] = set()
 
     PRESET_AWARE_RANDOMIZERS: ClassVar[Set[str]] = {
-        'alttpr', 'alttprdr', 'aosr', 'avianart', 'dk64r', 'ff1r', 'sm', 'smb3r', 'smdash', 'smvaria', 'smz3',
+        'alttpr', 'alttprdr', 'alttprmystery', 'aosr', 'avianart', 'dk64r', 'ff1r', 'sm', 'smb3r', 'smdash', 'smvaria', 'smz3',
         'wwr', 'z1r', 'z2r',
     }
 
@@ -144,7 +147,7 @@ class SeedGenerationService(DK64RBackend, DoorRandoBackend):
     # No seed from one call: every surface that rolls one must handle a task instead.
     ASYNC_RANDOMIZERS: ClassVar[Set[str]] = {'dk64r'}
 
-    TRIFORCE_TEXT_RANDOMIZERS: ClassVar[Set[str]] = {'alttpr'}
+    TRIFORCE_TEXT_RANDOMIZERS: ClassVar[Set[str]] = {'alttpr', 'alttprmystery'}
 
     REMOTE_PRESET_BRANCHES: ClassVar[dict] = {
         'avianart': (),
@@ -184,6 +187,8 @@ class SeedGenerationService(DK64RBackend, DoorRandoBackend):
         """
         if randomizer == 'ff1r':
             return {'url': local_rolls.ff1r_reference_url(settings)}
+        if randomizer == 'alttprmystery':
+            return mystery.check_weights(settings, mystery.builtin_preset)
         if randomizer == 'alttprdr':
             inner, spoiler = door_preset_settings(settings)
             return {'settings': inner, 'spoiler': spoiler}
@@ -354,6 +359,7 @@ class SeedGenerationService(DK64RBackend, DoorRandoBackend):
         """
         generator_map = {
             'alttpr': self._generate_alttpr,
+            'alttprmystery': self._generate_alttprmystery,
             'alttprdr': self._generate_alttprdr,
             'avianart': self._generate_avianart,
             'ff1r': self._generate_ff1r,
@@ -450,6 +456,21 @@ class SeedGenerationService(DK64RBackend, DoorRandoBackend):
         return RolledSeed(
             url=seed.url, settings=settings, code=seed_codes.alttpr_code(seed.data.get('patch')),
         )
+
+    @staticmethod
+    def seed_instructions(randomizer: Optional[str], settings: Optional[dict]) -> Optional[str]:
+        """Text a weightset hands players with the seed (its ``custom_instructions``), or ``None``."""
+        return mystery.instructions_of(settings) if randomizer == 'alttprmystery' else None
+
+    @staticmethod
+    def mystery_odds(settings: Any) -> list:
+        """Each setting's chance per value in a weightset, as :class:`mystery.SettingOdds` rows."""
+        return mystery.odds(settings)
+
+    @staticmethod
+    def public_settings(randomizer: Optional[str], settings: Optional[dict]) -> Optional[dict]:
+        """A seed's stored settings as players may see them: a mystery seed keeps its rolled settings back."""
+        return mystery.public_snapshot(settings) if randomizer == 'alttprmystery' else settings
 
     async def _generate_ff1r(self, preset: Optional[Preset] = None) -> RolledSeed:
         """
@@ -763,3 +784,4 @@ class SeedGenerationService(DK64RBackend, DoorRandoBackend):
         """
         await asyncio.sleep(5)
         return RolledSeed(url="https://example.com/test-seed-url")
+

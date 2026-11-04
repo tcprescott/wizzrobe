@@ -33,6 +33,7 @@ OOTR_CODE_NAMES = (
 
 EMOJI_SETS: dict[str, tuple[str, tuple[str, ...]]] = {
     'alttpr': ('alttpr', ALTTPR_CODE_NAMES),
+    'alttprmystery': ('alttpr', ALTTPR_CODE_NAMES),
     'avianart': ('alttpr', ALTTPR_CODE_NAMES),
     'dk64r': ('dk64', DK64R_CODE_NAMES),
     'ootr': ('ootr', OOTR_CODE_NAMES),

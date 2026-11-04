@@ -56,6 +56,7 @@ ALLOWLIST = {
     # POST only to carry a body; both read and save nothing (READ_ONLY_POSTS in api/scopes.py).
     ("admin_match_schedule", "check_time"), ("admin_match_schedule", "suggest_time"),
     ("admin_seed_rules", "preview_seed_rules"), ("admin_seed_rules", "import_seed_rules"),
+    ("preset_library", "check_mystery"),
     # A signed-out player's download bumps the count staff see; the patch token is the key.
     ("rom_patches", "hosted_patch_downloaded"),
 }

@@ -46,11 +46,25 @@ its own.
 
 A space holds 50 presets.
 
+## Mystery presets
+
+A mystery preset (game **A Link to the Past (mystery)**) holds a weightset
+instead of settings: each setting with the odds of each value, in SahasrahBot's
+format. Every roll picks one value per setting, so nobody knows the mode until
+they play it. The seed page and the match don't show what it picked. Players
+only see the weightset's name and any instructions it hands out.
+
+Open one to see its odds. To write your own, start from one of the `wizzrobe`
+weightsets (`wizzrobe/friendly` is a good first one): copy it to your presets,
+then **Edit** and change the YAML. **Check odds** rolls it a few times to make
+sure it works and shows the chance of each value. A weightset can also pick a
+whole preset by name with `preset:`, from Wizzrobe's own ALTTPR and door presets.
+
 ## Bringing your SahasrahBot presets over
 
 If you kept presets on SahasrahBot, choose **Actions › Import from SahasrahBot**
 and type your SahasrahBot namespace (usually your Discord name). Wizzrobe lists
-your ALTTPR, Super Metroid and SMZ3 presets. Tick the ones you want, up to 25 at
+your ALTTPR, ALTTPR mystery, Super Metroid and SMZ3 presets. Tick the ones you want, up to 25 at
 a time, and they land in your own space. Ones you already have are marked.
 
 Door presets come over as Door Randomizer presets, with the spoiler for staff

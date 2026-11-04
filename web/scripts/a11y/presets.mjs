@@ -9,6 +9,8 @@ export const targets = [
   { name: 'presets-edit', path: '/t/sgl/presets/15', act: async (p) => { await p.getByRole('button', { name: 'Actions' }).last().click(); await p.getByRole('menuitem', { name: 'Edit…' }).click() }, wait: 'role=dialog' },
   { name: 'presets-copy-mine', path: '/t/sgl/presets/13', act: async (p) => { await p.getByRole('button', { name: 'Actions' }).last().click(); await p.getByRole('menuitem', { name: /Copy to my presets/ }).click() }, wait: 'role=dialog' },
   { name: 'presets-sahasrahbot', path: '/t/sgl/presets', act: async (p) => { await p.getByRole('button', { name: 'Actions' }).first().click(); await p.getByRole('menuitem', { name: /Import from SahasrahBot/ }).click(); await p.getByLabel('SahasrahBot namespace').fill('tom'); await p.getByRole('button', { name: 'Look up' }).click(); await p.getByText('casualboots').waitFor() }, wait: 'role=dialog' },
+  { name: 'presets-mystery', path: '/t/sgl/presets/16' },
+  { name: 'presets-mystery-edit', path: '/t/sgl/presets/16', act: async (p) => { await p.getByRole('button', { name: 'Actions' }).last().click(); await p.getByRole('menuitem', { name: 'Edit…' }).click() }, wait: 'role=dialog' },
   { name: 'presets-space', path: '/t/sgl/presets', act: async (p) => { await p.getByRole('button', { name: 'Actions' }).first().click(); await p.getByRole('menuitem', { name: /My preset space/ }).click() }, wait: 'role=dialog' },
 ]
 
@@ -36,6 +38,7 @@ const library = [
   row({ id: 11, name: 'crosskeys', reference: 'alttprleague/crosskeys', space: 'alttprleague', space_name: 'ALTTPR League', roll_count: 5120, description: 'Crossworld entrance with keysanity.' }),
   row({ id: 13, name: 'tournament_full', reference: 'smleague/tournament_full', space: 'smleague', space_name: 'SM League', randomizer: 'sm', randomizer_name: 'Super Metroid', roll_count: 61 }),
   row({ id: 15, name: 'fastboots', reference: 'tom/fastboots', space: 'tom', space_name: 'Tom', space_kind: 'user', can_edit: true, roll_count: 7, description: 'Open, fast Ganon, pseudoboots.', copied_from: 'alttprleague/crosskeys', copied_from_id: 11, changed_since_copy: true }),
+  row({ id: 16, name: 'friendly', reference: 'tom/friendly', space: 'tom', space_name: 'Tom', space_kind: 'user', can_edit: true, randomizer: 'alttprmystery', randomizer_name: 'A Link to the Past (mystery)', roll_count: 3, description: 'A friendlier weightset.' }),
   row({ id: 14, name: 's8', reference: 'oot/s8', space: 'oot', space_name: 'OoT Randomizer', randomizer: 'ootr', randomizer_name: 'Ocarina of Time', rollable: false, roll_count: 17 }),
 ]
 
@@ -47,6 +50,16 @@ export const fixtures = {
   '/api/preset-library/12': { ...library[1], settings: { ...settings, entrances: 'none' } },
   '/api/preset-library/13': { ...library[3], settings: { mode: 'full' } },
   '/api/preset-library/15': { ...library[4], settings: { ...settings, pseudoboots: true } },
+  '/api/preset-library/16': {
+    ...library.find((r) => r.id === 16),
+    settings: { world_state: { open: 35, standard: 35, inverted: 20, retro: 10 }, entrance_shuffle: 'none' },
+    settings_yaml: 'world_state:\n  open: 35\n  standard: 35\n  inverted: 20\n  retro: 10\nentrance_shuffle: none\n',
+    odds: [
+      { setting: 'world_state', options: [{ value: 'open', percent: 35 }, { value: 'standard', percent: 35 }, { value: 'inverted', percent: 20 }, { value: 'retro', percent: 10 }] },
+      { setting: 'entrance_shuffle', options: [{ value: 'none', percent: 100 }] },
+      { setting: 'customizer.eq.PegasusBoots', options: [{ value: 'false', percent: 70 }, { value: 'true', percent: 30 }, { value: 'maybe', percent: 0 }] },
+    ],
+  },
   '/api/preset-library/spaces': [
     { id: 3, slug: 'tom', owner: { id: 1, name: 'Tom' }, is_owner: true, preset_count: 4, max_presets: 50, editors: [{ id: 7, name: 'Ann' }], max_editors: 10 },
     { id: 9, slug: 'league-crew', owner: { id: 8, name: 'Bea' }, is_owner: false, preset_count: 12, max_presets: 50, editors: [], max_editors: 10 },
