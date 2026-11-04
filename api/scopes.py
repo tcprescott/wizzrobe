@@ -298,6 +298,7 @@ _ROUTES: Dict[RouteScope, tuple[str, ...]] = {
         'GET /presets/{preset_id}',
         'GET /race-room-profiles',
         'GET /race-room-profiles/{profile_id}',
+        'GET /group-races/options',
         'GET /race-rooms/open',
         'GET /speedgaming/links',
         'GET /speedgaming/links/{link_id}/episodes',

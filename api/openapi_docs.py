@@ -203,6 +203,7 @@ TAG_GROUPS: List[tuple[str, List[tuple[str, str]]]] = [
         ('ROM patches', 'Patches a community hosts: what each needs, its file, and counting downloads.'),
         ('Race rooms', 'racetime.gg race rooms opened for matches.'),
         ('Race room profiles', 'Saved racetime.gg room settings.'),
+        ('Group races', 'What the racetime settings forms pick from: bots, room profiles, Discord channels and roles.'),
         ('SpeedGaming', 'Importing a SpeedGaming schedule.'),
         ('Discord events', 'Discord scheduled events mirrored from matches.'),
     ]),
