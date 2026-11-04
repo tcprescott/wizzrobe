@@ -3,10 +3,12 @@ import { NavLink, Navigate, Route, Routes } from 'react-router-dom'
 import { api, unwrap } from '../../api/client'
 import { ActionsMenu, Banner, Chip, FormDialog, type MenuItem } from '../../components'
 import { usePhone } from '../../lib/usePhone'
+import { useAdmin } from '../kit'
 import { done, message } from '../../me/data'
 import { BracketTab } from './BracketTab'
 import { SIGNUP_LABEL, SIGNUP_TONE, useAdminQuery, type Board, type BoardRow } from './data'
 import { PlayersTab } from './PlayersTab'
+import { RacetimeTab } from './RacetimeTab'
 import { RoundScheduleTab } from './RoundScheduleTab'
 import { SettingsTab } from './SettingsTab'
 
@@ -22,8 +24,10 @@ interface Props {
 export function TournamentDetail({ row, board, reloadBoard, base }: Props) {
   const [deleting, setDeleting] = useState(false)
   const Heading = usePhone() ? 'h1' : 'h2'
+  const racetime = useAdmin().nav.areas.some((a) => a.slug === 'racetime')
   const tabs = [
     { slug: 'settings', label: 'Settings' },
+    ...(racetime ? [{ slug: 'racetime', label: 'Racetime' }] : []),
     { slug: 'players', label: `Players · ${row.player_count}` },
     { slug: 'bracket', label: 'Bracket' },
     ...(row.has_round_schedule ? [{ slug: 'schedule', label: 'Round schedule' }] : []),
@@ -63,6 +67,7 @@ export function TournamentDetail({ row, board, reloadBoard, base }: Props) {
       <Routes>
         <Route index element={<Navigate to="settings" replace />} />
         <Route path="settings" element={<SettingsTab row={row} zone={board.zone ?? null} onSaved={reloadBoard} />} />
+        {racetime && <Route path="racetime" element={<RacetimeTab row={row} base={base} />} />}
         <Route path="players" element={<PlayersTab row={row} zone={board.zone ?? null} onChange={reloadBoard} />} />
         <Route path="bracket" element={<BracketTab row={row} board={board} onChange={reloadBoard} />} />
         <Route path="schedule" element={<RoundScheduleTab row={row} zone={board.zone ?? null} />} />

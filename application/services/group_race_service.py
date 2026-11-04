@@ -17,6 +17,7 @@ locking never raise: a Discord or racetime hiccup leaves the race running.
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
@@ -26,7 +27,7 @@ from application.services.audit_service import AuditActions, AuditService
 from application.services.user_service import UserService
 from application.utils.clients import racetime_room_actions
 from application.utils.racetime_entrants import is_scored_finish, unmatched_handle
-from models import Match, RacetimeRoom, Tournament, User
+from models import Match, RaceRoomProfile, RacetimeBot, RacetimeRoom, Tournament, User
 from racetimebot.transport import RaceEntrant
 
 logger = logging.getLogger(__name__)
@@ -138,12 +139,63 @@ async def lock_room(room: RacetimeRoom) -> bool:
         return False
 
 
+@dataclass
+class RoomOptions:
+    """What a racetime settings form can pick from."""
+
+    bots: List[RacetimeBot]
+    profiles: List[RaceRoomProfile]
+    channels: List[dict]
+    roles: List[dict]
+    discord_problem: Optional[str]
+
+
 class GroupRaceService:
     """What a group race does beyond a match room: announce, lock, record everyone."""
 
     def __init__(self) -> None:
         self.room_repository = RacetimeRoomRepository()
         self.audit_service = AuditService()
+
+    # feature-gate: exempt — a read of pickable names for the tournament and qualifier forms.
+    async def room_options(self, actor: Optional[User]) -> RoomOptions:
+        """The bots, room profiles, Discord channels and roles a settings form offers.
+
+        Discord being unreachable isn't an error: the lists come back empty with
+        ``discord_problem`` saying why, so the form can still save.
+        """
+        from application.services.auth_service import AuthService
+        from application.services.discord import DiscordService
+        from application.services.race_room_profile_service import RaceRoomProfileService
+        from application.services.racetime_bot_service import RacetimeBotService
+        from application.services.tenant_service import TenantService
+        from application.tenant_context import require_tenant_id
+
+        allowed = await AuthService.can_view_admin(actor) or await AuthService.can_admin_qualifier(actor, None)
+        await AuthService.ensure(allowed, 'Cannot edit racetime settings')
+        tenant_id = require_tenant_id()
+        bots = await RacetimeBotService().list_authorized_for_tenant(tenant_id)
+        profiles = await RaceRoomProfileService().list_selectable()
+        tenant = await TenantService.get_by_id(tenant_id)
+        if tenant is None or tenant.discord_guild_id is None:
+            return RoomOptions(bots, profiles, [], [], 'No Discord server is connected.')
+        discord = DiscordService()
+        guild_id = int(tenant.discord_guild_id)
+        ok_channels, channels = await discord.list_text_channels(guild_id)
+        ok_roles, roles = await discord.list_guild_roles(guild_id)
+        problem = None
+        if not ok_channels or not ok_roles:
+            problem = str(channels if not ok_channels else roles)
+        role_list = sorted(
+            (r for r in (roles if ok_roles and not isinstance(roles, str) else []) if r.get('name') != '@everyone'),
+            key=lambda r: str(r['name']).casefold(),
+        )
+        return RoomOptions(
+            bots, profiles,
+            [{'id': str(c['id']), 'name': str(c['name'])} for c in (channels if ok_channels and not isinstance(channels, str) else [])],
+            [{'id': str(r['id']), 'name': str(r['name'])} for r in role_list],
+            problem,
+        )
 
     # feature-gate: exempt — called as an already-opened room is set up; never raises.
     async def announce(self, room: RacetimeRoom, match: Match, *, actor: User) -> bool:

@@ -4,10 +4,30 @@ export const targets = [
   { name: 'admin-qualifiers-reject', path: '/t/sgl/admin/qualifiers/7', act: (p) => p.getByRole('button', { name: 'Reject' }).first().click(), wait: 'role=dialog' },
   { name: 'admin-qualifiers-pools', path: '/t/sgl/admin/qualifiers/7/pools', wait: 'text=Rolls from sgl27-open' },
   { name: 'admin-qualifiers-reviewers', path: '/t/sgl/admin/qualifiers/7/reviewers', wait: 'text=Find a member' },
-  { name: 'admin-qualifiers-settings', path: '/t/sgl/admin/qualifiers/7/settings', wait: 'text=Undo changes' },
+  { name: 'admin-qualifiers-settings', path: '/t/sgl/admin/qualifiers/7/settings', wait: 'text=Live races with a start time' },
 ]
 
 export const fixtures = {
+  "/api/async-qualifiers/7": {
+    "id": 7,
+    "name": "SGL27 ALTTPR Qualifier",
+    "description": null,
+    "event_name": null,
+    "opens_at": "{{now-2d}}",
+    "closes_at": "{{now+5d}}",
+    "runs_per_pool": 1,
+    "allowed_reattempts": 0,
+    "config": null,
+    "is_active": true,
+    "live_race_bot_id": null,
+    "live_race_room_open_minutes": 60,
+    "live_race_seed_post_minutes": 10,
+    "live_race_lock_at_seed": true,
+    "live_race_announce_channel_id": "222",
+    "live_race_announce_role_id": null,
+    "created_at": "{{now-30d}}",
+    "updated_at": "{{now-1d}}"
+  },
   "/api/admin/qualifiers/board": {
     "qualifiers": [
       {

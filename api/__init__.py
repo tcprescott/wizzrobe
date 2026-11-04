@@ -42,6 +42,7 @@ from api.routers import (
     events,
     exports,
     feedback,
+    group_races,
     health,
     integration_settings,
     match_actions,
@@ -220,6 +221,10 @@ router.include_router(
     dependencies=[Depends(require_feature(FeatureFlag.RACETIME_ROOMS))],
 )
 router.include_router(racetime_bots.router)
+router.include_router(
+    group_races.router,
+    dependencies=[Depends(require_feature(FeatureFlag.RACETIME_ROOMS))],
+)
 router.include_router(platform.router)
 router.include_router(
     race_rooms.router,

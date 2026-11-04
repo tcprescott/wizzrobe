@@ -156,6 +156,7 @@ Because dispatch is raw-prefix routing rather than registered `discord.ui.View` 
 | `get_bot` | `()` (sync) | Returns the bot instance (or `None` in the mock). |
 | `list_guilds` | `()` | `(True, [{"id": int, "name": str}, ...])` from the bot's cached guild list. |
 | `list_guild_roles` | `(guild_id: int)` | Roles as `[{"id", "name", "color", "mappable"}]` (`mappable` is False for `@everyone` and bot/integration-managed roles). Resolves the guild via cache then `fetch_guild`; prefers `guild.fetch_roles()`, falls back to cached `guild.roles`. |
+| `list_text_channels` | `(guild_id: int)` | `(True, [{"id", "name"}])` for the guild's text channels in Discord's sidebar order (category, then channel position). Feeds the racetime settings channel pickers. The mock returns three fixed channels. |
 | `get_guild_summary` | `(guild_id: int)` | `(True, {"id", "name"})` for a guild the bot can see — renders the connected server's name and confirms the bot actually joined after a link. |
 | `is_guild_member` | `(guild_id: int, user_id: int)` | `(True, bool)` — whether the user is in the guild; `(False, error)` when the bot can't tell. Behind Discord auto-join at the membership gate. |
 | `member_can_manage_guild` | `(guild_id: int, user_id: int)` | `(True, bool)` — owner / Administrator / Manage Server. The authorization proof for `DiscordLinkService`; an indeterminate answer returns `(False, error)` so callers fail **closed**. |
