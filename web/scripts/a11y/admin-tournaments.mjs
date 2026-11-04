@@ -1,6 +1,8 @@
 /** a11y checks for this screen, with the stub API responses they need. See ../a11y.mjs. */
 export const targets = [
   { name: 'admin-tournaments', path: '/t/sgl/admin/tournaments/1/settings' },
+  { name: 'admin-tournament-racetime', path: '/t/sgl/admin/tournaments/1/racetime', wait: 'text=Open rooms on their own' },
+  { name: 'admin-tournament-group-race', path: '/t/sgl/admin/tournaments/2/racetime', wait: 'text=Lock the room when the seed posts' },
   { name: 'admin-tournament-players', path: '/t/sgl/admin/tournaments/1/players' },
   { name: 'admin-tournament-bracket', path: '/t/sgl/admin/tournaments/1/bracket' },
   { name: 'admin-tournament-schedule', path: '/t/sgl/admin/tournaments/1/schedule' },
@@ -127,6 +129,49 @@ export const fixtures = {
     "bracket_url": null,
     "created_at": "{{now-30d}}",
     "updated_at": "{{now-1d}}"
+  },
+  "/api/tournaments/2": {
+    "id": 2,
+    "name": "Super Metroid",
+    "short_name": null,
+    "tournament_format": "Daily races",
+    "description": null,
+    "seed_generator": "sm",
+    "preset_id": null,
+    "is_active": true,
+    "is_test": false,
+    "players_per_match": 2,
+    "average_match_duration": 45,
+    "max_match_duration": 60,
+    "required_commentators": 0,
+    "required_trackers": 0,
+    "required_broadcasters": 0,
+    "allow_player_match_requests": false,
+    "signups_open_at": null,
+    "signups_close_at": null,
+    "rules_url": null,
+    "bracket_url": null,
+    "racetime_bot_id": 1,
+    "race_room_profile_id": 3,
+    "racetime_default_goal": "Beat the game",
+    "racetime_auto_create_rooms": true,
+    "room_open_minutes_before": 60,
+    "require_racetime_link": false,
+    "racetime_bot_runs_room": true,
+    "racetime_seed_post_minutes": 10,
+    "racetime_group_race": true,
+    "racetime_lock_at_seed": false,
+    "racetime_announce_channel_id": "222",
+    "racetime_announce_role_id": "333",
+    "created_at": "{{now-30d}}",
+    "updated_at": "{{now-1d}}"
+  },
+  "/api/group-races/options": {
+    "bots": [{ "id": "1", "name": "supermetroid (SM Bot)" }],
+    "profiles": [{ "id": "3", "name": "Daily — casual" }],
+    "channels": [{ "id": "222", "name": "daily-races" }, { "id": "223", "name": "general" }],
+    "roles": [{ "id": "333", "name": "Daily Racers" }],
+    "discord_problem": null
   },
   "/api/seeds/randomizers": [
     {

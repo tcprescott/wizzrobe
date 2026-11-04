@@ -5,7 +5,7 @@ Mixed into ``DiscordService``; ``MockDiscordService`` takes the mock twin.
 
 import asyncio
 import logging
-from typing import Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 import discord
 
@@ -18,6 +18,22 @@ logger = logging.getLogger(__name__)
 
 class ChannelPostMixin:
     _bot: Optional[discord.Client]
+
+    async def list_text_channels(self, guild_id: int) -> Tuple[bool, Union[List[Dict[str, Union[int, str]]], str]]:
+        """The server's text and announcement channels, in Discord's order: ``[{id, name}]``."""
+        if self._bot is None or not bot_ready(self._bot):
+            return False, dm_outbox.DM_BOT_OFFLINE
+        try:
+            guild = self._bot.get_guild(guild_id) or await self._bot.fetch_guild(guild_id)
+            channels = await asyncio.wait_for(guild.fetch_channels(), timeout=10)
+        except Exception as exc:
+            logger.warning('listing channels of guild %s failed: %s', guild_id, exc)
+            return False, "Couldn't read the Discord server's channels"
+        text = sorted(
+            (c for c in channels if isinstance(c, discord.TextChannel)),
+            key=lambda c: (c.category.position if c.category else -1, c.position),
+        )
+        return True, [{'id': c.id, 'name': c.name} for c in text]
 
     async def post_to_channel(
         self,
@@ -76,6 +92,13 @@ class ChannelPostMixin:
 
 
 class MockChannelPostMixin:
+    async def list_text_channels(self, guild_id: int) -> Tuple[bool, Union[List[Dict[str, Union[int, str]]], str]]:
+        return True, [
+            {'id': 100000000000000001, 'name': 'daily-races'},
+            {'id': 100000000000000003, 'name': 'qualifier-races'},
+            {'id': 100000000000000004, 'name': 'general'},
+        ]
+
     async def post_to_channel(
         self,
         guild_id: int,
