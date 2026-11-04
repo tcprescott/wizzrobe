@@ -103,6 +103,7 @@ async def create_live_race(payload: LiveRaceCreateRequest, actor: User = Depends
         match_title=payload.match_title,
         permalink_id=payload.permalink_id,
         episode_id=payload.episode_id,
+        scheduled_at=payload.scheduled_at,
     )
 
 

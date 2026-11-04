@@ -719,7 +719,14 @@ class RaceRoomLifecycle:
 
     async def handle_event(self, room: RacetimeRoom, event: RaceRoomEvent) -> None:
         if event.kind != 'race':
-            if room.match_id is not None:  # type: ignore[attr-defined]
+            if room.match_id is None:  # type: ignore[attr-defined]
+                from application.services.async_qualifier.async_qualifier_live_race_room import (
+                    LiveRaceRoomService,
+                )
+
+                text = event.chat.text if event.chat is not None else ''
+                await LiveRaceRoomService().on_room_event(room, event.kind, text)
+            else:
                 from application.services.race_room_bot_service import RaceRoomBotService
 
                 bot = RaceRoomBotService()

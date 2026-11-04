@@ -22,6 +22,7 @@ from application.repositories._tenant import current_tenant_id, scoped
 from models import (
     AsyncQualifier,
     AsyncQualifierLiveRace,
+    AsyncQualifierLiveRaceStatus,
     AsyncQualifierPermalink,
     AsyncQualifierPool,
     AsyncQualifierReviewNote,
@@ -477,6 +478,19 @@ class AsyncQualifierLiveRaceRepository(TenantScopedRepository[AsyncQualifierLive
         return await scoped(
             AsyncQualifierLiveRace.filter(racetime_slug=slug)
         ).prefetch_related('pool__qualifier', 'permalink').first()
+
+    async def due_to_open(self, window_start: Any, window_end: Any) -> List[AsyncQualifierLiveRace]:
+        """Scheduled live races with no room yet, starting in the window — **unscoped** cross-tenant.
+
+        The auto-open worker's scan; it re-checks each qualifier's lead time and
+        binds the race's community before acting.
+        """
+        return await AsyncQualifierLiveRace.filter(
+            status=AsyncQualifierLiveRaceStatus.SCHEDULED,
+            racetime_slug__isnull=True,
+            scheduled_at__gte=window_start,
+            scheduled_at__lte=window_end,
+        ).prefetch_related('pool__qualifier').order_by('scheduled_at')
 
     async def list_for_qualifier(self, qualifier_id: int) -> List[AsyncQualifierLiveRace]:
         return await scoped(

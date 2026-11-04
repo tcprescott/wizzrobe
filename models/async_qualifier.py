@@ -43,6 +43,14 @@ class AsyncQualifier(Model):
     is_active = fields.BooleanField(default=True)
     review_backlog_notified_at = fields.DatetimeField(null=True)
     window_state_notified = fields.CharField(max_length=16, null=True)
+    live_race_bot = fields.ForeignKeyField(  # type: ignore[var-annotated]
+        'models.RacetimeBot', related_name='qualifier_live_races', null=True, on_delete=fields.SET_NULL,
+    )
+    live_race_room_open_minutes = fields.IntField(default=60)
+    live_race_seed_post_minutes = fields.IntField(default=10)
+    live_race_lock_at_seed = fields.BooleanField(default=True)
+    live_race_announce_channel_id = fields.CharField(max_length=32, null=True)
+    live_race_announce_role_id = fields.CharField(max_length=32, null=True)
     admins = fields.ManyToManyField(
         'models.User', related_name='admin_async_qualifiers', through='AsyncQualifierAdmins'
     )
@@ -225,6 +233,7 @@ class AsyncQualifierLiveRace(Model):
         'models.AsyncQualifierPermalink', related_name='live_races', null=True, on_delete=fields.SET_NULL
     )
     match_title = fields.CharField(max_length=255)
+    scheduled_at = fields.DatetimeField(null=True)
     racetime_slug = fields.CharField(max_length=255, unique=True, null=True)
     episode = fields.ForeignKeyField(
         'models.SpeedGamingEpisode', related_name='async_qualifier_live_races', null=True,
