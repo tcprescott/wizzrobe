@@ -369,6 +369,28 @@ class RoundScheduleService:
             return await self.window_for_bracket_match(bm)
         return None
 
+    async def round_key_for_match(self, match: Match) -> Optional[str]:
+        """The stage key of the bracket matchup ``match`` was booked for.
+
+        The same keys :meth:`list_stages` offers (``w1``, ``gf``, a start.gg
+        ``phase:key``); a native bracket round reads ``round:<n>``.
+        """
+        first_id = getattr(match, 'set_first_id', None)
+        if first_id is not None:
+            first = await self.match_repository.get_by_id(first_id, prefetch_relations=False)
+            if first is not None:
+                match = first
+        cm = await self.challonge_repository.get_challonge_match_for_match(match)
+        if cm is not None:
+            return await self._challonge_key(cm)
+        sets = await self.startgg_repository.sets_for_match(match)
+        if sets:
+            return await self._startgg_key(sets[0])
+        bm = await self.bracket_repository.get_bracket_match_for_match(match.id)
+        if bm is not None:
+            return f'round:{bm.round}'
+        return None
+
     async def window_for(
         self, *, bracket_match_id: Optional[int] = None,
         challonge_match_id: Optional[int] = None, startgg_set_id: Optional[int] = None,

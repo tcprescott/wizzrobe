@@ -36,6 +36,7 @@ from . import (
     result_alerts,
     round_windows,
     seed_roll_worker,
+    seed_rules,
     service_health_worker,
     sglive_pool_worker,
     speedgaming_sync_worker,
@@ -183,6 +184,7 @@ from .room_token_service import RoomTokenService
 from .round_schedule_service import RoundScheduleService, RoundWindowError, ScheduleStage
 from .runtime_stats_service import RuntimeStatsService
 from .seed_roll_service import SeedRollService
+from .seed_rule_service import SeedResolution, SeedRuleService
 from .seedgen_service import SeedGenerationService
 from .sent_message_service import SentMessageRef, SentMessageService
 from .service_health_service import ProbeResult, ServiceHealthService, ServiceStatus
@@ -398,7 +400,9 @@ __all__ = [
     'SeedGenerationService',
     'SeedReadyResult',
     'SeedReadyService',
+    'SeedResolution',
     'SeedRollService',
+    'SeedRuleService',
     'SentMessageRef',
     'SentMessageService',
     'ServiceHealthService',
@@ -492,6 +496,7 @@ __all__ = [
     'result_alerts',
     'round_windows',
     'seed_roll_worker',
+    'seed_rules',
     'service_health_worker',
     'sglive_pool_worker',
     'shared_counters_enabled',

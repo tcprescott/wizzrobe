@@ -50,7 +50,7 @@ choice about settings that are already decided is not a choice.
 import logging
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Tuple
 
 from application.errors import require_found
 from application.events import EventType
@@ -268,17 +268,28 @@ class MatchHardPresetService:
         otherwise the tournament's standard preset. Called by ``generate_seed``
         at roll time, which is the only moment the answer matters.
         """
+        decided = await self.decided_preset(match)
+        if decided is not None:
+            return decided[0]
+        return getattr(match.tournament, 'preset', None)
+
+    async def decided_preset(self, match: Match) -> Optional[Tuple[Optional[Preset], str]]:
+        """``(preset, source)`` when staff's override or a unanimous opt-in decides.
+
+        ``None`` means neither did, so seed rules and then the tournament's
+        preset get their say. ``source`` is ``override`` or ``hard_mode``.
+        """
         tournament = match.tournament
         hard = getattr(tournament, 'hard_preset', None)
         standard = getattr(tournament, 'preset', None)
 
         if match.preset_override is not None:
             if match.preset_override == PresetOverride.HARD and hard is not None:
-                return hard
-            return standard
+                return hard, 'override'
+            return standard, 'override'
         if hard is not None and await self._is_unanimous(match):
-            return hard
-        return standard
+            return hard, 'hard_mode'
+        return None
 
     async def opt_in(self, match_id: int, user: User) -> HardPresetState:
         async with _agreement_lock(match_id):

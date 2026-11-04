@@ -130,6 +130,7 @@ class SeedRollService:
             seed_url=result.seed.url,
             settings=result.seed.settings,
             seed_code=result.seed.code,
+            resolution=task.resolution,
             provider_meta={
                 'provider': task.provider,
                 'operation': task.operation,
