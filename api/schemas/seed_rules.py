@@ -5,6 +5,18 @@ from typing import Any, Dict, List, Literal, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from api.schemas.match_form import MatchFormQuestionOut
+
+
+class SeedRuleAnswer(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
+
+    q: str = Field(..., description="The match form question's key.")
+    who: Literal['every', 'any'] = Field('every', description="Every player asked, or any one of them.")
+    is_: Optional[List[Union[str, int]]] = Field(
+        None, alias='is', description="Answered one of these values; left out, answered at all.",
+    )
+
 
 class SeedRuleWhen(BaseModel):
     model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
@@ -17,6 +29,7 @@ class SeedRuleWhen(BaseModel):
     on_stage: Optional[bool] = Field(None, description="True: only on a stage; false: only off one.")
     from_: Optional[datetime] = Field(None, alias='from', description="Scheduled at or after (UTC).")
     to: Optional[datetime] = Field(None, description="Scheduled before (UTC).")
+    answer: Optional[List[SeedRuleAnswer]] = Field(None, description="Match form answers, all of which must hold.")
 
 
 class SeedRuleWeighted(BaseModel):
@@ -27,6 +40,9 @@ class SeedRuleWeighted(BaseModel):
 class SeedRuleThen(BaseModel):
     preset: Optional[int] = Field(None, description="Roll this preset id.")
     weighted: Optional[List[SeedRuleWeighted]] = Field(None, description="Or draw one of these by weight.")
+    from_answer: Optional[str] = Field(
+        None, description="Or roll the preset the players' answers to this question all pick; split answers skip the rule.",
+    )
 
 
 class SeedRule(BaseModel):
@@ -69,6 +85,7 @@ class SeedRulesEditorResponse(BaseModel):
     rounds: List[RoundOption] = Field(..., description="Round keys this bracket offers, in play order.")
     matches: List[PreviewMatch] = Field(..., description="Unseeded matches to try in the preview, soonest first.")
     max_rules: int
+    questions: List[MatchFormQuestionOut] = Field(default_factory=list, description="The match form, which rules may read.")
 
 
 class PreviewFacts(BaseModel):

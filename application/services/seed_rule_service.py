@@ -145,7 +145,15 @@ class SeedRuleService:
                 for m in matches
             ],
             'max_rules': seed_rules.MAX_RULES,
+            'questions': await self._form(tournament),
         }
+
+    @staticmethod
+    async def _form(tournament: Tournament) -> List[dict]:
+        from application.services.match_form_service import MatchFormService, rules_reading
+
+        rules = list(tournament.seed_rules or [])
+        return [dict(q, used_by=rules_reading(rules, q['key'])) for q in await MatchFormService().questions(tournament.id)]
 
     async def _rounds(self, tournament: Tournament) -> List[Dict[str, str]]:
         try:
