@@ -203,6 +203,19 @@ post. A qualifier's Settings page carries the same pickers for its live races
 channel or role Discord no longer lists shows as "Unknown (id)" rather than
 being cleared.
 
+On the day, staff run them from **Admin → Group races** in the app
+(`web/src/admin/group-races/`, area `group-races`, app-only, shown to staff,
+tournament admins and qualifier admins when `RACETIME_ROOMS` is on). It is a side
+list by day beside the open race: the bot's steps with their times, the entrants
+(read live from racetime's public `/data` while the room is open, so unlinked
+entrants show as **Not linked**; the results once finished) and, on desktop, the
+Discord post. Actions: open the room now, post the seed now, re-post the
+announcement (clears `announced_at` and posts again), lock the room now, cancel
+(a match is cancelled like any match; a live race is removed and its room marked
+cancelled). **New group race** adds a match with no players to a group race
+tournament, or a live race to a qualifier pool. `GroupRaceBoardService` backs the
+screen, `GET /api/group-races` and the MCP `list_group_races` tool.
+
 ### Qualifier live races as group races
 
 A qualifier live race with a `scheduled_at` is run the same way by

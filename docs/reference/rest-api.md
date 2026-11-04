@@ -398,6 +398,8 @@ Reusable racetime room settings (service gate `can_manage_sync`).
 
 ### Group races (`/api/group-races`) · `group_races.py`
 Behind `FeatureFlag.RACETIME_ROOMS`.
+- `GET /group-races` (`?finished=`) — the Group races board: `{zone, races}`, this event's group race matches and qualifier live races with a start time, from 12 h back to two weeks ahead (or finished in the last two weeks), each with its state (`scheduled`/`open`/`running`/`finished`) and bot steps (`opened_at`, `announced_at`, `seed_posted_at`, `locked_at`). `GET /series` — group race tournaments and active qualifier pools (with live race permalinks) a race can be added to; `POST` adds one (`tournament_id`, or `pool_id` + `permalink_id`).
+- `GET|DELETE /group-races/matches/{match_id}` and `/group-races/live-races/{live_race_id}` — one race with its entrants (read live from racetime's public `/data` while open, the results once finished), or cancel it; `POST …/open`, `…/seed`, `…/announce`, `…/lock` are the board's actions (`GroupRaceBoardService`). Router binds the event (`match_id=Match`, `live_race_id=AsyncQualifierLiveRace`). Staff or the tournament's admins for a match; qualifier admins for a live race.
 - `GET /group-races/options` — the racetime bots (authorized for the community), race room profiles, Discord text channels and roles (ids as strings, `@everyone` dropped) the tournament Racetime tab and the qualifier live race settings pick from. Discord trouble isn't an error: the lists come back empty and `discord_problem` says why. Staff, tournament admins and crew coordinators, or Qualifier admin.
 
 ### Racetime bots (`/api/racetime-bots`) — **super-admin, global** · `racetime_bots.py`

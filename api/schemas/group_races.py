@@ -65,6 +65,11 @@ class GroupRaceDetailResponse(GroupRaceResponse):
     entrants_problem: Optional[str] = Field(None, description="Why the entrant list is empty when racetime couldn't be read.")
 
 
+class GroupRaceBoardResponse(BaseModel):
+    zone: Optional[str] = Field(None, description="The zone to print times in; null means the device's own.")
+    races: List[GroupRaceResponse]
+
+
 class SeriesPickResponse(BaseModel):
     kind: Literal['tournament', 'pool'] = Field(..., description='A group race tournament, or a qualifier pool.')
     id: int

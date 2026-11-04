@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Query, status
 
 from api.dependencies import ServiceErrorRoute, event_binding, require_api_actor, require_write_actor
 from api.schemas.group_races import (
+    GroupRaceBoardResponse,
     GroupRaceCreateRequest,
     GroupRaceDetailResponse,
     GroupRaceResponse,
@@ -14,7 +15,7 @@ from api.schemas.group_races import (
     RoomOptionsResponse,
     SeriesPickResponse,
 )
-from application.services import GroupRaceBoardService, GroupRaceService
+from application.services import GroupRaceBoardService, GroupRaceService, PlayerHomeService
 from models import AsyncQualifierLiveRace, Match, User
 
 router = APIRouter(
@@ -63,7 +64,7 @@ async def room_options(actor: User = Depends(require_api_actor)):
 
 @router.get(
     "",
-    response_model=List[GroupRaceResponse],
+    response_model=GroupRaceBoardResponse,
     summary="List group races",
     description=(
         "This event's group races (matches in group race tournaments) and qualifier live races "
@@ -76,7 +77,8 @@ async def list_group_races(
     finished: bool = Query(False, description='List finished races instead of the ones still to run.'),
     actor: User = Depends(require_api_actor),
 ):
-    return [_row(v) for v in await GroupRaceBoardService().list_races(actor, finished=finished)]
+    races = await GroupRaceBoardService().list_races(actor, finished=finished)
+    return GroupRaceBoardResponse(zone=await PlayerHomeService.viewer_zone(actor), races=[_row(v) for v in races])
 
 
 @router.get(

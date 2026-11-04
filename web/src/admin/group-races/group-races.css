@@ -1,0 +1,110 @@
+.gr-time {
+  min-width: 4.5rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.gr-sub {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.gr-detail-sub {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.gr-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+}
+.gr-state--muted {
+  color: var(--fg-muted);
+}
+.gr-state--live {
+  color: var(--status-live);
+}
+.gr-state--ok {
+  color: var(--status-ok);
+}
+.gr-muted {
+  margin: 0;
+  color: var(--fg-muted);
+  font-weight: normal;
+}
+.gr-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.gr-step {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: start;
+}
+.gr-step__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--border-subtle);
+  color: var(--fg-muted);
+}
+.gr-step--done .gr-step__mark {
+  border-color: var(--status-ok);
+  color: var(--status-ok);
+}
+.gr-step__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.gr-step__title {
+  font-weight: 600;
+}
+.gr-step__sub {
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+}
+.gr-step__at {
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+}
+.gr-entrants {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: var(--space-2) var(--space-4);
+}
+.gr-entrant {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.gr-entrant > .icon {
+  color: var(--fg-muted);
+  flex: none;
+}
+.gr-entrant__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gr-entrant__place,
+.gr-entrant__time {
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-muted);
+}
