@@ -139,7 +139,7 @@ async def list_randomizers(actor: User = Depends(require_api_actor)):
         "what's wrong with it.\n\n**Who can call this:** Any member."
     ),
 )
-async def check_mystery(body: MysteryCheckRequest, actor: User = Depends(require_write_actor)):
+async def check_mystery(body: MysteryCheckRequest, actor: User = Depends(require_api_actor)):
     checked = PresetLibraryService.check_mystery(body.weightset)
     return {'settings': checked.settings, 'odds': _odds(checked.odds)}
 

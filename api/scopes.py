@@ -4,7 +4,6 @@ Every route is listed exactly once: under the one :class:`ApiScope` an app must
 hold to call it, under ``PAT_ONLY`` (no app may call it, whatever it holds), or
 under ``PUBLIC`` (no token at all). ``tests/api/test_scopes.py`` fails when a
 route is missing, so a new endpoint cannot ship without a decision here.
-
 Personal access tokens skip this table entirely; see :func:`api.dependencies.resolve_token`.
 
 How a route is placed:
@@ -112,6 +111,7 @@ _ROUTES: Dict[RouteScope, tuple[str, ...]] = {
         'GET /preset-library/members',
         'GET /preset-library/sahasrahbot/{namespace}',
         'GET /preset-library/{preset_id}',
+        'POST /preset-library/mystery/check',
         'GET /race-room-profiles/selectable',
         'GET /race-rooms/by-match/{match_id}',
         'GET /brackets',
@@ -139,7 +139,6 @@ _ROUTES: Dict[RouteScope, tuple[str, ...]] = {
         'POST /preset-library/{preset_id}/copy-to-mine',
         'POST /preset-library/{preset_id}/update-copy',
         'POST /preset-library/personal',
-        'POST /preset-library/mystery/check',
         'POST /preset-library/sahasrahbot/{namespace}/import',
         'PATCH /preset-library/personal/{preset_id}',
         'DELETE /preset-library/personal/{preset_id}',
@@ -774,6 +773,7 @@ READ_ONLY_POSTS: Final = frozenset({
     'POST /admin/match-schedule/suggest-time',
     'POST /admin/tournaments/{tournament_id}/seed-rules/preview',
     'POST /admin/tournaments/{tournament_id}/seed-rules/text',
+    'POST /preset-library/mystery/check',
 })
 
 
