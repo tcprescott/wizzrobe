@@ -6,13 +6,7 @@ under ``PUBLIC`` (no token at all). ``tests/api/test_scopes.py`` fails when a
 route is missing, so a new endpoint cannot ship without a decision here.
 Personal access tokens skip this table entirely; see :func:`api.dependencies.resolve_token`.
 
-How a route is placed:
-
-- by who it serves, not by HTTP verb: a player acknowledging their match is ``play``, a proctor starting it is ``staff:write``;
-- a route that acts on *any* user by id ("yourself or Staff") is a staff route, since the ``/me`` routes already serve the self case;
-- a read every member may make is ``schedule:read`` even where Staff see a
-  little more in the response;
-- anything that mints or reveals credentials, or is platform-wide, is ``PAT_ONLY``.
+How a route is placed: see "App scopes" in docs/reference/rest-api.md.
 """
 
 from typing import Dict, Final, Optional, Union
