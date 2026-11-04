@@ -16,6 +16,7 @@ from application.repositories import (
     TournamentRepository,
 )
 from application.services._tournament_drop import TournamentDropMixin
+from application.services._tournament_group_race import GROUP_RACE_IMPLIES, group_race_updates
 from application.services._tournament_signup import (
     COLOR_SIGNUP,
     TournamentSignupCard,
@@ -258,6 +259,7 @@ class TournamentService(TournamentDropMixin, TournamentSignupMixin):
         signups_open_at: Optional[datetime] = None,
         signups_close_at: Optional[datetime] = None,
         actor: Optional[User] = None,
+        **group_race: Any,
     ) -> Tournament:
         await AuthService.ensure(
             await AuthService.is_staff(actor),
@@ -286,6 +288,9 @@ class TournamentService(TournamentDropMixin, TournamentSignupMixin):
         hard_preset_id = hard_preset.id if hard_preset is not None else None
         racetime_bot_id = await self._resolve_racetime_bot_id(racetime_bot_id)
         race_room_profile_id = await self._resolve_race_room_profile_id(race_room_profile_id)
+        group_fields = group_race_updates(group_race)
+        if group_fields.get('racetime_group_race'):
+            racetime_auto_create_rooms = racetime_bot_runs_room = True
         self._check_automation_prerequisites(
             racetime_auto_create_rooms=racetime_auto_create_rooms,
             racetime_bot_id=racetime_bot_id,
@@ -325,6 +330,7 @@ class TournamentService(TournamentDropMixin, TournamentSignupMixin):
             racetime_seed_post_minutes=self._non_negative(racetime_seed_post_minutes, 'Seed post minutes'),
             racetime_close_finish_ms=self._non_negative(racetime_close_finish_ms, 'The close-finish gap'),
             racetime_default_goal=(racetime_default_goal.strip() if racetime_default_goal else None),
+            **group_fields,
             event_start_date=event_start_date,
             event_end_date=event_end_date,
             tournament_hours=tournament_hours,
@@ -382,6 +388,7 @@ class TournamentService(TournamentDropMixin, TournamentSignupMixin):
         signups_open_at: Any = _UNSET,
         signups_close_at: Any = _UNSET,
         actor: Optional[User] = None,
+        **group_race: Any,
     ) -> Tournament:
         await AuthService.ensure(
             await AuthService.can_edit_tournament(actor, tournament),
@@ -492,6 +499,7 @@ class TournamentService(TournamentDropMixin, TournamentSignupMixin):
             update_data['racetime_default_goal'] = (
                 racetime_default_goal.strip() if racetime_default_goal else None
             )
+        update_data.update(group_race_updates(group_race))
         if event_start_date is not _UNSET or event_end_date is not _UNSET:
             # Validate as a pair with the stored bound this call left alone.
             raw_start = event_start_date if event_start_date is not _UNSET else tournament.event_start_date
@@ -519,6 +527,9 @@ class TournamentService(TournamentDropMixin, TournamentSignupMixin):
             if key in update_data:
                 return update_data[key]
             return getattr(tournament, key, default)
+
+        if _after('racetime_group_race', False):
+            update_data.update(GROUP_RACE_IMPLIES)
 
         self._check_automation_prerequisites(
             racetime_auto_create_rooms=_after('racetime_auto_create_rooms', False),
