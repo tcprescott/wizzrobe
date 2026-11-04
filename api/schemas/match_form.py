@@ -31,14 +31,16 @@ class MatchFormQuestionIn(BaseModel):
 
 class MatchFormQuestionOut(MatchFormQuestionIn):
     key: str
-    used_by: List[int] = Field(default_factory=list, description="The numbers of the seed rules that read this question.")
+    choices: List[MatchFormChoice]
+    config: Dict[str, int]
+    used_by: List[int] = Field(..., description="The numbers of the seed rules that read this question.")
 
 
 class MatchFormUpdate(BaseModel):
     questions: List[MatchFormQuestionIn] = Field(..., max_length=12)
 
 
-class MatchFormResponse(BaseModel):
+class MatchFormEditorResponse(BaseModel):
     tournament_id: int
     questions: List[MatchFormQuestionOut]
 
@@ -57,7 +59,7 @@ class PlayerFormQuestion(BaseModel):
     config: Dict[str, int]
     visibility: Visibility
     answer: Optional[AnswerValue] = Field(None, description="Your answer, or null.")
-    others: List[OtherAnswer] = Field(default_factory=list, description="The other players' answers you may see.")
+    others: List[OtherAnswer] = Field(..., description="The other players' answers you may see.")
 
 
 class PlayerFormResponse(BaseModel):

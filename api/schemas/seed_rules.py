@@ -85,7 +85,7 @@ class SeedRulesEditorResponse(BaseModel):
     rounds: List[RoundOption] = Field(..., description="Round keys this bracket offers, in play order.")
     matches: List[PreviewMatch] = Field(..., description="Unseeded matches to try in the preview, soonest first.")
     max_rules: int
-    questions: List[MatchFormQuestionOut] = Field(default_factory=list, description="The match form, which rules may read.")
+    questions: List[MatchFormQuestionOut] = Field(..., description="The match form, which rules may read.")
 
 
 class PreviewFacts(BaseModel):

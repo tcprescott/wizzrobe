@@ -543,7 +543,7 @@ class TestNotifyMatchScheduled:
         assert subs_args[0] is match
         assert subs_args[2] == [111]
         service.notify_stream_candidate_subscribers.assert_not_called()
-        assert enqueue.call_count == 4
+        assert enqueue.call_count == 5
 
     async def test_stream_candidate_enqueued_when_flagged(self, service):
         self._wire(service)
@@ -554,7 +554,7 @@ class TestNotifyMatchScheduled:
         candidate_args = service.notify_stream_candidate_subscribers.call_args.args
         assert candidate_args[0] is match
         assert candidate_args[1] == [111]
-        assert enqueue.call_count == 5
+        assert enqueue.call_count == 6
 
     async def test_rescheduled_flag_forwarded_to_ack_request(self, service):
         self._wire(service)

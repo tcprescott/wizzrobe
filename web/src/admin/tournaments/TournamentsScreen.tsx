@@ -65,8 +65,8 @@ function TournamentsBoard() {
     .filter((r) => !q || r.name.toLowerCase().includes(q) || (r.tournament_format ?? '').toLowerCase().includes(q))
 
   if (!phone && openId == null && shown[0]) return <Navigate to={`${base}/${shown[0].id}`} replace />
-  // Seed rules has its own list beside the open rule, so on desktop it takes the whole width.
-  if (!phone && open && pathname.startsWith(`${base}/${open.id}/seed-rules`)) {
+  // Seed rules and the match form have their own list beside the open item, so on desktop they take the whole width.
+  if (!phone && open && /\/(seed-rules|match-form)(\/|$)/.test(pathname.slice(`${base}/${open.id}`.length))) {
     return (
       <>
         <Link to={`${base}/${open.id}`} className="admin-back">

@@ -7,7 +7,7 @@ match. Seed rules read the answers, and answers lock once the seed rolls.
 from fastapi import APIRouter, Depends
 
 from api.dependencies import ServiceErrorRoute, event_binding, require_api_actor, require_write_actor
-from api.schemas.match_form import MatchFormResponse, MatchFormUpdate, PlayerAnswer, PlayerFormResponse
+from api.schemas.match_form import MatchFormEditorResponse, MatchFormUpdate, PlayerAnswer, PlayerFormResponse
 from application.services import MatchFormService
 from models import Match, Tournament, User
 
@@ -21,7 +21,7 @@ _PLAYER = "**Who can call this:** The match's players."
 
 
 @router.get(
-    '/admin/tournaments/{tournament_id}/match-form', response_model=MatchFormResponse,
+    '/admin/tournaments/{tournament_id}/match-form', response_model=MatchFormEditorResponse,
     summary="A tournament's match form",
     description="The questions in order, each with the seed rules that read it.\n\n" + _STAFF,
 )
@@ -30,7 +30,7 @@ async def get_match_form(tournament_id: int, actor: User = Depends(require_api_a
 
 
 @router.put(
-    '/admin/tournaments/{tournament_id}/match-form', response_model=MatchFormResponse,
+    '/admin/tournaments/{tournament_id}/match-form', response_model=MatchFormEditorResponse,
     summary='Replace the match form',
     description=(
         "Saves the whole list. A bad question fails with 400 naming it (`Question 2: …`), and so does "

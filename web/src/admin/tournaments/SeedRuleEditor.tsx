@@ -10,7 +10,9 @@ import {
   parseTweak,
   tidy,
   tweakText,
+  type AnswerCond,
   type ConditionKey,
+  type FormQuestion,
   type Preview,
   type Rule,
   type RuleWhen,
@@ -35,7 +37,9 @@ export function SeedRuleEditor({ rule, index, rules, editor, tournamentId, zone,
   const nameId = useId()
   const when = rule.when ?? {}
   const shown = conditionsOf(when)
-  const missing = (Object.keys(CONDITION_LABEL) as ConditionKey[]).filter((k) => !shown.includes(k))
+  const missing = (Object.keys(CONDITION_LABEL) as ConditionKey[]).filter(
+    (k) => !shown.includes(k) && (k !== 'answer' || editor.questions.length > 0),
+  )
   const setWhen = (patch: Partial<RuleWhen>) => onChange({ ...rule, when: { ...when, ...patch } })
   const drop = (key: ConditionKey) => {
     const next: RuleWhen = { ...when }
@@ -51,6 +55,7 @@ export function SeedRuleEditor({ rule, index, rules, editor, tournamentId, zone,
     if (key === 'title') setWhen({ title: [] })
     if (key === 'on_stage') setWhen({ on_stage: true })
     if (key === 'dates') setWhen({ from: new Date().toISOString() })
+    if (key === 'answer' && editor.questions[0]) setWhen({ answer: [{ q: editor.questions[0].key, who: 'every' }] })
   }
 
   return (
@@ -184,6 +189,7 @@ function ConditionInput({
       />
     )
   }
+  if (kind === 'answer') return <AnswerConditions conds={when.answer ?? []} questions={editor.questions} onChange={(answer) => setWhen({ answer })} />
   if (kind === 'on_stage') {
     return (
       <select
@@ -201,6 +207,75 @@ function ConditionInput({
     <div className="t-form__grid">
       <InstantField label="From" value={when.from ?? null} zone={zone} onChange={(from) => setWhen({ from })} />
       <InstantField label="Before" value={when.to ?? null} zone={zone} onChange={(to) => setWhen({ to })} />
+    </div>
+  )
+}
+
+/** "Every player answered Yes to Play Hard mode?", one row per question asked about. */
+function AnswerConditions({
+  conds,
+  questions,
+  onChange,
+}: {
+  conds: AnswerCond[]
+  questions: FormQuestion[]
+  onChange: (next: AnswerCond[]) => void
+}) {
+  const set = (i: number, patch: Partial<AnswerCond>) => onChange(conds.map((c, j) => (j === i ? { ...c, ...patch } : c)))
+  const unused = questions.find((q) => !conds.some((c) => c.q === q.key))
+  return (
+    <div className="sr-answers">
+      {conds.map((c, i) => {
+        const q = questions.find((x) => x.key === c.q)
+        const picked = c.is ?? []
+        return (
+          <div key={i} className="sr-answer">
+            <div className="t-form__grid">
+              <select className="input" aria-label={`Who, answer ${i + 1}`} value={c.who ?? 'every'} onChange={(e) => set(i, { who: e.target.value as AnswerCond['who'] })}>
+                <option value="every">Every player asked</option>
+                <option value="any">Any player asked</option>
+              </select>
+              <select className="input" aria-label={`Question, answer ${i + 1}`} value={c.q} onChange={(e) => set(i, { q: e.target.value, is: null })}>
+                {!q && <option value={c.q}>A removed question</option>}
+                {questions.map((x) => (
+                  <option key={x.key} value={x.key}>
+                    {x.prompt}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {q && q.kind !== 'number' && (
+              <div className="filter-chips" role="group" aria-label={`Answered, answer ${i + 1}`}>
+                {q.choices.map((ch) => (
+                  <button
+                    key={ch.value}
+                    type="button"
+                    className="filter-chip"
+                    aria-pressed={picked.includes(ch.value ?? '')}
+                    onClick={() => {
+                      const v = ch.value ?? ''
+                      set(i, { is: picked.includes(v) ? picked.filter((x) => x !== v) : [...picked, v] })
+                    }}
+                  >
+                    {ch.label}
+                  </button>
+                ))}
+              </div>
+            )}
+            <p className="sr-hint">{picked.length ? 'Answered one of the picked choices.' : 'Answered anything at all. Pick choices to narrow it.'}</p>
+            {conds.length > 1 && (
+              <Button variant="ghost" size="sm" icon="close" onClick={() => onChange(conds.filter((_, j) => j !== i))}>
+                Remove this answer
+              </Button>
+            )}
+          </div>
+        )
+      })}
+      {unused && conds.length < 8 && (
+        <Button variant="ghost" size="sm" icon="add" onClick={() => onChange([...conds, { q: unused.key, who: 'every' }])}>
+          Add another answer
+        </Button>
+      )}
     </div>
   )
 }
@@ -239,7 +314,9 @@ function ListText({
 
 function Outcome({ rule, editor, onChange }: { rule: Rule; editor: SeedEditor; onChange: (r: Rule) => void }) {
   const groupId = useId()
-  const weighted = rule.then?.weighted != null
+  const linked = editor.questions.filter((q) => q.choices.some((c) => c.preset != null))
+  const mode: 'one' | 'weighted' | 'answer' = rule.then?.from_answer ? 'answer' : rule.then?.weighted != null ? 'weighted' : 'one'
+  const weighted = mode === 'weighted'
   const presets = editor.presets
   const firstPreset = presets[0]
   if (!firstPreset) {
@@ -255,8 +332,9 @@ function Outcome({ rule, editor, onChange }: { rule: Rule; editor: SeedEditor; o
       <div className="segmented" role="radiogroup" aria-label="What it rolls">
         {(
           [
-            [false, 'One preset'],
-            [true, 'Weighted'],
+            ['one', 'One preset'],
+            ['weighted', 'Weighted'],
+            ...(linked.length ? ([['answer', "Players' answer"]] as const) : []),
           ] as const
         ).map(([value, label]) => (
           <span key={label}>
@@ -264,20 +342,35 @@ function Outcome({ rule, editor, onChange }: { rule: Rule; editor: SeedEditor; o
               type="radio"
               id={`${groupId}-${value}`}
               name={groupId}
-              checked={weighted === value}
+              checked={mode === value}
               onChange={() => {
-                if (value) {
+                if (value === 'weighted') {
                   const first = rule.then?.preset ?? firstPreset.id
                   const second = presets.find((p) => p.id !== first)?.id ?? first
                   onChange({ ...rule, then: { weighted: [{ preset: first, weight: 50 }, { preset: second, weight: 50 }] } })
-                } else onChange({ ...rule, then: { preset: entries[0]?.preset ?? firstPreset.id } })
+                } else if (value === 'answer') onChange({ ...rule, then: { from_answer: linked[0]?.key ?? null } })
+                else onChange({ ...rule, then: { preset: entries[0]?.preset ?? firstPreset.id } })
               }}
             />
             <label htmlFor={`${groupId}-${value}`}>{label}</label>
           </span>
         ))}
       </div>
-      {!weighted ? (
+      {mode === 'answer' ? (
+        <>
+          <label className="field sr-gap">
+            <span className="field__label">Question</span>
+            <select className="input" value={rule.then?.from_answer ?? ''} onChange={(e) => onChange({ ...rule, then: { from_answer: e.target.value } })}>
+              {linked.map((q) => (
+                <option key={q.key} value={q.key}>
+                  {q.prompt}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="sr-hint">Rolls the preset linked to the choice every player picked. Split or missing answers skip this rule.</p>
+        </>
+      ) : !weighted ? (
         <label className="field sr-gap">
           <span className="field__label">Preset</span>
           <select

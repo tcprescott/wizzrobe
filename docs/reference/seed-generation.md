@@ -342,12 +342,26 @@ settings.setdefault('texts', {})['end_triforce'] = "{NOBORDER}\n" + triforce_tex
 | Part | Shape |
 |---|---|
 | `when` | every condition must hold; a list means "any of". `round` (Round schedule stage keys: `w1`, `gf`, `group`, a start.gg `phase:key`, or `round:<n>` for a native bracket, from `RoundScheduleService.round_key_for_match`), `game` (numbers in a set, or `last`), `title` (case-insensitive contains), `on_stage`, `from` / `to` (UTC instants). Empty matches every match. |
-| `then` | `{"preset": id}` or `{"weighted": [{"preset": id, "weight": n}, ...]}` (2–16 entries, weights 0–10000, one above 0). Presets are the community's own. |
+| `when.answer` | match form answers, all of which must hold: `[{"q": key, "who": "every"\|"any", "is": [values]?}]`. `every` needs every player asked to have answered; an unanswered question never fits; no `is` means "answered at all"; a pick-several answer fits on any overlap. |
+| `then` | `{"preset": id}`, `{"weighted": [{"preset": id, "weight": n}, ...]}` (2–16 entries, weights 0–10000, one above 0), or `{"from_answer": key}`: the preset linked to the choice every player asked picked (split or missing answers skip the rule). Presets are the community's own. |
 | `tweaks` | `{"dotted.path": value}` set on a **copy** of the chosen preset's settings before the roll; the `Preset` row never changes, and the tweaked settings land in `settings_snapshot`. |
 
 A rule whose presets were all deleted is skipped, so the next rule decides. `to_yaml` / `from_yaml` are the text view: presets by name, rule ids dropped. Saving also refuses a preset of another randomizer than the tournament's `seed_generator`.
 
 Editing lives on the app's Admin → Tournaments → **Seed rules** tab (`web/src/admin/tournaments/SeedRulesTab.tsx`; on desktop it drops the tournament list so its own rule list sits beside the open rule), over [`/api/admin/tournaments/{id}/seed-rules`](rest-api.md). `SeedRuleService.preview` tries a draft on a real or made-up match via `seed_rules.first_fitting` without drawing; `SeedRuleService.why` turns a seed's `resolution` into the "Rule 2: … → Open" line the Match Schedule pane shows (`seed_rule`). MCP `get_seed_rules` reads the same editor payload.
+
+## Match form
+
+`MatchFormQuestion` rows (per tournament, ordered, `key` kept across saves) are the questions players answer before a match; `MatchFormAnswer` (match, user, question, `value` stored wrapped as `{"v": …}`) holds the answers. [`MatchFormService`](../../application/services/match_form_service.py) owns both:
+
+| Field | Meaning |
+|---|---|
+| `kind` | `yes_no` (fixed `yes`/`no` choices), `choice_one`, `choice_many` (2–16 choices), `number` (`config.min`/`max`). A choice may link a `preset` of the tournament's randomizer. |
+| `who` | `each_player`; `higher_seed` (lowest `BracketEntry.seed` in the native bracket, nobody when any player has none); `previous_loser` (players who didn't win the previous game of a best-of set). |
+| `ask_on` | `every_match`, or `when_used`: only where a rule reading the question has its other conditions fit. |
+| `visibility` | when other players see an answer: `right_away`, `at_roll`, `never`. A `never` question is the hard-mode shape: its answers reach nobody but the answerer. |
+
+`player_form` is the only read a player surface calls; it answers about the caller, adding other players' answers only where visibility allows. Answers lock once `Match.generated_seed` is set. `match.form_answered` is audited but never published (it can be a hidden opt-in). `SeedRuleService.facts_for` turns the answers into `MatchFacts.answers`. A match's scheduling fan-out sends each player with questions the `match_form_asked` DM, linking `/home?form=<match_id>`, where the app's Home shows the "Before your match" card.
 
 ## Presets (DB-backed)
 
