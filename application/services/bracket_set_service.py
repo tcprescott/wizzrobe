@@ -467,8 +467,8 @@ class BracketSetService:
             return []
         return await self.repository.set_followers(match.id)
 
-    async def labels_for(self, matches: Sequence[Match]) -> Dict[int, str]:
-        """``match id -> "Game 2 of 3"`` for the set games among ``matches``, in one query."""
+    async def game_numbers_for(self, matches: Sequence[Match]) -> Dict[int, int]:
+        """``match id -> game number`` by time order, for the set games among ``matches``."""
         in_sets = [m for m in matches if (getattr(m, 'set_best_of', None) or 0) > 1]
         if not in_sets:
             return {}
@@ -481,9 +481,14 @@ class BracketSetService:
             numbers.update(game_numbers(  # type: ignore[arg-type]
                 GameTimes(g.id, g.started_at, g.scheduled_at, g.id) for g in games
             ))
+        return {m.id: numbers[m.id] for m in in_sets if m.id in numbers}
+
+    async def labels_for(self, matches: Sequence[Match]) -> Dict[int, str]:
+        """``match id -> "Game 2 of 3"`` for the set games among ``matches``, in one query."""
+        by_id = {m.id: m for m in matches}
         return {
-            m.id: f'Game {numbers[m.id]} of {m.set_best_of}'
-            for m in in_sets if m.id in numbers
+            mid: f'Game {n} of {by_id[mid].set_best_of}'
+            for mid, n in (await self.game_numbers_for(matches)).items()
         }
 
     async def label_for(self, match: Match) -> Optional[str]:
