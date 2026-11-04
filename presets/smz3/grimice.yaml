@@ -8,8 +8,6 @@ settings:
   swordlocation: randomized
   morphlocation: randomized
   keyshuffle: keysanity
-  seed: ''
-  race: 'true'
   gamemode: normal
   players: '1'
   initialitems: Boots, Random:1

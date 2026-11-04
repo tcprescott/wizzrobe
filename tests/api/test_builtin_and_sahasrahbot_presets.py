@@ -134,3 +134,8 @@ def test_to_wizzrobe_maps_and_refuses():
         sahasrahbot_client.to_wizzrobe('alttpr', {'forced_locations': [{}], 'settings': {}})
     with pytest.raises(ValueError):
         sahasrahbot_client.to_wizzrobe('alttpr', {'settings': 'nope'})
+
+
+def test_to_wizzrobe_drops_keys_the_roll_owns():
+    got = sahasrahbot_client.to_wizzrobe('smz3', {'settings': {'race': 'true', 'seed': '1', 'goal': 'defeatboth'}})
+    assert got.settings == {'goal': 'defeatboth'}

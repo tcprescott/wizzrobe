@@ -31,6 +31,7 @@ SAHASRAHBOT_API = 'https://sahasrahbotapi.synack.live'
 RANDOMIZERS = ('alttpr', 'sm', 'smz3')
 REQUEST_TIMEOUT_SECONDS = 20
 MAX_PRESET_BYTES = 64 * 1024
+ROLL_OWNED_KEYS = frozenset({'seed', 'race', 'spoilerKey'})
 
 
 class SahasrahBotAPIError(Exception):
@@ -104,5 +105,7 @@ def to_wizzrobe(randomizer: str, data: Dict[str, Any]) -> ImportablePreset:
     description = str(description).strip() if description else None
     if randomizer == 'alttpr' and data.get('avianart'):
         return ImportablePreset('avianart', {'preset': settings.get('preset')}, description)
+    if randomizer in ('sm', 'smz3'):
+        settings = {k: v for k, v in settings.items() if k not in ROLL_OWNED_KEYS}
     return ImportablePreset(randomizer, settings, description)
 

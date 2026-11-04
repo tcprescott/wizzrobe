@@ -8,7 +8,5 @@ settings:
   swordlocation: randomized
   morphlocation: randomized
   keyshuffle: none
-  seed: ''
-  race: 'true'
   gamemode: normal
   players: '1'

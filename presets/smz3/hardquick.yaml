@@ -9,7 +9,5 @@ settings:
   swordlocation: uncle
   morphlocation: original
   keyshuffle: none
-  seed: ''
-  race: 'true'
   gamemode: normal
   players: '1'
