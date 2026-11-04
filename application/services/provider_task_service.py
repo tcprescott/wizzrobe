@@ -41,6 +41,7 @@ class ProviderTaskService:
         actor: Optional[User] = None,
         match_id: Optional[int] = None,
         preset_id: Optional[int] = None,
+        resolution: Optional[dict] = None,
     ) -> ProviderTask:
         """Record a task before it is submitted.
 
@@ -55,6 +56,7 @@ class ProviderTaskService:
             requested_by_id=actor.id if actor is not None else None,
             match_id=match_id,
             preset_id=preset_id,
+            resolution=resolution,
         )
 
     async def mark_submitted(

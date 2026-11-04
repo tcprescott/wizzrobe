@@ -92,6 +92,7 @@ class AuditActions:
     TOURNAMENT_CREATED = 'tournament.created'
     TOURNAMENT_UPDATED = 'tournament.updated'
     TOURNAMENT_ROUND_SCHEDULE_UPDATED = 'tournament.round_schedule_updated'
+    TOURNAMENT_SEED_RULES_UPDATED = 'tournament.seed_rules_updated'
     TOURNAMENT_DELETED = 'tournament.deleted'
     TOURNAMENT_PLAYER_DROPPED = 'tournament.player_dropped'
     TOURNAMENT_ADMIN_GRANTED = 'tournament.admin_granted'
