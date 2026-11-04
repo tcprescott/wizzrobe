@@ -9,6 +9,7 @@ import { KitScreen } from './screens/KitScreen'
 import { PlatformShell } from './platform/PlatformShell'
 import { MeLayout } from './me/MeLayout'
 import { MeSection } from './me/sections'
+import { PresetLibraryScreen } from './presets/PresetLibraryScreen'
 import { NotFoundScreen } from './screens/NotFoundScreen'
 import { SignInScreen } from './screens/SignInScreen'
 import { HomeScreen } from './player/HomeScreen'
@@ -55,6 +56,8 @@ const tabRoutes: RouteObject[] = [
       { path: 'proctor/:match', element: <ProctorScreen /> },
     ],
   },
+  { path: 'presets', element: <PresetLibraryScreen /> },
+  { path: 'presets/:id', element: <PresetLibraryScreen /> },
   { path: 'me', element: <MeLayout />, children: [{ path: ':section', element: <MeSection /> }] },
   { path: 'admin', element: <AdminLayout />, children: [{ path: ':area/*', element: <AdminAreaScreen /> }] },
   ...readingRoutes,

@@ -1,9 +1,9 @@
-from typing import Iterable
+from typing import Iterable, Optional
 
 from tortoise import fields
 from tortoise.models import Model
 
-from .enums import MatchNotificationLevel, ProviderTaskStatus
+from .enums import MatchNotificationLevel, PresetSpaceKind, ProviderTaskStatus
 
 
 class Tournament(Model):
@@ -288,6 +288,32 @@ class ProviderTask(Model):
         return self.status in ProviderTaskStatus.terminal()
 
 
+class PresetSpace(Model):
+    """A namespace presets live in, named in ``space/preset`` references.
+
+    Global on purpose: the slug is unique across the platform so a reference
+    means the same preset in every community. A community space carries its
+    ``tenant`` (one each); a personal one its ``owner``.
+    """
+    id = fields.IntField(pk=True)
+    slug = fields.CharField(max_length=64, unique=True)
+    kind = fields.CharEnumField(PresetSpaceKind, max_length=16)
+    tenant: fields.OneToOneNullableRelation = fields.OneToOneField(
+        'models.Tenant', related_name='preset_space', null=True, on_delete=fields.CASCADE,
+    )
+    tenant_id: Optional[int]
+    owner: fields.OneToOneNullableRelation = fields.OneToOneField(
+        'models.User', related_name='preset_space', null=True, on_delete=fields.CASCADE,
+    )
+    owner_id: Optional[int]
+    created_at = fields.DatetimeField(auto_now_add=True)
+
+    presets = fields.ReverseRelation["Preset"]
+
+    class Meta:
+        table = 'preset_space'
+
+
 class Preset(Model):
     """A tenant-authored seed-rolling preset: a named randomizer settings blob.
 
@@ -298,11 +324,25 @@ class Preset(Model):
     handed to the randomizer backend (for ALTTPR, the customizer settings dict).
     """
     id = fields.IntField(pk=True)
-    tenant = fields.ForeignKeyField('models.Tenant', related_name='presets', on_delete=fields.CASCADE)
+    tenant: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.Tenant', related_name='presets', on_delete=fields.CASCADE,
+    )
+    tenant_id: int
     name = fields.CharField(max_length=255)
     randomizer = fields.CharField(max_length=32)
     settings = fields.JSONField()
     description = fields.TextField(null=True)
+    space: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
+        'models.PresetSpace', related_name='presets', null=True, on_delete=fields.CASCADE,
+    )
+    space_id: Optional[int]
+    listed = fields.BooleanField(default=True)
+    copied_from: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
+        'models.Preset', related_name='copies', null=True, on_delete=fields.SET_NULL,
+    )
+    copied_from_id: Optional[int]
+    copied_at = fields.DatetimeField(null=True)
+    roll_count = fields.IntField(default=0)
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 

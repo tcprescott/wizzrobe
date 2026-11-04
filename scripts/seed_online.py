@@ -275,6 +275,7 @@ async def _seed_presets(tenant: Tenant, staff: User) -> Preset:
             "settings": {"glitches": "none", "goal": "ganon", "mode": "open",
                          "item_placement": "advanced", "item_pool": "hard"},
             "description": "The open-mode settings with a hard item pool. Players opt into this.",
+            "listed": False,
         },
     )
     wanted = all_specs() if tenant.slug == 'default' else credentials_for('ootr')

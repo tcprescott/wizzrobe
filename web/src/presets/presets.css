@@ -1,0 +1,85 @@
+/* Presets library, layout A: the side list plus the open preset. Phone is below 768px. */
+
+.preset-filters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+}
+.preset-ref {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--fg-secondary);
+  overflow-wrap: anywhere;
+}
+.preset-row-end {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+  white-space: nowrap;
+}
+.preset-rolls {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.preset-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2, 8px) var(--space-4, 16px);
+  margin: 0 0 var(--space-2, 8px);
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+}
+.preset-meta > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.preset-roll {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: var(--space-2, 8px);
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle);
+  border-left: 4px solid var(--status-ok);
+  border-radius: var(--radius-md);
+  background: var(--surface-alt);
+}
+.preset-roll strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.preset-roll a {
+  color: var(--link);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.preset-settings {
+  display: grid;
+  grid-template-columns: minmax(140px, max-content) minmax(0, 1fr);
+  gap: 4px 16px;
+  margin: 0;
+  font-size: var(--text-sm);
+}
+.preset-settings > div {
+  display: contents;
+}
+.preset-settings dt {
+  font-family: var(--font-mono);
+  color: var(--fg-secondary);
+  overflow-wrap: anywhere;
+}
+.preset-settings dd {
+  margin: 0;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.preset-muted {
+  color: var(--fg-muted);
+  margin: 0;
+}

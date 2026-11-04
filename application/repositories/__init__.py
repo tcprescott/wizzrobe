@@ -70,6 +70,7 @@ from .patreon_repository import PatreonRepository
 from .personal_webhook_outbox_repository import PersonalWebhookOutboxRepository
 from .personal_webhook_repository import PersonalWebhookRepository
 from .player_availability_repository import PlayerAvailabilityRepository
+from .preset_library_repository import PresetLibraryRepository
 from .preset_repository import PresetRepository
 from .profile_nudge_repository import ProfileNudgeRepository
 from .provider_task_repository import ProviderTaskRepository
@@ -175,6 +176,7 @@ __all__ = [
     'PersonalWebhookRepository',
     'PlayedPermalinks',
     'PlayerAvailabilityRepository',
+    'PresetLibraryRepository',
     'PresetRepository',
     'ProfileNudgeRepository',
     'ProviderTaskRepository',

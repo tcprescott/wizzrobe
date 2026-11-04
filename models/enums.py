@@ -831,3 +831,11 @@ class PatreonOAuthPurpose(str, Enum):
 
     CREATOR = 'creator'
     MEMBER = 'member'
+
+
+class PresetSpaceKind(str, Enum):
+    """Who owns a preset space: a community, one player, or Wizzrobe's built-ins."""
+
+    COMMUNITY = "community"
+    USER = "user"
+    BUILTIN = "builtin"

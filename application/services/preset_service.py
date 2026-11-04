@@ -125,6 +125,7 @@ class PresetService:
         randomizer: Optional[str] = None,
         settings: Optional[Dict[str, Any]] = None,
         description: Optional[str] = None,
+        listed: Optional[bool] = None,
     ) -> Preset:
         await AuthService.ensure(
             await AuthService.can_manage_presets(actor), "Cannot manage presets"
@@ -148,12 +149,13 @@ class PresetService:
         }
         if description is not None:
             changes['description'] = (description or '').strip() or None
+        if listed is not None:
+            changes['listed'] = listed
         preset = await self.repository.update(preset, **changes)
-        await self.audit_service.write_log(
-            actor,
-            AuditActions.PRESET_UPDATED,
-            {'preset_id': preset.id, 'name': new_name, 'randomizer': new_randomizer},
-        )
+        details: Dict[str, Any] = {'preset_id': preset.id, 'name': new_name, 'randomizer': new_randomizer}
+        if listed is not None:
+            details['listed'] = listed
+        await self.audit_service.write_log(actor, AuditActions.PRESET_UPDATED, details)
         return preset
 
     async def delete_preset(self, actor: Optional[User], preset_id: int) -> None:

@@ -184,6 +184,15 @@ def _reset_app_registration_limit():
 
 
 @pytest.fixture(autouse=True)
+def _reset_preset_roll_limit():
+    """Isolate the per-person library roll window; user ids repeat across tests."""
+    from application.services.preset_library_service import reset_roll_limits
+    reset_roll_limits()
+    yield
+    reset_roll_limits()
+
+
+@pytest.fixture(autouse=True)
 def _reset_crew_signup_notices():
     """Isolate the per-process crew-signup DM throttle; match ids repeat across tests."""
     from application.services.crew_service import _signup_notice_rows, _signup_notices
