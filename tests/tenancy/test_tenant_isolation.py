@@ -15,9 +15,6 @@ import pytest
 from application.repositories.commentary_invite_repository import CommentaryInviteRepository
 from application.repositories.equipment_repository import EquipmentRepository
 from application.repositories.feedback_repository import FeedbackRepository
-from application.repositories.match_hard_preset_repository import (
-    MatchHardPresetRepository,
-)
 from application.repositories.match_repository import MatchRepository
 from application.repositories.match_stream_volunteer_repository import (
     MatchStreamVolunteerRepository,
@@ -36,7 +33,6 @@ from models import (
     Equipment,
     Feedback,
     Match,
-    MatchHardPresetOptIn,
     MatchRescheduleRequest,
     MatchStreamVolunteer,
     MatchWatcher,
@@ -198,44 +194,6 @@ async def test_match_watcher_by_user_does_not_leak(tenants):
     with tenant_scope(b.id):
         rows = await MatchWatcherRepository.get_by_user(user)
         assert [w.match_id for w in rows] == [mb.id]
-
-
-async def test_match_hard_preset_opt_in_does_not_leak(tenants):
-    """One community's opt-in must not count toward another's agreement.
-
-    The sharper failure than a listing leak: unanimity is computed from these
-    ids, so a cross-tenant read would make a match roll the harder preset
-    because its players agreed to a *different* community's match.
-    """
-    a, b = tenants
-    user = await User.create(discord_id=905, username='opter')
-    with tenant_scope(a.id):
-        ta = await Tournament.create(name='A Cup')
-        ma = await Match.create(tournament=ta)
-        await MatchHardPresetOptIn.create(match=ma, user=user)
-    with tenant_scope(b.id):
-        tb = await Tournament.create(name='B Cup')
-        mb = await Match.create(tournament=tb)
-        await MatchHardPresetOptIn.create(match=mb, user=user)
-
-    with tenant_scope(a.id):
-        assert await MatchHardPresetRepository.opted_in_match_ids(
-            user, [ma.id, mb.id],
-        ) == {ma.id}
-        assert await MatchHardPresetRepository.user_ids_for_match(mb.id) == set()
-        assert await MatchHardPresetRepository.user_ids_by_match([ma.id, mb.id]) == {
-            ma.id: {user.id},
-        }
-        assert await MatchHardPresetRepository.has_opted_in(mb.id, user.id) is False
-    with tenant_scope(b.id):
-        assert await MatchHardPresetRepository.opted_in_match_ids(
-            user, [ma.id, mb.id],
-        ) == {mb.id}
-        assert await MatchHardPresetRepository.user_ids_for_match(ma.id) == set()
-        assert await MatchHardPresetRepository.user_ids_by_match([ma.id, mb.id]) == {
-            mb.id: {user.id},
-        }
-        assert await MatchHardPresetRepository.has_opted_in(ma.id, user.id) is False
 
 
 async def test_match_stream_volunteer_does_not_leak(tenants):

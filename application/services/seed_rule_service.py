@@ -22,7 +22,7 @@ from application.services import seed_rules
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
 from application.services.bracket_set_service import BracketSetService
-from application.services.match.match_hard_preset_service import MatchHardPresetService
+from application.services.match.match_preset_override_service import MatchPresetOverrideService
 from application.services.round_schedule_service import RoundScheduleService
 from application.utils.match_labels import match_model_label
 from models import GeneratedSeeds, Match, Preset, Tournament, User
@@ -43,7 +43,7 @@ class SeedRuleService:
         self.tournament_repository = TournamentRepository()
         self.preset_repository = PresetRepository()
         self.audit_service = AuditService()
-        self.hard_preset_service = MatchHardPresetService()
+        self.preset_override_service = MatchPresetOverrideService()
         self.round_schedule_service = RoundScheduleService()
         self.match_repository = MatchRepository()
         self.bracket_repository = BracketRepository()
@@ -175,8 +175,7 @@ class SeedRuleService:
         """Which rule a match (real or made up) would fire, without rolling.
 
         ``rules`` previews an unsaved draft; left out, the saved rules. A real
-        match brings its own facts. Staff's override and hard mode aren't
-        consulted: asking them would close the opt-in window.
+        match brings its own facts. Staff's override isn't consulted.
         """
         tournament = await self._tournament(tournament_id)
         await self._ensure_can_edit(actor, tournament)
@@ -254,16 +253,14 @@ class SeedRuleService:
         )
 
     async def resolve(self, match: Match, *, rng: Optional[random.Random] = None) -> SeedResolution:
-        """The preset ``match`` rolls with, in order: staff's override, a unanimous
-        hard-mode opt-in, the first seed rule that fits, the tournament's preset.
+        """The preset ``match`` rolls with, in order: staff's override, the first
+        seed rule that fits (hard mode is one, reading the match form), the tournament's preset.
 
-        ``match.tournament`` (with ``preset`` and ``hard_preset``) must be loaded.
-        Asking closes the hard-mode opt-in window, as before.
+        ``match.tournament`` (with ``preset``) must be loaded.
         """
-        decided = await self.hard_preset_service.decided_preset(match)
-        if decided is not None:
-            preset, source = decided
-            return SeedResolution(preset, {'source': source, 'preset_id': preset.id if preset else None})
+        forced = await self.preset_override_service.decided_preset(match)
+        if forced is not None:
+            return SeedResolution(forced, {'source': 'override', 'preset_id': forced.id})
 
         tournament = match.tournament
         standard = getattr(tournament, 'preset', None)

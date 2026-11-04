@@ -43,11 +43,11 @@ from models import (
     DiscordScheduledEvent,
     DoorSeed,
     Match,
-    MatchHardPresetOptIn,
+    MatchFormAnswer,
+    MatchFormQuestion,
     MatchPlayers,
     MembershipSource,
     Preset,
-    PresetOverride,
     RaceRoomProfile,
     RaceRoomStatus,
     RacetimeBot,
@@ -403,10 +403,6 @@ async def _seed_online_tournament(
         )
     if tournament.preset_id is None:
         tournament.preset = preset
-    if tournament.hard_preset_id is None:
-        tournament.hard_preset = await Preset.get_or_none(
-            name="ALTTPR Open — Hard Mode", tenant=tenant,
-        )
     if tournament.race_room_profile_id is None:
         tournament.race_room_profile = profile
     tournament.racetime_bot = bot
@@ -512,19 +508,22 @@ async def _seed_online_matches(
     finished = await make_match(
         "Online Race Finished", -3, players[0], players[2], started=True, finished=True,
     )
-    for match, opted_in in (
+    hard_q = await MatchFormQuestion.get_or_none(tournament=tournament, key="devhrd")
+    for match, said_yes in (
         (scheduled, (players[0], players[1])),
         (half, (players[1],)),
     ):
-        for player in opted_in:
-            await MatchHardPresetOptIn.get_or_create(
-                match=match, user=player, tenant=tenant,
+        for player in said_yes if hard_q else ():
+            await MatchFormAnswer.get_or_create(
+                match=match, user=player, question=hard_q, tenant=tenant,
+                defaults={"value": {"v": "yes"}},
             )
-    if in_progress.preset_override is None:
-        in_progress.preset_override = PresetOverride.STANDARD
+    hard = await Preset.get_or_none(name="ALTTPR Open — Hard Mode", tenant=tenant)
+    if in_progress.forced_preset_id is None:
+        in_progress.forced_preset_id = tournament.preset_id
         await in_progress.save()
-    if forced_hard.preset_override is None:
-        forced_hard.preset_override = PresetOverride.HARD
+    if forced_hard.forced_preset_id is None and hard is not None:
+        forced_hard.forced_preset = hard
         await forced_hard.save()
 
     return scheduled, in_progress, finished

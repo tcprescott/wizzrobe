@@ -34,7 +34,6 @@ from application.services.match._match_recipients import (  # noqa: F401  (re-ex
 )
 from application.services.match._schedule_notifications import MatchNotificationMixin
 from application.services.match._seed_ready_notifications import SEED_READY_PROMPT
-from application.services.match.match_hard_preset_service import MatchHardPresetService
 from application.services.match.match_status import closes_without_winner, has_recorded_result
 from application.services.match.seed_ready import players_may_release, seed_ready_open
 from application.services.notification_catalog import (
@@ -180,7 +179,6 @@ class MatchScheduleService(MatchNotificationMixin):
         self.discord_service = DiscordService()
         self.seedgen_service = SeedGenerationService()
         self.audit_service = AuditService()
-        self.hard_preset_service = MatchHardPresetService()
 
     async def _transition(
         self,
@@ -506,7 +504,7 @@ class MatchScheduleService(MatchNotificationMixin):
     ) -> Tuple[bool, str, Optional[str]]:
         try:
             match = await Match.get(id=match_id, tenant_id=require_tenant_id()).prefetch_related(
-                'tournament', 'tournament__preset', 'tournament__hard_preset',
+                'tournament', 'tournament__preset', 'forced_preset',
                 'players', 'players__user', 'stage',
             )
 

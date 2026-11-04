@@ -85,14 +85,13 @@ A tournament set up before presets existed may say it's still rolling with an
 older generator and no preset. Pick a preset to replace it. Saving with None turns
 seed rolling off.
 
-## The harder preset
+## Hard mode
 
-**Harder Preset (opt-in)** is a second preset players can ask for privately, one
-match at a time. A match only rolls it when every player in it opted in. Nobody
-finds out whether their opponent opted in unless they both did, so nobody feels
-dared into it.
-
-Both presets have to use the same randomizer. Test roll the harder one too.
+Letting players pick a harder preset is a [seed rule](/help/staff-seed-rules): a
+hidden Yes / No question on the match form, and a rule that rolls the harder
+preset when every player answered Yes. Tournaments that used to have a Harder
+Preset setting got that question and rule made for them. Test roll the harder
+preset too.
 
 To roll different presets by round, by game in a set or by chance, add
 [seed rules](/help/staff-seed-rules) to the tournament.

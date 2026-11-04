@@ -16,10 +16,8 @@ from models import (
     Commentator,
     GeneratedSeeds,
     Match,
-    MatchHardPresetOptIn,
     MatchPlayers,
     Preset,
-    PresetOverride,
     Role,
     Stage,
     Tournament,
@@ -413,18 +411,17 @@ class TestHardPresetStaysOffTheApi:
             name='Hard Mode', randomizer='alttpr', settings={'pool': 'hard'},
         )
         tournament = await Tournament.create(
-            name='T', preset=standard, hard_preset=hard,
+            name='T', preset=standard,
         )
         match = await Match.create(
             tournament=tournament,
             scheduled_at=datetime(2025, 1, 15, 19, 30, tzinfo=timezone.utc),
-            preset_override=PresetOverride.HARD,
+            forced_preset=hard,
         )
         opter = await User.create(discord_id=7701, username='opter')
         other = await User.create(discord_id=7702, username='other')
         await MatchPlayers.create(match=match, user=opter)
         await MatchPlayers.create(match=match, user=other)
-        await MatchHardPresetOptIn.create(match=match, user=opter)
         return match
 
     async def test_the_match_read_carries_no_opt_in_field(self, db, app):
@@ -436,5 +433,5 @@ class TestHardPresetStaysOffTheApi:
         serialized = json.dumps(body)
         assert 'opted' not in serialized
         assert 'hard_preset' not in serialized
-        assert 'preset_override' not in serialized
+        assert 'forced_preset' not in serialized
         assert serialized.count('finish_rank') == 2

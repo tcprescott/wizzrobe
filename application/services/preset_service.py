@@ -64,8 +64,7 @@ class PresetService:
         )
         usage: Dict[int, List[str]] = {}
         for row in await self.repository.tournaments_using_presets():
-            for preset_id in {row['preset_id'], row['hard_preset_id']} - {None}:
-                usage.setdefault(preset_id, []).append(row['name'])
+            usage.setdefault(row['preset_id'], []).append(row['name'])
         return usage
 
     async def list_by_randomizer(self, randomizer: str) -> List[Preset]:

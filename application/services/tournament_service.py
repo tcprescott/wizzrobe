@@ -75,34 +75,6 @@ class TournamentService(TournamentDropMixin, TournamentSignupMixin):
             raise ValueError("Preset not found")
         return preset
 
-    async def _resolve_hard_preset(self, hard_preset_id: Optional[int], preset):
-        """Validate the opt-in "harder" preset against the standard one.
-
-        Two rules, both because seed generation resolves the randomizer from
-        whichever preset ends up winning: a hard preset with no standard preset
-        to fall back to would make the fallback path randomizer-less, and a hard
-        preset on a different randomizer would silently change *which game* a
-        match rolls the moment its players agreed.
-        """
-        if hard_preset_id is None:
-            return None
-        hard = await self.preset_repository.get_by_id(hard_preset_id)
-        if hard is None:
-            raise ValueError("Preset not found")
-        if preset is None:
-            raise ValueError(
-                "Set a seed preset before adding a harder one — the harder preset is "
-                "what players opt into instead of it."
-            )
-        if hard.id == preset.id:
-            raise ValueError("The harder preset must be a different preset from the standard one.")
-        if hard.randomizer != preset.randomizer:
-            raise ValueError(
-                f"The harder preset rolls {hard.randomizer} but this tournament rolls "
-                f"{preset.randomizer}. Both presets must use the same randomizer."
-            )
-        return hard
-
     async def _resolve_racetime_bot_id(self, racetime_bot_id: Optional[int]) -> Optional[int]:
         """Validate the bot is one this tenant is *authorized* to use.
 
@@ -242,7 +214,6 @@ class TournamentService(TournamentDropMixin, TournamentSignupMixin):
         allow_player_match_requests: bool = True,
         config: Optional[Dict[str, Any]] = None,
         preset_id: Optional[int] = None,
-        hard_preset_id: Optional[int] = None,
         racetime_bot_id: Optional[int] = None,
         race_room_profile_id: Optional[int] = None,
         racetime_auto_create_rooms: bool = False,
@@ -284,8 +255,6 @@ class TournamentService(TournamentDropMixin, TournamentSignupMixin):
             # Set seed_generator too: its readers would otherwise see a preset-only tournament as having none.
             seed_generator = preset.randomizer
         preset_id = preset.id if preset is not None else None
-        hard_preset = await self._resolve_hard_preset(hard_preset_id, preset)
-        hard_preset_id = hard_preset.id if hard_preset is not None else None
         racetime_bot_id = await self._resolve_racetime_bot_id(racetime_bot_id)
         race_room_profile_id = await self._resolve_race_room_profile_id(race_room_profile_id)
         group_fields = group_race_updates(group_race)
@@ -319,7 +288,6 @@ class TournamentService(TournamentDropMixin, TournamentSignupMixin):
             allow_player_match_requests=allow_player_match_requests,
             config=config,
             preset_id=preset_id,
-            hard_preset_id=hard_preset_id,
             racetime_bot_id=racetime_bot_id,
             race_room_profile_id=race_room_profile_id,
             racetime_auto_create_rooms=racetime_auto_create_rooms,
@@ -371,7 +339,6 @@ class TournamentService(TournamentDropMixin, TournamentSignupMixin):
         allow_player_match_requests: Optional[bool] = None,
         config: Optional[Dict[str, Any]] = None,
         preset_id: Any = _UNSET,
-        hard_preset_id: Any = _UNSET,
         racetime_bot_id: Any = _UNSET,
         race_room_profile_id: Any = _UNSET,
         racetime_auto_create_rooms: Optional[bool] = None,
@@ -459,24 +426,6 @@ class TournamentService(TournamentDropMixin, TournamentSignupMixin):
                 update_data['seed_generator'] = preset.randomizer
             elif seed_generator is None:
                 update_data['seed_generator'] = None
-        if hard_preset_id is not _UNSET:
-            # Validate against the preset this call leaves in place, not the stored one.
-            standard = (
-                preset if preset_id is not _UNSET
-                else await self.preset_repository.get_by_id(tournament.preset_id)  # type: ignore[attr-defined]
-                if tournament.preset_id else None  # type: ignore[attr-defined]
-            )
-            hard = await self._resolve_hard_preset(hard_preset_id, standard)
-            update_data['hard_preset_id'] = hard.id if hard is not None else None
-        elif preset_id is not _UNSET and tournament.hard_preset_id is not None:  # type: ignore[attr-defined]
-            existing_hard = await self.preset_repository.get_by_id(tournament.hard_preset_id)  # type: ignore[attr-defined]
-            if existing_hard is not None and (
-                preset is None or existing_hard.randomizer != preset.randomizer
-            ):
-                raise ValueError(
-                    "This tournament has a harder preset that no longer matches. "
-                    "Change or clear the harder preset in the same edit."
-                )
         if racetime_bot_id is not _UNSET:
             update_data['racetime_bot_id'] = await self._resolve_racetime_bot_id(racetime_bot_id)
         if race_room_profile_id is not _UNSET:

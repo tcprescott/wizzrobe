@@ -255,18 +255,6 @@ STREAM_OFFER = _notice(
      ADMINS: _opted_in("The tournament's admins and Broadcast Techs"), STAFF: _opted_in(_FALLBACK)},
 )
 MATCH_FORM_ASKED = _notice('match_form_asked', 'Matches', 'Before your match', 'A match form asks you something', {PLAYERS: PING})
-HARDER_SETTINGS_OFFER = _notice(
-    'harder_settings_offer', 'Matches', 'Harder settings available',
-    'A match is scheduled in a tournament with a harder preset', {PLAYERS: PING},
-)
-HARDER_SETTINGS_AGREED = _notice(
-    'harder_settings_agreed', 'Matches', 'Harder settings agreed',
-    'Every player opts in to the harder preset', {PLAYERS: PING},
-)
-HARDER_SETTINGS_DROPPED = _notice(
-    'harder_settings_dropped', 'Matches', 'Back to the standard settings',
-    'A player backs out or the roster changes, so the harder preset is off', {PLAYERS: PING},
-)
 SETTINGS_SET_BY_STAFF = _notice(
     'settings_set_by_staff', 'Matches', 'Settings set by staff',
     "Staff force the match's preset", {PLAYERS: PING},
@@ -582,8 +570,7 @@ SECTIONS: Dict[str, Tuple[Tuple[str, Tuple[Notice, ...]], ...]] = {
             STREAM_OFFER, SEED_FAILED,
         )),
         ('Seed settings', (
-            MATCH_FORM_ASKED, HARDER_SETTINGS_OFFER, HARDER_SETTINGS_AGREED, HARDER_SETTINGS_DROPPED,
-            SETTINGS_SET_BY_STAFF, SETTINGS_RELEASED,
+            MATCH_FORM_ASKED, SETTINGS_SET_BY_STAFF, SETTINGS_RELEASED,
         )),
     ),
     'Volunteer shifts': (
@@ -726,7 +713,7 @@ _ACT: Dict[str, frozenset] = {
     PLAYER_LATE.key: _STAFF_ALERTS,
     RACETIME_FPA.key: _STAFF_ALERTS,
     PLAYER_LATE_ON_STAGE.key: frozenset({ON_DUTY, STAFF}),
-    HARDER_SETTINGS_OFFER.key: frozenset({PLAYERS}),
+    MATCH_FORM_ASKED.key: frozenset({PLAYERS}),
     OPPONENT_SEED_READY.key: frozenset({PLAYERS}),
     SETTINGS_RELEASED.key: frozenset({PLAYERS}),
     MATCHUP_READY.key: frozenset({PLAYERS}),

@@ -107,7 +107,8 @@ check-in desk. Separate from a match's check-in. See [Checking in when you
 arrive](/help/check-in#checking-in-when-you-arrive).
 
 **Harder settings**: a tougher preset some tournaments offer next to their
-standard one. A match only uses it when every player privately opts in.
+standard one, usually as a hidden Yes / No question before the match. A match
+only uses it when every player says Yes.
 
 **Join request**: how you ask to become a member of a community that doesn't let
 people straight in. Staff approve or decline it, and you get a message either

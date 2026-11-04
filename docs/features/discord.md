@@ -14,7 +14,6 @@ DMs fire on match lifecycle transitions. Approved crew are left out of every mat
 | Scheduled / rescheduled | players (with Acknowledge), approved crew and watchers (info; watchers get Unwatch), tournament subscribers (with crew-signup buttons) |
 | Players changed, time unchanged | players only — a fresh Acknowledge request |
 | Race room opened (players) | Join the race room | the racetime.gg room itself — off-site, like the seed link, because that is where the race is. Safe to link only because the room's slug is the one racetime returned from `startrace` |
-| Harder preset offered | players, when the tournament has a `hard_preset` and the seed is not yet rolled |
 | Checked in / confirmed | players, approved crew and watchers — one DM each via `notify_match_participants`. The check-in DM lists every assigned seat, and a seated player's copy leads with **Your seat** (`player_copies`) |
 | Started / finished | approved crew and watchers only, sent **silent** (no ping or phone buzz, Discord's `@silent`): the players are at the station and already know |
 | Cancelled | players, approved crew and watchers, resolved before the row is deleted |
@@ -79,9 +78,7 @@ tenant costs the button, not the DM.
 | Matcherino refused the check-in login (to the one person picked on the card) | Update the Matcherino login | `/admin/check-in` — the Matcherino login card is its first control |
 | Checked in at the desk (to the person checked in) | See the schedule | `/home/schedule` — the DM asks nothing; its job is proving the bot can reach them before their first match call |
 | Stage assigned / cleared / reminder | View your match · View your crew slot · View the schedule | per audience: players `/home/player?match=<id>`, crew `/home/my-crew?match=<id>`, watchers `/home/schedule` |
-| Harder preset offered | Play the harder preset (or Back out) · Choose your settings | the action button *is* the control; the link is `/home/player?hard=<match id>`, the opt-in open |
-| Harder preset agreed / broken | View your match | `/home/player?match=<id>` |
-| Match preset set by staff / handed back | View your match · Choose your settings | the first when staff forced a preset, the second (`?hard=`) when the choice is the players' again |
+| Match preset set by staff / handed back | View your match · Answer the questions | the first when staff forced a preset, the second (the match's questions, `/home?form=<id>`) when the seed rules and the players' answers decide again |
 | Tournament signup confirmed | View tournaments | `/home/tournaments` |
 | Join approved (to requester) | Find a tournament | `/home/tournaments` — a new member's next step is entering something, not the match board |
 | Qualifier reviewed / expiring / expired / reattempt | Submit or forfeit · View the leaderboard · Start your next run | `/qualifiers/<id>` |

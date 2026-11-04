@@ -176,16 +176,6 @@ def player_agree_url(request_id: int) -> str:
     return home_url(HOME_PLAYER, agree=request_id)
 
 
-def player_hard_preset_url(match_id: int) -> str:
-    """The Player tab with this match's hard-preset opt-in dialog open.
-
-    The opt-in DM's button. It lands on the choice itself rather than the board,
-    because the board's toggle is one small cell among nine columns and the DM's
-    whole content is a question about it.
-    """
-    return home_url(HOME_PLAYER, hard=match_id)
-
-
 def player_reschedule_url(match_id: int) -> str:
     """The Player tab with the reschedule-request dialog for one match open.
 

@@ -139,10 +139,11 @@ Edit those on SpeedGaming.
 
 ### Seed settings
 
-When a tournament offers a second, harder preset, the dialog shows Seed settings
-until the seed is rolled. Leave it on **Let the players decide** and the harder
-preset is only used when every player opts in. Pick **Force** either way to make
-the call yourself. Both players get a DM whichever you pick.
+The dialog shows Seed settings until the seed is rolled. Leave it on **Let the
+players' answers and the seed rules decide** and the match rolls whatever its
+seed rules pick, Hard mode included. Pick **Force** and a preset to make the call
+yourself; any preset for the tournament's randomizer is on the list. Both players
+get a DM either way, and their answers stay put if you hand it back.
 
 ### Rewinding a match
 

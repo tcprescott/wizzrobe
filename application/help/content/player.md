@@ -43,8 +43,7 @@ The Your matches panel lists things in the order you need to deal with them:
 Your matches are laid out like the schedule board, one line each, grouped into
 *Live now* and *Up next*. **Acknowledge** sits under the status, and the bell
 watches the match. Everything else is in the match's **⋮** menu: **Ask to
-change**, **Harder settings** if the tournament offers them, and **Offer for
-stream**. Tap the match's name to see its details: your seed once it's rolled,
+change** and **Offer for stream**. Tap the match's name to see its details: your seed once it's rolled,
 your station, and who's on crew.
 
 A link from a Discord DM can narrow the list to one match. The chip at the top
@@ -164,21 +163,6 @@ randomizer. The DM shows it in a box you can long-press to copy, and the match's
 details have a **Copy** button next to it. A Wind Waker permalink only works in
 the build the DM names, so make sure you've got that one before you paste.
 
-### Harder settings
-
-:::snippet harder-settings
-Some tournaments offer a harder preset alongside the standard one. **Harder
-settings** in a match's **⋮** menu lets you opt in for one match, and the match
-only plays harder if every player opts in.
-
-Your answer is private. Nobody finds out you opted in unless everyone did, and
-nobody's told if you say no. Once everyone's in, the menu item reads *Playing*
-and the preset's name.
-
-You can change your mind until the seed is rolled. After that, or if staff have
-picked the match's settings themselves, there's nothing left to choose.
-:::
-
 ### Before your match
 
 Some tournaments ask you a question or two before a match, such as whether you
@@ -187,7 +171,8 @@ your match* message with an **Answer the questions** button, and the questions
 sit under your next match on Home.
 
 Each question says whether your opponent sees your answer: right away, once the
-seed rolls, or never. You can change your answers until the seed is rolled. A
+seed rolls, or never. Hard mode is usually a *never* question: the match only
+plays it if every player says Yes, and nobody finds out how you answered. You can change your answers until the seed is rolled. A
 question you leave blank doesn't count, so the tournament rolls what it would
 have rolled anyway.
 

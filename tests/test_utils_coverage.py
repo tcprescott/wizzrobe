@@ -752,17 +752,17 @@ class TestQrCodeUtil:
 
 class TestHardPresetOverrideCopy:
     def test_names_the_preset_staff_chose(self):
-        from application.utils.discord_messages import hard_preset_override_dm
+        from application.utils.discord_messages import preset_override_dm
 
-        text = hard_preset_override_dm('T', 'Hard Mode', forced=True)
+        text = preset_override_dm('T', 'Hard Mode', forced=True)
         assert '**Hard Mode**' in text
 
     def test_a_tournament_with_no_preset_is_not_told_it_plays_nothing(self):
         """resolve_preset returns None when no standard preset is configured,
         and "set your match to ****" is worse than not naming it."""
-        from application.utils.discord_messages import hard_preset_override_dm
+        from application.utils.discord_messages import preset_override_dm
 
-        text = hard_preset_override_dm('T', '', forced=True)
+        text = preset_override_dm('T', '', forced=True)
         assert '****' not in text
         assert 'Staff chose the settings' in text
 

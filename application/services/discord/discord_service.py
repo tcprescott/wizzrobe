@@ -572,27 +572,6 @@ class DiscordService(GuildOpsMixin, ScheduledEventsMixin, ChannelPostMixin):
             embed=embed, link=link, notice=notice,
         )
 
-    async def send_dm_with_hard_preset_buttons(
-        self,
-        user_id: int,
-        message: str,
-        match_id: int,
-        opted_in: bool,
-        embed: Optional[discord.Embed] = None,
-        link: Optional[DMLink] = None,
-        notice: Optional[NoticeTarget] = None,
-    ) -> Tuple[bool, str]:
-        """Send a DM with the harder-settings opt-in (or back-out) button.
-
-        ``opted_in`` picks which single button the DM carries, so the message
-        never shows a state the reader is not already in.
-        """
-        return await self.send_dm(
-            user_id, message,
-            dm_outbox.ViewSpec(VIEW_HARD_PRESET, match_id, opted_in),
-            embed=embed, link=link, notice=notice,
-        )
-
     async def send_dm_with_crew_acknowledgment_button(
         self,
         user_id: int,
@@ -750,9 +729,6 @@ class MockDiscordService(MockGuildOpsMixin, MockScheduledEventsMixin, MockChanne
         return await self.send_dm(user_id, message, embed=embed, link=link, notice=notice)
 
     async def send_dm_with_reschedule_agree_button(self, user_id: int, message: str, request_id: int, embed: Optional["discord.Embed"] = None, link: Optional[DMLink] = None, notice: Optional[NoticeTarget] = None) -> Tuple[bool, str]:
-        return await self.send_dm(user_id, message, embed=embed, link=link, notice=notice)
-
-    async def send_dm_with_hard_preset_buttons(self, user_id: int, message: str, match_id: int, opted_in: bool, embed: Optional["discord.Embed"] = None, link: Optional[DMLink] = None, notice: Optional[NoticeTarget] = None) -> Tuple[bool, str]:
         return await self.send_dm(user_id, message, embed=embed, link=link, notice=notice)
 
     async def send_dm_with_crew_acknowledgment_button(self, user_id: int, message: str, crew_type: str, crew_id: int, embed: Optional["discord.Embed"] = None, link: Optional[DMLink] = None, notice: Optional[NoticeTarget] = None) -> Tuple[bool, str]:

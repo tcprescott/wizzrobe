@@ -6,7 +6,6 @@ from nicegui import app, background_tasks, context, ui
 from application.services import (
     AccommodationService,
     MatchDisplayService,
-    MatchHardPresetService,
     MatchRescheduleService,
     MatchService,
     MatchStreamVolunteerService,
@@ -20,9 +19,6 @@ from theme.empty_state import no_data_slot
 from theme.realtime import register_view
 from theme.tables.admin_crud import capture_render_context, scoped_background
 from theme.tables.export import csv_export_button
-from theme.tables.hard_preset_rows import (
-    apply_hard_preset_state,
-)
 from theme.tables.match_access import MatchBoardAccess
 from theme.tables.match_filters import (
     ALL_DAYS,
@@ -160,7 +156,6 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
         self.stream_volunteer_service = MatchStreamVolunteerService()
         self.player_late_service = PlayerLateService()
         self.seed_ready_service = SeedReadyService()
-        self.hard_preset_service = MatchHardPresetService()
         self.reschedule_service = MatchRescheduleService()
         self.accommodation_service = AccommodationService()
         self._setup_ui()
@@ -329,7 +324,6 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
             # Direct, not _bg: the dialog renders into this client's slot context.
             self.table.on('request_reschedule', self._handle_request_reschedule)
             # Direct, not _bg: same reason.
-            self.table.on('open_hard_preset', self._handle_open_hard_preset)
             self.table.on('running_late', self._handle_running_late)
             self.table.on('take_back_late', self._handle_take_back_late)
             self.table.on('seed_ready', self._handle_seed_ready)
@@ -458,7 +452,6 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
         watched_ids = await self._fetch_watched_ids()
         volunteered_ids = await self._fetch_stream_volunteered_ids()
         requestable_ids, asked_ids = await self._fetch_reschedule_state()
-        hard_preset_states = await self._fetch_hard_preset_states(rows)
         await self._apply_accommodations(rows)
         await self._apply_comment_counts(rows)
         self._apply_late_visibility(rows)
@@ -466,7 +459,6 @@ class MatchTableView(MatchFiltersMixin, MatchTableHandlersMixin, MatchBoardHoldM
         for row in rows:
             row['_watching'] = row.get('id') in watched_ids
             row['_stream_volunteer'] = row.get('id') in volunteered_ids
-            apply_hard_preset_state(row, hard_preset_states.get(row.get('id')))
             row['_can_reschedule'] = row.get('id') in requestable_ids
             row['_reschedule_pending'] = row.get('id') in asked_ids
             if stage_options is not None:

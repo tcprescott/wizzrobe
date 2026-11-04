@@ -414,7 +414,7 @@ _BELL = r'''<q-btn v-if="!props.row.crew_hold" :icon="props.row._watching ? 'not
 _ASK = "props.row._can_reschedule && props.row.state === 'Scheduled'"
 
 _HAS_MENU = ("props.row._mine && ((" + _ASK + ") || props.row._reschedule_pending"
-             " || props.row._hard_offered || (" + STREAM_VOLUNTEER_ACTIONABLE + "))")
+             " || (" + STREAM_VOLUNTEER_ACTIONABLE + "))")
 
 _MENU = r'''<q-btn flat round dense icon="more_vert" color="grey-8"
        :aria-label="'More for ' + (__TITLE__)" @click.stop>
@@ -431,29 +431,6 @@ _MENU = r'''<q-btn flat round dense icon="more_vert" color="grey-8"
                 <q-item-section><q-item-label>Change requested</q-item-label>
                     <q-item-label caption>Waiting on staff</q-item-label></q-item-section>
             </q-item>
-            <template v-if="props.row._hard_offered">
-                <q-item v-if="props.row._hard_override" disable>
-                    <q-item-section avatar><q-icon name="gavel" /></q-item-section>
-                    <q-item-section><q-item-label>{{ props.row._hard_override_name }}</q-item-label>
-                        <q-item-label caption>Staff set these settings</q-item-label></q-item-section>
-                </q-item>
-                <q-item v-else-if="props.row._hard_agreed && props.row._hard_locked" disable>
-                    <q-item-section avatar><q-icon name="bolt" /></q-item-section>
-                    <q-item-section><q-item-label>Playing {{ props.row._hard_name }}</q-item-label>
-                        <q-item-label caption>This match rolled it</q-item-label></q-item-section>
-                </q-item>
-                <q-item v-else-if="!props.row._hard_locked" clickable
-                        @click.stop="$parent.$emit('open_hard_preset', props.row)">
-                    <q-item-section avatar><q-icon name="bolt" /></q-item-section>
-                    <q-item-section>
-                        <q-item-label>{{ props.row._hard_agreed ? 'Playing ' + props.row._hard_name
-                            : (props.row._hard_opted_in ? 'Opted in, waiting' : 'Harder settings') }}</q-item-label>
-                        <q-item-label caption>{{ props.row._hard_opted_in && !props.row._hard_agreed
-                            ? 'Nobody is told unless everyone opts in'
-                            : 'Play on ' + props.row._hard_name + ' if everyone agrees' }}</q-item-label>
-                    </q-item-section>
-                </q-item>
-            </template>
             <q-item v-if="__STREAM__" clickable @click.stop="$parent.$emit('toggle_stream_volunteer', props.row)">
                 <q-item-section avatar><q-icon :name="props.row._stream_volunteer ? 'videocam_off' : 'videocam'" /></q-item-section>
                 <q-item-section>

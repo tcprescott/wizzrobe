@@ -11,7 +11,7 @@ from nicegui import app, background_tasks, context, ui
 from application.services import (
     BracketService,
     CrewService,
-    MatchHardPresetService,
+    MatchPresetOverrideService,
     MatchService,
     MatchStreamVolunteerService,
     MatchWatcherService,
@@ -32,7 +32,7 @@ from application.utils.timezone import (
     now_local,
     parse_local_datetime,
 )
-from models import Match, PresetOverride
+from models import Match
 from theme.dialog._helpers import (
     dialog_actions,
     dialog_header,
@@ -619,51 +619,34 @@ class BaseMatchDialog:
         raise NotImplementedError("Subclasses must implement open()")
 
     async def _render_preset_override(self):
-        """Staff choosing this match's preset themselves, in either direction.
+        """Staff forcing this match's preset over every seed rule, or leaving it to them.
 
-        Rendered only where the tournament actually offers a second preset and
-        the seed has not rolled — anywhere else there is nothing to choose
-        between, and a select with one real option is furniture. Both of those
-        facts come from ``MatchHardPresetService.my_state`` rather than being
-        re-derived here, so this dialog and the service that refuses the write
-        cannot drift on when the control is live.
-
-        It shows what will be rolled, never who asked for it. Staff read the
-        players' opt-ins nowhere in this dialog: whose choice it was is not
-        staff's business until it is unanimous, and by then it is simply what
-        the match is playing.
+        Hidden once the seed is rolled (the settings are decided) and when the
+        community has no preset for the tournament's randomizer. The options and
+        the lock come from ``MatchPresetOverrideService.state``, so this dialog
+        and the service that refuses the write can't drift.
         """
         if not self.match:
             return None
-        actor = await get_user_from_session(app.storage.user)
-        await self.match.fetch_related(
-            'tournament', 'tournament__preset', 'tournament__hard_preset', 'players',
-        )
-        state = await MatchHardPresetService().my_state(self.match, actor)
-        if not state.offered:
-            return None
-
-        standard_name = state.standard_preset_name or 'the standard preset'
+        await self.match.fetch_related('tournament')
+        state = await MatchPresetOverrideService().state(self.match)
         if state.locked:
             ui.label(
                 "The seed is rolled, so this match's settings are already decided."
             ).classes('text-caption text-grey-6')
             return None
+        if not state.choices:
+            return None
 
-        options = {
-            '': f'Let the players decide (they get {standard_name} unless all opt in)',
-            PresetOverride.HARD.value: f'Force {state.preset_name}',
-            PresetOverride.STANDARD.value: f'Force {standard_name}',
-        }
-        current = state.override
-        select = ui.select(
+        options = {0: "Let the players' answers and the seed rules decide"}
+        options.update({pid: f'Force {name}' for pid, name in state.choices})
+        return ui.select(
             options,
             label='Seed settings',
-            value=current.value if current is not None else '',
+            value=state.forced_preset_id or 0,
         ).classes('input-full-width').props(
-            'hint="Overrides the players\' own choice. They are DMed either way."'
+            'hint="Overrides the players\' answers and every seed rule. They are DMed either way."'
         )
-        return select
 
     async def _save_preset_override(self, select) -> None:
         """Apply the override picker, if the dialog rendered one.
@@ -680,10 +663,9 @@ class BaseMatchDialog:
         if select is None or not self.match:
             return
         chosen = select.value or None
-        override = PresetOverride(chosen) if chosen else None
-        if override == self.match.preset_override:
+        if chosen == self.match.forced_preset_id:  # type: ignore[attr-defined]
             return
         actor = await get_user_from_session(app.storage.user)
         if actor is None:
             raise ValueError("We couldn't find your account. Try logging in again.")
-        await MatchHardPresetService().set_override(self.match.id, override, actor)
+        await MatchPresetOverrideService().set_override(self.match.id, chosen, actor)

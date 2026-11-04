@@ -26,8 +26,7 @@ def test_every_viewer_only_field_is_carried():
 
 
 def test_fields_other_people_change_are_not_carried():
-    old = {'id': 7, '_can_reschedule': False, '_reschedule_pending': True,
-           '_hard_offered': True, '_hard_override': 'hard'}
+    old = {'id': 7, '_can_reschedule': False, '_reschedule_pending': True}
     fresh = {'id': 7}
     carry_viewer_row_state(fresh, old)
     assert fresh == {'id': 7}
@@ -64,12 +63,8 @@ async def test_staff_approving_a_move_brings_ask_to_change_back():
     async def reschedule_state():
         return {7}, set()
 
-    async def hard_states(rows):
-        return {}
-
     view.display_service = type('D', (), {'get_match_for_display': staticmethod(fetch_match)})()
     view._fetch_reschedule_state = reschedule_state
-    view._fetch_hard_preset_states = hard_states
 
     await view.update_row_by_id(7)
 
@@ -78,7 +73,6 @@ async def test_staff_approving_a_move_brings_ask_to_change_back():
     assert row['_can_reschedule'] is True
     assert row['_reschedule_pending'] is False
     assert row['_watching'] is True
-    assert row['_hard_offered'] is False
 
 
 def test_fresh_values_win_and_the_flash_is_not_replayed():

@@ -408,7 +408,6 @@ class TestNotifyMatchScheduledFanOut:
         assert enqueued == {
             "MatchNotificationMixin.notify_acknowledgment_request",
             "MatchNotificationMixin.notify_match_crew",
-            "MatchHardPresetService.send_offer",
             "notify_match_form",
             "MatchNotificationMixin.notify_tournament_subscribers_scheduled",
         }
@@ -432,7 +431,6 @@ class TestNotifyMatchScheduledFanOut:
         assert enqueued == {
             "MatchNotificationMixin.notify_acknowledgment_request",
             "MatchNotificationMixin.notify_match_crew",
-            "MatchHardPresetService.send_offer",
             "notify_match_form",
             "MatchNotificationMixin.notify_tournament_subscribers_scheduled",
             "MatchNotificationMixin.notify_stream_candidate_subscribers",

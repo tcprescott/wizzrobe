@@ -334,23 +334,6 @@ class TournamentDialog:
                             'or import a randomizer\'s published presets there.'
                         ).classes('text-caption text-grey')
 
-                    # Same 0 sentinel.
-                    hard_preset_options = {0: '— None (no harder option) —'}
-                    hard_preset_options.update(
-                        {p.id: f'{p.randomizer} / {p.name}' for p in presets}
-                    )
-                    default_hard = (
-                        self.tournament.hard_preset_id
-                        if self.tournament and self.tournament.hard_preset_id else 0
-                    )
-                    hard_preset_input = ui.select(
-                        hard_preset_options, label='Harder Preset (opt-in)',
-                        value=default_hard,
-                    ).classes('input-full-width').props(
-                        'hint="Players can privately opt into this instead. A match only '
-                        'rolls it when every player opted in, and nobody is told who did '
-                        'unless all of them did."'
-                    )
                     legacy_generator = (
                         self.tournament.seed_generator
                         if self.tournament and self.tournament.seed_generator
@@ -587,7 +570,6 @@ class TournamentDialog:
                                 allow_player_match_requests=allow_requests_checkbox.value,
                                 players_release_seed=players_release_seed_checkbox.value,
                                 preset_id=(preset_input.value or None),
-                                hard_preset_id=(hard_preset_input.value or None),
                                 actor=actor,
                                 **days_kwargs,
                                 **signup_kwargs,
@@ -621,7 +603,6 @@ class TournamentDialog:
                             allow_player_match_requests=allow_requests_checkbox.value,
                             players_release_seed=players_release_seed_checkbox.value,
                             preset_id=(preset_input.value or None),
-                            hard_preset_id=(hard_preset_input.value or None),
                             actor=actor,
                             **days_kwargs,
                             **signup_kwargs,

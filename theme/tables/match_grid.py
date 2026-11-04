@@ -24,7 +24,6 @@ light/dark parity is automatic — no inline colors here. The template is
 assembled from plain (non-f) string fragments; the server-side values are
 substituted via ``__IA__`` / ``__RUN__`` / ``__CONFIRM__`` / ``__CREW__`` /
 ``__STREAM__`` / ``__DID__`` / ``__WATCH__`` / ``__VOL__`` / ``__VOLACT__`` /
-``__HARD__`` /
 ``__ACTCLS__`` placeholders (the same technique ``match_slots.py`` uses), which
 keeps every literal Vue ``{{ }}`` unescaped and the braces valid.
 
@@ -41,7 +40,6 @@ depend on — do not change):
     assign_stations                -> { row: props.row }
     toggle_watch                   -> props.row
     toggle_stream_volunteer        -> props.row
-    open_hard_preset               -> props.row
 """
 
 from theme.busy import slot_busy_template
@@ -234,7 +232,7 @@ _ACTIONS_PRESENT = (
     "((__RUN__ || __CONFIRM__) && ['Scheduled', 'Checked In', 'Started', 'Finished'].includes(props.row.state))"
     " || (__IA__ && props.row.state === 'Finished')"
     " || (__RUN__ && !props.row.is_racetime && props.row.players && props.row.players.length)"
-    " || __WATCH__ || __VOL__ || (__HARD__ && props.row._hard_offered)"
+    " || __WATCH__ || __VOL__"
 )
 
 _ACTIONS = '''
@@ -271,22 +269,6 @@ _ACTIONS = '''
                    size="md" flat dense no-caps
                    :label="props.row._stream_volunteer ? 'Offered for stream' : 'Offer for stream'"
                    @click="$parent.$emit('toggle_stream_volunteer', props.row)" />
-            <q-btn v-if="__HARD__ && props.row._hard_offered && !props.row._hard_locked && !props.row._hard_override
-                         && props.row.players && props.row.players.some(p => p.discord_id == __DID__)"
-                   icon="bolt"
-                   :color="props.row._hard_opted_in ? 'primary' : 'grey'"
-                   size="md" flat dense no-caps
-                   :label="props.row._hard_agreed ? 'Playing ' + props.row._hard_name
-                           : (props.row._hard_opted_in ? 'Opted in — waiting' : 'Harder settings')"
-                   @click="$parent.$emit('open_hard_preset', props.row)" />
-            <span v-else-if="__HARD__ && props.row._hard_offered && props.row._hard_override
-                             && props.row.players && props.row.players.some(p => p.discord_id == __DID__)"
-                  class="wiz-chip wiz-chip--candidate">
-                <q-icon name="gavel" size="14px" />{{ props.row._hard_override_name }}</span>
-            <span v-else-if="__HARD__ && props.row._hard_offered && props.row._hard_agreed && props.row._hard_locked
-                             && props.row.players && props.row.players.some(p => p.discord_id == __DID__)"
-                  class="wiz-chip wiz-chip--confirmed">
-                <q-icon name="bolt" size="14px" />{{ props.row._hard_name }}</span>
             <q-btn v-if="__VOL__ && props.row._can_reschedule && props.row.state === 'Scheduled'
                          && props.row.players && props.row.players.some(p => p.discord_id == __DID__)"
                    icon="edit_calendar" color="grey" size="md" flat dense no-caps
@@ -328,7 +310,6 @@ def render_grid_slot(table, columns, *, admin_controls: bool, access: MatchBoard
     mine = MY_ACTIONS_COLUMN in present
     watch_js = 'true' if 'watch' in present or mine else 'false'
     volunteer_js = 'true' if 'stream_volunteer' in present or mine else 'false'
-    hard_js = 'true' if 'hard_preset' in present or mine else 'false'
 
     headline = (
         '\n        <div class="mgc-headline">'
@@ -397,7 +378,7 @@ def render_grid_slot(table, columns, *, admin_controls: bool, access: MatchBoard
 
     actions = (_ACTIONS.replace('__PRESENT__', _ACTIONS_PRESENT)
                if (admin_controls or mine or 'watch' in present
-                   or 'stream_volunteer' in present or 'hard_preset' in present)
+                   or 'stream_volunteer' in present)
                else '')
     act_cls = ('mgc-actions mgc-actions--first row items-center' if actions_first
                else 'mgc-actions row items-center')
@@ -420,7 +401,6 @@ def render_grid_slot(table, columns, *, admin_controls: bool, access: MatchBoard
         .replace('__STAGEVAL__', STAGE_VALUE_JS)
         .replace('__WATCH__', watch_js)
         .replace('__VOL__', volunteer_js)
-        .replace('__HARD__', hard_js)
         .replace('__VOLACT__', STREAM_VOLUNTEER_ACTIONABLE)
         .replace('__DID__', did)
         .replace('__ACTCLS__', act_cls)

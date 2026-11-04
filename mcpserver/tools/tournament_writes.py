@@ -43,7 +43,6 @@ from models import FeatureFlag, Tournament, User
 
 ClearableField = Literal[
     'preset_id',
-    'hard_preset_id',
     'racetime_bot_id',
     'race_room_profile_id',
     'racetime_default_goal',
@@ -81,7 +80,6 @@ async def create_tournament(
     triforce_access_message: Optional[str] = None,
     seed_generator: Optional[str] = None,
     preset_id: Optional[int] = None,
-    hard_preset_id: Optional[int] = None,
     average_match_duration: Optional[int] = None,
     max_match_duration: Optional[int] = None,
     players_per_match: int = 2,
@@ -140,7 +138,6 @@ async def update_tournament(
     triforce_access_message: Optional[str] = None,
     seed_generator: Optional[str] = None,
     preset_id: Optional[int] = None,
-    hard_preset_id: Optional[int] = None,
     average_match_duration: Optional[int] = None,
     max_match_duration: Optional[int] = None,
     players_per_match: Optional[int] = None,

@@ -48,7 +48,7 @@ not a reason to skip the audit.
 
 | Area | Namespaces |
 |---|---|
-| Scheduling | `match.*` (lifecycle, requests, seeds, stages, stations, stream candidates, review flags, watchers, stream volunteers, hard-preset opt-ins and overrides, reschedule requests), `crew.*`, `tournament.*` (including admin/crew-coordinator grants, prize pool and payouts), `stage.*`, `station.*` |
+| Scheduling | `match.*` (lifecycle, requests, seeds, stages, stations, stream candidates, review flags, watchers, stream volunteers, preset overrides, match form answers, reschedule requests), `crew.*`, `tournament.*` (including admin/crew-coordinator grants, prize pool and payouts), `stage.*`, `station.*` |
 | People | `user.*` (creation, login provisioning, role grants, profile, activation, enrollment, timezone), `role.*` (Discord-sourced grants), `discord_role.*`, `player.availability_updated` |
 | Volunteers & equipment | `volunteer.*` (positions, shifts, assignments, draft scheduling), `equipment.*` (lending, check-out/in) |
 | Online play | `bracket.*`, `challonge.*`, `race_room.*`, `race_room_profile.*`, `racetime.*`, `racetime_bot.*`, `sg_sync.*`, `async_qualifier.*`, `preset.*`, `randomizer_credential.*` |

@@ -122,8 +122,6 @@ erDiagram
     Match ||--o{ MatchComment : "match"
     User |o--o{ MatchComment : "author"
     User ||--o{ MatchStreamVolunteer : "user"
-    Match ||--o{ MatchHardPresetOptIn : "match"
-    User ||--o{ MatchHardPresetOptIn : "user"
     Match ||--o{ MatchRescheduleRequest : "match"
     User ||--o{ MatchRescheduleRequest : "requested_by"
 
@@ -289,10 +287,6 @@ Used by `TournamentNotificationPreference.match_notifications` (`max_length=30`,
 ### `VolunteerAvailabilityStatus`
 
 Used by both `VolunteerAvailability.status` and `PlayerAvailability.status` (`max_length=20`, default `AVAILABLE`). Drives the availability picker and the effective-availability overlap calculations in the volunteer/player availability services: `AVAILABLE` = `'available'`, `UNAVAILABLE` = `'unavailable'` (explicitly blocked out), `PREFERRED` = `'preferred'` (available and would prefer to be scheduled then). The same three values mean different things per subsystem: volunteer availability is opt-in, so an `AVAILABLE` row is the declaration that carries a volunteer's whole availability, while player availability is opt-out, so an `AVAILABLE` row restates the default and the player editor never writes one.
-
-### `PresetOverride`
-
-`HARD` | `STANDARD`, on `Match.preset_override`. Staff's answer to "which preset does this match roll", which beats the players' own. `NULL` — the normal case — means the players decide. A two-value enum rather than an FK to any preset: it answers the same question the opt-in answers, so it has the same two answers, and it can never name a preset from a different randomizer than the tournament's.
 
 ### `RescheduleRequestKind` / `RescheduleRequestStatus`
 
@@ -711,7 +705,7 @@ Discord-authenticated account. Created/updated during OAuth login; access contro
 
 The Challonge identity is **identity only** — the player's Challonge access token is never retained (writes use the shared service-account `ChallongeConnection`). The Twitch and racetime.gg identities are likewise **identity only** — the user's access token is used once during linking and discarded. There is no `access_token` field; the Discord OAuth token is not persisted on `User`.
 
-Relationships: declared reverse/M2M accessors for `admin_tournaments` and `crew_coordinated_tournaments` (M2M from `Tournament`), `match_players`, `match_acknowledgments`, `tournament_players`, `tournament_notifications`, `commentaries`, `approved_commentaries`, `trackers`, `approved_trackers`, `broadcasts`, `approved_broadcasts`, `watched_matches`, `roles`, `granted_roles`, `audit_logs`, `triforce_texts`, `triforce_texts_moderated`, `api_tokens`, `feedback_submissions`, `owned_equipment`, `equipment_loans`, `equipment_checkouts_performed`, `equipment_checkins_performed`, `volunteer_profiles` (one per tenant), `volunteer_assignments`, `volunteer_assignments_made`, `volunteer_qualifications`, `volunteer_availability`, `challonge_participations`, `web_push_subscriptions`, `tenant_memberships`. Accessors that exist only implicitly via the children's `related_name` (no class-level annotation): `player_availability`, `challonge_connections`, `telemetry_events`, `volunteer_check_ins`, `bracket_entrants`, `mcp_authorization_codes`, `admin_async_qualifiers` (M2M), `async_qualifier_runs`, `reviewed_async_qualifier_runs`, `claimed_async_qualifier_runs`, `granted_async_qualifier_reattempts`, `authored_async_qualifier_review_notes`, `join_requests`, `join_requests_decided`, `discord_tournament_grants`, `table_preferences`, `stream_volunteered_matches`, `match_comments`, `hard_preset_opt_ins`, `reschedule_requests`, `decided_reschedule_requests`, `payouts`, `rolled_seeds`, `provider_tasks`, `room_tokens_created`, `check_in_entries`, `check_in_links_made`, `check_ins_performed`.
+Relationships: declared reverse/M2M accessors for `admin_tournaments` and `crew_coordinated_tournaments` (M2M from `Tournament`), `match_players`, `match_acknowledgments`, `tournament_players`, `tournament_notifications`, `commentaries`, `approved_commentaries`, `trackers`, `approved_trackers`, `broadcasts`, `approved_broadcasts`, `watched_matches`, `roles`, `granted_roles`, `audit_logs`, `triforce_texts`, `triforce_texts_moderated`, `api_tokens`, `feedback_submissions`, `owned_equipment`, `equipment_loans`, `equipment_checkouts_performed`, `equipment_checkins_performed`, `volunteer_profiles` (one per tenant), `volunteer_assignments`, `volunteer_assignments_made`, `volunteer_qualifications`, `volunteer_availability`, `challonge_participations`, `web_push_subscriptions`, `tenant_memberships`. Accessors that exist only implicitly via the children's `related_name` (no class-level annotation): `player_availability`, `challonge_connections`, `telemetry_events`, `volunteer_check_ins`, `bracket_entrants`, `mcp_authorization_codes`, `admin_async_qualifiers` (M2M), `async_qualifier_runs`, `reviewed_async_qualifier_runs`, `claimed_async_qualifier_runs`, `granted_async_qualifier_reattempts`, `authored_async_qualifier_review_notes`, `join_requests`, `join_requests_decided`, `discord_tournament_grants`, `table_preferences`, `stream_volunteered_matches`, `match_comments`, `reschedule_requests`, `decided_reschedule_requests`, `payouts`, `rolled_seeds`, `provider_tasks`, `room_tokens_created`, `check_in_entries`, `check_in_links_made`, `check_ins_performed`.
 
 Properties: `preferred_name` returns `display_name` if it is truthy, otherwise `username`.
 
@@ -999,7 +993,6 @@ Tournament metadata and configuration; the root aggregate for matches, enrollmen
 | `startgg_report_results` | `BooleanField` | default `False` | Opt-in writeback of confirmed results to start.gg (migration 108) |
 | `config` | `JSONField` | null | Hybrid-config JSON half (messaging templates, scoring params, strategy choices). Written only through `TournamentService`, which validates it with `validate_tournament_config` (unknown keys raise `ValueError`); typed knobs stay their own columns. A `round_schedule` key holds each Challonge/start.gg stage's booking window (`RoundScheduleService`). See [online-tournaments.md](../features/online-tournaments.md) |
 | `preset` | FK → `Preset` | null, `SET_NULL` | Seed-rolling preset; resolves the randomizer + settings for seed generation and overrides `seed_generator` when set. `related_name='tournaments'` |
-| `hard_preset` | FK → `Preset` | null, `SET_NULL` | The opt-in "harder" preset players can privately agree to instead. Must share `preset`'s randomizer and requires `preset` to be set (both enforced in `TournamentService`). Null = this tournament does not offer one, which is what keeps the whole opt-in surface invisible. `related_name='hard_tournaments'` |
 | `seed_rules` | `JSONField` | null | Ordered seed rules (`when` → one preset or a weighted roll, plus `tweaks`) checked by `seed_rules.clean_rules` on every save. Null = no rules, so the tournament rolls `preset`. See [seed rules](seed-generation.md#seed-rules) |
 | `racetime_bot` | FK → `RacetimeBot` | null, `SET_NULL` | Selected racetime bot/category; validated against the tenant's authorization grants (`RacetimeBotTenant`). `related_name='tournaments'` |
 | `race_room_profile` | FK → `RaceRoomProfile` | null, `SET_NULL` | Reusable room settings applied when a room is opened. `related_name='tournaments'` |
@@ -1109,10 +1102,10 @@ Core scheduling unit. Lifecycle is derived from nullable timestamps rather than 
 | `title` | `CharField(255)` | null | Shown in place of the players' names while a match has none: a staff placeholder holding a slot needs one (`new_match_text`) |
 | `description` | `TextField` | null | Staff markdown, rendered with `parse_user_blocks` on the run sheet (one line) and the match sheet (migration 126) |
 | `generated_seed` | FK → `GeneratedSeeds` | null, `SET_NULL` | `related_name='matches'` |
-| `preset_override` | `CharEnumField(PresetOverride)` | null | `max_length=16`. Staff overruling the players' hard-preset choice for this one match, in either direction. Null = the players decide. Refused once the seed is rolled, after which `generated_seed.preset` is the record |
+| `forced_preset` | FK → `Preset` | null, `SET_NULL` | Staff forcing this match's preset over every seed rule (any preset of the tournament's randomizer). Null = the seed rules and then the tournament's preset decide. Refused once the seed is rolled, after which `generated_seed.preset` is the record. `related_name='forced_matches'` (migration 170) |
 | `speedgaming_episode` | O2O → `SpeedGamingEpisode` | null, `SET_NULL` | The canonical **source marker**: non-null = materialized by the SpeedGaming ETL, which makes its ETL-owned fields (`scheduled_at`, players, `tournament`) read-only in Wizzrobe (guard in `MatchService.update_match`). `SET_NULL` soft-detaches the match if its episode is purged. `related_name='match'` |
 
-Relationships: declared reverse accessors `acknowledgments` and `challonge_match` (the linked Challonge bracket match, if scheduled from one); `players`, `commentators`, `trackers`, `broadcasters`, `watchers`, `stream_volunteers`, `comments`, `reschedule_requests`, `hard_preset_opt_ins`, `provider_tasks`, `racetime_room`, and `bracket_match_game` exist via the children's `related_name`s without class-level declarations.
+Relationships: declared reverse accessors `acknowledgments` and `challonge_match` (the linked Challonge bracket match, if scheduled from one); `players`, `commentators`, `trackers`, `broadcasters`, `watchers`, `stream_volunteers`, `comments`, `reschedule_requests`, `provider_tasks`, `racetime_room`, and `bracket_match_game` exist via the children's `related_name`s without class-level declarations.
 
 Properties: `is_seated`, `is_started`, `is_finished`, `is_confirmed` are each `<field> is not None`; `current_state` returns the first of `'Finished'` / `'In Progress'` / `'Checked In'` whose timestamp is set, else `'Scheduled'` (see [Match lifecycle](#match-lifecycle)).
 
@@ -1184,17 +1177,6 @@ A signed comment on a match. `kind` (`MatchCommentKind`: `player`, `staff_privat
 | `created_at` / `updated_at` | `DatetimeField` | auto | |
 
 Index on `match`.
-
-#### `MatchHardPresetOptIn`
-
-One player privately agreeing to play their match on `Tournament.hard_preset`. The match rolls the harder preset only when **every** current player holds a row; a lone opt-in is invisible to everyone but its owner and simply lapses when the seed rolls. Agreement is derived (opt-in set == player set) rather than stored, so a roster change re-answers it instead of leaving a stale yes behind. Nothing outside `MatchHardPresetService` may report who holds a row. See [match-participation.md](../features/match-participation.md#harder-settings-opt-in).
-
-| Field | Type | Null / default | Notes |
-|---|---|---|---|
-| `match` | FK → `Match` | not null, `CASCADE` | `related_name='hard_preset_opt_ins'` |
-| `user` | FK → `User` | not null, `CASCADE` | `related_name='hard_preset_opt_ins'` |
-
-The opt-in time is the row's `created_at`; there is no separate column. Constraint: `unique_together ('match', 'user')`. Table `matchhardpresetoptin`.
 
 #### `MatchFormQuestion`
 
@@ -2754,7 +2736,6 @@ Consult the source for full signatures.
 | `MatchRepository` | [`match_repository.py`](../../application/repositories/match_repository.py) | `Match`, `MatchPlayers` | `get_by_id`, `get_all` (filters by tournaments, stages, upcoming-only = `finished_at IS NULL`, the matches one user plays in, `exclude_racetime`, or explicit `match_ids`; ordered by `scheduled_at`), `create`, `update`, `delete`, `add_player`, `remove_player`, `get_players`; schedule/board reads `get_all_for_schedule`, `get_by_ids_with_players`, `get_by_ids_with_presets`, `scheduled_between`, `occupied_stations` (seated-and-unfinished station labels), player views `get_for_player`, `get_upcoming_for_user`, `commitments_for_user`; worker/sync scans `get_by_speedgaming_episode`, `list_sourced_stale`, `list_for_discord_sync`, `due_for_stage_reminder`. `get_by_id` and `get_all` prefetch `tournament`, `players(+user)`, `stage`, `generated_seed`, `commentators(+user)`, `trackers(+user)`, and the bracket seam (`bracket_match_game` → its bracket match, bracket, and sibling games) unless asked not to |
 | `MatchWatcherRepository` | [`match_watcher_repository.py`](../../application/repositories/match_watcher_repository.py) | `MatchWatcher` | `get_by_id`, `get_by_match`, `get_by_match_and_user`, `get_by_user`, `get_match_ids_for_user`, `is_watching`, `get_or_create` (idempotent watch), `delete`, `delete_by_match_and_user` |
 | `RescheduleRequestRepository` | [`reschedule_request_repository.py`](../../application/repositories/reschedule_request_repository.py) | `MatchRescheduleRequest` | `get_by_id` (prefetching), `list_pending` (the staff queue, oldest first), `list_for_match`, `list_for_user`, `get_pending_for`, `list_pending_for_match`, `pending_count`, `pending_match_ids`, `pending_match_ids_for_user`, `pending_by_match` (whole board in one query) |
-| `MatchHardPresetRepository` | [`match_hard_preset_repository.py`](../../application/repositories/match_hard_preset_repository.py) | `MatchHardPresetOptIn` | `has_opted_in`, `user_ids_for_match`, `user_ids_by_match` (whole board in one query), `opted_in_match_ids` (one viewer's own rows), `get_or_create`, `delete_by_match_and_user`, `delete_for_user_in_match` |
 | `MatchCommentRepository` | [`match_comment_repository.py`](../../application/repositories/match_comment_repository.py) | `MatchComment` | `list_for_match(match_id, kinds=None)` (author prefetched, oldest first), `counts_by_match(match_ids)` (`{match_id: {kind: n}}`, one query for a board) |
 | `MatchStreamVolunteerRepository` | [`match_stream_volunteer_repository.py`](../../application/repositories/match_stream_volunteer_repository.py) | `MatchStreamVolunteer` | `get_by_match`, `get_by_match_and_user`, `get_by_user`, `get_match_ids_for_user`, `is_volunteer`, `names_by_match` (whole board in one query), `get_or_create`, `delete_by_match_and_user` |
 | `StationRepository` | [`station_repository.py`](../../application/repositories/station_repository.py) | `Station` | `get_all`, `get_active`, `active_names` (the assignable labels; empty = no pool defined), plus the `TenantScopedRepository` CRUD quartet |

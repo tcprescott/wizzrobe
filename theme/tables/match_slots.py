@@ -126,40 +126,6 @@ STREAM_VOLUNTEER_SLOT = '''<q-td :props="props" :class="[props.row._flash ? 'wiz
     '__ACTIONABLE__', STREAM_VOLUNTEER_ACTIONABLE,
 )
 
-# Shows nothing about anyone else until everybody is in: any partial mark leaks the other player's answer.
-HARD_PRESET_SLOT = '''<q-td :props="props" :class="[props.row._flash ? 'wiz-row-flash' : '', props.row._removed ? 'wiz-row-removed' : '']" :inert="props.row._removed ? '' : null" :data-wiz-row="props.row.id">
-    <template v-if="props.row._hard_offered && props.row.players && props.row.players.some(p => p.discord_id == __DID__)">
-        <span v-if="props.row._hard_override" class="wiz-chip wiz-chip--candidate">
-            <q-icon name="gavel" size="12px" />
-            <span class="wiz-chip--name">{{ props.row._hard_override_name }}</span>
-            <q-tooltip>Staff set this match to {{ props.row._hard_override_name }}.</q-tooltip>
-        </span>
-        <span v-else-if="props.row._hard_agreed && props.row._hard_locked"
-              class="wiz-chip wiz-chip--confirmed">
-            <q-icon name="bolt" size="12px" />
-            <span class="wiz-chip--name">{{ props.row._hard_name }}</span>
-            <q-tooltip>This match rolled {{ props.row._hard_name }}.</q-tooltip>
-        </span>
-        <q-btn v-else-if="!props.row._hard_locked"
-               :icon="props.row._hard_agreed ? 'bolt' : (props.row._hard_opted_in ? 'hourglass_top' : 'bolt')"
-               :color="props.row._hard_opted_in ? 'primary' : 'grey'"
-               size="sm" flat round
-               @click="$parent.$emit('open_hard_preset', props.row)"
-               :aria-label="props.row._hard_opted_in ? 'Opted in to ' + props.row._hard_name : 'Opt in to ' + props.row._hard_name">
-            <q-tooltip v-if="props.row._hard_agreed">
-                Everyone opted in — this match plays {{ props.row._hard_name }}.
-            </q-tooltip>
-            <q-tooltip v-else-if="props.row._hard_opted_in">
-                You opted in to {{ props.row._hard_name }}. Nobody is told unless everyone does.
-            </q-tooltip>
-            <q-tooltip v-else>
-                Play this match on {{ props.row._hard_name }} instead, if everyone agrees.
-            </q-tooltip>
-        </q-btn>
-    </template>
-</q-td>'''
-
-
 RESCHEDULE_TOOLTIP = (
     "Ask staff to move this match or call it off. It's a request — nothing "
     "changes until they answer."
@@ -192,32 +158,6 @@ MY_ACTIONS_SLOT = """<q-td :props="props" :class="[props.row._flash ? 'wiz-row-f
                 <q-icon name="edit_calendar" size="12px" />Change requested
                 <q-tooltip>A reschedule request is waiting on staff.</q-tooltip>
             </span>
-            <template v-if="props.row._hard_offered">
-                <span v-if="props.row._hard_override" class="wiz-chip wiz-chip--candidate">
-                    <q-icon name="gavel" size="12px" />
-                    <span class="wiz-chip--name">{{ props.row._hard_override_name }}</span>
-                    <q-tooltip>Staff set this match to {{ props.row._hard_override_name }}.</q-tooltip>
-                </span>
-                <span v-else-if="props.row._hard_agreed && props.row._hard_locked"
-                      class="wiz-chip wiz-chip--confirmed">
-                    <q-icon name="bolt" size="12px" />
-                    <span class="wiz-chip--name">{{ props.row._hard_name }}</span>
-                    <q-tooltip>This match rolled {{ props.row._hard_name }}.</q-tooltip>
-                </span>
-                <q-btn v-else-if="!props.row._hard_locked"
-                       icon="bolt" :color="props.row._hard_opted_in ? 'primary' : 'grey-8'"
-                       dense flat no-caps no-wrap
-                       :label="props.row._hard_agreed ? 'Playing ' + props.row._hard_name
-                               : (props.row._hard_opted_in ? 'Opted in — waiting' : 'Harder settings')"
-                       @click="$parent.$emit('open_hard_preset', props.row)">
-                    <q-tooltip v-if="props.row._hard_opted_in && !props.row._hard_agreed">
-                        You opted in to {{ props.row._hard_name }}. Nobody is told unless everyone does.
-                    </q-tooltip>
-                    <q-tooltip v-else-if="!props.row._hard_agreed">
-                        Play this match on {{ props.row._hard_name }} instead, if everyone agrees.
-                    </q-tooltip>
-                </q-btn>
-            </template>
             <q-btn v-if="__ACTIONABLE__"
                    :icon="props.row._stream_volunteer ? 'videocam' : 'videocam_off'"
                    :color="props.row._stream_volunteer ? 'primary' : 'grey-8'"
@@ -689,9 +629,6 @@ def register_body_slots(table, *, admin_controls: bool, access: MatchBoardAccess
             '__DID__', discord_id_js,
         ))
         table.add_slot('body-cell-reschedule', RESCHEDULE_SLOT.replace(
-            '__DID__', discord_id_js,
-        ))
-        table.add_slot('body-cell-hard_preset', HARD_PRESET_SLOT.replace(
             '__DID__', discord_id_js,
         ))
         table.add_slot(f'body-cell-{MY_ACTIONS_COLUMN}', MY_ACTIONS_SLOT.replace(
