@@ -215,6 +215,8 @@ announcement (clears `announced_at` and posts again), lock the room now, cancel
 cancelled). **New group race** adds a match with no players to a group race
 tournament, or a live race to a qualifier pool. `GroupRaceBoardService` backs the
 screen, `GET /api/group-races` and the MCP `list_group_races` tool.
+Adding or cancelling a race writes the ordinary match or live race audit (no
+`group_race.*` actions), so webhook consumers see the events they already know.
 
 ### Qualifier live races as group races
 
