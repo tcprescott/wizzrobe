@@ -17,7 +17,10 @@ judgement there:
 * **Chat commands**: ``!seed`` shows it again, ``!forceroll`` (room monitors
   and the match's staff) posts it now, ``!ready`` (the match's broadcaster)
   releases a held seed, ``!fpa`` (a runner, mid-race) logs a fair play pause,
-  tells on-duty staff, and holds the result for them.
+  tells on-duty staff, and holds the result for them. ``!roll space/preset``
+  (or ``!roll preset`` from the room's community) rolls any library preset with
+  that community's keys, for a player who has linked their racetime account,
+  under the library's per-person limit.
 
 Everything here runs on an already-open room, so like the lifecycle methods it
 is not feature-gated: switching racetime rooms off stops new rooms opening and
@@ -32,13 +35,16 @@ import time
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional
 
+from application.errors import NotFoundError
 from application.event_context import event_scope
 from application.events import EventType
 from application.repositories import RacetimeRoomRepository
 from application.repositories._save import save_fields
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
+from application.services.preset_library_service import PresetLibraryService
 from application.services.user_service import UserService
+from application.tenant_context import tenant_scope
 from application.utils.clients import racetime_room_actions
 from application.utils.discord_messages import is_seed_link, seed_code_line
 from application.utils.duration import format_hms
@@ -239,6 +245,9 @@ class RaceRoomBotService:
             return
         command, _, rest = line.text.partition(' ')
         command = command.lower()
+        if command == '!roll':
+            await self._command_roll(room, event, rest)
+            return
         if command not in ('!seed', '!forceroll', '!ready', '!fpa'):
             return
         match = await self._match(room)
@@ -253,6 +262,35 @@ class RaceRoomBotService:
                 await self._command_ready(room, match, event)
             else:
                 await self._command_fpa(room, match, event, rest.strip())
+
+    async def _command_roll(self, room: RacetimeRoom, event: RaceRoomEvent, reference: str) -> None:
+        assert event.chat is not None
+        match = await self._match(room)
+        if match is not None and not match.tournament.racetime_bot_runs_room:
+            return
+        if not reference.strip():
+            await racetime_room_actions.say(room.slug, 'Type !roll and a preset, like !roll wizzrobe/open.')
+            return
+        user = await UserService().get_user_by_racetime_id(event.chat.user_id)
+        if user is None:
+            await racetime_room_actions.say(
+                room.slug, 'Link your racetime.gg account on Wizzrobe (Me › Profile) to roll presets here.',
+            )
+            return
+        tenant_id = room.tenant_id  # type: ignore[attr-defined]
+        event_id = match.event_id if match is not None else None
+        try:
+            with tenant_scope(tenant_id), event_scope(event_id, tenant_id):
+                rolled, roll = await PresetLibraryService().roll_reference(user, reference)
+        except (ValueError, NotFoundError) as e:
+            await racetime_room_actions.say(room.slug, str(e))
+            return
+        except Exception:
+            logger.exception('room bot: !roll %s in %s failed', reference, room.slug)
+            await racetime_room_actions.say(room.slug, "That seed didn't roll. Try again in a minute.")
+            return
+        parts = [f'{rolled} for {user.preferred_name}: {roll.seed_url}', seed_code_line(roll.code), roll.instructions or '']
+        await racetime_room_actions.say(room.slug, ' · '.join(p for p in parts if p))
 
     async def _command_seed(self, room: RacetimeRoom, match: Match) -> None:
         now = time.monotonic()

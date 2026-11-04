@@ -19,7 +19,7 @@ import time
 from collections import defaultdict, deque
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Deque, Dict, List, Optional, Set
+from typing import Any, Deque, Dict, List, Optional, Set, Tuple
 
 import yaml
 
@@ -224,6 +224,27 @@ class PresetLibraryService:
             roll_count=preset.roll_count + 1,
             instructions=SeedGenerationService.seed_instructions(preset.randomizer, call.value.settings),
         )
+
+    async def roll_reference(self, actor: User, reference: str) -> Tuple[str, LibraryRoll]:
+        """Roll a preset named ``space/preset``, or a bare ``preset`` from this community's space.
+
+        For a racetime room's ``!roll``; the same visibility, keys and per-person
+        limit as :meth:`roll`. Returns the full reference rolled with the roll.
+        """
+        reference = reference.strip()
+        if not reference or len(reference) > 300:
+            raise ValueError('Name a preset, like sgl/sgl2026 or wizzrobe/open.')
+        space_slug, sep, name = reference.partition('/')
+        if not sep:
+            space_slug, name = await self.repository.community_slug(require_tenant_id()), reference
+        presets = await self.repository.by_reference(space_slug.strip().lower(), name.strip())
+        presets = [p for p in presets if self._can_see(p, require_tenant_id(), False)]
+        if not presets:
+            raise NotFoundError(f'No preset named {space_slug}/{name}. Browse them under Me › Presets in Wizzrobe.')
+        if len(presets) > 1:
+            games = ', '.join(SeedGenerationService.randomizer_name(p.randomizer) for p in presets)
+            raise ValueError(f'{space_slug}/{name} is a preset for more than one game ({games}). Roll it from Wizzrobe.')
+        return f'{space_slug}/{presets[0].name}', await self.roll(actor, presets[0].id)
 
     async def copy_to_community(self, actor: User, preset_id: int, *, name: Optional[str] = None) -> Preset:
         """Copy a library preset into this community's list, remembering where it came from."""

@@ -452,6 +452,7 @@ discovers a round-trip later.
 | Tool | Gate | Flag |
 |---|---|---|
 | `list_presets`, `get_preset`, `list_randomizers` | ACTOR | — |
+| `list_library_presets`, `get_library_preset` | ACTOR (the public library: listed presets from every community, the built-in `wizzrobe` space, personal spaces; a mystery preset's odds) | — |
 | `get_seed_rules` | ACTOR (service: Staff, preset manager or tournament admin) | — |
 | `list_triforce_texts` | ACTOR | `TRIFORCE_TEXTS` |
 | `list_race_room_profiles`, `get_race_room` | ACTOR | `RACETIME_ROOMS` |

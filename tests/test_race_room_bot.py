@@ -10,20 +10,24 @@ import pytest
 
 from application.services import race_room_bot_service
 from application.services.match.match_display_service import MatchDisplayService
+from application.services.preset_library_service import ROLLS_PER_WINDOW
 from application.services.race_room_bot_service import RaceRoomBotService
 from application.services.race_room_service import RaceRoomLifecycle, RaceRoomService
 from application.services.racetime_room_service import RacetimeRoomService
+from application.tenant_context import tenant_scope
 from application.utils.clients import racetime_room_actions
 from models import (
     AuditLog,
     GeneratedSeeds,
     Match,
     MatchPlayers,
+    Preset,
     RaceRoomHoldReason,
     RaceRoomStatus,
     RacetimeBot,
     RacetimeRoom,
     Role,
+    Tenant,
     Tournament,
     User,
     UserRole,
@@ -290,3 +294,61 @@ async def test_a_room_the_bot_runs_opens_for_unlinked_players(db, sent):
         match = await Match.get(id=match.id).prefetch_related('tournament', 'players', 'players__user')
         room = await RaceRoomService().auto_open_if_eligible(match, now=datetime.now(timezone.utc))
         assert (room is not None) is runs
+
+
+async def _roll(room, text, rtid='u1', name='alice'):
+    chat = RoomChat(user_id=rtid, display_name=name, text=text)
+    await RaceRoomLifecycle().handle_event(room, _event(room, kind='chat', chat=chat))
+
+
+async def test_roll_posts_a_seed_from_another_communitys_listed_preset(db, sent, monkeypatch):
+    monkeypatch.setenv('MOCK_SEEDGEN', '1')
+    other = await Tenant.create(slug='elsewhere', name='Elsewhere')
+    with tenant_scope(other.id):
+        await Preset.create(name='crosskeys', randomizer='alttpr', settings={'mode': 'open'}, listed=True)
+        await Preset.create(name='secret', randomizer='alttpr', settings={'mode': 'open'}, listed=False)
+    _t, _m, _p, room = await _setup()
+    await _roll(room, '!roll elsewhere/crosskeys')
+    [said] = _messages(sent)
+    assert said.startswith('elsewhere/crosskeys for alice: https://mock.seedgen.local/alttpr/')
+
+    sent.clear()
+    await _roll(room, '!roll elsewhere/secret')
+    assert _messages(sent) == ['No preset named elsewhere/secret. Browse them under Me › Presets in Wizzrobe.']
+
+
+async def test_roll_with_a_bare_name_uses_this_community(db, sent, monkeypatch):
+    monkeypatch.setenv('MOCK_SEEDGEN', '1')
+    await Preset.create(name='house', randomizer='alttpr', settings={'mode': 'open'})
+    _t, _m, _p, room = await _setup()
+    await _roll(room, '!roll house')
+    [said] = _messages(sent)
+    assert said.startswith('default/house for alice: https://mock.seedgen.local/alttpr/')
+
+
+async def test_roll_needs_a_linked_account_and_a_name(db, sent):
+    _t, _m, _p, room = await _setup()
+    await _roll(room, '!roll')
+    await _roll(room, '!roll default/house', rtid='stranger', name='Stranger')
+    assert _messages(sent) == [
+        'Type !roll and a preset, like !roll wizzrobe/open.',
+        'Link your racetime.gg account on Wizzrobe (Me › Profile) to roll presets here.',
+    ]
+
+
+async def test_roll_is_limited_per_person(db, sent, monkeypatch):
+    monkeypatch.setenv('MOCK_SEEDGEN', '1')
+    await Preset.create(name='house', randomizer='alttpr', settings={'mode': 'open'})
+    _t, _m, _p, room = await _setup()
+    for _ in range(ROLLS_PER_WINDOW):
+        await _roll(room, '!roll house')
+    sent.clear()
+    await _roll(room, '!roll house')
+    [said] = _messages(sent)
+    assert said.startswith('You can roll')
+
+
+async def test_roll_stays_quiet_when_the_bot_does_not_run_the_room(db, sent):
+    _t, _m, _p, room = await _setup(bot_runs=False)
+    await _roll(room, '!roll house')
+    assert _messages(sent) == []

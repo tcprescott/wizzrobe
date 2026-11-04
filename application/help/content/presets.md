@@ -22,6 +22,15 @@ code. Rolls use this community's randomizer keys, so if a game shows a warning
 instead, this community hasn't set that randomizer up yet. You can roll 10 seeds
 every 10 minutes.
 
+### Rolling in a race room
+
+In a racetime.gg room Wizzrobe's bot is in, type `!roll` and the full name, like
+`!roll wizzrobe/open` or `!roll tom/fastboots`. The bot posts the seed link and
+code for everyone in the room. A name without a slash, like `!roll sgl2026`,
+rolls from this community's own presets. Link your racetime.gg account under
+**Me › Profile** first so the bot knows who you are. Room rolls count towards the
+same 10 every 10 minutes.
+
 ## Wizzrobe's own presets
 
 The `wizzrobe` space holds the presets that ship with Wizzrobe, including every
