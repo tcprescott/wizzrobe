@@ -40,11 +40,16 @@ counts.
   ignoring case.
 - **Stage** fits only matches on a stage, or only matches off one.
 - **Date range** fits matches scheduled from one time and before another.
+- **Form answer** fits on what the players answered on the tournament's match
+  form (below): every player asked, or any one of them, answered one of the
+  choices you pick. Pick no choices and any answer counts. A question nobody has
+  answered never fits, and "every player" needs every one of them to answer.
 
 A rule with no conditions fits every match, so anything below it never fires.
 
-Under **Then**, pick one preset, or choose **Weighted** and give each preset a
-weight. A weighted rule draws one preset per match, so Open 50, Standard 30 and
+Under **Then**, pick one preset, choose **Weighted** and give each preset a
+weight, or choose **Players' answer** to roll the preset linked to the choice the
+players picked on a match form question. Split answers skip the rule. A weighted rule draws one preset per match, so Open 50, Standard 30 and
 Inverted 20 rolls Open about half the time. The seed records what was drawn.
 
 **Setting tweaks** change one setting on top of the preset for this rule only,
@@ -60,6 +65,26 @@ The **Preview** at the bottom of a rule tries your unsaved rules on a real match
 or on a made-up one where you pick the round, the game and the title. It names
 the rule that fires and what it would roll, with the odds for a weighted draw.
 It doesn't roll anything.
+
+## The match form
+
+The **Match form** tab beside Seed rules holds questions players answer before a
+match: Yes / No, Pick one, Pick several, or a number. Players only pick from the
+choices you list, and nothing is typed freely. Each question says:
+
+- **Who answers**: each player, the higher seed (needs seeds from the
+  tournament's own bracket), or the loser of the set's previous game.
+- **Ask on**: every match, or only matches where a rule reading the question
+  could fit, so a Game 3 question doesn't show up on game 1.
+- **Opponent sees the answer**: right away, when the seed rolls, or never. Pick
+  Never for an opt-in like Hard mode, so nobody can be dared into it.
+
+Link a choice to a preset so a rule can roll **Players' answer**. Each question
+in the list shows which rules read it, and you can't delete one a rule still
+reads. Answers lock when the seed rolls.
+
+Players get a DM with a link to their questions when a match is booked, and the
+questions sit under their next match on Home.
 
 ## Sharing rules
 

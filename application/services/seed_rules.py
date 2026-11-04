@@ -10,8 +10,14 @@ Stored shape, one dict per rule, presets by id::
     {"id": "k3x9", "name": "Grand final mystery",
      "when": {"round": ["gf"], "game": [3, "last"], "title": ["final"],
               "on_stage": true, "from": "2026-11-20T00:00:00+00:00", "to": "..."},
-     "then": {"preset": 12} | {"weighted": [{"preset": 12, "weight": 50}, ...]},
+     "then": {"preset": 12} | {"weighted": [{"preset": 12, "weight": 50}, ...]}
+             | {"from_answer": "q1"},
      "tweaks": {"item.pool": "hard"}}
+
+``when.answer`` reads the tournament's match form: ``[{"q": "hard", "who":
+"every", "is": ["yes"]}]`` holds when every player asked answered Yes; ``who:
+"any"`` when one did; leaving out ``is`` asks only that they answered.
+``from_answer`` rolls the preset linked to the choice the answer picked.
 
 Every condition in ``when`` must hold; a list inside one condition means
 "any of". An empty ``when`` matches every match.
@@ -38,8 +44,31 @@ MAX_TWEAKS = 24
 MAX_TWEAK_KEY = 64
 MAX_TWEAK_DEPTH = 4
 LAST_GAME = 'last'
-CONDITIONS = ('round', 'game', 'title', 'on_stage', 'from', 'to')
+CONDITIONS = ('round', 'game', 'title', 'on_stage', 'from', 'to', 'answer')
+MAX_ANSWER_CONDITIONS = 8
 _ID_CHARS = 'abcdefghijkmnpqrstuvwxyz23456789'
+
+
+@dataclass(frozen=True)
+class FormQuestion:
+    """What the rule checks need to know about one match-form question."""
+    key: str
+    kind: str
+    choices: tuple = ()
+    choice_presets: Mapping[Any, int] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class Answers:
+    """One question's answers on one match.
+
+    ``expected`` is how many people the question asks there; ``values`` holds
+    one entry per person who answered; ``presets`` the presets their picked
+    choices link to.
+    """
+    expected: int = 0
+    values: tuple = ()
+    presets: tuple = ()
 
 
 @dataclass(frozen=True)
@@ -51,6 +80,7 @@ class MatchFacts:
     title: Optional[str] = None
     on_stage: bool = False
     scheduled_at: Optional[datetime] = None
+    answers: Mapping[str, Answers] = field(default_factory=dict)
 
 
 @dataclass
@@ -134,7 +164,42 @@ def _instant(n: int, label: str, raw: Any) -> str:
     return dt.astimezone(timezone.utc).isoformat()
 
 
-def _when(n: int, raw: Any) -> dict:
+def _answer_value(n: int, q: FormQuestion, value: Any) -> Any:
+    if q.kind == 'number':
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise _err(n, f'answers to {q.key!r} are numbers.')
+        return value
+    if value not in q.choices:
+        raise _err(n, f'{value!r} is not one of the choices for {q.key!r}.')
+    return value
+
+
+def _answers(n: int, raw: Any, questions: Mapping[str, FormQuestion]) -> list:
+    items = raw if isinstance(raw, list) else [raw]
+    if not items or len(items) > MAX_ANSWER_CONDITIONS:
+        raise _err(n, f'Form answer needs 1 to {MAX_ANSWER_CONDITIONS} questions.')
+    out = []
+    for item in items:
+        if not isinstance(item, Mapping) or set(item) - {'q', 'who', 'is'}:
+            raise _err(n, 'a form answer condition names a question, who, and optionally what they answered.')
+        key = item.get('q')
+        q = questions.get(key) if isinstance(key, str) else None
+        if q is None:
+            raise _err(n, f"asks about a question the match form doesn't have ({item.get('q')!r}).")
+        who = item.get('who', 'every')
+        if who not in ('every', 'any'):
+            raise _err(n, 'who must be "every" or "any".')
+        cond: dict[str, Any] = {'q': q.key, 'who': who}
+        if item.get('is') is not None:
+            values = item['is'] if isinstance(item['is'], list) else [item['is']]
+            if not values or len(values) > MAX_LIST:
+                raise _err(n, f'{q.key!r} needs 1 to {MAX_LIST} answers to look for.')
+            cond['is'] = list(dict.fromkeys(_answer_value(n, q, v) for v in values))
+        out.append(cond)
+    return out
+
+
+def _when(n: int, raw: Any, questions: Mapping[str, FormQuestion]) -> dict:
     if raw is None:
         return {}
     if not isinstance(raw, Mapping):
@@ -158,6 +223,8 @@ def _when(n: int, raw: Any) -> dict:
             out[key] = _instant(n, label, raw[key])
     if 'from' in out and 'to' in out and out['from'] >= out['to']:
         raise _err(n, '"from" must be before "to".')
+    if 'answer' in raw:
+        out['answer'] = _answers(n, raw['answer'], questions)
     return out
 
 
@@ -195,11 +262,19 @@ def _tweaks(n: int, raw: Any) -> dict:
     return out
 
 
-def _then(n: int, raw: Any, presets: Mapping[int, Any]) -> dict:
+def _then(n: int, raw: Any, presets: Mapping[int, Any], questions: Mapping[str, FormQuestion]) -> dict:
     if not isinstance(raw, Mapping):
         raise _err(n, 'needs an outcome.')
-    if 'preset' in raw and 'weighted' in raw:
-        raise _err(n, 'pick one preset or a weighted list, not both.')
+    if len({'preset', 'weighted', 'from_answer'} & set(raw)) > 1:
+        raise _err(n, 'pick one preset, a weighted list or a form answer, not more than one.')
+    if 'from_answer' in raw:
+        q = questions.get(raw['from_answer']) if isinstance(raw['from_answer'], str) else None
+        if q is None or not q.choice_presets:
+            raise _err(n, "rolls a form answer, but that question has no choices linked to presets.")
+        for pid in q.choice_presets.values():
+            if pid not in presets:
+                raise _err(n, f"question {q.key!r} links a preset this community doesn't have.")
+        return {'from_answer': q.key}
     if 'preset' in raw:
         return {'preset': _preset_ref(n, raw['preset'], presets)}
     if 'weighted' in raw:
@@ -224,11 +299,14 @@ def _then(n: int, raw: Any, presets: Mapping[int, Any]) -> dict:
     raise _err(n, 'needs an outcome: a preset or a weighted roll.')
 
 
-def clean_rules(raw: Any, presets: Mapping[int, Any]) -> list[dict]:
+def clean_rules(
+    raw: Any, presets: Mapping[int, Any], questions: Optional[Mapping[str, FormQuestion]] = None,
+) -> list[dict]:
     """Validate and normalise a whole rule list, or raise ``ValueError``.
 
     ``presets`` maps every preset id the tournament may roll to anything; only
-    membership is checked here. Rule ids are kept when valid and unique, and
+    membership is checked here. ``questions`` is the tournament's match form,
+    by key, for rules that read answers. Rule ids are kept when valid and unique, and
     minted otherwise, so reordering never changes a rule's identity.
     """
     if raw is None:
@@ -237,6 +315,7 @@ def clean_rules(raw: Any, presets: Mapping[int, Any]) -> list[dict]:
         raise ValueError('Seed rules must be a list.')
     if len(raw) > MAX_RULES:
         raise ValueError(f'A tournament can have up to {MAX_RULES} seed rules.')
+    form = questions or {}
     taken: set[str] = set()
     out: list[dict] = []
     for i, item in enumerate(raw):
@@ -253,8 +332,8 @@ def clean_rules(raw: Any, presets: Mapping[int, Any]) -> list[dict]:
         if not (isinstance(rid, str) and 1 <= len(rid) <= 16 and rid.isalnum() and rid not in taken):
             rid = new_rule_id(taken)
         taken.add(rid)
-        rule = {'id': rid, 'name': name, 'when': _when(n, item.get('when')),
-                'then': _then(n, item.get('then'), presets)}
+        rule = {'id': rid, 'name': name, 'when': _when(n, item.get('when'), form),
+                'then': _then(n, item.get('then'), presets, form)}
         tweaks = _tweaks(n, item.get('tweaks'))
         if tweaks:
             rule['tweaks'] = tweaks
@@ -296,7 +375,28 @@ def matches(when: Mapping[str, Any], facts: MatchFacts) -> bool:
             return False
         if 'to' in when and at >= datetime.fromisoformat(when['to']):
             return False
+    for cond in when.get('answer') or ():
+        if not _answer_holds(cond, facts.answers.get(cond['q'])):
+            return False
     return True
+
+
+def _picked(value: Any, wanted: Optional[list]) -> bool:
+    if wanted is None:
+        return True
+    if isinstance(value, list):
+        return any(v in wanted for v in value)
+    return value in wanted
+
+
+def _answer_holds(cond: Mapping[str, Any], answers: Optional[Answers]) -> bool:
+    """An unanswered question never holds, so its rule skips and the next decides."""
+    if answers is None or not answers.values:
+        return False
+    hits = [_picked(v, cond.get('is')) for v in answers.values]
+    if cond.get('who') == 'any':
+        return any(hits)
+    return answers.expected > 0 and len(answers.values) >= answers.expected and all(hits)
 
 
 def first_fitting(
@@ -315,6 +415,12 @@ def first_fitting(
         if 'preset' in then:
             if ok(then['preset']):
                 return i, rule, [{'preset': then['preset'], 'weight': 1}]
+            continue
+        if 'from_answer' in then:
+            answers = facts.answers.get(then['from_answer'])
+            linked = set(answers.presets) if answers else set()
+            if len(linked) == 1 and ok(next(iter(linked))):
+                return i, rule, [{'preset': next(iter(linked)), 'weight': 1}]
             continue
         entries = [e for e in then.get('weighted') or [] if e['weight'] > 0 and ok(e['preset'])]
         if entries:
@@ -338,7 +444,7 @@ def resolve(
         return None
     i, rule, entries = found
     draw = None
-    if 'preset' in rule['then']:
+    if 'weighted' not in rule['then']:
         pid = entries[0]['preset']
     else:
         rng = rng or random.SystemRandom()
@@ -400,6 +506,8 @@ def to_yaml(rules: list[dict], preset_names: Mapping[int, str]) -> str:
         then = rule['then']
         if 'preset' in then:
             item['then'] = {'preset': preset_names.get(then['preset'], f"#{then['preset']}")}
+        elif 'from_answer' in then:
+            item['then'] = {'from_answer': then['from_answer']}
         else:
             item['then'] = {'weighted': {
                 preset_names.get(e['preset'], f"#{e['preset']}"): e['weight'] for e in then['weighted']

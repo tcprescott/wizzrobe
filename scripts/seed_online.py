@@ -65,6 +65,7 @@ from models import (
     TournamentPlayers,
     User,
 )
+from scripts.seed_match_form import seed_match_form, seed_match_form_answers
 from scripts.seed_qualifiers import seed_qualifiers_for_tenant
 from scripts.seed_room_bot import seed_room_bot_rooms
 from scripts.seed_support import backfill
@@ -242,6 +243,7 @@ async def seed_online_for_tenant(
         tenant, tournament, players,
     )
     await _seed_rooms(tenant, bots["alttpr"], scheduled, in_progress, finished)
+    await seed_match_form_answers(tenant, tournament, scheduled)
     await seed_room_bot_rooms(tenant, tournament, bots["alttpr"], players)
     await _seed_group_race(tenant, bots["alttpr"], preset)
     await _seed_speedgaming(tenant, tournament, scheduled)
@@ -418,6 +420,7 @@ async def _seed_online_tournament(
     if tournament.seed_rules is None:
         tournament.seed_rules = await _seed_rules(tenant, preset)
     await tournament.save()
+    await seed_match_form(tenant, tournament, preset)
     return tournament
 
 

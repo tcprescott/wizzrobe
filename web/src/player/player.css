@@ -271,3 +271,73 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* "Before your match": the match form's questions for this player. */
+.mf-card {
+  background: var(--surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) 18px;
+  margin-top: var(--space-3);
+  display: grid;
+  gap: var(--space-3);
+}
+.mf-card__title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: 1.125rem;
+}
+.mf-card__title:focus {
+  outline: none;
+}
+.mf-card__lede,
+.mf-q__help,
+.mf-q__others {
+  margin: 0;
+  color: var(--fg-muted);
+}
+.mf-card__acts {
+  display: flex;
+  justify-content: flex-end;
+}
+.mf-q {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.mf-q__prompt {
+  font-weight: 600;
+  padding: 0;
+  margin-bottom: var(--space-1, 4px);
+}
+.mf-q__number {
+  max-width: 8rem;
+}
+.mf-options {
+  display: grid;
+  gap: var(--space-2);
+}
+.mf-option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 48px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md, 8px);
+  cursor: pointer;
+}
+.mf-option[data-picked] {
+  border-color: var(--accent);
+  background: var(--accent-soft, var(--surface-2));
+}
+.mf-option input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--accent);
+}

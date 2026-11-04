@@ -259,3 +259,8 @@ def item_tracker_path(match_id: int) -> str:
 def item_tracker_overlay_path(token: str) -> str:
     """One runner's transparent board, for an OBS browser source."""
     return ITEM_TRACKER_OVERLAY.format(token=token)
+
+
+def match_form_url(match_id: int) -> str:
+    """Home with one match's "Before your match" questions open (the app)."""
+    return f'/home?form={match_id}'

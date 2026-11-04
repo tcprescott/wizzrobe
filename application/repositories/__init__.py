@@ -55,6 +55,7 @@ from .item_tracker_repository import ItemTrackerRepository
 from .log_level_override_repository import LogLevelOverrideRepository
 from .match_acknowledgment_repository import MatchAcknowledgmentRepository
 from .match_comment_repository import MatchCommentRepository
+from .match_form_repository import MatchFormRepository
 from .match_hard_preset_repository import MatchHardPresetRepository
 from .match_repository import MatchRepository
 from .match_stream_volunteer_repository import MatchStreamVolunteerRepository
@@ -162,6 +163,7 @@ __all__ = [
     'LogLevelOverrideRepository',
     'MatchAcknowledgmentRepository',
     'MatchCommentRepository',
+    'MatchFormRepository',
     'MatchHardPresetRepository',
     'MatchRepository',
     'MatchStreamVolunteerRepository',

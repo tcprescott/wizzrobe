@@ -100,8 +100,9 @@ async def get_seed_rules(
     Rules are tried in order and the first whose `when` conditions all hold
     decides; with none fitting, `default_preset` rolls. `then` is one preset id
     or a weighted draw; `tweaks` set dotted settings paths on top. `presets`
-    names the ids, `rounds` the round keys. Staff's per-match override and a
-    unanimous hard-mode opt-in still beat every rule.
+    names the ids, `rounds` the round keys. `questions` is the match form
+    players answer, which a rule reads with `when.answer` or `then.from_answer`.
+    Staff's per-match override still beats every rule.
     """
     data = await SeedRuleService().editor(tournament_id, current_actor().user)
     return SeedRulesEditorResponse.model_validate(data)

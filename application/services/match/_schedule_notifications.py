@@ -21,6 +21,7 @@ from application.services import notification_links
 from application.services.discord import DiscordService, discord_queue
 from application.services.event_service import EventService
 from application.services.match._dm_context import _community_name, bracket_line_for
+from application.services.match._match_form_notifications import notify_match_form
 from application.services.match._match_recipients import (
     MatchRecipient,
     collect_match_audience,
@@ -660,6 +661,7 @@ class MatchNotificationMixin:
             crew_message=lambda roles: message_for(AUDIENCE_CREW, roles),
         ))
         discord_queue.enqueue(MatchHardPresetService().send_offer(match))
+        discord_queue.enqueue(notify_match_form(match))
 
         notified_ids = await self._collect_notified_discord_ids(match)
         discord_queue.enqueue(self.notify_tournament_subscribers_scheduled(

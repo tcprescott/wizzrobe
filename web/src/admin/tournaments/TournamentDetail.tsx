@@ -10,6 +10,7 @@ import { SIGNUP_LABEL, SIGNUP_TONE, useAdminQuery, type Board, type BoardRow } f
 import { PlayersTab } from './PlayersTab'
 import { RacetimeTab } from './RacetimeTab'
 import { RoundScheduleTab } from './RoundScheduleTab'
+import { MatchFormTab } from './MatchFormTab'
 import { SeedRulesTab } from './SeedRulesTab'
 import { SettingsTab } from './SettingsTab'
 
@@ -35,6 +36,7 @@ export function TournamentDetail({ row, board, reloadBoard, base, standalone = f
     { slug: 'bracket', label: 'Bracket' },
     ...(row.has_round_schedule ? [{ slug: 'schedule', label: 'Round schedule' }] : []),
     { slug: 'seed-rules', label: 'Seed rules' },
+    { slug: 'match-form', label: 'Match form' },
   ]
   const links: MenuItem[] = []
   if (row.rules_url) links.push({ label: 'Open rules', icon: 'open_in_new', onSelect: () => window.open(row.rules_url!, '_blank', 'noopener') })
@@ -76,6 +78,7 @@ export function TournamentDetail({ row, board, reloadBoard, base, standalone = f
         <Route path="bracket" element={<BracketTab row={row} board={board} onChange={reloadBoard} />} />
         <Route path="schedule" element={<RoundScheduleTab row={row} zone={board.zone ?? null} />} />
         <Route path="seed-rules/*" element={<SeedRulesTab row={row} board={board} zone={board.zone ?? null} base={`${base}/seed-rules`} />} />
+        <Route path="match-form/*" element={<MatchFormTab row={row} base={`${base}/match-form`} />} />
         <Route path="*" element={<Navigate to="settings" replace />} />
       </Routes>
       {deleting && <DeleteTournament row={row} onClose={() => setDeleting(false)} onDeleted={reloadBoard} />}

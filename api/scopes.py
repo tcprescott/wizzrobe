@@ -3,19 +3,14 @@
 Every route is listed exactly once: under the one :class:`ApiScope` an app must
 hold to call it, under ``PAT_ONLY`` (no app may call it, whatever it holds), or
 under ``PUBLIC`` (no token at all). ``tests/api/test_scopes.py`` fails when a
-route is missing, so a new endpoint cannot ship without a decision here.
+route is missing. Personal access tokens skip this table (:func:`api.dependencies.resolve_token`).
 
-Personal access tokens skip this table entirely; see :func:`api.dependencies.resolve_token`.
-
-How a route is placed:
-
-- by who it serves, not by HTTP verb: a player acknowledging their match is ``play``, a proctor starting it is ``staff:write``;
-- a route that acts on *any* user by id ("yourself or Staff") is a staff route,
-  since the ``/me`` routes already serve the self case;
-- a read every member may make is ``schedule:read`` even where Staff see a
-  little more in the response;
-- anything that mints or reveals credentials, or is platform-wide, is
-  ``PAT_ONLY``.
+How a route is placed: by who it serves, not by HTTP verb (a player
+acknowledging their match is ``play``, a proctor starting it is ``staff:write``);
+a route acting on *any* user by id is a staff route, since ``/me`` serves the
+self case; a read every member may make is ``schedule:read`` even where Staff
+see more; anything that mints or reveals credentials, or is platform-wide, is
+``PAT_ONLY``.
 """
 
 from typing import Dict, Final, Optional, Union
@@ -163,6 +158,7 @@ _ROUTES: Dict[RouteScope, tuple[str, ...]] = {
         'GET /matches/{match_id}/comments',
         'POST /matches/{match_id}/comments',
         'DELETE /match-comments/{comment_id}',
+        'GET /matches/{match_id}/form', 'PUT /matches/{match_id}/form/{key}',
         'GET /tournaments/{tournament_id}/match-suggestion',
         'POST /tournaments/{tournament_id}/signup',
         'DELETE /tournaments/{tournament_id}/signup',
@@ -244,6 +240,7 @@ _ROUTES: Dict[RouteScope, tuple[str, ...]] = {
         'GET /admin/tournaments/{tournament_id}/seed-rules/text',
         'POST /admin/tournaments/{tournament_id}/seed-rules/preview',
         'POST /admin/tournaments/{tournament_id}/seed-rules/text',
+        'GET /admin/tournaments/{tournament_id}/match-form',
         'GET /admin/nav',
         'GET /events/{slug}/summary',
         'GET /surveys',
@@ -377,6 +374,7 @@ _ROUTES: Dict[RouteScope, tuple[str, ...]] = {
         'PATCH /admin/tournaments/{tournament_id}/bracket/startgg',
         'PUT /admin/tournaments/{tournament_id}/round-schedule',
         'PUT /admin/tournaments/{tournament_id}/seed-rules',
+        'PUT /admin/tournaments/{tournament_id}/match-form',
         'POST /surveys',
         'POST /surveys/{survey_id}/duplicate',
         'PATCH /surveys/{survey_id}',
@@ -790,14 +788,12 @@ ROUTE_SCOPES: Final[Dict[str, RouteScope]] = _flatten()
 
 
 def route_key(method: str, path: str) -> str:
-    """``'GET /matches/{match_id}'``: the method and the route's path template
-    as declared, without the ``/api`` mount prefix."""
+    """``'GET /matches/{match_id}'``: method and declared path template, no ``/api`` prefix."""
     return f'{"GET" if method == "HEAD" else method} {path}'
 
 
 def scope_for(method: str, path: str) -> Optional[RouteScope]:
-    """The scope a route needs, or ``None`` when the route is not in the table
-    (callers must refuse it; the CI test keeps that from happening)."""
+    """The scope a route needs, or ``None`` when it isn't listed (callers must refuse it)."""
     return ROUTE_SCOPES.get(route_key(method, path))
 
 

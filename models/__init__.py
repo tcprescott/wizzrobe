@@ -124,6 +124,14 @@ from .match import (
     Station,
     Tracker,
 )
+from .match_form import (
+    MatchFormAnswer,
+    MatchFormAskOn,
+    MatchFormKind,
+    MatchFormQuestion,
+    MatchFormVisibility,
+    MatchFormWho,
+)
 from .mcp import McpAuthorizationCode, McpOAuthClient
 from .notification_preference import NotificationPreference
 from .notification_setting import NotificationSetting
@@ -299,6 +307,12 @@ __all__ = [
     'MatchAcknowledgment',
     'MatchComment',
     'MatchCommentKind',
+    'MatchFormAnswer',
+    'MatchFormAskOn',
+    'MatchFormKind',
+    'MatchFormQuestion',
+    'MatchFormVisibility',
+    'MatchFormWho',
     'MatchHardPresetOptIn',
     'MatchNotificationLevel',
     'MatchPlayers',
