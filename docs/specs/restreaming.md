@@ -119,7 +119,8 @@ stage's OBS beside it, tap-in on phone) before any screen is built.
 Phase 0 (spike):
 - [ ] The agent authenticates to a real OBS 30+ on Windows and on Mac and runs
       scene list, scene switch, screenshot, crop, volume and record commands
-      sent from the spike console.
+      sent from the spike console. *Windows passed 2026-11-04 (OBS 33.0.1,
+      see agent/SPIKE.md); Mac still to run.*
 - [ ] The agent refuses a non-allowlisted request, a local file path and a
       non-https browser source (unit tests).
 - [ ] The agent reconnects to the relay after the relay drops it, and to OBS
