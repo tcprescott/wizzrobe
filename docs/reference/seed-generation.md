@@ -41,7 +41,7 @@ The admin Tournaments tab lists each tournament's `seed_generator` read-only.
 1. The admin Schedule tab's match table (and the proctor board) shows a **Generate** button (casino icon) in the Seed column for rows where `tournament_seed_generator` is set, the match is not a racetime match, it has players, it is not Finished/Confirmed, no seed exists yet and no roll is in flight (`SEED_ROLLABLE` in [`match_slots.py`](../../theme/tables/match_slots.py); the card/mobile layout has the same button). Clicking emits a `roll` event that ends in `MatchLifecycleHandlers.on_generate_seed` in [`match_lifecycle.py`](../../theme/tables/match_lifecycle.py).
 2. `on_generate_seed` calls `MatchScheduleService.generate_seed(match_id, actor=...)`, which validates permission and state (see [API](#seedgenerationservice-api) below), then resolves the preset through `MatchHardPresetService.resolve_preset(match)` and takes the randomizer from it (falling back to the legacy `tournament.seed_generator` string with no preset), and dispatches `SeedGenerationService.generate_seed_call(randomizer, preset, surface='match', triforce_text=…)` (an approved community text for an ALTTPR roll — see [below](#alttpr-tournament-generation-and-triforce-texts)) (or, for an `ASYNC_RANDOMIZERS` backend, queues a `ProviderTask` — see [Asynchronous rolls](#asynchronous-rolls)).
 
-   **Which preset that is, is the players' answer as much as the tournament's.** In order: staff's per-match `Match.preset_override`; else `tournament.hard_preset` when every player opted into it; else `tournament.preset`. This is the only place the question is asked, and asking it here is what closes the opt-in window — from that line on, the settings are what `GeneratedSeeds` records rather than what anyone picks. See [match-participation.md](../features/match-participation.md#harder-settings-opt-in).
+   **Which preset that is, is the players' answer as much as the tournament's.** `SeedRuleService.resolve(match)` answers it, in order: staff's per-match `Match.preset_override`; else `tournament.hard_preset` when every player opted into it; else the first of the tournament's **seed rules** that fits the match; else `tournament.preset`. The answer, and why (`source`: `override`, `hard_mode`, `rule` with its number, name, weighted draw and tweaks, or `default`), is stored as `GeneratedSeeds.resolution` (and `ProviderTask.resolution` for a queued roll). This is the only place the question is asked, and asking it here is what closes the opt-in window — from that line on, the settings are what `GeneratedSeeds` records rather than what anyone picks. See [match-participation.md](../features/match-participation.md#harder-settings-opt-in).
 3. The returned string is persisted as a [`GeneratedSeeds`](../../models/tournament.py) row and linked from the match:
 
    | `GeneratedSeeds` field | Value |
@@ -334,6 +334,18 @@ settings.setdefault('texts', {})['end_triforce'] = "{NOBORDER}\n" + triforce_tex
 ```
 
 (`{NOBORDER}` is an ALTTP text-engine directive; the text itself is up to 3 newline-joined lines of ≤19 characters, validated at submission time.) The settings as sent, text included, land in the `GeneratedSeeds.settings_snapshot`, which is the record of which text a match got. Only match rolls embed a text; `POST /seeds` and qualifier pools don't.
+
+## Seed rules
+
+`Tournament.seed_rules` is an ordered rule list; the pure engine is [`seed_rules.py`](../../application/services/seed_rules.py) and the loader/editor gate is [`seed_rule_service.py`](../../application/services/seed_rule_service.py) (STAFF, a tournament admin, or a preset manager).
+
+| Part | Shape |
+|---|---|
+| `when` | every condition must hold; a list means "any of". `round` (Round schedule stage keys: `w1`, `gf`, `group`, a start.gg `phase:key`, or `round:<n>` for a native bracket, from `RoundScheduleService.round_key_for_match`), `game` (numbers in a set, or `last`), `title` (case-insensitive contains), `on_stage`, `from` / `to` (UTC instants). Empty matches every match. |
+| `then` | `{"preset": id}` or `{"weighted": [{"preset": id, "weight": n}, ...]}` (2–16 entries, weights 0–10000, one above 0). Presets are the community's own. |
+| `tweaks` | `{"dotted.path": value}` set on a **copy** of the chosen preset's settings before the roll; the `Preset` row never changes, and the tweaked settings land in `settings_snapshot`. |
+
+A rule whose presets were all deleted is skipped, so the next rule decides. `to_yaml` / `from_yaml` are the text view: presets by name, rule ids dropped.
 
 ## Presets (DB-backed)
 

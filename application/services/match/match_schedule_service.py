@@ -519,8 +519,11 @@ class MatchScheduleService(MatchNotificationMixin):
             if match.generated_seed:
                 return False, "A seed has already been generated for this match", None
 
-            # The only place the hard-preset question is asked; resolving it closes the opt-in window.
-            preset = await self.hard_preset_service.resolve_preset(match)
+            from application.services.seed_rule_service import SeedRuleService
+
+            # The only place the preset question is asked; resolving it closes the opt-in window.
+            resolution = await SeedRuleService().resolve(match)
+            preset = resolution.preset
             randomizer = preset.randomizer if preset is not None else match.tournament.seed_generator
 
             if not randomizer:
@@ -537,7 +540,7 @@ class MatchScheduleService(MatchNotificationMixin):
                 ), None
 
             if randomizer in self.seedgen_service.ASYNC_RANDOMIZERS:
-                return await self._queue_async_seed(match, randomizer, preset, actor)
+                return await self._queue_async_seed(match, randomizer, preset, actor, resolution.record)
 
             triforce_text = None
             if self.seedgen_service.supports_triforce_texts(randomizer):
@@ -554,6 +557,7 @@ class MatchScheduleService(MatchNotificationMixin):
                 settings=call.value.settings,
                 provider_meta=call.as_meta(),
                 seed_code=call.value.code,
+                resolution=resolution.record,
             )
 
             message = f"Seed rolled for {match_model_label(match, with_context=False)}."
@@ -574,6 +578,7 @@ class MatchScheduleService(MatchNotificationMixin):
 
     async def _queue_async_seed(
         self, match: Match, randomizer: str, preset, actor: Optional[User],
+        resolution: Optional[dict] = None,
     ) -> Tuple[bool, str, Optional[str]]:
         """Hand a task-queue roll to :class:`ProviderTask` and return immediately.
 
@@ -592,6 +597,7 @@ class MatchScheduleService(MatchNotificationMixin):
         task = await task_service.queue(
             provider=randomizer, operation='generate_seed', actor=actor,
             match_id=match.id, preset_id=preset.id if preset is not None else None,
+            resolution=resolution,
         )
         await SeedRollService().submit(task, preset)
 
@@ -618,7 +624,7 @@ class MatchScheduleService(MatchNotificationMixin):
     async def complete_seed_roll(
         self, match: Match, randomizer: str, preset, actor: Optional[User], *,
         seed_url: str, settings: Optional[dict], provider_meta: Optional[dict],
-        seed_code: Optional[list[str]] = None,
+        seed_code: Optional[list[str]] = None, resolution: Optional[dict] = None,
     ) -> str:
         """Record a finished roll, tell the players, and audit it.
 
@@ -638,6 +644,7 @@ class MatchScheduleService(MatchNotificationMixin):
             rolled_by_id=actor.id if actor is not None else None,
             provider_meta=provider_meta,
             seed_code=seed_code or None,
+            resolution=resolution,
         )
         # Write only the seed: the proctor may have checked players in while the roll ran.
         await match.save(update_fields=['generated_seed_id'])
@@ -703,6 +710,7 @@ class MatchScheduleService(MatchNotificationMixin):
                 'randomizer': randomizer,
                 'preset': preset.name if preset is not None else None,
                 'seed_url': seed_url,
+                **({'seed_rule': resolution['rule_name']} if resolution and resolution.get('rule_name') else {}),
                 **{k: v for k, v in (provider_meta or {}).items()
                    if k in ('attempts', 'latency_ms')},
             },

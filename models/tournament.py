@@ -50,6 +50,8 @@ class Tournament(Model):
     hard_preset: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
         'models.Preset', related_name='hard_tournaments', null=True, on_delete=fields.SET_NULL
     )
+    # Ordered rule list; shape and checks in application/services/seed_rules.py.
+    seed_rules = fields.JSONField(null=True)  # type: ignore[var-annotated]
     racetime_bot = fields.ForeignKeyField(
         'models.RacetimeBot', related_name='tournaments', null=True, on_delete=fields.SET_NULL
     )
@@ -225,6 +227,8 @@ class GeneratedSeeds(Model):
     )
     provider_meta = fields.JSONField(null=True)  # type: ignore[var-annotated]
     seed_code = fields.JSONField(null=True)  # type: ignore[var-annotated]
+    # Why this preset: override, hard mode, a seed rule (with its draw and tweaks) or the default.
+    resolution = fields.JSONField(null=True)  # type: ignore[var-annotated]
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
@@ -331,6 +335,7 @@ class ProviderTask(Model):
     provider_task_id = fields.CharField(max_length=128, null=True)
     provider_params = fields.JSONField(null=True)  # type: ignore[var-annotated]
     settings_snapshot = fields.JSONField(null=True)  # type: ignore[var-annotated]
+    resolution = fields.JSONField(null=True)  # type: ignore[var-annotated]
     preset = fields.ForeignKeyField(  # type: ignore[var-annotated]
         'models.Preset', related_name='provider_tasks', null=True, on_delete=fields.SET_NULL
     )

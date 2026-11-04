@@ -1000,6 +1000,7 @@ Tournament metadata and configuration; the root aggregate for matches, enrollmen
 | `config` | `JSONField` | null | Hybrid-config JSON half (messaging templates, scoring params, strategy choices). Written only through `TournamentService`, which validates it with `validate_tournament_config` (unknown keys raise `ValueError`); typed knobs stay their own columns. A `round_schedule` key holds each Challonge/start.gg stage's booking window (`RoundScheduleService`). See [online-tournaments.md](../features/online-tournaments.md) |
 | `preset` | FK → `Preset` | null, `SET_NULL` | Seed-rolling preset; resolves the randomizer + settings for seed generation and overrides `seed_generator` when set. `related_name='tournaments'` |
 | `hard_preset` | FK → `Preset` | null, `SET_NULL` | The opt-in "harder" preset players can privately agree to instead. Must share `preset`'s randomizer and requires `preset` to be set (both enforced in `TournamentService`). Null = this tournament does not offer one, which is what keeps the whole opt-in surface invisible. `related_name='hard_tournaments'` |
+| `seed_rules` | `JSONField` | null | Ordered seed rules (`when` → one preset or a weighted roll, plus `tweaks`) checked by `seed_rules.clean_rules` on every save. Null = no rules, so the tournament rolls `preset`. See [seed rules](seed-generation.md#seed-rules) |
 | `racetime_bot` | FK → `RacetimeBot` | null, `SET_NULL` | Selected racetime bot/category; validated against the tenant's authorization grants (`RacetimeBotTenant`). `related_name='tournaments'` |
 | `race_room_profile` | FK → `RaceRoomProfile` | null, `SET_NULL` | Reusable room settings applied when a room is opened. `related_name='tournaments'` |
 | `racetime_auto_create_rooms` | `BooleanField` | default `False` | Opt-in: auto-open a race room per scheduled match |
@@ -1233,6 +1234,7 @@ Carries the seed's **provenance**: a `Preset` is an editable row, so without a s
 | `rolled_by` | FK → `User` | null, `SET_NULL` | Who spent the match's single roll. `related_name='rolled_seeds'` |
 | `provider_meta` | `JSONField` | null | `{provider, operation, attempts, latency_ms, surface}` from the seed-provider envelope |
 | `seed_code` | `JSONField` | null | The file-select code players compare before a race, as a list of names (`["Bow", "Hookshot", …]`); null when the randomizer returns none. See [seed codes](seed-generation.md#seed-codes) |
+| `resolution` | `JSONField` | null | Why this preset: `source` (`override`, `hard_mode`, `rule`, `default`), `preset_id`, and for a rule its `rule_id`, `rule_number`, `rule_name`, `draw` (weights and the pick) and `tweaks` |
 
 #### `DoorSeed`
 
@@ -1283,6 +1285,7 @@ Named for the *provider*, not for seeds: `provider` and `operation` mirror `Prov
 | `provider_task_id` | `CharField(128)` | null | Upstream handle; null between row creation and a successful submit |
 | `provider_params` | `JSONField` | null | What a *later* poll needs, e.g. `{'branch': 'stable'}` |
 | `settings_snapshot` | `JSONField` | null | The settings as sent, so a completion minutes later records what was used |
+| `resolution` | `JSONField` | null | The seed-rule resolution at submit time, copied to `GeneratedSeeds.resolution` on completion |
 | `preset` | FK → `Preset` | null, `SET_NULL` | |
 | `requested_by` | FK → `User` | null, `SET_NULL` | Attributes the resulting seed and audit row |
 | `match` | FK → `Match` | null, `CASCADE` | The consumer |
