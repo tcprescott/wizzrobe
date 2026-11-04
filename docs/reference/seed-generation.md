@@ -345,7 +345,9 @@ settings.setdefault('texts', {})['end_triforce'] = "{NOBORDER}\n" + triforce_tex
 | `then` | `{"preset": id}` or `{"weighted": [{"preset": id, "weight": n}, ...]}` (2–16 entries, weights 0–10000, one above 0). Presets are the community's own. |
 | `tweaks` | `{"dotted.path": value}` set on a **copy** of the chosen preset's settings before the roll; the `Preset` row never changes, and the tweaked settings land in `settings_snapshot`. |
 
-A rule whose presets were all deleted is skipped, so the next rule decides. `to_yaml` / `from_yaml` are the text view: presets by name, rule ids dropped.
+A rule whose presets were all deleted is skipped, so the next rule decides. `to_yaml` / `from_yaml` are the text view: presets by name, rule ids dropped. Saving also refuses a preset of another randomizer than the tournament's `seed_generator`.
+
+Editing lives on the app's Admin → Tournaments → **Seed rules** tab (`web/src/admin/tournaments/SeedRulesTab.tsx`; on desktop it drops the tournament list so its own rule list sits beside the open rule), over [`/api/admin/tournaments/{id}/seed-rules`](rest-api.md). `SeedRuleService.preview` tries a draft on a real or made-up match via `seed_rules.first_fitting` without drawing; `SeedRuleService.why` turns a seed's `resolution` into the "Rule 2: … → Open" line the Match Schedule pane shows (`seed_rule`). MCP `get_seed_rules` reads the same editor payload.
 
 ## Presets (DB-backed)
 

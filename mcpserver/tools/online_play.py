@@ -15,21 +15,25 @@ from typing import List, Optional
 
 from mcp.server.mcpserver import MCPServer
 
+from api.schemas.seed_rules import SeedRulesEditorResponse
 from application.api_scopes import ApiScope
 from application.errors import require_found
 from application.services import (
+    GroupRaceBoardService,
     MatchService,
     PresetService,
     RaceRoomProfileService,
     RacetimeRoomService,
     RandomizerCredentialService,
     SeedGenerationService,
+    SeedRuleService,
     SpeedGamingSyncService,
     TriforceTextService,
 )
 from mcpserver.auth import Gate, current_actor
 from mcpserver.registry import register
 from mcpserver.schemas import (
+    GroupRaceInfo,
     PresetDetail,
     PresetSummary,
     RaceRoomInfo,
@@ -87,6 +91,22 @@ async def get_preset(
     return detail
 
 
+async def get_seed_rules(
+    tournament_id: int,
+    tenant: TenantArg = None,
+) -> SeedRulesEditorResponse:
+    """Get a tournament's seed rules: which preset each match rolls. Staff, preset managers or that tournament's admins.
+
+    Rules are tried in order and the first whose `when` conditions all hold
+    decides; with none fitting, `default_preset` rolls. `then` is one preset id
+    or a weighted draw; `tweaks` set dotted settings paths on top. `presets`
+    names the ids, `rounds` the round keys. Staff's per-match override and a
+    unanimous hard-mode opt-in still beat every rule.
+    """
+    data = await SeedRuleService().editor(tournament_id, current_actor().user)
+    return SeedRulesEditorResponse.model_validate(data)
+
+
 async def list_race_room_profiles(
     tenant: TenantArg = None,
 ) -> List[RaceRoomProfileInfo]:
@@ -107,6 +127,29 @@ async def list_race_rooms(
     """
     rooms = await RacetimeRoomService().list_open_rooms_for_current_tenant(current_actor().user)
     return [_room(room) for room in rooms]
+
+
+async def list_group_races(
+    finished: bool = False,
+    tenant: TenantArg = None,
+) -> List[GroupRaceInfo]:
+    """List this event's group races (dailies, weeklies) and qualifier live races with a start time.
+
+    By default lists what's still to run, from 12 hours back and two weeks ahead, earliest first,
+    with how far the bot has got (room open, posted, seed out, locked). `finished=true` lists the
+    last two weeks of finished races, newest first. Requires staff, a tournament admin, or a
+    qualifier admin; each sees the races they run.
+    """
+    views = await GroupRaceBoardService().list_races(current_actor().user, finished=finished)
+    return [
+        GroupRaceInfo(
+            kind=v.kind, id=v.id, title=v.title, series=v.series, scheduled_at=v.scheduled_at,
+            opens_at=v.opens_at, seed_at=v.seed_at, state=v.state, room_url=v.room_url,
+            announced_at=v.announced_at, seed_posted_at=v.seed_posted_at, locked_at=v.locked_at,
+            finishers=v.finishers,
+        )
+        for v in views
+    ]
 
 
 async def get_race_room(
@@ -227,6 +270,7 @@ async def list_triforce_texts(
 def register_tools(mcp: MCPServer) -> None:
     register(mcp, list_presets, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ, title='List presets')
     register(mcp, get_preset, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ, title='Get preset')
+    register(mcp, get_seed_rules, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ, title='Get seed rules', event=True)
     register(mcp, list_randomizers, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ, title='List randomizers')
     register(
         mcp, list_triforce_texts, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ,
@@ -240,6 +284,11 @@ def register_tools(mcp: MCPServer) -> None:
     register(
         mcp, list_race_rooms, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ,
         feature=FeatureFlag.RACETIME_ROOMS, title='List open race rooms',
+        event=True,
+    )
+    register(
+        mcp, list_group_races, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ,
+        feature=FeatureFlag.RACETIME_ROOMS, title='List group races',
         event=True,
     )
     register(

@@ -24,7 +24,7 @@ SYSTEM = 'System'
 ADMIN_GROUP_ORDER = [RUN_THE_EVENT, ONLINE_PLAY, PEOPLE, COMMUNITY, CONFIGURATION, SYSTEM]
 EVENT_GROUPS = frozenset({RUN_THE_EVENT, ONLINE_PLAY, PEOPLE})
 # Areas built only in the new app; the website's admin drawer never gets them.
-APP_ONLY_AREAS = frozenset({'tickets', 'patches'})
+APP_ONLY_AREAS = frozenset({'tickets', 'patches', 'group-races'})
 
 
 @dataclass(frozen=True)
@@ -109,6 +109,8 @@ def admin_areas(access: AdminAccess, live: set, setup_ready: bool = True) -> lis
     add(bool(event_settings_panes(access, live)), 'event-settings', 'Event settings', 'event', RUN_THE_EVENT)
     add((staff or access.is_qualifier_admin or access.is_qualifier_owner) and FeatureFlag.ASYNC_QUALIFIERS in live,
         'qualifiers', 'Qualifiers', 'timer', ONLINE_PLAY)
+    add((staff or ta or access.is_qualifier_admin or access.is_qualifier_owner) and FeatureFlag.RACETIME_ROOMS in live,
+        'group-races', 'Group races', 'directions_run', ONLINE_PLAY)
     add(staff and FeatureFlag.BRACKETS in live, 'brackets', 'Brackets', 'schema', ONLINE_PLAY)
     add((staff or access.is_sync_admin) and FeatureFlag.SPEEDGAMING_ETL in live, 'speedgaming', 'SpeedGaming', 'sync_alt', ONLINE_PLAY)
     volunteers = (staff or vc) and FeatureFlag.VOLUNTEERS in live

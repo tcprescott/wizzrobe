@@ -132,6 +132,10 @@ class RoundScheduleService:
         """The tournament's stages in play order, each with its saved window."""
         return await self._stages(await self._editable(tournament_id, actor))
 
+    async def stages_for(self, tournament: Tournament) -> List[ScheduleStage]:
+        """:meth:`list_stages` without the edit check, for a caller that has made its own."""
+        return await self._stages(tournament)
+
     async def _stages(self, tournament: Tournament) -> List[ScheduleStage]:
         saved = _schedule_config(tournament)
         if tournament.startgg_event_slug:

@@ -73,6 +73,15 @@ class MatchRepository:
         return await query.first()
     
     @staticmethod
+    async def group_races_between(start: datetime, end: datetime) -> List[Match]:
+        """The current event's matches in group race tournaments starting in the window."""
+        return await event_scoped(
+            Match.filter(
+                tournament__racetime_group_race=True, scheduled_at__gte=start, scheduled_at__lte=end,
+            )
+        ).prefetch_related('tournament', 'players__user', 'racetime_room').order_by('scheduled_at', 'id')
+
+    @staticmethod
     async def get_by_speedgaming_episode(episode_id: int) -> Optional[Match]:
         """The Match materialized from an SG episode, or None (tenant-scoped).
 
@@ -83,6 +92,13 @@ class MatchRepository:
         return await scoped(
             Match.filter(speedgaming_episode_id=episode_id)
         ).prefetch_related('tournament', 'players', 'players__user').first()
+
+    @staticmethod
+    async def list_unseeded_for_tournament(tournament_id: int, limit: int = 60) -> List[Match]:
+        """A tournament's matches without a seed yet, soonest first, with players and stage."""
+        return await event_scoped(Match.filter(
+            tournament_id=tournament_id, generated_seed_id__isnull=True, finished_at__isnull=True,
+        )).order_by('scheduled_at', 'id').limit(limit).prefetch_related('players__user', 'stage')
 
     @staticmethod
     async def list_sourced_stale(cutoff: datetime, tournament_id: int) -> List[Match]:

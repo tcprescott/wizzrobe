@@ -473,6 +473,24 @@ class RaceRoomInfo(BaseModel):
     opened_at: Optional[datetime] = None
 
 
+class GroupRaceInfo(BaseModel):
+    """A group race on the board: a race in a group race tournament, or a qualifier live race with a start time."""
+
+    kind: str = Field(..., description='`match` (id is a match id) or `qualifier` (id is a live race id).')
+    id: int
+    title: str
+    series: str = Field(..., description='The tournament or qualifier it belongs to.')
+    scheduled_at: Optional[datetime] = None
+    opens_at: Optional[datetime] = Field(None, description='When the bot opens the room.')
+    seed_at: Optional[datetime] = Field(None, description='When the bot posts the seed.')
+    state: str = Field(..., description='scheduled, open, running or finished.')
+    room_url: Optional[str] = None
+    announced_at: Optional[datetime] = Field(None, description='When the Discord post went out.')
+    seed_posted_at: Optional[datetime] = None
+    locked_at: Optional[datetime] = None
+    finishers: int = 0
+
+
 class RaceRoomProfileInfo(BaseModel):
     """The room settings a tournament rolls its racetime rooms with."""
 

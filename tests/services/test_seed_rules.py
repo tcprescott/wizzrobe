@@ -125,6 +125,21 @@ class TestResolve:
         assert record['tweaks'] == {'item.swords': 'assured'}
 
 
+class TestPreviewHelpers:
+    def test_first_fitting_returns_the_odds_without_drawing(self):
+        i, rule, entries = sr.first_fitting(_rules(), MatchFacts(round='gf', game=1, best_of=3))
+        assert (i, rule['name']) == (1, 'Grand final mystery')
+        assert [e['weight'] for e in entries] == [50, 30, 20]
+
+    def test_describe_says_why(self):
+        names = {2: 'Standard'}
+        record = sr.resolve(_rules(), MatchFacts(game=2, best_of=3)).record()
+        assert sr.describe(record, names) == 'Rule 3: Game 2 swords → Standard + tweaks'
+        assert sr.describe({'source': 'hard_mode', 'preset_id': 2}, names) == 'Every player opted in → Standard'
+        assert sr.describe({'source': 'default', 'preset_id': 2}, names) == 'No rule fitted → Standard'
+        assert sr.describe(None, names) is None
+
+
 class TestTweaks:
     def test_sets_nested_paths_on_a_copy(self):
         settings = {'item': {'pool': 'normal'}, 'mode': 'open'}

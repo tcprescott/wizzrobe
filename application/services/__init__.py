@@ -118,6 +118,7 @@ from .exports import DataExportService, ExportFile, data_export_worker
 from .feature_flag_service import FeatureFlagService
 from .feedback_service import FeedbackService
 from .friend_service import FriendService
+from .group_race_board_service import GroupRaceBoardService
 from .group_race_service import GroupRaceService
 from .help_service import HelpService
 from .identity_link_service import IdentityLinkProvider, IdentityLinkService
@@ -321,6 +322,7 @@ __all__ = [
     'FeatureFlagService',
     'FeedbackService',
     'FriendService',
+    'GroupRaceBoardService',
     'GroupRaceService',
     'HardPresetState',
     'HelpService',

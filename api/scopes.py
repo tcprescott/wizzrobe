@@ -5,13 +5,11 @@ hold to call it, under ``PAT_ONLY`` (no app may call it, whatever it holds), or
 under ``PUBLIC`` (no token at all). ``tests/api/test_scopes.py`` fails when a
 route is missing, so a new endpoint cannot ship without a decision here.
 
-Personal access tokens skip this table entirely; see
-:func:`api.dependencies.resolve_token`.
+Personal access tokens skip this table entirely; see :func:`api.dependencies.resolve_token`.
 
 How a route is placed:
 
-- by who it serves, not by HTTP verb: a player acknowledging their match is
-  ``play``, a proctor starting it is ``staff:write``;
+- by who it serves, not by HTTP verb: a player acknowledging their match is ``play``, a proctor starting it is ``staff:write``;
 - a route that acts on *any* user by id ("yourself or Staff") is a staff route,
   since the ``/me`` routes already serve the self case;
 - a read every member may make is ``schedule:read`` even where Staff see a
@@ -243,6 +241,10 @@ _ROUTES: Dict[RouteScope, tuple[str, ...]] = {
         'GET /admin/tournaments/{tournament_id}/players/{user_id}/drop-plan',
         'GET /admin/tournaments/{tournament_id}/bracket/entrants',
         'GET /admin/tournaments/{tournament_id}/bracket/startgg',
+        'GET /admin/tournaments/{tournament_id}/seed-rules',
+        'GET /admin/tournaments/{tournament_id}/seed-rules/text',
+        'POST /admin/tournaments/{tournament_id}/seed-rules/preview',
+        'POST /admin/tournaments/{tournament_id}/seed-rules/text',
         'GET /admin/nav',
         'GET /events/{slug}/summary',
         'GET /surveys',
@@ -300,6 +302,7 @@ _ROUTES: Dict[RouteScope, tuple[str, ...]] = {
         'GET /race-room-profiles',
         'GET /race-room-profiles/{profile_id}',
         'GET /group-races/options',
+        *('GET /group-races' + p for p in ('', '/series', '/matches/{match_id}', '/live-races/{live_race_id}')),
         'GET /race-rooms/open',
         'GET /speedgaming/links',
         'GET /speedgaming/links/{link_id}/episodes',
@@ -374,6 +377,7 @@ _ROUTES: Dict[RouteScope, tuple[str, ...]] = {
         'POST /admin/tournaments/{tournament_id}/bracket/entrants/confirm-suggestions',
         'PATCH /admin/tournaments/{tournament_id}/bracket/startgg',
         'PUT /admin/tournaments/{tournament_id}/round-schedule',
+        'PUT /admin/tournaments/{tournament_id}/seed-rules',
         'POST /surveys',
         'POST /surveys/{survey_id}/duplicate',
         'PATCH /surveys/{survey_id}',
@@ -488,6 +492,9 @@ _ROUTES: Dict[RouteScope, tuple[str, ...]] = {
         'DELETE /presets/{preset_id}',
         'POST /presets/import-builtins',
         'POST /race-room-profiles',
+        'POST /group-races',
+        *(m + ' /group-races/' + row + a for row in ('matches/{match_id}', 'live-races/{live_race_id}')
+          for m, a in (('POST', '/open'), ('POST', '/seed'), ('POST', '/announce'), ('POST', '/lock'), ('DELETE', ''))),
         'PATCH /race-room-profiles/{profile_id}',
         'DELETE /race-room-profiles/{profile_id}',
         'POST /race-rooms',
@@ -765,6 +772,8 @@ READ_ONLY_POSTS: Final = frozenset({
     'POST /graphql',
     'POST /admin/match-schedule/check-time',
     'POST /admin/match-schedule/suggest-time',
+    'POST /admin/tournaments/{tournament_id}/seed-rules/preview',
+    'POST /admin/tournaments/{tournament_id}/seed-rules/text',
 })
 
 
