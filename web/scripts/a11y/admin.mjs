@@ -67,6 +67,14 @@ export const fixtures = {
         "aliases": []
       },
       {
+        "slug": "group-races",
+        "label": "Group races",
+        "icon": "directions_run",
+        "group": "Online play",
+        "half": "event",
+        "aliases": []
+      },
+      {
         "slug": "qualifiers",
         "label": "Qualifiers",
         "icon": "timer",

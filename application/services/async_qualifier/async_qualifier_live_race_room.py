@@ -164,12 +164,12 @@ class LiveRaceRoomService:
     # feature-gate: exempt — lifecycle of an already-open room; never raises.
     async def post_seed_if_due(
         self, room: RacetimeRoom, live_race: AsyncQualifierLiveRace, qualifier: AsyncQualifier,
-        *, now: Optional[datetime] = None,
+        *, now: Optional[datetime] = None, force: bool = False,
     ) -> bool:
-        """Post the permalink once its time has come, then lock the room if the qualifier asks."""
+        """Post the permalink once its time has come (or now, with ``force``), then lock if the qualifier asks."""
         now = now or datetime.now(timezone.utc)
         text = seed_text(live_race)
-        if room.seed_posted_at is not None or text is None or not seed_due(live_race, qualifier, now):
+        if room.seed_posted_at is not None or text is None or not (force or seed_due(live_race, qualifier, now)):
             return False
         try:
             if not await self.room_repository.claim_seed_post(room, now):

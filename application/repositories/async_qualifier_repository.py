@@ -468,6 +468,17 @@ class AsyncQualifierLiveRaceRepository(TenantScopedRepository[AsyncQualifierLive
             .first()
         )
 
+    async def scheduled_in_event(self, start: Any, end: Any) -> List[AsyncQualifierLiveRace]:
+        """The current event's live races with a start time in the window, for the Group races board."""
+        from application.repositories._event import current_event_id
+
+        return await scoped(
+            AsyncQualifierLiveRace.filter(
+                scheduled_at__gte=start, scheduled_at__lte=end,
+                pool__qualifier__event_id=current_event_id(),
+            )
+        ).prefetch_related('pool__qualifier', 'permalink').order_by('scheduled_at', 'id')
+
     async def get_by_racetime_slug(self, slug: str) -> Optional[AsyncQualifierLiveRace]:
         """Resolve a live race by its room slug (tenant-scoped).
 

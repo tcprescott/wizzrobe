@@ -91,6 +91,7 @@ READ_TOOLS = {
     'list_presets',
     'list_race_room_profiles',
     'list_race_rooms',
+    'list_group_races',
     'list_randomizers',
     'list_sent_messages',
     'list_service_health',

@@ -73,6 +73,15 @@ class MatchRepository:
         return await query.first()
     
     @staticmethod
+    async def group_races_between(start: datetime, end: datetime) -> List[Match]:
+        """The current event's matches in group race tournaments starting in the window."""
+        return await event_scoped(
+            Match.filter(
+                tournament__racetime_group_race=True, scheduled_at__gte=start, scheduled_at__lte=end,
+            )
+        ).prefetch_related('tournament', 'players__user', 'racetime_room').order_by('scheduled_at', 'id')
+
+    @staticmethod
     async def get_by_speedgaming_episode(episode_id: int) -> Optional[Match]:
         """The Match materialized from an SG episode, or None (tenant-scoped).
 

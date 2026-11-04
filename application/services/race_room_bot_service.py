@@ -172,6 +172,11 @@ class RaceRoomBotService:
         )
         await self._tell_broadcaster_waiting(match, room, broadcasters)
 
+    # feature-gate: exempt — acts on an already-open room for the Group races board, which checks the flag.
+    async def post_seed_now(self, room: RacetimeRoom, match: Match) -> str:
+        """Post the seed whatever the clock says (staff's "Post the seed now")."""
+        return await self._post_seed(room, match)
+
     async def _post_seed(self, room: RacetimeRoom, match: Match) -> str:
         """Put the seed in the room, rolling it first if there isn't one.
 

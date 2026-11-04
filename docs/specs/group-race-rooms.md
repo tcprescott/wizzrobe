@@ -1,6 +1,6 @@
 # Group race rooms
 
-Status: Building · Size: full · PRs: #817 (backend for dailies, merged), PR 2 (qualifier live races) · Requested: 2026-11-03, Thomas
+Status: Building · Size: full · PRs: #817 (backend for dailies), #818 (qualifier live races), #823 (settings in the app), all merged; PR 3b (Group races screen) · Requested: 2026-11-03, Thomas
 
 ## Problem
 
@@ -186,3 +186,8 @@ room now, Re-post announcement, Cancel race.
 - 2026-11-04 — Thomas picked mockup **A**: the Group races side-list screen. Spec approved.
 - 2026-11-04 — Seeds roll through the community presets thread's
   `space/preset` lookup (coordinator note); no group-race seed logic.
+- 2026-11-04 — Built for 3b: no separate `group_race.created`/`group_race.cancelled`
+  audit actions. Adding or cancelling a race reuses `match.created`/`match.cancelled`
+  (tournaments) and the live race created/cancelled audits (qualifiers), so
+  webhook consumers see what they already see. Lock now audits `race_room.locked`.
+  The mockup's "All series" pill isn't built; the list is coming up / finished.

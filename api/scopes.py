@@ -299,6 +299,7 @@ _ROUTES: Dict[RouteScope, tuple[str, ...]] = {
         'GET /race-room-profiles',
         'GET /race-room-profiles/{profile_id}',
         'GET /group-races/options',
+        *('GET /group-races' + p for p in ('', '/series', '/matches/{match_id}', '/live-races/{live_race_id}')),
         'GET /race-rooms/open',
         'GET /speedgaming/links',
         'GET /speedgaming/links/{link_id}/episodes',
@@ -487,6 +488,9 @@ _ROUTES: Dict[RouteScope, tuple[str, ...]] = {
         'DELETE /presets/{preset_id}',
         'POST /presets/import-builtins',
         'POST /race-room-profiles',
+        'POST /group-races',
+        *(m + ' /group-races/' + row + a for row in ('matches/{match_id}', 'live-races/{live_race_id}')
+          for m, a in (('POST', '/open'), ('POST', '/seed'), ('POST', '/announce'), ('POST', '/lock'), ('DELETE', ''))),
         'PATCH /race-room-profiles/{profile_id}',
         'DELETE /race-room-profiles/{profile_id}',
         'POST /race-rooms',

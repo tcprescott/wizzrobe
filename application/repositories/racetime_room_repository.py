@@ -172,6 +172,12 @@ class RacetimeRoomRepository(TenantScopedRepository[RacetimeRoom]):
             'tournament', 'players', 'players__user',
         ).order_by('scheduled_at')
 
+    async def by_slugs(self, slugs: List[str]) -> dict[str, RacetimeRoom]:
+        """``{slug: room}`` for this community's rooms among ``slugs`` — one scoped query."""
+        if not slugs:
+            return {}
+        return {r.slug: r for r in await scoped(RacetimeRoom.filter(slug__in=slugs))}
+
     async def get_by_match(self, match: Match) -> Optional[RacetimeRoom]:
         return await scoped(RacetimeRoom.filter(match_id=match.id)).first()
 
