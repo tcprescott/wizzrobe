@@ -16,6 +16,7 @@ from application.repositories import (
     TournamentRepository,
 )
 from application.services._tournament_drop import TournamentDropMixin
+from application.services._tournament_group_race import GROUP_RACE_IMPLIES, group_race_updates
 from application.services._tournament_signup import (
     COLOR_SIGNUP,
     TournamentSignupCard,
@@ -26,7 +27,6 @@ from application.services.auth_service import AuthService
 from application.services.system_config_service import SystemConfigService
 from application.services.tenant_membership_service import TenantMembershipService
 from application.services.tournament_config import validate_tournament_config
-from application.services._tournament_group_race import GROUP_RACE_IMPLIES, group_race_updates
 from application.tenant_context import require_tenant_id
 from application.utils.safe_url import normalize_http_url
 from models import Tournament, TournamentGrant, User

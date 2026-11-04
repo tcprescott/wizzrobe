@@ -184,7 +184,7 @@ async def test_the_room_locks_as_the_seed_posts_when_switched_on(db, sent):
 
 async def test_the_room_stays_open_when_locking_is_off(db, sent):
     match = await _race(await _daily(lock=False), in_minutes=5)
-    room = await _open_room(match)
+    await _open_room(match)
 
     await _post_due_seeds()
 

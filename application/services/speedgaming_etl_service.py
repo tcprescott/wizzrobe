@@ -224,7 +224,7 @@ class SpeedGamingETLService:
             raise ValueError(f'SG episode {sg_id} has no scheduled time')
 
         resolved_players = []
-        tournament = await TournamentRepository.get_by_id(link.tournament_id)
+        tournament = await TournamentRepository.get_by_id(link.tournament_id)  # type: ignore[attr-defined]
         # A group race (a daily) is open to anyone: its room takes whoever joins, not SG's list.
         if tournament is None or not tournament.racetime_group_race:
             for player in self._extract_players(raw):
