@@ -19,10 +19,11 @@ import time
 from collections import defaultdict, deque
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Deque, Dict, List, Optional
+from typing import Deque, Dict, List, Optional, Set
 
 from application.errors import NotFoundError
-from application.repositories import PresetLibraryRepository, PresetRepository
+from application.repositories import PresetLibraryRepository, PresetRepository, PresetSpaceRepository
+from application.services.admin_presets_service import PASTE_FIELDS
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
 from application.services.randomizer_credential_service import RandomizerCredentialService
@@ -74,6 +75,7 @@ class LibraryPreset:
     changed_since_copy: bool
     rollable: bool
     can_manage: bool
+    can_edit: bool
 
     @property
     def randomizer_name(self) -> str:
@@ -82,6 +84,16 @@ class LibraryPreset:
     @property
     def reference(self) -> str:
         return f"{self.space_slug}/{self.preset.name}"
+
+
+@dataclass(frozen=True)
+class LibraryRandomizer:
+    slug: str
+    name: str
+    available: bool
+    paste_key: Optional[str]
+    paste_label: Optional[str]
+    paste_hint: Optional[str]
 
 
 @dataclass(frozen=True)
@@ -108,13 +120,34 @@ class PresetLibraryService:
             include_unlisted_of_tenant=tenant_id if manager else None, randomizer=randomizer,
         )
         rollable = await self._rollable()
-        return [self._view(p, tenant_id, rollable, manager) for p in rows]
+        editable = await self._editable_spaces(actor)
+        return [self._view(p, tenant_id, rollable, manager, editable) for p in rows]
 
     async def get_preset(self, actor: User, preset_id: int) -> LibraryPreset:
         tenant_id = require_tenant_id()
         preset = await self._visible(actor, preset_id)
         manager = await AuthService.can_manage_presets(actor)
-        return self._view(preset, tenant_id, await self._rollable(), manager)
+        return self._view(preset, tenant_id, await self._rollable(), manager, await self._editable_spaces(actor))
+
+    async def randomizers(self, actor: User) -> List[LibraryRandomizer]:
+        """Every randomizer a preset can be written for, and how its settings are entered."""
+        rollable = await self._rollable()
+        out = []
+        for slug in SeedGenerationService.AVAILABLE_RANDOMIZERS:
+            field = PASTE_FIELDS.get(slug)
+            out.append(LibraryRandomizer(
+                slug=slug,
+                name=SeedGenerationService.randomizer_name(slug),
+                available=slug in rollable,
+                paste_key=field[0] if field else None,
+                paste_label=field[1] if field else None,
+                paste_hint=field[3] if field else None,
+            ))
+        return sorted(out, key=lambda r: r.name.lower())
+
+    async def visible_preset(self, actor: User, preset_id: int) -> Preset:
+        """A preset the actor may see in the library, or not-found."""
+        return await self._visible(actor, preset_id)
 
     async def roll(self, actor: User, preset_id: int) -> LibraryRoll:
         """Roll one seed from a library preset with this community's randomizer keys."""
@@ -169,13 +202,23 @@ class PresetLibraryService:
         return copy
 
     async def update_copy(self, actor: User, preset_id: int) -> Preset:
-        """Bring a copied preset up to date with its original; the only way a copy changes upstream."""
-        await AuthService.ensure(
-            await AuthService.can_manage_presets(actor), "Cannot manage presets"
-        )
+        """Bring a copied preset up to date with its original; the only way a copy changes upstream.
+
+        A community copy needs that community's preset managers; a copy in a
+        personal space needs its owner or a co-editor.
+        """
         copy = await self.repository.get(preset_id)
-        if copy is None or copy.tenant_id != require_tenant_id():
+        if copy is None or copy.space is None:
             raise NotFoundError("Preset not found")
+        if copy.space.kind == PresetSpaceKind.USER:
+            if copy.space.id not in await self._editable_spaces(actor):
+                raise NotFoundError("Preset not found")
+        else:
+            await AuthService.ensure(
+                await AuthService.can_manage_presets(actor), "Cannot manage presets"
+            )
+            if copy.tenant_id != require_tenant_id():
+                raise NotFoundError("Preset not found")
         original = copy.copied_from
         if original is None:
             raise ValueError("This preset isn't a copy, or its original was deleted")
@@ -193,6 +236,10 @@ class PresetLibraryService:
              'from': _reference(original), 'from_id': original.id},
         )
         return copy
+
+    @staticmethod
+    async def _editable_spaces(actor: User) -> Set[int]:
+        return {s.id for s in await PresetSpaceRepository.editable_by(actor.id)}
 
     @staticmethod
     async def _rollable() -> set:
@@ -215,7 +262,9 @@ class PresetLibraryService:
         return bool(preset.listed) or (manages_owner and preset.tenant_id == tenant_id)
 
     @staticmethod
-    def _view(preset: Preset, tenant_id: int, rollable: set, manager: bool) -> LibraryPreset:
+    def _view(
+        preset: Preset, tenant_id: int, rollable: set, manager: bool, editable: Set[int],
+    ) -> LibraryPreset:
         space = _space(preset)
         if space.tenant is not None:
             space_name = space.tenant.name
@@ -238,4 +287,5 @@ class PresetLibraryService:
             changed_since_copy=changed,
             rollable=preset.randomizer in rollable,
             can_manage=manager,
+            can_edit=space.id in editable,
         )

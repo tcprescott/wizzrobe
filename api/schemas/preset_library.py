@@ -14,6 +14,7 @@ class LibraryPresetResponse(BaseModel):
     randomizer_name: str = Field(..., description="The randomizer's display name.")
     rollable: bool = Field(..., description="Whether this community has the keys to roll it.")
     can_manage: bool = Field(..., description="Whether you manage this community's presets, so may copy or update copies.")
+    can_edit: bool = Field(False, description="True for a preset in a personal space you own or co-edit.")
     description: Optional[str] = Field(None, description="The owner's note on the preset.")
     space: str = Field(..., description="The space's slug, the part before the slash.")
     space_kind: str = Field(..., description="`community`, `user` or `builtin`.")
@@ -41,3 +42,55 @@ class LibraryRollResponse(BaseModel):
 
 class LibraryCopyRequest(BaseModel):
     name: Optional[str] = Field(None, description="Name for the copy. Omit to keep the original's name.")
+
+
+class LibraryCopyToMineRequest(BaseModel):
+    name: Optional[str] = Field(None, description="Name for the copy. Omit to use the original's, made plain.")
+    space_id: Optional[int] = Field(None, description="A space you co-edit. Omit for your own, made if needed.")
+
+
+class LibraryRandomizerResponse(BaseModel):
+    slug: str
+    name: str
+    available: bool = Field(..., description="False when this community hasn't added the randomizer's key, so rolls fail here.")
+    paste_key: Optional[str] = Field(None, description="Edit its settings as one pasted value saved under this key, not JSON.")
+    paste_label: Optional[str] = None
+    paste_hint: Optional[str] = None
+
+
+class PresetSpaceMember(BaseModel):
+    id: int
+    name: str
+
+
+class PresetSpaceResponse(BaseModel):
+    id: int
+    slug: str = Field(..., description="The part before the slash in this space's preset names.")
+    owner: PresetSpaceMember
+    is_owner: bool = Field(..., description="False when you co-edit someone else's space.")
+    preset_count: int
+    max_presets: int
+    editors: List[PresetSpaceMember]
+    max_editors: int
+
+
+class PresetSpaceUpdateRequest(BaseModel):
+    slug: str = Field(..., description="2 to 32 lowercase letters, numbers, - or _, unique across Wizzrobe.")
+
+
+class PresetSpaceEditorRequest(BaseModel):
+    user_id: int = Field(..., description="A member of this community.")
+
+
+class PersonalPresetCreateRequest(BaseModel):
+    name: str = Field(..., description="2 to 32 lowercase letters, numbers, - or _.")
+    randomizer: str
+    settings: Dict[str, Any] = Field(default_factory=dict, description="The settings sent to the randomizer, 64 KB at most.")
+    description: Optional[str] = Field(None, description="A note shown with the preset, 2000 characters at most.")
+    space_id: Optional[int] = Field(None, description="A space you co-edit. Omit for your own, made if needed.")
+
+
+class PersonalPresetUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    settings: Optional[Dict[str, Any]] = None
+    description: Optional[str] = None

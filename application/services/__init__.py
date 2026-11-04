@@ -157,6 +157,7 @@ from .patreon_campaign_service import CampaignOverview, PatreonCampaignService, 
 from .patreon_link_service import MyPatreon, PatreonLinkService, PatreonOAuthService
 from .patron_service import PatronService, PatronStatus
 from .payout_service import PayoutService
+from .personal_preset_service import PersonalPresetService, SpaceView
 from .personal_webhook_service import PersonalWebhookService
 from .platform_admin_service import AccountOverview, CommunityOverview, PlatformAdminService
 from .player_availability_service import PlayerAvailabilityService
@@ -361,6 +362,7 @@ __all__ = [
     'PatronService',
     'PatronStatus',
     'PayoutService',
+    'PersonalPresetService',
     'PersonalWebhookService',
     'PlatformAdminService',
     'PlayerAvailabilityService',
@@ -398,6 +400,7 @@ __all__ = [
     'ServiceHealthService',
     'ServiceStatus',
     'SetupStep',
+    'SpaceView',
     'SpeedGamingETLService',
     'SpeedGamingSyncService',
     'StaffAlertService',

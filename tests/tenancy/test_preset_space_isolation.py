@@ -39,3 +39,18 @@ async def test_library_never_shows_another_communitys_unlisted_presets(db):
         ids = {p.id for p in await PresetLibraryRepository.list_library(include_unlisted_of_tenant=1)}
     assert shown.id in ids and mine.id in ids
     assert hidden.id not in ids
+
+
+async def test_personal_presets_stay_out_of_every_community_list(db):
+    from application.repositories import PresetSpaceRepository
+    from models import PresetSpaceKind, User
+
+    user = await User.create(discord_id=4242, username='tom')
+    space = await PresetSpaceRepository.create_personal('tom', user.id)
+    personal = await PresetSpaceRepository.create_preset(space.id, name='fast', randomizer='alttpr', settings={})
+    with tenant_scope(1):
+        community = await Preset.create(name='open', randomizer='alttpr', settings={})
+        assert [p.id for p in await PresetRepository().list_all()] == [community.id]
+        assert await PresetRepository().get_by_id(personal.id) is None
+    assert space.tenant_id is None and space.kind == PresetSpaceKind.USER
+    assert (await PresetSpace.get(id=community.space_id)).tenant_id == 1
