@@ -299,6 +299,29 @@ def matches(when: Mapping[str, Any], facts: MatchFacts) -> bool:
     return True
 
 
+def first_fitting(
+    rules: list[dict], facts: MatchFacts, *, usable: Optional[Callable[[int], bool]] = None,
+) -> Optional[tuple[int, dict, list[dict]]]:
+    """The first rule whose conditions hold and that names a preset it can roll.
+
+    Returns its index, the rule and the outcome's rollable entries (one entry
+    of weight 1 for a single preset), without drawing.
+    """
+    ok = usable or (lambda _pid: True)
+    for i, rule in enumerate(rules):
+        if not matches(rule.get('when') or {}, facts):
+            continue
+        then = rule.get('then') or {}
+        if 'preset' in then:
+            if ok(then['preset']):
+                return i, rule, [{'preset': then['preset'], 'weight': 1}]
+            continue
+        entries = [e for e in then.get('weighted') or [] if e['weight'] > 0 and ok(e['preset'])]
+        if entries:
+            return i, rule, entries
+    return None
+
+
 def resolve(
     rules: list[dict], facts: MatchFacts, *,
     rng: Optional[random.Random] = None,
@@ -310,24 +333,42 @@ def resolve(
     names none it can roll is skipped, so the next rule (or the tournament's
     own preset) decides rather than the roll failing.
     """
-    rng = rng or random.SystemRandom()
-    ok = usable or (lambda _pid: True)
-    for i, rule in enumerate(rules):
-        if not matches(rule.get('when') or {}, facts):
-            continue
-        then = rule.get('then') or {}
-        draw = None
-        if 'preset' in then:
-            if not ok(then['preset']):
-                continue
-            pid = then['preset']
-        else:
-            entries = [e for e in then.get('weighted') or [] if e['weight'] > 0 and ok(e['preset'])]
-            if not entries:
-                continue
-            pid = rng.choices([e['preset'] for e in entries], weights=[e['weight'] for e in entries])[0]
-            draw = {'weights': {str(e['preset']): e['weight'] for e in entries}, 'picked': pid}
-        return RuleHit(i, rule['id'], rule['name'], pid, dict(rule.get('tweaks') or {}), draw)
+    found = first_fitting(rules, facts, usable=usable)
+    if found is None:
+        return None
+    i, rule, entries = found
+    draw = None
+    if 'preset' in rule['then']:
+        pid = entries[0]['preset']
+    else:
+        rng = rng or random.SystemRandom()
+        pid = rng.choices([e['preset'] for e in entries], weights=[e['weight'] for e in entries])[0]
+        draw = {'weights': {str(e['preset']): e['weight'] for e in entries}, 'picked': pid}
+    return RuleHit(i, rule['id'], rule['name'], pid, dict(rule.get('tweaks') or {}), draw)
+
+
+def describe(record: Optional[Mapping[str, Any]], preset_names: Mapping[int, str]) -> Optional[str]:
+    """Why this seed, in a few words, from a roll's ``resolution`` record."""
+    if not record:
+        return None
+    pid = record.get('preset_id')
+    name = preset_names.get(pid) if isinstance(pid, int) else None
+    source = record.get('source')
+    if source == 'rule':
+        line = f"Rule {record.get('rule_number')}: {record.get('rule_name') or 'Unnamed'}"
+        if name:
+            line += f' → {name}'
+        if record.get('draw'):
+            line += ' (weighted draw)'
+        if record.get('tweaks'):
+            line += ' + tweaks'
+        return line
+    if source == 'hard_mode':
+        return f'Every player opted in → {name}' if name else 'Every player opted in'
+    if source == 'override':
+        return f'Set by staff → {name}' if name else 'Set by staff'
+    if source == 'default':
+        return f'No rule fitted → {name}' if name else 'No rule fitted'
     return None
 
 

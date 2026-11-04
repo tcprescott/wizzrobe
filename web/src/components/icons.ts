@@ -161,6 +161,7 @@ import SportsEsports from '@material-symbols/svg-400/outlined/sports_esports.svg
 import Stadium from '@material-symbols/svg-400/outlined/stadium.svg?react'
 import StadiumFill from '@material-symbols/svg-400/outlined/stadium-fill.svg?react'
 import StarIcon from '@material-symbols/svg-400/outlined/star.svg?react'
+import SubdirectoryArrowRight from '@material-symbols/svg-400/outlined/subdirectory_arrow_right.svg?react'
 import ISupportAgent from '@material-symbols/svg-400/outlined/support_agent.svg?react'
 import SwapHoriz from '@material-symbols/svg-400/outlined/swap_horiz.svg?react'
 import SwapVertIcon from '@material-symbols/svg-400/outlined/swap_vert.svg?react'
@@ -348,6 +349,7 @@ export const ICONS = {
   sports_esports: SportsEsports,
   stadium: Stadium,
   star: StarIcon,
+  subdirectory_arrow_right: SubdirectoryArrowRight,
   support_agent: ISupportAgent,
   swap_horiz: SwapHoriz,
   swap_vert: SwapVertIcon,

@@ -452,6 +452,7 @@ discovers a round-trip later.
 | Tool | Gate | Flag |
 |---|---|---|
 | `list_presets`, `get_preset`, `list_randomizers` | ACTOR | — |
+| `get_seed_rules` | ACTOR (service: Staff, preset manager or tournament admin) | — |
 | `list_triforce_texts` | ACTOR | `TRIFORCE_TEXTS` |
 | `list_race_room_profiles`, `get_race_room` | ACTOR | `RACETIME_ROOMS` |
 | `list_race_rooms` | ACTOR (service: Staff or Sync admin) | `RACETIME_ROOMS` |

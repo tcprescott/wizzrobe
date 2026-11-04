@@ -10,6 +10,7 @@ import { SIGNUP_LABEL, SIGNUP_TONE, useAdminQuery, type Board, type BoardRow } f
 import { PlayersTab } from './PlayersTab'
 import { RacetimeTab } from './RacetimeTab'
 import { RoundScheduleTab } from './RoundScheduleTab'
+import { SeedRulesTab } from './SeedRulesTab'
 import { SettingsTab } from './SettingsTab'
 
 interface Props {
@@ -18,12 +19,14 @@ interface Props {
   reloadBoard: () => void
   /** `<adminBase>/tournaments/<id>`. */
   base: string
+  /** Shown without the tournament list beside it, so its name is the page heading. */
+  standalone?: boolean
 }
 
-/** One tournament: header, Actions, and its four tabs. */
-export function TournamentDetail({ row, board, reloadBoard, base }: Props) {
+/** One tournament: header, Actions, and its tabs. */
+export function TournamentDetail({ row, board, reloadBoard, base, standalone = false }: Props) {
   const [deleting, setDeleting] = useState(false)
-  const Heading = usePhone() ? 'h1' : 'h2'
+  const Heading = usePhone() || standalone ? 'h1' : 'h2'
   const racetime = useAdmin().nav.areas.some((a) => a.slug === 'racetime')
   const tabs = [
     { slug: 'settings', label: 'Settings' },
@@ -31,6 +34,7 @@ export function TournamentDetail({ row, board, reloadBoard, base }: Props) {
     { slug: 'players', label: `Players · ${row.player_count}` },
     { slug: 'bracket', label: 'Bracket' },
     ...(row.has_round_schedule ? [{ slug: 'schedule', label: 'Round schedule' }] : []),
+    { slug: 'seed-rules', label: 'Seed rules' },
   ]
   const links: MenuItem[] = []
   if (row.rules_url) links.push({ label: 'Open rules', icon: 'open_in_new', onSelect: () => window.open(row.rules_url!, '_blank', 'noopener') })
@@ -71,6 +75,7 @@ export function TournamentDetail({ row, board, reloadBoard, base }: Props) {
         <Route path="players" element={<PlayersTab row={row} zone={board.zone ?? null} onChange={reloadBoard} />} />
         <Route path="bracket" element={<BracketTab row={row} board={board} onChange={reloadBoard} />} />
         <Route path="schedule" element={<RoundScheduleTab row={row} zone={board.zone ?? null} />} />
+        <Route path="seed-rules/*" element={<SeedRulesTab row={row} board={board} zone={board.zone ?? null} base={`${base}/seed-rules`} />} />
         <Route path="*" element={<Navigate to="settings" replace />} />
       </Routes>
       {deleting && <DeleteTournament row={row} onClose={() => setDeleting(false)} onDeleted={reloadBoard} />}

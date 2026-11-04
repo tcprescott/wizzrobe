@@ -413,8 +413,26 @@ async def _seed_online_tournament(
     tournament.racetime_default_goal = "Beat the game"
     tournament.require_racetime_link = True
     tournament.racetime_bot_runs_room = True
+    if not tournament.seed_generator:
+        tournament.seed_generator = "alttpr"
+    if tournament.seed_rules is None:
+        tournament.seed_rules = await _seed_rules(tenant, preset)
     await tournament.save()
     return tournament
+
+
+async def _seed_rules(tenant: Tenant, preset: Preset) -> list:
+    """Seed rules for the Seed rules tab: a title rule with a weighted draw, and a game rule with a tweak."""
+    hard = await Preset.get_or_none(name="ALTTPR Open — Hard Mode", tenant=tenant)
+    final = (
+        {"weighted": [{"preset": preset.id, "weight": 60}, {"preset": hard.id, "weight": 40}]}
+        if hard else {"preset": preset.id}
+    )
+    return [
+        {"id": "devfin", "name": "Finals mystery", "when": {"title": ["final"]}, "then": final},
+        {"id": "devgm2", "name": "Game 2 swords", "when": {"game": [2]},
+         "then": {"preset": preset.id}, "tweaks": {"item.swords": "assured"}},
+    ]
 
 
 async def _seed_group_race(tenant: Tenant, bot: RacetimeBot, preset: Preset) -> None:

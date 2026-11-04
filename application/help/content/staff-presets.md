@@ -94,6 +94,9 @@ dared into it.
 
 Both presets have to use the same randomizer. Test roll the harder one too.
 
+To roll different presets by round, by game in a set or by chance, add
+[seed rules](/help/staff-seed-rules) to the tournament.
+
 ## Rolling a match's seed
 
 Once a tournament has a preset, open a match on Admin → Match Schedule or the

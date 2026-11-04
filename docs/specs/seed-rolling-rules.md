@@ -1,6 +1,6 @@
 # Seed rolling rules
 
-Status: Building · Size: full · PRs: #821 · Requested: 2026-11-03, Thomas
+Status: Building · Size: full · PRs: #821, #824, part 2 · Requested: 2026-11-03, Thomas
 
 ## Problem
 

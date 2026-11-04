@@ -312,3 +312,21 @@ class TestRoundSchedule:
         assert is_error and 'forbidden:' in payload, payload
         await tournament.refresh_from_db()
         assert not (tournament.config or {}).get('round_schedule')
+
+
+class TestSeedRules:
+    async def test_seed_rules_read_back(self, db):
+        _, raw = await create_oauth_token(roles=[Role.STAFF])
+        preset = await Preset.create(name='Open', randomizer='alttpr', settings={})
+        tournament = await Tournament.create(
+            name='Rules Cup', seed_generator='alttpr',
+            seed_rules=[{'id': 'abc123', 'name': 'All', 'when': {}, 'then': {'preset': preset.id}}],
+        )
+
+        async with mcp_session() as client:
+            is_error, body = await call_tool(
+                client, raw, 'get_seed_rules', tenant=TENANT, tournament_id=tournament.id,
+            )
+        assert not is_error, body
+        assert body['rules'][0]['name'] == 'All'
+        assert body['presets'] == [{'id': preset.id, 'name': 'Open', 'randomizer': 'alttpr'}]
