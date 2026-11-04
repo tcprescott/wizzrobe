@@ -396,6 +396,10 @@ Tenant-authored seed presets (service gate `can_manage_presets`).
 Reusable racetime room settings (service gate `can_manage_sync`).
 - `GET /race-room-profiles` · `/selectable` · `/{id}`; `POST` · `PATCH /{id}` · `DELETE /{id}`.
 
+### Group races (`/api/group-races`) · `group_races.py`
+Behind `FeatureFlag.RACETIME_ROOMS`.
+- `GET /group-races/options` — the racetime bots (authorized for the community), race room profiles, Discord text channels and roles (ids as strings, `@everyone` dropped) the tournament Racetime tab and the qualifier live race settings pick from. Discord trouble isn't an error: the lists come back empty and `discord_problem` says why. Staff, tournament admins and crew coordinators, or Qualifier admin.
+
 ### Racetime bots (`/api/racetime-bots`) — **super-admin, global** · `racetime_bots.py`
 Platform-managed racetime bots (no tenant FK). Responses are the secret-free
 `RacetimeBotService.serialize(bot)` projection — `client_secret` is never returned.

@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { api, unwrap } from '../../api/client'
 import { Banner, Button, FormDialog } from '../../components'
 import { message } from '../../me/data'
-import { InstantField, NumberField } from '../kit'
+import { InstantField, NumberField, useAdmin } from '../kit'
 import type { QualifierDetail, QualifierRow } from './data'
+import { LiveRaceSettings } from './LiveRaceSettings'
 
 interface Draft {
   name: string
@@ -115,6 +116,7 @@ export function SettingsPage({ row, detail, zone, onSaved }: { row: QualifierRow
   const [draft, setDraft] = useState<Draft>(initial)
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState<{ tone: 'info' | 'error'; text: string } | null>(null)
+  const racetime = useAdmin().nav.areas.some((a) => a.slug === 'racetime')
 
   async function save() {
     setBusy(true)
@@ -157,6 +159,7 @@ export function SettingsPage({ row, detail, zone, onSaved }: { row: QualifierRow
           Save
         </Button>
       </div>
+      {racetime && <LiveRaceSettings qualifierId={row.id} />}
     </div>
   )
 }

@@ -133,10 +133,12 @@ room now, Re-post announcement, Cancel race.
    changelog line yet: staff can't switch it on in the app until PR 3.
 2. Qualifier live races as group races: `scheduled_at`, auto-open, bot runs the
    room with the permalink, lock, announcement. Covers 7.
-3. New app: Tournament → Racetime tab, qualifier form fields, Group races
-   screen, plus its REST list/actions, adding a race by hand, and the
-   `list_group_races` MCP tool. Help article, changelog, `ui_a11y_ci.json`.
-   Covers 8, 10–12.
+3. New app, split in two:
+   - 3a: Tournament → Racetime tab (layout S), the qualifier's live race
+     settings, `GET /api/group-races/options` (bots, profiles, Discord
+     channels and roles), changelog. Covers 8 and 10.
+   - 3b: Group races screen (layout A) with its REST list/actions, adding a
+     race by hand, the `list_group_races` MCP tool, help article. Covers 11–12.
 
 ## Acceptance
 

@@ -193,6 +193,16 @@ only the bot can open and run a room with nobody to invite.
 The greeting tells the room anyone can join, when the seed posts and whether the
 room locks then. Gated by `RACETIME_ROOMS` like every match room.
 
+Staff set it up in the new app on a tournament's **Racetime** tab
+(`web/src/admin/tournaments/RacetimeTab.tsx`, shown when the community's nav
+has the Racetime area): bot, room profile, goal, a Head-to-head / Group race
+switch, then the channel, role, minutes and lock, with a preview of the Discord
+post. A qualifier's Settings page carries the same pickers for its live races
+(`web/src/admin/qualifiers/LiveRaceSettings.tsx`). Both read their choices from
+`GET /api/group-races/options` (`GroupRaceService.room_options`); a saved
+channel or role Discord no longer lists shows as "Unknown (id)" rather than
+being cleared.
+
 ### Qualifier live races as group races
 
 A qualifier live race with a `scheduled_at` is run the same way by
