@@ -141,6 +141,7 @@ _ROUTES: Dict[RouteScope, tuple[str, ...]] = {
         'POST /preset-library/{preset_id}/copy-to-mine',
         'POST /preset-library/{preset_id}/update-copy',
         'POST /preset-library/personal',
+        'POST /preset-library/mystery/check',
         'POST /preset-library/sahasrahbot/{namespace}/import',
         'PATCH /preset-library/personal/{preset_id}',
         'DELETE /preset-library/personal/{preset_id}',

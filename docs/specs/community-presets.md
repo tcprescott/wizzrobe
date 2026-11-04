@@ -1,6 +1,6 @@
 # Community presets
 
-Status: Building · Size: full · PRs: #816 (PR 1, merged), #819 (PR 2, merged), PR 3 built-ins + SahasrahBot import · Requested: 2026-11-03, Thomas
+Status: Building · Size: full · PRs: #816 (PR 1, merged), #819 (PR 2, merged), #820 + #822 (PR 3, merged), PR 4 mystery · Requested: 2026-11-03, Thomas
 
 ## Problem
 
@@ -103,13 +103,20 @@ drawn. Images:
 - **Models:** new `PresetSpace` (global: `slug` unique, `kind`
   community/user/builtin, `tenant` FK for community spaces, `owner` FK User for
   personal ones); `PresetSpaceEditor` (space, user). `Preset` gains `space` FK,
-  `kind` (settings/mystery), `copied_from` (preset FK, null on delete) +
+  `copied_from` (preset FK, null on delete) +
   `copied_at`, `roll_count`; `tenant` becomes null for personal and built-in
   presets; unique becomes (space, randomizer, name). Migration creates one
   space per community and moves its presets in. Community presets stay
   tenant-scoped for every tournament path; the library reads across spaces on
   purpose through one service (`PresetLibraryService`), leak-tested so a
   tournament can never attach another community's preset.
+- **Mystery** (changed in PR 4): a mystery preset is the randomizer
+  `alttprmystery` rather than a `kind` column, so tournaments, seed rules and
+  every per-randomizer table pick it up with no migration. The settings hold
+  the weightset; the seed's stored settings carry the rolled payload beside a
+  `mystery` block, and REST match reads show only the weightset name and
+  instructions. No app screen showed seed settings before, so staff see the
+  rolled settings only in the stored row for now.
 - **Who can see / do what:** browse, read and roll = any signed-in user. Edit a
   personal space = owner + co-editors. Edit a community space = STAFF and
   PRESET_MANAGER of that community (today's rule). Built-in space = nobody
@@ -121,7 +128,7 @@ drawn. Images:
   `preset.copied`; events not needed (no outside consumer).
 - **Player input:** names and slugs are `[a-z0-9_-]`, 2–32 chars; descriptions
   are player markdown (text + links). Settings/YAML capped at 64 KB, parsed with
-  `yaml.safe_load`, validated against the randomizer before save. Player rolls
+  `yaml.safe_load` (no aliases for pasted weightsets), validated against the randomizer before save. Player rolls
   limited to 10 per 10 minutes per person (staff unlimited); `!roll` shares the
   limit; 50 personal presets per space; 10 co-editors.
 

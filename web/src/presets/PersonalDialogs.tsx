@@ -3,6 +3,7 @@ import { api, unwrap, type Schemas } from '../api/client'
 import { useQuery } from '../api/useQuery'
 import { Banner, Button, FormDialog, IconButton, SearchField, Spinner } from '../components'
 import { message } from '../me/data'
+import { MysteryOdds } from './MysteryOdds'
 import { useMe } from '../screens/useMe'
 
 type Detail = Schemas['LibraryPresetDetailResponse']
@@ -64,8 +65,28 @@ export function PresetFormDialog({
   const settings = (preset?.settings ?? {}) as Record<string, unknown>
   const [json, setJson] = useState(JSON.stringify(settings, null, 2))
   const [pasted, setPasted] = useState(pasteKey ? String(settings[pasteKey] ?? '') : '')
+  const mystery = game === 'alttprmystery'
+  const [weightset, setWeightset] = useState(preset?.settings_yaml ?? '')
+  const [odds, setOdds] = useState<Schemas['MysterySettingOdds'][] | null>(preset?.odds ?? null)
   const [busy, setBusy] = useState(false)
+  const [checking, setChecking] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  async function checkWeightset(): Promise<Record<string, unknown> | null> {
+    setChecking(true)
+    setError(null)
+    try {
+      const checked = await api.POST('/api/preset-library/mystery/check', { body: { weightset } }).then(unwrap)
+      setOdds(checked.odds)
+      return checked.settings
+    } catch (err) {
+      setOdds(null)
+      setError(message(err))
+      return null
+    } finally {
+      setChecking(false)
+    }
+  }
 
   useEffect(() => {
     if (pasteKey && preset) setPasted(String(settings[pasteKey] ?? ''))
@@ -74,7 +95,11 @@ export function PresetFormDialog({
 
   async function save() {
     let next: Record<string, unknown>
-    if (pasteKey) next = { ...settings, [pasteKey]: pasted.trim() }
+    if (mystery) {
+      const checked = await checkWeightset()
+      if (!checked) return
+      next = checked
+    } else if (pasteKey) next = { ...settings, [pasteKey]: pasted.trim() }
     else {
       try {
         const parsed: unknown = JSON.parse(json || '{}')
@@ -148,7 +173,34 @@ export function PresetFormDialog({
           <span className="field__label">Note</span>
           <textarea className="input" rows={2} maxLength={2000} value={note} placeholder="What it's for, who races it" onChange={(e) => setNote(e.target.value)} />
         </label>
-        {pasteKey ? (
+        {mystery ? (
+          <>
+            <label className="field">
+              <span className="field__label">Weightset (YAML)</span>
+              <textarea
+                className="input mono"
+                rows={10}
+                spellCheck={false}
+                value={weightset}
+                placeholder={'world_state:\n  open: 50\n  standard: 50\n…'}
+                onChange={(e) => {
+                  setWeightset(e.target.value)
+                  setOdds(null)
+                }}
+              />
+              <span className="field__hint">
+                SahasrahBot's mystery format. To start from one, copy <span className="preset-ref">wizzrobe/friendly</span> to your presets and edit it.
+                Rolled settings stay hidden from players.
+              </span>
+            </label>
+            <div>
+              <Button variant="outline" icon="casino" busy={checking} disabled={!weightset.trim() || busy} onClick={() => void checkWeightset()}>
+                Check odds
+              </Button>
+            </div>
+            {odds && <MysteryOdds odds={odds} />}
+          </>
+        ) : pasteKey ? (
           <label className="field">
             <span className="field__label">{info?.paste_label}</span>
             <input className="input mono" value={pasted} onChange={(e) => setPasted(e.target.value)} />
@@ -397,7 +449,7 @@ export function SpaceDialog({ space, onClose, onChange }: { space: Space; onClos
   )
 }
 
-const GAME_NAMES: Record<string, string> = { alttpr: 'A Link to the Past', sm: 'Super Metroid', smz3: 'SMZ3' }
+const GAME_NAMES: Record<string, string> = { alttpr: 'A Link to the Past', alttprmystery: 'ALTTPR mystery', sm: 'Super Metroid', smz3: 'SMZ3' }
 
 /** Look up a SahasrahBot namespace, tick its presets, copy them into a personal space. */
 export function SahasrahBotImportDialog({ spaces, onClose, onImported }: { spaces: Space[]; onClose: () => void; onImported: () => void }) {
@@ -510,7 +562,7 @@ export function SahasrahBotImportDialog({ spaces, onClose, onImported }: { space
           </Button>
         </form>
         {busy === 'look' && <Spinner label="Asking SahasrahBot" />}
-        {found && found.length === 0 && <p className="preset-muted">{looked} has no ALTTPR, Super Metroid or SMZ3 presets on SahasrahBot.</p>}
+        {found && found.length === 0 && <p className="preset-muted">{looked} has no ALTTPR, ALTTPR mystery, Super Metroid or SMZ3 presets on SahasrahBot.</p>}
         {found && found.length > 0 && (
           <fieldset className="field preset-fieldset">
             <legend className="field__label">

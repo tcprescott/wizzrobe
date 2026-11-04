@@ -671,6 +671,9 @@ class MatchScheduleService(MatchNotificationMixin):
         code_field = f"{emoji_row}\n-# {' · '.join(seed_code or [])}" if emoji_row else None
         if code_line and not code_field:
             seed_description = f'{seed_description}\n{code_line}'
+        seed_notes = self.seedgen_service.seed_instructions(randomizer, settings)
+        if seed_notes:
+            seed_description = f'{seed_description}\n\n{seed_notes}'
         seed_embed = match_embed(
             title='🎲 Seed ready', color=COLOR_SEED,
             description=seed_description,

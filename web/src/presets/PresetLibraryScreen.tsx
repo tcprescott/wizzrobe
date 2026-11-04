@@ -8,6 +8,7 @@ import { useCommunity } from '../community/CommunityProvider'
 import { done, message } from '../me/data'
 import { usePhone } from '../lib/usePhone'
 import { CopyToMineDialog, PresetFormDialog, SahasrahBotImportDialog, SpaceDialog } from './PersonalDialogs'
+import { MysteryOdds } from './MysteryOdds'
 import './presets.css'
 
 type Row = Schemas['LibraryPresetResponse']
@@ -366,12 +367,20 @@ function PresetView({ id, spaces, onChange }: { id: number; spaces: Space[]; onC
               {roll.seed_url}
             </a>
             {roll.code && <span className="preset-ref">Code: {roll.code.join(' · ')}</span>}
+            {roll.instructions && <span>{roll.instructions}</span>}
           </div>
         )}
       </DetailSection>
-      <DetailSection title="Settings">
-        <Settings value={p.settings} />
-      </DetailSection>
+      {p.odds ? (
+        <DetailSection title="Odds">
+          <p className="preset-muted preset-odds__intro">Each roll picks one value per setting. Players don't see what it picked.</p>
+          <MysteryOdds odds={p.odds} />
+        </DetailSection>
+      ) : (
+        <DetailSection title="Settings">
+          <Settings value={p.settings} />
+        </DetailSection>
+      )}
       {copyingToMine && (
         <CopyToMineDialog
           preset={p}

@@ -128,3 +128,16 @@
   margin: 6px 0 0;
   padding-left: 18px;
 }
+
+.preset-odds dd {
+  font-weight: 400;
+}
+.preset-odds__pct {
+  font-weight: 700;
+}
+.preset-odds__never {
+  color: var(--fg-muted);
+}
+.preset-odds__intro {
+  margin-bottom: 8px;
+}

@@ -28,8 +28,31 @@ class LibraryPresetResponse(BaseModel):
     changed_since_copy: bool = Field(False, description="True when the original's settings changed after the copy was made.")
 
 
+class MysteryOption(BaseModel):
+    value: str = Field(..., description="One value the setting can roll.")
+    percent: float = Field(..., description="Its chance, 0 to 100.")
+
+
+class MysterySettingOdds(BaseModel):
+    setting: str = Field(..., description="The setting, dotted for nested ones (`customizer.eq`).")
+    options: List[MysteryOption] = Field(..., description="Each value with its chance, likeliest first.")
+
+
 class LibraryPresetDetailResponse(LibraryPresetResponse):
     settings: Dict[str, Any] = Field(..., description="The settings the preset sends to its randomizer.")
+    settings_yaml: Optional[str] = Field(None, description="A mystery weightset as YAML, for editing.")
+    odds: Optional[List[MysterySettingOdds]] = Field(
+        None, description="A mystery weightset's chance of each value per setting; null for other presets.",
+    )
+
+
+class MysteryCheckRequest(BaseModel):
+    weightset: str = Field(..., description="The weightset as YAML, in SahasrahBot's format.")
+
+
+class MysteryCheckResponse(BaseModel):
+    settings: Dict[str, Any] = Field(..., description="The weightset parsed, ready to save as a preset's settings.")
+    odds: List[MysterySettingOdds] = Field(..., description="Each setting's chance per value.")
 
 
 class LibraryRollResponse(BaseModel):
@@ -38,6 +61,9 @@ class LibraryRollResponse(BaseModel):
     seed_url: str = Field(..., description="Link to the seed.")
     code: Optional[List[str]] = Field(None, description="The file-select code, where the randomizer has one.")
     roll_count: int = Field(..., description="The preset's roll count, including this one.")
+    instructions: Optional[str] = Field(
+        None, description="What a mystery weightset tells players about this seed, if anything.",
+    )
 
 
 class LibraryCopyRequest(BaseModel):

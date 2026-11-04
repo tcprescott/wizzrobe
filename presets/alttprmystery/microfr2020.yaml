@@ -1,0 +1,154 @@
+description: Weights for second French micro-tournament
+settings:
+  allow_quickswap: true
+  options:
+    FillItemPoolWith: TwentyRupees2
+  glitches_required: none
+  item_placement: advanced
+  dungeon_items: standard
+  entrance_shuffle: none
+  world_state:
+    standard: 45
+    open: 45
+    inverted: 10
+    retro: 0
+  tower_open:
+    '0': 0
+    '1': 0
+    '2': 0
+    '3': 15
+    '4': 15
+    '5': 20
+    '6': 25
+    '7': 25
+  boss_shuffle:
+    none: 70
+    simple: 10
+    full: 10
+    random: 10
+  enemy_shuffle:
+    none: 80
+    shuffled: 20
+    random: 0
+  enemy_damage: default
+  enemy_health: default
+  hints:
+    'on': 50
+    'off': 50
+  weapons:
+    randomized: 40
+    assured: 40
+    vanilla: 20
+    swordless: 0
+  item_pool:
+    normal: 80
+    hard: 20
+    expert: 0
+  item_functionality: normal
+  subweights:
+    normal:
+      chance: 95
+      weights:
+        accessibility:
+          items: 65
+          locations: 5
+          none: 30
+        goals:
+          ganon: 40
+          fast_ganon: 40
+          dungeons: 10
+          pedestal: 10
+          triforce-hunt: 0
+        ganon_open:
+          '0': 0
+          '1': 0
+          '2': 0
+          '3': 0
+          '4': 10
+          '5': 25
+          '6': 25
+          '7': 40
+        customizer:
+          eq:
+            PegasusBoots:
+              true: 50
+              false: 50
+            OcarinaActive:
+              true: 50
+              false: 50
+          custom:
+            customPrizePacks: false
+            region.wildMaps:
+              true: 40
+              false: 60
+            region.wildCompasses:
+              true: 40
+              false: 60
+            region.wildKeys:
+              true: 40
+              false: 60
+            region.wildBigKeys:
+              true: 30
+              false: 70
+            rom.rupeeBow:
+              true: 10
+              false: 90
+            rom.genericKeys:
+              true: 15
+              false: 85
+            spoil.BootsLocation:
+              true: 80
+              false: 20
+    triforce:
+      chance: 5
+      weights:
+        accessibility:
+          items: 90
+          locations: 10
+          none: 0
+        goals:
+          ganon: 0
+          fast_ganon: 0
+          dungeons: 0
+          pedestal: 0
+          triforce-hunt: 100
+        ganon_open: '7'
+        customizer:
+          triforce-hunt:
+            goal:
+            - 35
+            - 45
+            pool:
+            - 45
+            - 55
+            min_difference: 10
+          eq:
+            PegasusBoots:
+              true: 50
+              false: 50
+            OcarinaActive:
+              true: 50
+              false: 50
+          custom:
+            customPrizePacks: false
+            region.wildMaps:
+              true: 40
+              false: 60
+            region.wildCompasses:
+              true: 40
+              false: 60
+            region.wildKeys:
+              true: 40
+              false: 60
+            region.wildBigKeys:
+              true: 30
+              false: 70
+            rom.rupeeBow:
+              true: 10
+              false: 90
+            rom.genericKeys:
+              true: 15
+              false: 85
+            spoil.BootsLocation:
+              true: 80
+              false: 20

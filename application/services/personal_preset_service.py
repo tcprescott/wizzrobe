@@ -218,7 +218,7 @@ class PersonalPresetService:
         if len(picks) > MAX_IMPORT_PER_CALL:
             raise ValueError(f"Import up to {MAX_IMPORT_PER_CALL} presets at a time")
         if any(r not in sahasrahbot.RANDOMIZERS for r, _ in picks):
-            raise ValueError("Wizzrobe imports ALTTPR, Super Metroid and SMZ3 presets from SahasrahBot")
+            raise ValueError("Wizzrobe imports ALTTPR, ALTTPR mystery, Super Metroid and SMZ3 presets from SahasrahBot")
         space = await self._target_space(actor, space_id)
         self._throttle(actor)
         results: List[ImportResult] = []

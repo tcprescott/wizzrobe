@@ -1,0 +1,510 @@
+description: This is for the poggiest of PogChampions.  Settings chosen by Mystery
+  PogChampionship Season Five winner WallKicks.
+settings:
+  allow_quickswap: true
+  glitches_required: none
+  item_functionality: normal
+  item_placement: advanced
+  options:
+    FillItemPoolWith: TwentyRupees2
+  subweights:
+    entrance:
+      chance: 25
+      weights:
+        rules:
+        - conditions:
+          - Key: weapons
+            Value: swordless
+          actions:
+            enemy_health: default
+            enemy_damage: default
+            item_pool: normal
+        dungeon_items:
+          standard: 25
+          full: 65
+        accessibility:
+          items: 70
+          none: 30
+        goals:
+          ganon: 15
+          fast_ganon: 50
+          dungeons: 20
+          pedestal: 15
+          triforce-hunt: 0
+        tower_open: random
+        ganon_open:
+          '0': 8
+          '1': 8
+          '2': 10
+          '3': 12
+          '4': 20
+          '5': 25
+          '6': 12
+          '7': 5
+        world_state:
+          standard: 25
+          open: 40
+          inverted: 25
+          retro: 10
+        entrance_shuffle:
+          restricted: 10
+          crossed: 90
+        boss_shuffle:
+          none: 40
+          simple: 10
+          full: 15
+          random: 35
+        enemy_shuffle:
+          none: 75
+          shuffled: 25
+        hints: 'off'
+        weapons:
+          randomized: 25
+          assured: 30
+          vanilla: 5
+          swordless: 15
+        item_pool:
+          normal: 50
+          hard: 40
+          expert: 10
+        enemy_damage:
+          default: 80
+          shuffled: 10
+          random: 10
+        enemy_health:
+          default: 90
+          easy: 0
+          hard: 10
+          expert: 10
+    insanity:
+      chance: 15
+      weights:
+        rules:
+        - conditions:
+          - Key: weapons
+            Value: swordless
+          actions:
+            enemy_health: default
+            enemy_damage: default
+            item_pool: normal
+        dungeon_items:
+          standard: 50
+          full: 50
+        accessibility:
+          items: 85
+          locations: 0
+          none: 15
+        goals:
+          ganon: 15
+          fast_ganon: 70
+          dungeons: 10
+          pedestal: 5
+          triforce-hunt: 0
+        tower_open: random
+        ganon_open:
+          '0': 10
+          '1': 10
+          '2': 10
+          '3': 5
+          '4': 5
+          '5': 20
+          '6': 20
+          '7': 20
+        world_state:
+          standard: 30
+          open: 50
+          inverted: 15
+          retro: 5
+        entrance_shuffle: insanity
+        boss_shuffle:
+          none: 70
+          simple: 10
+          full: 10
+          random: 10
+        enemy_shuffle:
+          none: 69
+          shuffled: 31
+          random: 0
+        hints:
+          'on': 66
+          'off': 34
+        weapons:
+          randomized: 65
+          assured: 20
+          vanilla: 5
+          swordless: 10
+        item_pool:
+          normal: 75
+          hard: 25
+          expert: 0
+          crowd_control: 0
+        enemy_damage:
+          default: 80
+          shuffled: 20
+          random: 0
+        enemy_health:
+          default: 90
+          hard: 10
+    enemizer:
+      chance: 45
+      weights:
+        subweights:
+          health:
+            chance: 1
+            weights:
+              enemy_health:
+                hard: 1
+                expert: 1
+          damage:
+            chance: 1
+            weights:
+              enemy_damage:
+                shuffled: 1
+                random: 1
+          boss:
+            chance: 1
+            weights:
+              boss_shuffle:
+                simple: 1
+                full: 1
+                random: 1
+          enemy:
+            chance: 1
+            weights:
+              enemy_shuffle: shuffled
+        dungeon_items: standard
+        accessibility:
+          items: 60
+          locations: 30
+          none: 10
+        goals:
+          ganon: 30
+          fast_ganon: 30
+          dungeons: 30
+          pedestal: 10
+        tower_open:
+          0: 5
+          1: 5
+          2: 10
+          3: 10
+          4: 10
+          5: 20
+          6: 20
+          7: 20
+        ganon_open:
+          0: 5
+          1: 5
+          2: 10
+          3: 10
+          4: 10
+          5: 20
+          6: 20
+          7: 20
+        world_state:
+          standard: 40
+          open: 40
+          inverted: 18
+          retro: 2
+        entrance_shuffle: none
+        boss_shuffle:
+          none: 60
+          simple: 5
+          full: 5
+          random: 30
+        enemy_shuffle:
+          none: 65
+          shuffled: 35
+        hints:
+          'on': 33
+          'off': 67
+        weapons:
+          randomized: 40
+          assured: 30
+          vanilla: 20
+          swordless: 10
+        item_pool:
+          normal: 50
+          hard: 40
+          expert: 10
+          crowd_control: 0
+        enemy_damage:
+          default: 60
+          shuffled: 25
+          random: 15
+        enemy_health:
+          default: 60
+          easy: 0
+          hard: 25
+          expert: 15
+        customizer:
+          eq:
+            ProgressiveSword:
+              0: 85
+              1: 12
+              2: 2
+              3: 1
+            Bottle1:
+              0: 85
+              1: 9
+              2: 1
+              3: 1
+              4: 1
+              5: 1
+              6: 1
+              7: 1
+            Bombos:
+              0: 85
+              1: 15
+            BookOfMudora:
+              0: 85
+              1: 15
+            CaneOfSomaria:
+              0: 85
+              1: 15
+            Cape:
+              0: 85
+              1: 15
+            Ether:
+              0: 85
+              1: 15
+            FireRod:
+              0: 85
+              1: 15
+            Flippers:
+              0: 85
+              1: 15
+            Hammer:
+              0: 85
+              1: 15
+            Hookshot:
+              0: 85
+              1: 15
+            IceRod:
+              0: 85
+              1: 15
+            Lamp:
+              0: 85
+              1: 15
+            MagicMirror:
+              0: 85
+              1: 15
+            MoonPearl:
+              0: 85
+              1: 15
+            Mushroom:
+              0: 85
+              1: 15
+            OcarinaInactive:
+              0: 85
+              1: 15
+            PegasusBoots:
+              0: 15
+              1: 85
+            Powder:
+              0: 85
+              1: 15
+            Quake:
+              0: 85
+              1: 15
+            Shovel:
+              0: 85
+              1: 15
+            ProgressiveGlove:
+              0: 85
+              1: 15
+              2: 5
+            ProgressiveBow:
+              0: 85
+              1: 14
+              2: 1
+            BugCatchingNet:
+              0: 85
+              1: 15
+            ProgressiveShield:
+              0: 85
+              1: 12
+              2: 2
+              3: 1
+            CaneOfByrna:
+              0: 85
+              1: 15
+            HalfMagic:
+              0: 85
+              1: 15
+            ProgressiveArmor:
+              0: 85
+              1: 14
+              2: 1
+            Boomerang:
+              0: 85
+              1: 15
+            RedBoomerang:
+              0: 85
+              1: 15
+          custom:
+            customPrizePacks:
+              true: 50
+              false: 50
+            region.wildMaps:
+              true: 70
+              false: 30
+            region.wildCompasses:
+              true: 70
+              false: 30
+            region.wildKeys:
+              true: 70
+              false: 30
+            region.wildBigKeys:
+              true: 70
+              false: 30
+            rom.FreeItemText:
+              true: 80
+              false: 20
+    triforce-ohko:
+      chance: 1
+      weights:
+        item_placement: basic
+        dungeon_items:
+          standard: 80
+          mcs: 20
+        accessibility:
+          items: 75
+          locations: 25
+          none: 0
+        goals: triforce-hunt
+        tower_open: random
+        ganon_open: random
+        world_state:
+          standard: 15
+          open: 65
+          inverted: 20
+        entrance_shuffle: none
+        hints: 'off'
+        weapons:
+          randomized: 50
+          assured: 40
+          vanilla: 10
+        item_pool: normal
+        enemy_damage: default
+        enemy_health: default
+        boss_shuffle: none
+        enemy_shuffle: none
+        customizer:
+          triforce-hunt:
+            goal:
+            - 30
+            - 60
+            pool:
+            - 40
+            - 70
+            min_difference: 10
+          eq:
+            PegasusBoots: true
+            BossHeartContainer: 1
+          custom:
+            rom.timerMode: countdown-ohko
+            item.overflow.count.Armor: 0
+            item.overflow.count.BossHeartContainer: 0
+            item.overflow.count.PieceOfHeart: 0
+          pool:
+            HeartContainer: 0
+    timed-ohko:
+      chance: 14
+      weights:
+        item_placement: basic
+        dungeon_items: standard
+        accessibility:
+          items: 50
+          locations: 0
+          none: 50
+        goals:
+          ganon: 10
+          fast_ganon: 50
+          dungeons: 20
+          pedestal: 10
+        tower_open:
+          '0': 0
+          '1': 5
+          '2': 10
+          '3': 15
+          '4': 15
+          '5': 15
+          '6': 20
+          '7': 20
+        ganon_open:
+          '0': 10
+          '1': 5
+          '2': 15
+          '3': 20
+          '4': 10
+          '5': 20
+          '6': 10
+          '7': 10
+        world_state:
+          standard: 40
+          open: 35
+          inverted: 25
+        entrance_shuffle: none
+        hints: 'off'
+        weapons:
+          randomized: 45
+          assured: 25
+          vanilla: 20
+          swordless: 10
+        item_pool: normal
+        enemy_damage: default
+        enemy_health: default
+        boss_shuffle: none
+        enemy_shuffle: none
+        customizer:
+          timed-ohko:
+            timerStart:
+            - 900
+            - 1500
+            clock:
+              GreenClock:
+                value:
+                - 180
+                - 300
+                pool:
+                - 12
+                - 16
+              BlueClock:
+                value:
+                - 300
+                - 600
+                pool:
+                - 0
+                - 2
+              RedClock:
+                value:
+                - -600
+                - 300
+                pool:
+                - 0
+                - 3
+          eq:
+            PegasusBoots: true
+          custom:
+            customPrizePacks:
+              true: 50
+              false: 50
+            region.wildMaps:
+              true: 50
+              false: 50
+            region.wildCompasses:
+              true: 50
+              false: 50
+            region.wildKeys:
+              true: 50
+              false: 50
+            region.wildBigKeys:
+              true: 50
+              false: 50
+            rom.dungeonCount:
+              pickup: 50
+              'off': 50
+            rom.mapOnPickup:
+              true: 50
+              false: 50
+            rom.timerMode: countdown-ohko

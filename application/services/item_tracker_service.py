@@ -42,7 +42,7 @@ from models import FeatureFlag, ItemTrackerBoard, ItemTrackerChange, Match, Role
 
 logger = logging.getLogger(__name__)
 
-ALTTP_RANDOMIZERS = frozenset({'alttpr', 'avianart'})
+ALTTP_RANDOMIZERS = frozenset({'alttpr', 'alttprmystery', 'avianart'})
 MAX_DELAY_SECONDS = 600
 LOG_LENGTH = 8
 

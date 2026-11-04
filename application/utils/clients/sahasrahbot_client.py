@@ -7,7 +7,7 @@ public and read-only:
 * ``GET /presets/api/<randomizer>/list`` →
   ``{"global": [names], "namespaces": [{"name": ns, "presets": [names]}]}``.
 * ``GET /presets/api/<randomizer>?preset=<ns>/<name>`` →
-  ``{"preset": ..., "randomizer": ..., "data": "<the preset's YAML>"}``, or
+  ``{"preset": ..., "randomizer": ..., "data": {the preset, parsed}}``, or
   ``{}`` when there's no such preset.
 
 The YAML holds ``settings`` plus flags saying how SahasrahBot rolled it. Wizzrobe
@@ -28,7 +28,7 @@ import aiohttp
 import yaml
 
 SAHASRAHBOT_API = 'https://sahasrahbotapi.synack.live'
-RANDOMIZERS = ('alttpr', 'sm', 'smz3')
+RANDOMIZERS = ('alttpr', 'alttprmystery', 'sm', 'smz3')
 REQUEST_TIMEOUT_SECONDS = 20
 MAX_PRESET_BYTES = 64 * 1024
 ROLL_OWNED_KEYS = frozenset({'seed', 'race', 'spoilerKey'})
@@ -79,21 +79,28 @@ async def fetch_preset(randomizer: str, namespace: str, name: str) -> Dict[str, 
     """One preset's parsed YAML, or :class:`SahasrahBotAPIError`."""
     payload = await _get(f'/presets/api/{randomizer}', {'preset': f'{namespace}/{name}'})
     data = payload.get('data') if isinstance(payload, dict) else None
-    if not isinstance(data, str):
+    if isinstance(data, str):
+        if len(data.encode()) > MAX_PRESET_BYTES:
+            raise SahasrahBotAPIError(f'{namespace}/{name} is too big to import')
+        try:
+            data = yaml.safe_load(data)
+        except yaml.YAMLError as e:
+            raise SahasrahBotAPIError(f"{namespace}/{name} isn't valid YAML") from e
+    elif data is None:
         raise SahasrahBotAPIError(f"SahasrahBot has no {randomizer} preset {namespace}/{name}")
-    if len(data.encode()) > MAX_PRESET_BYTES:
+    elif len(json.dumps(data, default=str).encode()) > MAX_PRESET_BYTES:
         raise SahasrahBotAPIError(f'{namespace}/{name} is too big to import')
-    try:
-        parsed = yaml.safe_load(data)
-    except yaml.YAMLError as e:
-        raise SahasrahBotAPIError(f"{namespace}/{name} isn't valid YAML") from e
-    if not isinstance(parsed, dict):
+    if not isinstance(data, dict):
         raise SahasrahBotAPIError(f"{namespace}/{name} isn't a preset")
-    return parsed
+    return data
 
 
 def to_wizzrobe(randomizer: str, data: Dict[str, Any]) -> ImportablePreset:
     """What Wizzrobe stores for a SahasrahBot preset, or ``ValueError`` saying why it can't."""
+    if randomizer == 'alttprmystery':
+        weights = {k: v for k, v in data.items() if k != 'description'}
+        description = data.get('description')
+        return ImportablePreset('alttprmystery', weights, str(description).strip() if description else None)
     settings = data.get('settings')
     if not isinstance(settings, dict):
         raise ValueError('it has no settings')

@@ -316,6 +316,23 @@ class TestRelatedData:
         body = response.json()[0]
         assert body['generated_seed']['seed_url'] == 'https://example.com/seed/1'
 
+    async def test_a_mystery_seed_keeps_its_rolled_settings_back(self, client):
+        t = await Tournament.create(name='T')
+        seed = await GeneratedSeeds.create(
+            seed_url='https://alttpr.com/h/m', randomizer='alttprmystery',
+            settings_snapshot={
+                'mystery': {'weightset': 'friendly', 'preset': None, 'instructions': 'Go fast.', 'doors': False},
+                'settings': {'mode': 'inverted'},
+            },
+        )
+        await Match.create(
+            tournament=t, generated_seed=seed, scheduled_at=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+        )
+        body = (await client.get('/api/matches')).json()[0]
+        assert body['generated_seed']['settings_snapshot'] == {
+            'mystery': {'weightset': 'friendly', 'instructions': 'Go fast.'},
+        }
+
     async def test_generated_seed_is_none_when_absent(self, client):
         t = await Tournament.create(name='T')
         await Match.create(
