@@ -7,7 +7,7 @@ each viewer sees.
 
 from typing import Any, Dict, List
 
-from application.event_writes import guarded_delete
+from application.event_writes import guarded_delete, guarded_update
 from application.repositories._tenant import current_tenant_id, scoped
 from models import BracketEntry, MatchFormAnswer, MatchFormQuestion, MatchPlayers
 
@@ -27,7 +27,7 @@ class MatchFormRepository:
 
     @staticmethod
     async def update_question(question: MatchFormQuestion, **fields: Any) -> None:
-        await scoped(MatchFormQuestion.filter(id=question.id)).update(**fields)
+        await guarded_update(scoped(MatchFormQuestion.filter(id=question.id)), **fields)
 
     @staticmethod
     async def delete_questions(ids: List[int]) -> None:
@@ -46,9 +46,9 @@ class MatchFormRepository:
     async def set_answer(match_id: int, user_id: int, question_id: int, value: Any) -> None:
         # Wrapped: Tortoise's JSONField takes a bare str for already-encoded JSON.
         value = {'v': value}
-        updated = await scoped(
+        updated = await guarded_update(scoped(
             MatchFormAnswer.filter(match_id=match_id, user_id=user_id, question_id=question_id)
-        ).update(value=value)
+        ), value=value)
         if not updated:
             await MatchFormAnswer.create(
                 tenant_id=current_tenant_id(), match_id=match_id, user_id=user_id,
