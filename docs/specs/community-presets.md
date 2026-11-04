@@ -1,6 +1,6 @@
 # Community presets
 
-Status: Building · Size: full · PRs: (PR 1 pending) · Requested: 2026-11-03, Thomas
+Status: Building · Size: full · PRs: #816 (PR 1) · Requested: 2026-11-03, Thomas
 
 ## Problem
 
