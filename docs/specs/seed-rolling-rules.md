@@ -96,12 +96,12 @@ B, side list: on desktop the rule list sits beside the open rule's editor with a
 ## Data and permissions
 
 - **Feature flag:** no (Thomas, 2026-11-03).
-- **Models:** `SeedRuleSet` (tenant + event FKs, one per tournament: ordered
-  `rules` JSON, `version`); `MatchFormQuestion` (tournament, order, kind,
+- **Models:** `Tournament.seed_rules` (ordered rule list, JSON; the
+  tournament already carries tenant and event); `MatchFormQuestion` (tournament, order, kind,
   choices JSON with optional preset links, who, ask_on, visibility);
   `MatchFormAnswer` (match, user, question, value) replacing
   `MatchHardPresetOptIn`; `GeneratedSeeds.resolution`
-  JSON (rule id, draw, tweaks). `Tournament.hard_preset` migrated into a rule,
+  and `ProviderTask.resolution` JSON (source, rule id, draw, tweaks). `Tournament.hard_preset` migrated into a rule,
   then dropped in a follow-up.
 - **Who can see / do what:** edit = STAFF, PRESET_MANAGER, tournament admin.
   Read rules = same plus proctors (for "why this seed"). Players see only the
@@ -117,13 +117,13 @@ B, side list: on desktop the rule list sits beside the open rule's editor with a
 ## PR plan
 
 1. Spec + rule engine (pure, tested: parse, validate, resolve, YAML round-trip),
-   `SeedRuleSet` model, resolver wired into `generate_seed` behind "no rules =
-   today's behaviour", hard-preset migration.
+   `Tournament.seed_rules`, resolver wired into `generate_seed` behind "no rules =
+   today's behaviour". Hard mode keeps working as a step before the rules.
 2. New app staff screen (side list editor, preview, text view) + REST + MCP
    read + help article + changelog + seed row.
 3. Match form: question builder tab, player "Before your match" card, REST,
    DM, answer conditions in the engine, replacing the hard-preset opt-in
-   surfaces.
+   surfaces, and the hard-preset migration (hidden question + rule).
 
 ## Acceptance
 
@@ -154,3 +154,4 @@ B, side list: on desktop the rule list sits beside the open rule's editor with a
 - 2026-11-04 — Builds on community presets: rules name presets the tournament's community can attach (its own, by `space/preset`); mystery presets are outcomes like any preset, not a separate outcome type.
 - 2026-11-04 — Thomas picked a match form, choices only, built from the survey question types; opt-ins and picks become questions.
 - 2026-11-04 — Thomas picked layout B (side list); spec approved.
+- 2026-11-04 — Build: rules live on `Tournament.seed_rules` (JSON) rather than a separate table; the hard-mode migration moves to PR 3 with the match form, so PR 1 keeps hard mode as a step before the rules (same behaviour).
