@@ -94,3 +94,26 @@ class PersonalPresetUpdateRequest(BaseModel):
     name: Optional[str] = None
     settings: Optional[Dict[str, Any]] = None
     description: Optional[str] = None
+
+
+class SahasrahBotPresetResponse(BaseModel):
+    randomizer: str = Field(..., description="`alttpr`, `sm` or `smz3`, as SahasrahBot files it.")
+    name: str = Field(..., description="The preset's name in SahasrahBot.")
+    exists: bool = Field(..., description="Your space already has a preset by this name.")
+
+
+class SahasrahBotPick(BaseModel):
+    randomizer: str
+    name: str
+
+
+class SahasrahBotImportRequest(BaseModel):
+    presets: List[SahasrahBotPick] = Field(..., description="Up to 25 presets from the namespace.")
+    space_id: Optional[int] = Field(None, description="A space you co-edit. Omit for your own, made if needed.")
+
+
+class SahasrahBotImportResult(BaseModel):
+    randomizer: str
+    name: str
+    preset_id: Optional[int] = Field(None, description="The new preset, when it imported.")
+    problem: Optional[str] = Field(None, description="Why it didn't import.")

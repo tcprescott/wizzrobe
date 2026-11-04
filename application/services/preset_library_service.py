@@ -26,6 +26,7 @@ from application.repositories import PresetLibraryRepository, PresetRepository, 
 from application.services.admin_presets_service import PASTE_FIELDS
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
+from application.services.builtin_preset_service import BuiltinPresetService
 from application.services.randomizer_credential_service import RandomizerCredentialService
 from application.services.seedgen_service import SeedGenerationService
 from application.tenant_context import require_tenant_id
@@ -115,6 +116,7 @@ class PresetLibraryService:
     async def list_presets(self, actor: User, *, randomizer: Optional[str] = None) -> List[LibraryPreset]:
         """Every preset the actor may see: all listed ones, plus their own community's if they manage it."""
         tenant_id = require_tenant_id()
+        await BuiltinPresetService().ensure_synced()
         manager = await AuthService.can_manage_presets(actor)
         rows = await self.repository.list_library(
             include_unlisted_of_tenant=tenant_id if manager else None, randomizer=randomizer,

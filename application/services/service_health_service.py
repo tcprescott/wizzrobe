@@ -270,6 +270,14 @@ async def _probe_speedgaming() -> Tuple[ServiceStatus, str]:
     return ServiceStatus.DOWN, f'Unreachable: {detail}'
 
 
+async def _probe_sahasrahbot() -> Tuple[ServiceStatus, str]:
+    from application.utils.clients.sahasrahbot_client import SAHASRAHBOT_API
+    ok, detail = await _http_reachable(SAHASRAHBOT_API)
+    if ok:
+        return ServiceStatus.HEALTHY, f'Reachable ({detail})'
+    return ServiceStatus.DOWN, f'Unreachable: {detail}. Importing presets from SahasrahBot fails until it\'s back.'
+
+
 async def _probe_challonge() -> Tuple[ServiceStatus, str]:
     """Reachability of the Challonge API **and** token validity across tenants."""
     from application.utils.mocks.mock_challonge import is_mock_challonge
@@ -368,6 +376,7 @@ _PROBES: List[_Probe] = [
     _Probe('challonge', 'Challonge', 'integrations', _probe_challonge),
     _Probe('twitch_oauth', 'Twitch OAuth', 'integrations', _probe_twitch_oauth),
     _Probe('patreon', 'Patreon', 'integrations', _probe_patreon),
+    _Probe('sahasrahbot', 'SahasrahBot presets', 'integrations', _probe_sahasrahbot),
     _Probe('seedgen_alttpr', 'ALTTPR (alttpr.com)', 'seedgen', _seedgen_probe('alttpr.com', 'alttpr')),
     _Probe('seedgen_ootr', 'OoT Randomizer (ootrandomizer.com)', 'seedgen', _seedgen_probe('ootrandomizer.com', 'ootr')),
     _Probe('seedgen_maprando', 'Map Rando (maprando.com)', 'seedgen', _seedgen_probe('maprando.com', 'smmap')),

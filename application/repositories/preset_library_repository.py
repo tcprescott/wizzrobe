@@ -124,6 +124,18 @@ class PresetSpaceRepository:
         return await PresetSpace.create(slug=slug, kind=PresetSpaceKind.USER, owner_id=owner_id, tenant_id=None)
 
     @staticmethod
+    async def builtin() -> Optional[PresetSpace]:
+        return await PresetSpace.filter(kind=PresetSpaceKind.BUILTIN).order_by('id').first()
+
+    @staticmethod
+    async def create_builtin(slug: str) -> PresetSpace:
+        return await PresetSpace.create(slug=slug, kind=PresetSpaceKind.BUILTIN, tenant_id=None, owner_id=None)
+
+    @staticmethod
+    async def presets_in(space_id: int) -> List[Preset]:
+        return await Preset.filter(space_id=space_id)
+
+    @staticmethod
     async def rename(space: PresetSpace, slug: str) -> PresetSpace:
         space.slug = slug
         await save_fields(space, 'slug')

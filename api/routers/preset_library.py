@@ -24,6 +24,9 @@ from api.schemas.preset_library import (
     PresetSpaceMember,
     PresetSpaceResponse,
     PresetSpaceUpdateRequest,
+    SahasrahBotImportRequest,
+    SahasrahBotImportResult,
+    SahasrahBotPresetResponse,
 )
 from api.schemas.presets import PresetResponse
 from application.services import LibraryPreset, PersonalPresetService, PresetLibraryService, SpaceView
@@ -217,6 +220,40 @@ async def update_personal_preset(
 )
 async def delete_personal_preset(preset_id: int, actor: User = Depends(require_write_actor)):
     await PersonalPresetService().delete_preset(actor, preset_id)
+
+
+@router.get(
+    "/sahasrahbot/{namespace}",
+    response_model=List[SahasrahBotPresetResponse],
+    summary="List a SahasrahBot namespace's presets",
+    description=(
+        "Asks SahasrahBot for the ALTTPR, Super Metroid and SMZ3 presets in one namespace. "
+        "Empty when the namespace has none. Fails with 400 when SahasrahBot can't be reached.\n\n"
+        "**Who can call this:** Any member."
+    ),
+)
+async def list_sahasrahbot_presets(namespace: str, actor: User = Depends(require_api_actor)):
+    return [p.__dict__ for p in await PersonalPresetService().sahasrahbot_presets(actor, namespace)]
+
+
+@router.post(
+    "/sahasrahbot/{namespace}/import",
+    response_model=List[SahasrahBotImportResult],
+    summary="Import presets from SahasrahBot",
+    description=(
+        "Copies the picked presets into your space (made the first time) or one you co-edit, "
+        "named in Wizzrobe's style. Door Randomizer presets and ones that place items themselves "
+        "can't be rolled here, so they come back with a problem instead; the rest still import.\n\n"
+        "**Who can call this:** Any member."
+    ),
+)
+async def import_sahasrahbot_presets(
+    namespace: str, body: SahasrahBotImportRequest, actor: User = Depends(require_write_actor),
+):
+    results = await PersonalPresetService().import_from_sahasrahbot(
+        actor, namespace, [(p.randomizer, p.name) for p in body.presets], space_id=body.space_id,
+    )
+    return [r.__dict__ for r in results]
 
 
 @router.get(

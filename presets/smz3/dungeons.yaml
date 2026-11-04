@@ -1,0 +1,14 @@
+description: Normal logic, all dungeons + SM bosses.
+settings:
+  smlogic: normal
+  goal: alldungeonsdefeatmotherbrain
+  ganonvulnerable: sevencrystals
+  opentower: sevencrystals
+  opentourian: fourbosses
+  swordlocation: randomized
+  morphlocation: randomized
+  keyshuffle: none
+  seed: ''
+  race: 'true'
+  gamemode: normal
+  players: '1'

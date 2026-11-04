@@ -82,6 +82,7 @@ from .bracket_overview_service import BracketOverviewService
 from .bracket_service import BracketService
 from .bracket_set_service import BracketSetService
 from .browser_monitoring_service import BrowserMonitoringService
+from .builtin_preset_service import BuiltinPresetService
 from .challonge_service import ChallongeService
 from .check_in_admin_service import CheckInAdminService
 from .check_in_desk_service import CheckInDeskService
@@ -276,6 +277,7 @@ __all__ = [
     'BracketSetService',
     'BrowserMonitoringService',
     'BuilderSummary',
+    'BuiltinPresetService',
     'CampaignOverview',
     'CancellationMixin',
     'ChallongeService',

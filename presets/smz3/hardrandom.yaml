@@ -1,0 +1,14 @@
+description: Hard logic, randomized GT, Ganon, and Tourian requirements.
+settings:
+  smlogic: hard
+  goal: defeatboth
+  ganonvulnerable: random
+  opentower: random
+  opentourian: random
+  swordlocation: randomized
+  morphlocation: randomized
+  keyshuffle: none
+  seed: ''
+  race: 'true'
+  gamemode: normal
+  players: '1'

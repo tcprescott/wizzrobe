@@ -7,7 +7,7 @@ import { Detail, DetailEmpty, DetailSection, SideListCard, SideListLayout, SideL
 import { useCommunity } from '../community/CommunityProvider'
 import { done, message } from '../me/data'
 import { usePhone } from '../lib/usePhone'
-import { CopyToMineDialog, PresetFormDialog, SpaceDialog } from './PersonalDialogs'
+import { CopyToMineDialog, PresetFormDialog, SahasrahBotImportDialog, SpaceDialog } from './PersonalDialogs'
 import './presets.css'
 
 type Row = Schemas['LibraryPresetResponse']
@@ -35,6 +35,7 @@ export function PresetLibraryScreen() {
   const [scope, setScope] = useState<Scope>('everything')
   const [creating, setCreating] = useState(false)
   const [spaceOpen, setSpaceOpen] = useState<Space | null>(null)
+  const [importing, setImporting] = useState(false)
   const [game, setGame] = useState('')
   const [query, setQuery] = useState('')
   const libraryBase = `${base}/presets`
@@ -78,6 +79,7 @@ export function PresetLibraryScreen() {
     icon: s.is_owner ? 'manage_accounts' : 'group_add',
     onSelect: () => setSpaceOpen(s),
   }))
+  headerActions.push({ label: 'Import from SahasrahBot…', icon: 'download', onSelect: () => setImporting(true) })
   if (manages) {
     headerActions.push({ label: 'Manage this community’s presets', icon: 'tune', onSelect: () => navigate(`${base}/admin/seed-presets`) })
   }
@@ -179,7 +181,7 @@ export function PresetLibraryScreen() {
               <Button icon="add" onClick={() => setCreating(true)}>
                 New preset
               </Button>
-              {headerActions.length > 0 && <ActionsMenu items={headerActions} />}
+              <ActionsMenu items={headerActions} />
             </>
           }
         />
@@ -208,6 +210,7 @@ export function PresetLibraryScreen() {
           }}
         />
       )}
+      {importing && <SahasrahBotImportDialog spaces={mySpaces} onClose={() => setImporting(false)} onImported={reloadAll} />}
       {spaceOpen && <SpaceDialog space={spaceOpen} onClose={() => setSpaceOpen(null)} onChange={reloadAll} />}
     </>
   )
