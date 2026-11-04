@@ -105,7 +105,7 @@ MAX_WEIGHTSET_BYTES = 64 * 1024
 class _NoAliasLoader(yaml.SafeLoader):
     """SafeLoader without anchors and aliases, which let a small paste expand into a huge tree."""
 
-    def compose_node(self, parent, index):  # type: ignore[no-untyped-def]
+    def compose_node(self, parent: Any, index: Any) -> Any:
         if self.check_event(yaml.AliasEvent):
             raise yaml.YAMLError('aliases are not allowed')
         return super().compose_node(parent, index)

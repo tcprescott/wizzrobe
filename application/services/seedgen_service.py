@@ -8,14 +8,13 @@ SM, SMZ3, SMMAP, OOTR, DK64R, DASH, VARIA, WWR, and Test.
 
 import asyncio
 import copy
-import functools
 import json
 import random
 import re
 import secrets
 import urllib.parse
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List, Optional, Set, Tuple
+from typing import Any, ClassVar, Dict, List, Optional, Set
 
 import aiohttp
 import yaml
@@ -91,7 +90,7 @@ async def _read_bundled_preset(path: str) -> str:
 _DASH_BASE_URL = 'https://www.dashrando.net'
 
 
-class SeedGenerationService(DK64RBackend, DoorRandoBackend):
+class SeedGenerationService(DK64RBackend, DoorRandoBackend, mystery.MysteryBackend):
     """Service for generating seeds for various randomizers."""
 
     AVAILABLE_RANDOMIZERS: ClassVar[List[str]] = [
@@ -189,7 +188,7 @@ class SeedGenerationService(DK64RBackend, DoorRandoBackend):
         if randomizer == 'ff1r':
             return {'url': local_rolls.ff1r_reference_url(settings)}
         if randomizer == 'alttprmystery':
-            return mystery.check_weights(settings, builtin_preset)
+            return mystery.check_weights(settings, mystery.builtin_preset)
         if randomizer == 'alttprdr':
             inner, spoiler = door_preset_settings(settings)
             return {'settings': inner, 'spoiler': spoiler}
@@ -456,51 +455,6 @@ class SeedGenerationService(DK64RBackend, DoorRandoBackend):
             ) from e
         return RolledSeed(
             url=seed.url, settings=settings, code=seed_codes.alttpr_code(seed.data.get('patch')),
-        )
-
-    async def _generate_alttprmystery(
-        self,
-        preset: Optional[Preset] = None,
-        *,
-        triforce_text: Optional[str] = None,
-    ) -> RolledSeed:
-        """Roll a mystery weightset into settings and roll those, keeping them off the seed page.
-
-        A roll that turns on door, pottery or shop settings (or picks a door
-        preset) goes to the Door Randomizer with the spoiler for staff; the rest
-        go to alttpr.com with ``spoilers: mystery``, which hides the settings
-        there too. The stored settings carry the rolled payload under
-        ``settings`` beside a ``mystery`` block (weightset name, the preset it
-        picked, the custom instructions), and :func:`public_snapshot` is what
-        anyone outside staff tools sees of them.
-        """
-        if preset is None:
-            raise ValueError('A mystery seed rolls from a weightset. Attach a mystery preset to this tournament.')
-        rolled = mystery.roll_mystery(preset.settings, builtin_preset)
-        meta = {
-            'weightset': preset.name, 'preset': rolled.preset, 'instructions': rolled.instructions,
-            'doors': rolled.doors,
-        }
-        if rolled.doors:
-            door_preset = Preset(randomizer='alttprdr', name=preset.name, settings={'settings': rolled.settings})
-            seed = await self._generate_alttprdr(door_preset)
-            return RolledSeed(url=seed.url, settings={'mystery': meta, **(seed.settings or {})}, code=seed.code)
-        settings = rolled.settings
-        if triforce_text:
-            settings.setdefault('texts', {})['end_triforce'] = "{NOBORDER}\n" + triforce_text
-        try:
-            seed = await ALTTPR.generate(
-                settings=settings,
-                endpoint='/api/customizer' if rolled.customizer else '/api/randomizer',
-            )
-        except Pyz3rException as e:
-            raise SeedProviderBadResponse(
-                "alttpr.com didn't make the seed. It may be down, so try again in a minute.",
-                provider='alttprmystery', operation='generate_seed',
-            ) from e
-        return RolledSeed(
-            url=seed.url, settings={'mystery': meta, 'settings': settings},
-            code=seed_codes.alttpr_code(seed.data.get('patch')),
         )
 
     @staticmethod
@@ -831,18 +785,3 @@ class SeedGenerationService(DK64RBackend, DoorRandoBackend):
         await asyncio.sleep(5)
         return RolledSeed(url="https://example.com/test-seed-url")
 
-
-@functools.lru_cache(maxsize=1)
-def _builtin_alttp_presets() -> Dict[str, Tuple[str, Dict[str, Any]]]:
-    from application.services.preset_service import PresetService
-
-    found: Dict[str, Tuple[str, Dict[str, Any]]] = {}
-    for entry in PresetService._load_builtins():
-        if entry['randomizer'] in ('alttpr', 'alttprdr'):
-            found.setdefault(entry['name'], (entry['randomizer'], entry['settings']))
-    return found
-
-
-def builtin_preset(name: str) -> Optional[Tuple[str, Dict[str, Any]]]:
-    """A built-in ALTTPR or door preset by name, the presets a weightset's ``preset`` key picks between."""
-    return _builtin_alttp_presets().get(name)

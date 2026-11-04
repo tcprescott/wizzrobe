@@ -8,8 +8,9 @@ import pytest
 import yaml
 
 import application.services._seedgen_alttprmystery as mystery
+from application.services._seedgen_alttprmystery import builtin_preset
 from application.services.preset_library_service import PresetLibraryService
-from application.services.seedgen_service import SeedGenerationService, builtin_preset
+from application.services.seedgen_service import SeedGenerationService
 
 
 def _builtin(name):

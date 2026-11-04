@@ -25,12 +25,20 @@ from __future__ import annotations
 
 import contextlib
 import copy
+import functools
 import io
 import random
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Optional, Tuple
 
+from pyz3r import ALTTPR
+from pyz3r.exceptions import Pyz3rException
 from pyz3r.mystery import generate_random_settings, get_random_option
+
+import application.services._seedgen_codes as seed_codes
+from application.services._seedgen_types import RolledSeed
+from application.utils.seed_provider import SeedProviderBadResponse
+from models import Preset
 
 MYSTERY_RANDOMIZER = 'alttprmystery'
 DRY_ROLLS = 5
@@ -399,3 +407,68 @@ def odds(weights: Any) -> list:
             continue
         visit(str(key), value)
     return found
+
+
+@functools.lru_cache(maxsize=1)
+def _builtin_alttp_presets() -> Dict[str, Tuple[str, Dict[str, Any]]]:
+    from application.services.preset_service import PresetService
+
+    found: Dict[str, Tuple[str, Dict[str, Any]]] = {}
+    for entry in PresetService._load_builtins():
+        if entry['randomizer'] in ('alttpr', 'alttprdr'):
+            found.setdefault(entry['name'], (entry['randomizer'], entry['settings']))
+    return found
+
+
+def builtin_preset(name: str) -> Optional[Tuple[str, Dict[str, Any]]]:
+    """A built-in ALTTPR or door preset by name, the presets a weightset's ``preset`` key picks between."""
+    return _builtin_alttp_presets().get(name)
+
+
+class MysteryBackend:
+    """Rolls a mystery preset: the weightset first, then the settings it came to."""
+
+    async def _generate_alttprmystery(
+        self,
+        preset: Optional[Preset] = None,
+        *,
+        triforce_text: Optional[str] = None,
+    ) -> RolledSeed:
+        """Roll a mystery weightset into settings and roll those, keeping them off the seed page.
+
+        A roll that turns on door, pottery or shop settings (or picks a door
+        preset) goes to the Door Randomizer with the spoiler for staff; the rest
+        go to alttpr.com with ``spoilers: mystery``, which hides the settings
+        there too. The stored settings carry the rolled payload under
+        ``settings`` beside a ``mystery`` block (weightset name, the preset it
+        picked, the custom instructions), and :func:`public_snapshot` is what
+        anyone outside staff tools sees of them.
+        """
+        if preset is None:
+            raise ValueError('A mystery seed rolls from a weightset. Attach a mystery preset to this tournament.')
+        rolled = roll_mystery(preset.settings, builtin_preset)
+        meta = {
+            'weightset': preset.name, 'preset': rolled.preset, 'instructions': rolled.instructions,
+            'doors': rolled.doors,
+        }
+        if rolled.doors:
+            door_preset = Preset(randomizer='alttprdr', name=preset.name, settings={'settings': rolled.settings})
+            seed = await self._generate_alttprdr(door_preset)  # type: ignore[attr-defined]
+            return RolledSeed(url=seed.url, settings={'mystery': meta, **(seed.settings or {})}, code=seed.code)
+        settings = rolled.settings
+        if triforce_text:
+            settings.setdefault('texts', {})['end_triforce'] = "{NOBORDER}\n" + triforce_text
+        try:
+            seed = await ALTTPR.generate(
+                settings=settings,
+                endpoint='/api/customizer' if rolled.customizer else '/api/randomizer',
+            )
+        except Pyz3rException as e:
+            raise SeedProviderBadResponse(
+                "alttpr.com didn't make the seed. It may be down, so try again in a minute.",
+                provider='alttprmystery', operation='generate_seed',
+            ) from e
+        return RolledSeed(
+            url=seed.url, settings={'mystery': meta, 'settings': settings},
+            code=seed_codes.alttpr_code(seed.data.get('patch')),
+        )
