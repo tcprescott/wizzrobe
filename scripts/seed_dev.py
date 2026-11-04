@@ -890,8 +890,44 @@ async def seed_all() -> None:
         await seed_data_exports(tenant, users)
         await seed_surveys_for_tenant(tenant, users)
     await seed_fledgling_tenant(users, groups)
+    await seed_preset_library(users)
     # Last: the Challonge mirror above links identities, so unlinking has to run after it.
     await assert_unlinked_probe_users(users)
+
+
+async def seed_preset_library(users: dict[str, User]) -> None:
+    """Preset spaces of every kind, and a library copy whose original has changed since."""
+    from datetime import datetime, timedelta, timezone
+
+    from models import Preset, PresetSpace, PresetSpaceEditor, PresetSpaceKind
+    await PresetSpace.get_or_create(slug='wizzrobe', defaults={'kind': PresetSpaceKind.BUILTIN, 'tenant': None})
+    personal, _ = await PresetSpace.get_or_create(
+        slug='player_one', defaults={'kind': PresetSpaceKind.USER, 'owner': users['player_one'], 'tenant': None},
+    )
+    await Preset.get_or_create(
+        space=personal, randomizer='alttpr', name='fastboots',
+        defaults={
+            'tenant': None, 'listed': True, 'roll_count': 7,
+            'settings': {'mode': 'open', 'goal': 'fast_ganon', 'pseudoboots': True},
+            'description': 'Open, fast Ganon, pseudoboots. What I race on weeknights.',
+        },
+    )
+    await PresetSpaceEditor.get_or_create(space=personal, user=users['player_two'])
+    original = await Preset.get_or_none(tenant__slug='second', randomizer='alttpr', name='ALTTPR Open')
+    default = await Tenant.get_or_none(slug='default')
+    if original is None or default is None:
+        return
+    await Preset.get_or_create(
+        tenant=default, randomizer='alttpr', name='ALTTPR Open (from second)',
+        defaults={
+            'settings': {**original.settings, 'goal': 'fast_ganon'},
+            'description': original.description,
+            'listed': False,
+            'copied_from': original,
+            'copied_at': datetime.now(timezone.utc) - timedelta(days=30),
+        },
+    )
+    await Preset.filter(id=original.id).update(roll_count=42)
 
 
 async def seed() -> None:

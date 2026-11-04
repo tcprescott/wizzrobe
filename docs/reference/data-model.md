@@ -1010,6 +1010,10 @@ Tournament metadata and configuration; the root aggregate for matches, enrollmen
 | `racetime_close_finish_ms` | `IntField` | default `1000` | Two finishers this close hold the result for staff; `0` turns the check off |
 | `stage_reminder_minutes` | `IntField` | default `30` | How long before a match to DM its players and approved crew which stage they are on. Deliberately **not** `room_open_minutes_before`, which governs racetime room creation; `0` sends no reminder. Read by `application/services/match/stage_reminder.py` |
 | `racetime_default_goal` | `CharField(255)` | null | Default racetime goal for opened rooms |
+| `racetime_group_race` | `BooleanField` | default `False` | Group race: matches have no player list and rooms open to anyone; implies auto-open + bot runs the room ([group races](../features/online-tournaments.md#group-races-racetime_group_race)) |
+| `racetime_lock_at_seed` | `BooleanField` | default `False` | A group race room turns invite-only as the seed posts |
+| `racetime_announce_channel_id` | `CharField(32)` | null | Discord channel (in the community's server) the opened group race room is posted in |
+| `racetime_announce_role_id` | `CharField(32)` | null | Discord role that post pings |
 | `discord_events_enabled` | `BooleanField` | default `False` | Opt-in: mirror this tournament's scheduled matches into the tenant guild's Discord Scheduled Events |
 | `discord_event_duration_minutes` | `IntField` | default `60` | Sets each mirrored event's end time |
 | `discord_event_title_template` | `CharField(255)` | null | `{tournament}` / `{match}` / `{players}` placeholders; a built-in default renders when unset |
@@ -2171,6 +2175,9 @@ tenant routing, mirroring the `ApiToken`→tenant pattern.
 | `held_reason` | `CharEnumField(RaceRoomHoldReason)` | null | Set while a finished race waits for staff's Check result; cleared on confirm |
 | `held_detail` | `TextField` | null | The sentence staff see beside the hold |
 | `held_entrants` | `JSONField` | null | What racetime reported per entrant (`user_id, name, status, place, finish_ms`) when the result was held |
+| `announced_at` | `DatetimeField` | null | When a group race room was posted in Discord (posted once) |
+| `locked_at` | `DatetimeField` | null | When a group race room was made invite-only at seed time |
+| `unmatched_entrants` | `JSONField` | null | A finished group race's entrants with no linked account (`name, place, finish_seconds, status`) |
 
 Index on `match`.
 

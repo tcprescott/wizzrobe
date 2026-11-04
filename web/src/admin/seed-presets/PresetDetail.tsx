@@ -3,6 +3,9 @@ import { api, unwrap, type Schemas } from '../../api/client'
 import { ActionsMenu, Banner, Button, Chip, FormDialog, Panel, PanelRow } from '../../components'
 import { usePhone } from '../../lib/usePhone'
 import { done, message } from '../../me/data'
+import { SwitchRow } from '../kit'
+import { useNavigate } from 'react-router-dom'
+import { useCommunity } from '../../community/CommunityProvider'
 import type { Preset, RandomizerInfo } from './SeedPresetsScreen'
 
 type Check = Schemas['PasteCheckResponse']
@@ -31,6 +34,9 @@ export function PresetDetail({
   const initialPaste = paste ? String(settings[paste.key] ?? '') : ''
   const [name, setName] = useState(preset.name)
   const [description, setDescription] = useState(preset.description ?? '')
+  const [listed, setListed] = useState(preset.listed)
+  const navigate = useNavigate()
+  const { base } = useCommunity()
   const [json, setJson] = useState(pretty(settings))
   const [pasted, setPasted] = useState(initialPaste)
   const [check, setCheck] = useState<Check | null>(null)
@@ -41,6 +47,7 @@ export function PresetDetail({
   useEffect(() => {
     setName(preset.name)
     setDescription(preset.description ?? '')
+    setListed(preset.listed)
     setJson(pretty(preset.settings as Record<string, unknown>))
     setPasted(initialPaste)
   }, [preset, initialPaste])
@@ -61,7 +68,7 @@ export function PresetDetail({
   }, [paste, pasted, preset.randomizer])
 
   const settingsDirty = paste ? pasted !== initialPaste : json !== pretty(settings)
-  const dirty = name !== preset.name || description !== (preset.description ?? '') || settingsDirty
+  const dirty = name !== preset.name || description !== (preset.description ?? '') || listed !== preset.listed || settingsDirty
 
   async function save() {
     let next: Record<string, unknown> | undefined
@@ -84,7 +91,7 @@ export function PresetDetail({
       await api
         .PATCH('/api/presets/{preset_id}', {
           params: { path: { preset_id: preset.id } },
-          body: { name: name.trim(), description, ...(next ? { settings: next } : {}) },
+          body: { name: name.trim(), description, listed, ...(next ? { settings: next } : {}) },
         })
         .then(unwrap)
       setNote({ tone: 'info', text: 'Saved.' })
@@ -133,6 +140,7 @@ export function PresetDetail({
         <ActionsMenu
           label="Actions"
           items={[
+            { label: 'Open in the preset library', icon: 'open_in_new', onSelect: () => navigate(`${base}/presets/${preset.id}`) },
             { label: busy === 'roll' ? 'Rolling…' : 'Roll a test seed', icon: 'sync', disabled: busy === 'roll' || !info?.available, onSelect: () => void testRoll() },
             { label: 'Delete preset…', icon: 'delete', destructive: true, onSelect: () => setDeleting(true) },
           ]}
@@ -159,6 +167,14 @@ export function PresetDetail({
               </label>
             </div>
           </PanelRow>
+        </Panel>
+        <Panel title="Preset library">
+          <SwitchRow
+            label="Show in the preset library"
+            hint="Anyone in any community can see its settings, roll it and copy it. Turn off for settings that stay secret until race day."
+            checked={listed}
+            onChange={setListed}
+          />
         </Panel>
         <Panel title="Settings">
           <PanelRow>
@@ -195,6 +211,7 @@ export function PresetDetail({
             onClick={() => {
               setName(preset.name)
               setDescription(preset.description ?? '')
+              setListed(preset.listed)
               setJson(pretty(settings))
               setPasted(initialPaste)
             }}

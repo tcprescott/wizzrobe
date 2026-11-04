@@ -197,6 +197,7 @@ TAG_GROUPS: List[tuple[str, List[tuple[str, str]]]] = [
         ('Async qualifiers', 'Asynchronous qualifiers: pools, seeds, runs, review and leaderboards.'),
         ('Async qualifier live races', 'Live races that count toward an async qualifier.'),
         ('Presets', 'Randomizer seed presets.'),
+        ('Preset library', 'Every community\'s shared presets: browse, roll a seed, copy one in.'),
         ('Seeds', 'Rolling randomizer seeds.'),
         ('Door seeds', 'ALttP Door Randomizer seeds: the seed, its patch files, sprites and spoiler, for the in-browser patcher.'),
         ('ROM patches', 'Patches a community hosts: what each needs, its file, and counting downloads.'),

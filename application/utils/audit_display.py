@@ -29,7 +29,7 @@ class AuditArea:
 AREAS: tuple[AuditArea, ...] = (
     AuditArea('matches', 'Matches', ('match.', 'crew.', 'race_room.')),
     AuditArea('tournaments', 'Tournaments', (
-        'tournament.', 'bracket.', 'preset.', 'rom_patch.', 'async_qualifier.', 'randomizer_credential.',
+        'tournament.', 'bracket.', 'preset.', 'preset_space.', 'rom_patch.', 'async_qualifier.', 'randomizer_credential.',
         'triforce_text.', 'player.',
     )),
     AuditArea('people', 'People', (
@@ -132,6 +132,8 @@ ACTION_LABELS: dict[str, str] = {
     'race_room.result_recorded': 'Recorded a race room result',
     'race_room.result_held': 'Held a race room result for a check',
     'race_room.fpa_called': 'Called a fair play pause in a race room',
+    'race_room.announced': 'Announced a group race room in Discord',
+    'race_room.locked': 'Locked a group race room',
     'tournament.created': 'Created a tournament',
     'tournament.updated': 'Edited a tournament',
     'tournament.deleted': 'Deleted a tournament',
@@ -170,6 +172,13 @@ ACTION_LABELS: dict[str, str] = {
     'preset.deleted': 'Deleted a seed preset',
     'preset.imported': 'Imported a seed preset',
     'preset.test_rolled': 'Test-rolled a seed preset',
+    'preset.rolled': 'Rolled a seed from the preset library',
+    'preset.copied': 'Copied a preset from the library',
+    'preset.copy_updated': 'Updated a copied preset from its original',
+    'preset_space.created': 'Started a personal preset space',
+    'preset_space.renamed': 'Renamed a personal preset space',
+    'preset_space.editor_added': 'Added a co-editor to a preset space',
+    'preset_space.editor_removed': 'Removed a co-editor from a preset space',
     'rom_patch.created': 'Uploaded a ROM patch',
     'rom_patch.updated': 'Edited a ROM patch',
     'rom_patch.replaced': 'Replaced a ROM patch file',

@@ -331,6 +331,8 @@ class AuditActions:
     RACE_ROOM_RESULT_RECORDED = 'race_room.result_recorded'
     RACE_ROOM_RESULT_HELD = 'race_room.result_held'
     RACE_ROOM_FPA_CALLED = 'race_room.fpa_called'
+    RACE_ROOM_ANNOUNCED = 'race_room.announced'
+    RACE_ROOM_LOCKED = 'race_room.locked'
 
     VOLUNTEER_POSITION_CREATED = 'volunteer.position_created'
     VOLUNTEER_POSITION_UPDATED = 'volunteer.position_updated'
@@ -376,6 +378,13 @@ class AuditActions:
     PRESET_DELETED = 'preset.deleted'
     PRESET_IMPORTED = 'preset.imported'
     PRESET_TEST_ROLLED = 'preset.test_rolled'
+    PRESET_ROLLED = 'preset.rolled'
+    PRESET_COPIED = 'preset.copied'
+    PRESET_COPY_UPDATED = 'preset.copy_updated'
+    PRESET_SPACE_CREATED = 'preset_space.created'
+    PRESET_SPACE_RENAMED = 'preset_space.renamed'
+    PRESET_SPACE_EDITOR_ADDED = 'preset_space.editor_added'
+    PRESET_SPACE_EDITOR_REMOVED = 'preset_space.editor_removed'
     # Hosted ROM patches (the generic patcher)
     ROM_PATCH_CREATED = 'rom_patch.created'
     ROM_PATCH_UPDATED = 'rom_patch.updated'

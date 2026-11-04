@@ -11,12 +11,13 @@ that no single subsystem owns.
 ## Succession scope
 
 The succession covers SahasrahBot's **tournament and racing mission only**, fixed at
-five features: async qualifiers, seed rolling from user-authored presets, Discord
-Events sync, SpeedGaming schedule ETL, and the racetime.gg room lifecycle.
+six features: async qualifiers, seed rolling from user-authored presets, Discord
+Events sync, SpeedGaming schedule ETL, the racetime.gg room lifecycle, and group
+race rooms (the SG dailies and weeklies; Thomas brought them in on 2026-11-04).
 
 Everything else retires with SahasrahBot or lives on a thin community bot Wizzrobe
 does not absorb: per-tournament handler classes (replaced by user-definable config),
-spoiler races, community dailies, ranked-choice voting, and general Discord
+spoiler races, ranked-choice voting, and general Discord
 community features (reaction and voice roles, holy images, inquiries, `konot`).
 SahasrahBot's dormant `Schedule*` models were a half-finished in-house scheduler —
 the SpeedGaming ETL supersedes them; do not port them.
@@ -169,7 +170,28 @@ match's on-duty staff, under the `racetime_broadcaster_waiting` notice.
 `!forceroll` is staff's way past it. No event switch, or no approved broadcaster,
 means no gate.
 
-Not there yet: setting the three bot fields over REST or MCP.
+The bot fields (`racetime_bot_runs_room`, `racetime_seed_post_minutes`) and the
+group race fields below are on the tournament REST create/update; MCP doesn't set
+them yet.
+
+## Group races (`racetime_group_race`)
+
+A **group race** tournament (a daily, a weekly) has matches with no player list:
+anyone can join the room. Its matches come from the SpeedGaming sync (the ETL
+skips the episode's players for a group race tournament) or are added by hand.
+Turning `racetime_group_race` on also turns on `racetime_auto_create_rooms` and
+`racetime_bot_runs_room` (`TournamentService`, both create and update), since
+only the bot can open and run a room with nobody to invite.
+
+| Step | What happens |
+|---|---|
+| `room_open_minutes_before` the start | Auto-open skips its "no players" check for a group race. The room opens **not invite-only** whatever the profile says; "co-op" in the match title makes it a team race (as SahasrahBot did) |
+| Room opens | `GroupRaceService.announce` posts once (`announced_at`) in `racetime_announce_channel_id` with a `<@&racetime_announce_role_id>` ping, an embed (start in `<t:…>`, seed time) and a **Join the race room** link button. `DiscordService.post_to_channel` refuses a channel outside the community's own server, and mentions only that role. A post Discord doesn't take is released and retried by the race-room worker each tick. Audited `race_room.announced` |
+| Seed time | The bot posts the seed as for any bot-run room, then with `racetime_lock_at_seed` sends `make_invitational` and says "This room is now locked. Late entries are not permitted." once (`locked_at`, `race_room.locked`) |
+| Finish | `RaceRoomService._record_group_finish`: every entrant with a linked racetime account becomes a match player with place and time; the rest go on `RacetimeRoom.unmatched_entrants` (`name`, `place`, `finish_seconds`, `status`). Nothing is held (an FPA is still logged and staff told), and no "result in" DM goes to admins |
+
+The greeting tells the room anyone can join, when the seed posts and whether the
+room locks then. Gated by `RACETIME_ROOMS` like every match room.
 
 ## Migrating a community off SahasrahBot
 

@@ -243,6 +243,7 @@ async def seed_online_for_tenant(
     )
     await _seed_rooms(tenant, bots["alttpr"], scheduled, in_progress, finished)
     await seed_room_bot_rooms(tenant, tournament, bots["alttpr"], players)
+    await _seed_group_race(tenant, bots["alttpr"], preset)
     await _seed_speedgaming(tenant, tournament, scheduled)
     await _seed_discord_events(tenant, tournament, scheduled)
     await seed_qualifiers_for_tenant(tenant, preset)
@@ -355,6 +356,7 @@ async def _seed_presets(tenant: Tenant, staff: User) -> Preset:
             "settings": {"glitches": "none", "goal": "ganon", "mode": "open",
                          "item_placement": "advanced", "item_pool": "hard"},
             "description": "The open-mode settings with a hard item pool. Players opt into this.",
+            "listed": False,
         },
     )
     wanted = all_specs() if tenant.slug == 'default' else credentials_for('ootr')
@@ -413,6 +415,29 @@ async def _seed_online_tournament(
     tournament.racetime_bot_runs_room = True
     await tournament.save()
     return tournament
+
+
+async def _seed_group_race(tenant: Tenant, bot: RacetimeBot, preset: Preset) -> None:
+    """A daily group race: no players, open to anyone, posted in Discord, locks at seed."""
+    tournament, _ = await Tournament.get_or_create(
+        name="ALTTPR Daily Races", tenant=tenant,
+        defaults={
+            "description": "Daily group race fixture — anyone can join the room.",
+            "is_active": True, "players_per_match": 2, "preset": preset,
+            "racetime_bot": bot, "racetime_default_goal": "Beat the game",
+            "racetime_group_race": True, "racetime_auto_create_rooms": True,
+            "racetime_bot_runs_room": True, "racetime_lock_at_seed": True,
+            "room_open_minutes_before": 30, "racetime_seed_post_minutes": 5,
+            "racetime_announce_channel_id": "100000000000000001",
+            "racetime_announce_role_id": "100000000000000002",
+        },
+    )
+    start = now_local().replace(minute=0, second=0, microsecond=0) + timedelta(hours=3)
+    for title, hours in (("ALTTPR Daily — Open", 0), ("ALTTPR Daily (Co-op)", 24)):
+        await Match.get_or_create(
+            title=title, tournament=tournament, tenant=tenant,
+            defaults={"scheduled_at": start + timedelta(hours=hours)},
+        )
 
 
 async def _seed_online_matches(
