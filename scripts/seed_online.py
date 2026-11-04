@@ -28,15 +28,20 @@ What they cover:
 - **Async qualifiers** (PR 9/10) live in ``seed_qualifiers.py``, called from here
   so they stay part of the same online fixture set.
 """
+import json
+import zlib
 from datetime import datetime, timedelta, timezone
 
 from application.randomizer_credentials import all_specs, credentials_for
 from application.services.preset_service import PresetService
+from application.utils.door_seed_store import DoorSeedStore
+from application.utils.rom_patch_store import RomPatchStore
 from application.utils.timezone import now_local
 from models import (
     BotStatus,
     DiscordEventSource,
     DiscordScheduledEvent,
+    DoorSeed,
     Match,
     MatchHardPresetOptIn,
     MatchPlayers,
@@ -49,6 +54,7 @@ from models import (
     RacetimeBotTenant,
     RacetimeRoom,
     RandomizerCredential,
+    RomPatch,
     SpeedGamingEpisode,
     SpeedGamingEventLink,
     SyncStatus,
@@ -241,8 +247,82 @@ async def seed_online_for_tenant(
     await _seed_speedgaming(tenant, tournament, scheduled)
     await _seed_discord_events(tenant, tournament, scheduled)
     await seed_qualifiers_for_tenant(tenant, preset)
+    await _seed_door_seed(tenant)
+    await _seed_rom_patches(tenant, tournament)
     print(f"    [{tenant.slug}] online tournament ok")
     return tournament
+
+
+async def _seed_door_seed(tenant: Tenant) -> DoorSeed:
+    """One hosted Door Randomizer seed, so ``/door/<token>`` opens in dev.
+
+    The patch is a stand-in carrying a believable file-select code, not a
+    playable seed: dev has no sidecar. Its base patch is made for a "ROM" of
+    1MB of zero bytes, so the patcher page runs end to end in dev with
+    ``head -c 1048576 /dev/zero > dev-rom.sfc`` standing in for the real one.
+    """
+    token = f"dev-door-{tenant.slug}"
+    code = ["Bow", "Hookshot", "Bombs", "Mushroom", "Lamp"]
+    seed, _ = await DoorSeed.get_or_create(
+        token=token,
+        defaults={"tenant": tenant, "version": "dev", "seed_code": code, "spoiler_access": "staff"},
+    )
+    store = DoorSeedStore()
+    if await store.get_patch(token) is None:
+        await store.put_patch(token, json.dumps({"version": "dev", "patch": {str(0x180215): [0, 2, 3, 4, 11]}}).encode())
+        await store.put_spoiler(token, json.dumps({"meta": {"seed": 1, "version": "dev"}}).encode())
+    if not await store.has_base_patch("dev"):
+        await store.put_base_patch("dev", _dev_base_patch())
+    return seed
+
+
+async def _seed_rom_patches(tenant: Tenant, tournament: Tournament) -> None:
+    """Two hosted ROM patches, so Admin → Patches and ``/patch/<token>`` show both states.
+
+    The BPS names its ROM (the same 1MB of zeros as the door seed's base patch,
+    so ``dev-rom.sfc`` patches it); the IPS names none, which is the other way
+    the patch page reads.
+    """
+    store = RomPatchStore()
+    rows = [
+        (f"dev-patch-{tenant.slug}"[:32], "Practice ROM", "Dev ROM (1 MB of zeros)", "bps",
+         _dev_base_patch(), zlib.crc32(bytes(0x100000)), tournament),
+        (f"dev-ips-{tenant.slug}"[:32], "Quality of life fixes", "Dev ROM (any)", "ips",
+         b"PATCH" + bytes([0, 0, 0x10, 0, 4]) + b"WIZZ" + b"EOF", None, None),
+    ]
+    for token, title, game, fmt, data, crc, linked in rows:
+        await RomPatch.get_or_create(
+            token=token,
+            defaults={
+                "tenant": tenant, "title": title, "game": game, "format": fmt,
+                "filename": f"{title.lower().replace(' ', '-')}.{fmt}", "size": len(data),
+                "source_crc": f"{crc:08X}" if crc is not None else None, "tournament": linked,
+                "description": "A stand-in patch for the dev environment." if linked else None,
+            },
+        )
+        if await store.get(token, fmt) is None:
+            await store.put(token, fmt, data)
+
+
+def _dev_base_patch() -> bytes:
+    """A BPS taking 1MB of zeros to 2MB of zeros: keep the source, copy it again."""
+    def number(n: int) -> bytes:
+        out = bytearray()
+        while True:
+            x = n & 0x7F
+            n >>= 7
+            if n == 0:
+                return bytes(out + bytes([0x80 | x]))
+            out.append(x)
+            n -= 1
+
+    size = 0x100000
+    body = b"BPS1" + number(size) + number(2 * size) + number(0)
+    body += number((size - 1) << 2 | 0)            # SourceRead the whole source
+    body += number((size - 1) << 2 | 2) + number(0)  # SourceCopy it again from offset 0
+    body += zlib.crc32(bytes(size)).to_bytes(4, "little")
+    body += zlib.crc32(bytes(2 * size)).to_bytes(4, "little")
+    return body + zlib.crc32(body).to_bytes(4, "little")
 
 
 async def _seed_presets(tenant: Tenant, staff: User) -> Preset:

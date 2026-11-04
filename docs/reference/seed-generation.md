@@ -11,6 +11,7 @@ Tournaments for randomized games need a freshly rolled game ("seed") for every m
 | [`application/services/seedgen_service.py`](../../application/services/seedgen_service.py) | `SeedGenerationService`: `AVAILABLE_RANDOMIZERS`, `generate_seed()` dispatch, per-randomizer generators |
 | [`application/services/match/match_schedule_service.py`](../../application/services/match/match_schedule_service.py) | `MatchScheduleService.generate_seed()` — the production entry point: locking, validation, persistence, DMs, audit |
 | [`application/services/preset_service.py`](../../application/services/preset_service.py) | `PresetService`: CRUD (gated by `AuthService.can_manage_presets`), `import_builtins` from the `presets/` files, and `import_remote_presets` from a randomizer's own API |
+| [`application/services/_seedgen_alttprdr.py`](../../application/services/_seedgen_alttprdr.py) | `DoorRandoBackend`: rolls through the Door Randomizer sidecar and hosts the patch ([alttprdr](#alttprdr)) |
 | [`application/services/_seedgen_dk64r.py`](../../application/services/_seedgen_dk64r.py) | `DK64RBackend`: every DK64R call — settings conversion, submit/poll, and the published preset catalogue |
 | [`application/services/_seedgen_avianart.py`](../../application/services/_seedgen_avianart.py) | AVIANART: generate, poll until built, and the published preset catalogue |
 | [`application/services/_seedgen_samus.py`](../../application/services/_seedgen_samus.py) | samus.link: Super Metroid (`sm.samus.link`) and SMZ3 (`samus.link`) rolls |
@@ -65,7 +66,7 @@ The seed is displayed on the home Schedule and Player tabs and in the admin matc
 `SeedGenerationService` ([`seedgen_service.py`](../../application/services/seedgen_service.py)) is stateless — instantiate it freely; `MatchScheduleService` creates one in its constructor. See [services.md](services.md) for the surrounding service layer.
 
 ```python
-AVAILABLE_RANDOMIZERS = ['alttpr', 'avianart', 'ff1r', 'z1r', 'z2r', 'smb3r', 'aosr', 'sm', 'smz3',
+AVAILABLE_RANDOMIZERS = ['alttpr', 'alttprdr', 'avianart', 'ff1r', 'z1r', 'z2r', 'smb3r', 'aosr', 'sm', 'smz3',
                          'smmap', 'ootr', 'smdash', 'smvaria', 'dk64r', 'wwr', 'test']
 STUB_RANDOMIZERS = set()                                # registered but not wired (none today)
 PRESET_AWARE_RANDOMIZERS = everything but 'ootr', 'smmap', 'test'  # use preset.settings when given
@@ -73,8 +74,8 @@ MOCK_EXEMPT_RANDOMIZERS = {'aosr', 'dk64r', 'smb3r', 'wwr', 'z1r', 'z2r'}  # MOC
 ASYNC_RANDOMIZERS = {'dk64r'}                           # task-queue backends (submit now, collect later)
 TRIFORCE_TEXT_RANDOMIZERS = {'alttpr'}                  # can embed community triforce texts
 REMOTE_PRESET_BRANCHES = {'avianart': (), 'dk64r': ('stable', 'dev')}   # upstream preset catalogues
-PROVIDER_TIMEOUTS = {'avianart': 150.0, 'dk64r': 660.0, 'smvaria': 100.0}
-PROVIDER_ATTEMPTS = {'avianart': 1, 'dk64r': 1, 'smdash': 1, 'smvaria': 1}
+PROVIDER_TIMEOUTS = {'alttprdr': 380.0, 'avianart': 150.0, 'dk64r': 660.0, 'smvaria': 100.0}
+PROVIDER_ATTEMPTS = {'alttprdr': 2, 'avianart': 1, 'dk64r': 1, 'smdash': 1, 'smvaria': 1}
 ```
 
 `AVAILABLE_RANDOMIZERS` is the full validity set — it drives `MatchScheduleService`'s validity check and stays whole regardless of what any tenant has configured. What a tenant may *select* is the narrower `SeedGenerationService.available_randomizers(configured)`, which drops randomizers whose credential this community has not supplied; the tournament dialog, the Presets tab, and the REST `/seeds/randomizers` catalogue all render that filtered list. See [Per-tenant credentials](#per-tenant-credentials).
@@ -246,6 +247,28 @@ The split in `SeedGenerationService` is `submit_async_roll` → `AsyncRollSubmis
 DK64R is the one randomizer that does **not** take the `MOCK_SEEDGEN` short-circuit. An instantly-returned permalink would skip the very thing that makes this backend different: upstream takes two to three minutes, and the Generate button holds a spinner for all of it. So `MOCK_SEEDGEN` instead swaps the `aiohttp` session for `MockDK64Session` ([`mock_dk64.py`](../../application/utils/mocks/mock_dk64.py)), an in-process stand-in for the queue. `_generate_dk64r` is unchanged under it — it really converts, submits, and polls on the 5 s cadence while a fake task walks `queued` → `started` → `finished` over `MOCK_DK64_SECONDS` (default 20; the suite pins it to 0). No credential is needed while mocked.
 
 `MOCK_DK64_OUTCOME` picks the ending (`finished`, `failed`, `http_error`, `stuck`) and `MOCK_DK64_BROKEN_STAGE` fails `convert` or `submit` instead, so every error branch above is reachable without a live key. `mock_dk64_presets(branch)` returns a `get_presets`-shaped list for surfaces that read the upstream preset catalogue.
+
+### alttprdr
+
+Aerinon's [ALttP Door Randomizer](https://github.com/aerinon/ALttPDoorRandomizer) has no public API, so it runs in a container of its own, [`sidecars/door_rando`](../../sidecars/door_rando) (a pinned upstream commit behind a small aiohttp server, `door-rando` in `docker-compose.yml`). Wizzrobe reaches it at `DOOR_RANDO_URL` with `DOOR_RANDO_TOKEN` as a bearer token; without `DOOR_RANDO_URL` the randomizer isn't offered (`available_randomizers`), except under `MOCK_SEEDGEN`.
+
+**No ROM is involved anywhere on the server.** The sidecar runs the randomizer with `--jsonout`, which emits the seed as byte writes on top of the randomizer's own base patch (`data/base2current.bps`). The player's browser applies both to their own Japanese 1.0 ROM on the patcher page.
+
+The sidecar's API:
+
+| Call | Does |
+|---|---|
+| `GET /health` | `{status, version, commit}` (no token needed) |
+| `GET /base-patch` | the build's base BPS, with `X-Door-Rando-Version` |
+| `POST /generate` `{"settings": {...}}` | `{version, commit, seed, patch, spoiler, attempts}`. Settings are the randomizer's own settings-file keys; unknown keys, path-like keys (`rom`, `outputpath`, `customizer`, …) and values outside the randomizer's `choices` are a 400 naming the problem. A layout that fails to generate is retried inside the sidecar (`DOOR_RANDO_ATTEMPTS`, default 6, each capped at `DOOR_RANDO_ATTEMPT_TIMEOUT`, default 60 s) and is a 422 after the last. More than `DOOR_RANDO_MAX_QUEUED` waiting rolls is a 503. `DOOR_RANDO_CONCURRENCY` (default 2) rolls run at once. |
+
+A preset's settings are `{"settings": {<randomizer settings>}, "spoiler": "public" | "staff" | "none"}` (`spoiler` defaults to `staff`), checked on save by `normalize_preset_settings`. Built-ins: [`presets/alttprdr/`](../../presets/alttprdr). There's no fallback: rolling without a preset is a `ValueError`.
+
+`_generate_alttprdr` posts the settings, fetches and stores the base patch the first time a version is seen, then stores the seed under a fresh `secrets.token_urlsafe(16)` token through `DoorSeedStore` ([`application/utils/door_seed_store.py`](../../application/utils/door_seed_store.py), a directory at `DOOR_SEED_DIR`, a volume in compose) and records a `DoorSeed` row (version, code, spoiler access). The permalink is the tenant-qualified patcher page, `/door/<token>`. The code is read from the patch exactly as ALTTPR's is (`alttpr_code`, 0x180215).
+
+The files are served over REST by `api/routers/rom_patches.py` (`require_reader`, so they open signed out with the community in `X-Wizzrobe-Community`, and every read is scoped to that community): `GET /api/door-seeds/{token}` (build, code, whether the caller may have the spoiler), `/{token}/patch` and `/base/{version}` (immutable, year-long cache), and `/{token}/spoiler`, which 404s unless the preset made it public or the caller is this community's staff (`DoorSeedService.spoiler_by_token`). `PROVIDER_ATTEMPTS['alttprdr']` is 2: the sidecar already retries layouts, so the second attempt only covers it being busy or briefly unreachable.
+
+**The patcher page** is the app's `/t/<slug>/door/<token>` (`web/src/patcher/DoorSeedScreen.tsx`, a reading route, so it opens signed out). The browser does the rest, in [`web/src/patcher/`](../../web/src/patcher): `bps.ts` applies BPS patches, `door.ts` builds the ROM (base patch onto the player's ROM, extended to 2 MB, then the seed's writes, then cosmetics at the addresses the randomizer's own `apply_rom_settings` uses, then the SNES checksum) and `files.ts` keeps the player's ROM in IndexedDB (`wiz-door-patcher`) while their options sit in localStorage (`wiz-door-patcher-options`). A ROM is checked against the base patch's source CRC when it's picked, so a wrong ROM is refused then, not at download. Palette shuffle is [z3pr](https://github.com/Maseya/z3pr-js), the `@maseya/z3pr` npm package (LGPL-3.0). Sprites come from alttpr.com's list, which sends no CORS header, so `GET /api/door-seeds/sprites` serves a cached, trimmed copy (`DoorSeedService.sprite_list`, 6 h, a stale copy if alttpr.com is down) holding only links to the alttpr-assets S3 bucket, which the browser fetches directly. `web/src/patcher/door.test.ts` covers the engine. In dev, the seeded `dev-door-<slug>` seed's base patch is made for 1 MB of zero bytes, so `head -c 1048576 /dev/zero > dev-rom.sfc` stands in for a real ROM.
 
 ### avianart
 

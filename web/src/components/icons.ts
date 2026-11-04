@@ -50,6 +50,7 @@ import DeleteIcon from '@material-symbols/svg-400/outlined/delete.svg?react'
 import IDescription from '@material-symbols/svg-400/outlined/description.svg?react'
 import Desk from '@material-symbols/svg-400/outlined/desk.svg?react'
 import DesktopWindowsIcon from '@material-symbols/svg-400/outlined/desktop_windows.svg?react'
+import DifferenceIcon from '@material-symbols/svg-400/outlined/difference.svg?react'
 import DirectionsRun from '@material-symbols/svg-400/outlined/directions_run.svg?react'
 import IDownload from '@material-symbols/svg-400/outlined/download.svg?react'
 import EditIcon from '@material-symbols/svg-400/outlined/edit.svg?react'
@@ -179,6 +180,7 @@ import Tv from '@material-symbols/svg-400/outlined/tv.svg?react'
 import UnarchiveIcon from '@material-symbols/svg-400/outlined/unarchive.svg?react'
 import UndoIcon from '@material-symbols/svg-400/outlined/undo.svg?react'
 import UploadIcon from '@material-symbols/svg-400/outlined/upload.svg?react'
+import UploadFileIcon from '@material-symbols/svg-400/outlined/upload_file.svg?react'
 import IVerified from '@material-symbols/svg-400/outlined/verified.svg?react'
 import Videocam from '@material-symbols/svg-400/outlined/videocam.svg?react'
 import IVideogameAsset from '@material-symbols/svg-400/outlined/videogame_asset.svg?react'
@@ -239,6 +241,7 @@ export const ICONS = {
   description: IDescription,
   desk: Desk,
   desktop_windows: DesktopWindowsIcon,
+  difference: DifferenceIcon,
   directions_run: DirectionsRun,
   download: IDownload,
   edit: EditIcon,
@@ -364,6 +367,7 @@ export const ICONS = {
   unarchive: UnarchiveIcon,
   undo: UndoIcon,
   upload: UploadIcon,
+  upload_file: UploadFileIcon,
   verified: IVerified,
   videocam: Videocam,
   videogame_asset: IVideogameAsset,

@@ -120,6 +120,12 @@ _EXCLUDED_BY_DESIGN = frozenset({
     AuditActions.PRESET_SPACE_RENAMED,
     AuditActions.PRESET_SPACE_EDITOR_ADDED,
     AuditActions.PRESET_SPACE_EDITOR_REMOVED,
+    # Hosted ROM patches — tenant-internal files staff manage; a player only
+    # ever reaches one by its link.
+    AuditActions.ROM_PATCH_CREATED,
+    AuditActions.ROM_PATCH_UPDATED,
+    AuditActions.ROM_PATCH_REPLACED,
+    AuditActions.ROM_PATCH_DELETED,
     # Secrets — leaking these to arbitrary receivers is a risk.
     AuditActions.TICKET_STORE_CONNECTED,
     AuditActions.TICKET_STORE_DISCONNECTED,

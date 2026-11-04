@@ -21,6 +21,10 @@ services:
       # Postgres runs on the host, outside Docker.
       DB_HOST: host.docker.internal
       NICEGUI_REDIS_URL: redis://redis:6379/0
+      DOOR_RANDO_URL: http://door-rando:8080
+      DOOR_SEED_DIR: /data/door-seeds
+    volumes:
+      - door_seeds:/data/door-seeds
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
@@ -28,9 +32,20 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+      door-rando:
+        condition: service_started
     networks: [beta]
     restart: unless-stopped
     stop_grace_period: 30s
+
+  # The Door Randomizer sidecar. Only the API reaches it, on the beta network.
+  door-rando:
+    image: ghcr.io/tcprescott/wizzrobe-door-rando:beta
+    env_file:
+      - path: door-rando.env
+        required: false
+    networks: [beta]
+    restart: unless-stopped
 
   app:
     image: ghcr.io/tcprescott/wizzrobe-app:beta
@@ -61,3 +76,4 @@ networks:
 
 volumes:
   redis_data:
+  door_seeds:

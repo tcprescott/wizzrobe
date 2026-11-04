@@ -22,7 +22,7 @@ Wizzrobe ships as a single application container plus PostgreSQL and a Redis ses
 > Cloud Scheduler tick endpoint and Cloud Tasks are kept but switched off (Thomas,
 > 2026-11-03); nothing uses them.
 
-[`docker-compose.yml`](../docker-compose.yml) defines three services and two named volumes:
+[`docker-compose.yml`](../docker-compose.yml) defines four services and three named volumes. The fourth, `door-rando`, is the [Door Randomizer sidecar](#door-rando-service), left out of the diagram:
 
 ```
                         host :8000
@@ -63,6 +63,18 @@ Wizzrobe ships as a single application container plus PostgreSQL and a Redis ses
 | Volume | `redis_data`, mounted at `/data` |
 | Healthcheck | `redis-cli ping` — interval 5s, timeout 5s, retries 10 |
 | Restart | `unless-stopped` |
+
+### `door-rando` service
+
+| Setting | Value |
+|---|---|
+| Image | built from [`sidecars/door_rando/Dockerfile`](../sidecars/door_rando/Dockerfile), tagged `wizzrobe-door-rando:latest`: Aerinon's ALttP Door Randomizer at the pinned `DOOR_RANDO_COMMIT` build arg, behind a small aiohttp API |
+| Environment | `DOOR_RANDO_TOKEN` from `.env` |
+| Ports | none published: reachable only as `door-rando:8080` |
+| Volume | none. It holds **no ROM** and writes nothing; Wizzrobe stores what it returns on the `door_seeds` volume (mounted at `/data/door-seeds` in `wizzrobe`) |
+| Upgrade | bump `DOOR_RANDO_COMMIT` in the Dockerfile and rebuild. Old seeds keep patching: each stores its build's base patch |
+
+See [seed-generation.md](reference/seed-generation.md#alttprdr) for the API.
 
 ### `wizzrobe` service
 
@@ -147,6 +159,10 @@ Every boolean variable below uses one grammar (`env_flag` in `application/utils/
 | `MOCK_DISCORD` | no | off | `application/utils/mocks/mock_discord.py` | Bypasses OAuth and stubs `DiscordService` — see [discord.md](features/discord.md#mock-mode). **Refused when `ENVIRONMENT=production`.** |
 | _(randomizer API keys)_ | — | — | `application/services/seedgen_service.py` | **Not environment variables.** Each community supplies its own on Admin → Randomizer Keys. See [seed-generation.md](reference/seed-generation.md#per-tenant-credentials). |
 | `MOCK_SEEDGEN` | no | off | `application/utils/mocks/mock_seedgen.py` | Short-circuits `SeedGenerationService.generate_seed` to a fake `mock.seedgen.local` permalink — **except `dk64r`**, which simulates its task queue instead (below), and `wwr`/`z1r`, which are built locally and roll for real. **Refused in production.** |
+| `DOOR_RANDO_URL` | for door seeds | unset | `application/services/_seedgen_alttprdr.py` | Base URL of the Door Randomizer sidecar. Compose sets `http://door-rando:8080`. Unset → the `alttprdr` randomizer isn't offered. |
+| `DOOR_RANDO_TOKEN` | recommended | unset | `_seedgen_alttprdr.py`, `sidecars/door_rando/server.py` | Shared bearer token between Wizzrobe and the sidecar. Set the same value for both (compose passes it to the sidecar from `.env`). Unset → the sidecar accepts any caller on the compose network. |
+| `DOOR_SEED_DIR` | for door seeds | `.door-seeds` | `application/utils/door_seed_store.py` | Where hosted Door Randomizer patches and spoilers are written. Compose sets `/data/door-seeds` on the `door_seeds` volume. Back it up with the database: a seed's link stops patching if its files go. |
+| `ROM_PATCH_DIR` | no | `$DOOR_SEED_DIR/rom-patches` | `application/utils/rom_patch_store.py` | Where ROM patches staff upload under Admin → Patches are written. The default puts them on the `door_seeds` volume, so it needs no mount of its own; back it up the same way. |
 | `MOCK_DK64_SECONDS` | no | `20` | `application/utils/mocks/mock_dk64.py` | Wall-clock seconds a simulated DK64 roll takes, so the waiting UI can be exercised. Only read when `MOCK_SEEDGEN` is on; the test suite pins it to `0`. |
 | `MOCK_DK64_OUTCOME` | no | `finished` | `application/utils/mocks/mock_dk64.py` | Ending the simulated DK64 task reaches: `finished`, `failed`, `http_error`, or `stuck` (never finishes, for the generation-timeout branch). |
 | `MOCK_DK64_BROKEN_STAGE` | no | unset | `application/utils/mocks/mock_dk64.py` | Fails a pre-poll DK64 call instead: `convert` or `submit`. |

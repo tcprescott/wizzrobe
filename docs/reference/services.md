@@ -43,6 +43,7 @@ Services are the business-logic layer of the [three-layer architecture](../refac
 | `AdminMatchFormService` | [admin_match_form_service.py](../../application/services/admin_match_form_service.py) | The app's New/Edit match form (options, values, one-instant save), the "Not booked yet" bracket matchups with booking and linking, and the "Check this time" read | [rest-api.md](rest-api.md#admin-match-schedule-apiadminmatch-schedule--admin_match_schedulepy) |
 | `AdminScheduleService` | [admin_schedule_service.py](../../application/services/admin_schedule_service.py) | The app's admin Match Schedule as two screen-shaped reads: the board (grouped rows with per-row `can`) the Needs you inbox (reschedule requests with clashes, held and bracket-site results, unconfirmed and unseated matches), and one match's pane (checklist, rewind steps). Resolves the viewer's `MatchBoardAccess` and tournament scope the way `pages/admin.py` does | [rest-api.md](rest-api.md#admin-match-schedule-apiadminmatch-schedule--admin_match_schedulepy) |
 | `AccommodationService` | [accommodation_service.py](../../application/services/accommodation_service.py) | ADA accommodation requests: member self-service, STAFF queue | [ada-accommodations.md](../features/ada-accommodations.md) |
+| `DoorSeedService` | [door_seed_service.py](../../application/services/door_seed_service.py) | Hosted Door Randomizer seeds: the app's door seed page: lookup, patch files, sprites and the spoiler gate | — |
 | `EmergencyContactService` | [emergency_contact_service.py](../../application/services/emergency_contact_service.py) | Members' emergency contacts: self-service, STAFF open-one-at-a-time with an audit row per look | — |
 | `CommunityEventService` | [community_event_service.py](../../application/services/community_event_service.py) | Member-submitted community events: submit, staff review, edits, cancellation, subscriptions | [community-events.md](../features/community-events.md) |
 | `EventService` | [event_service.py](../../application/services/event_service.py) | A community's events: the cached `EventRef` list, default and visibility, lifecycle (create, go live, make default, archive, unarchive, delete a draft), copy setup, and `names_if_mixed` / `with_event_name` for personal lists that span live events | [events.md](../features/events.md) |
@@ -107,6 +108,7 @@ Services are the business-logic layer of the [three-layer architecture](../refac
 | `RandomizerCredentialService` | [randomizer_credential_service.py](../../application/services/randomizer_credential_service.py) | Per-tenant randomizer API credentials | [seed-generation.md](seed-generation.md#per-tenant-credentials) |
 | `ReportsService` | [reports_service.py](../../application/services/reports_service.py) | Capacity, operations, crew, and stage reports | [admin-reports.md](../features/admin-reports.md) |
 | `reporting_shared` (module) | [reporting_shared.py](../../application/services/reporting_shared.py) | Shared reporting constants (`DEFAULT_MATCH_DURATION_MIN`, `ON_TIME_THRESHOLD_MIN`) + `to_display`/`window_hours`/`crew_requirement`/`is_crew_covered` helpers used by both Reports and Insights (so on-time % and crew coverage can't drift) | — |
+| `RomPatchService` | [rom_patch_service.py](../../application/services/rom_patch_service.py) | ROM patches a community hosts for the generic patcher: upload, edit, replace, delete, and the player page's lookups | [rom-patcher.md](../features/rom-patcher.md) |
 | `RoomTokenService` | [room_token_service.py](../../application/services/room_token_service.py) | Unlisted kiosk tokens for the tournament room's read-only seeds board | [frontend.md](frontend.md#the-tournament-room-seeds-board-pagesroom_seedspy) |
 | `SeedRollService` | [seed_roll_service.py](../../application/services/seed_roll_service.py) | Submit/poll/complete a task-queue seed roll (driven by `seed_roll_worker`) | [seed-generation.md](seed-generation.md#asynchronous-rolls) |
 | `SeedGenerationService` | [seedgen_service.py](../../application/services/seedgen_service.py) | Randomizer seed generation | [seed-generation.md](seed-generation.md) |
@@ -180,6 +182,25 @@ Issues, lists, revokes, and authenticates personal API access tokens. Only the S
 | `resolve_actor(raw_token)` | `(User, ApiToken) \| None` | `authenticate` plus the deactivated-owner check. **The shared front half of bearer authentication for both entry surfaces** — the REST API and the MCP server call this so their notion of "who is this token" cannot drift. Raises `PermissionError` when the token is valid but its owner is deactivated (401 vs 403 at the caller). Binds no tenant: which community a request acts in is the caller's decision. |
 
 Collaborators: `ApiTokenRepository`, `AuditService`.
+
+### rom_patch_service.py — RomPatchService
+
+ROM patches a community hosts ([rom-patcher.md](../features/rom-patcher.md)). Every mutation takes `AuthService.can_manage_presets` (STAFF or `PRESET_MANAGER`), raises `PermissionError` otherwise, and is audited (`rom_patch.created/updated/replaced/deleted`, eventless by design). A file that isn't a valid BPS/IPS/UPS, or is over 16 MB, is a `ValueError` (`application/utils/rom_patch_format.read_patch`).
+
+| Method | Returns | Description |
+|---|---|---|
+| `list_patches(actor)` | `list[RomPatch]` | This community's patches, by title. |
+| `create_patch(actor, *, title, game, filename, data, description=None, tournament_id=None, source_crc=None)` | `RomPatch` | Stores the file under a fresh token. A BPS/UPS's own source CRC always wins; `source_crc` only counts for an IPS. |
+| `update_patch(actor, patch_id, *, title, game, description=None, tournament_id=None, source_crc=None)` | `RomPatch` | Text fields, tournament, and an IPS's CRC. |
+| `replace_file(actor, patch_id, *, filename, data, source_crc=None)` | `RomPatch` | New file behind the same token, so a posted link keeps working. |
+| `delete_patch(actor, patch_id)` | `None` | Row and file. |
+| `get_by_token(token)` | `RomPatch` | This community's patch, or `NotFoundError`. |
+| `patch_file(token)` | `(RomPatch, bytes)` | This community's patch and its file, or `NotFoundError`. |
+| `tournament_choices(actor)` · `get_for_manager(actor, patch_id)` | | Admin → Patches reads: the tournaments a patch can be tagged with, and one patch, both manager-gated. |
+| `record_download(token)` | `None` | Bumps the download count. |
+| `record_download(token)` | `None` | Bumps `download_count` after the page reports a download. |
+
+Collaborators: `RomPatchRepository`, `TournamentRepository`, `RomPatchStore`, `AuthService`, `AuditService`.
 
 ### room_token_service.py — RoomTokenService
 
@@ -704,6 +725,21 @@ Per-community ADA accommodation requests. Every public method is gated by `Featu
 | `update_request(actor, request_id, status, staff_notes)` | `AccommodationRequest` | STAFF. Sets status (not to/from `WITHDRAWN`) and notes in one save; `NotFoundError` for an unknown or other-tenant id. Saving a `changed_since_arranged` request clears the flag even with nothing else edited. Audits `accommodation.status_changed`, `.notes_updated` and/or `.change_reviewed`. |
 
 Collaborators: `AccommodationRepository`, `AuthService`, `AuditService`, `TenantMembershipService`.
+
+### door_seed_service.py — DoorSeedService
+
+Reads the Door Randomizer seeds `SeedGenerationService` hosts ([seed-generation.md](seed-generation.md#alttprdr)). No writes, so no audit.
+
+| Method | Returns | Description |
+|---|---|---|
+| `get_seed(token)` | `DoorSeed` | This community's seed, or `NotFoundError`. |
+| `can_read_spoiler(seed, user)` | `bool` | `public`: anyone. `staff`: `AuthService.is_staff`. `none`: nobody. |
+| `spoiler_for(seed, user)` | `bytes` | The spoiler JSON, or `NotFoundError` when the viewer may not read it. |
+| `spoiler_by_token(token, user)` | `bytes` | `get_seed` then `spoiler_for`, for the REST spoiler route. |
+| `patch(token)` / `base_patch(version)` | `bytes` | The stored files, this community's only; missing or a malformed name is `NotFoundError`, never a path. |
+| `sprite_list()` | `list[dict]` | alttpr.com's sprite list, trimmed and cached 6 h (a stale copy if it's down). |
+
+Collaborators: `DoorSeedRepository`, `DoorSeedStore`, `AuthService`.
 
 ### emergency_contact_service.py — EmergencyContactService
 

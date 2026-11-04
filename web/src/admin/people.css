@@ -174,3 +174,9 @@
   min-height: 36px;
   padding-block: 4px;
 }
+.admin-patch-file {
+  flex: 1;
+  min-width: 0;
+  color: var(--fg-muted);
+  overflow-wrap: anywhere;
+}

@@ -60,6 +60,10 @@ production's `DISCORD_CLIENT_ID` and `DISCORD_CLIENT_SECRET`. Leave out every
 other credential. A different folder works too: set the repository variable
 `BETA_STACK_DIR` to it.
 
+For door seeds, put one random `DOOR_RANDO_TOKEN=` line in both `beta.env` and a
+`door-rando.env` beside it (the sidecar reads only that file). Without it the
+sidecar still answers, but only the compose network can reach it anyway.
+
 ### 3. DNS, TLS and the reverse proxy
 
 Point both names at the machine and proxy them through whatever already fronts

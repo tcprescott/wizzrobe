@@ -105,6 +105,7 @@ from .discord import (
     discord_queue,
     discord_role_sync_worker,
 )
+from .door_seed_service import DoorSeedService
 from .emergency_contact_service import EmergencyContactService
 from .equipment_admin_service import EquipmentAdminService
 from .equipment_service import EquipmentService
@@ -177,6 +178,7 @@ from .randomizer_credential_service import RandomizerCredentialService
 from .rate_limit_service import RateLimitService, shared_counters_enabled
 from .reports_screen_service import ReportsScreenService
 from .reports_service import ReportsService
+from .rom_patch_service import RomPatchService
 from .room_token_service import RoomTokenService
 from .round_schedule_service import RoundScheduleService, RoundWindowError, ScheduleStage
 from .runtime_stats_service import RuntimeStatsService
@@ -300,6 +302,7 @@ __all__ = [
     'DiscordRoleSyncService',
     'DiscordService',
     'DiscordSettingsService',
+    'DoorSeedService',
     'DraftPolicy',
     'EmergencyContactService',
     'EquipmentAdminService',
@@ -386,6 +389,7 @@ __all__ = [
     'ReportsService',
     'RespondentView',
     'RoleScope',
+    'RomPatchService',
     'RoomTokenService',
     'RoundScheduleService',
     'RoundWindowError',

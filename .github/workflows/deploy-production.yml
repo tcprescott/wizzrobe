@@ -25,6 +25,7 @@ env:
   REGISTRY: ghcr.io
   API_IMAGE: ghcr.io/${{ github.repository }}
   APP_IMAGE: ghcr.io/${{ github.repository }}-app
+  DOOR_RANDO_IMAGE: ghcr.io/${{ github.repository }}-door-rando
   # Repository variables (Settings → Secrets and variables → Actions → Variables).
   PROD_API_ORIGIN: ${{ vars.PROD_API_ORIGIN }}
 
@@ -73,6 +74,17 @@ jobs:
             GIT_COMMIT_DATE=${{ steps.commit.outputs.date }}
           cache-from: type=gha,scope=prod-api
           cache-to: type=gha,mode=max,scope=prod-api
+
+      - name: Build and push the Door Randomizer sidecar
+        uses: docker/build-push-action@v6
+        with:
+          context: sidecars/door_rando
+          push: true
+          tags: |
+            ${{ env.DOOR_RANDO_IMAGE }}:prod
+            ${{ env.DOOR_RANDO_IMAGE }}:prod-${{ steps.commit.outputs.sha }}
+          cache-from: type=gha,scope=prod-door-rando
+          cache-to: type=gha,mode=max,scope=prod-door-rando
 
       - name: Build and push the new app
         if: inputs.app

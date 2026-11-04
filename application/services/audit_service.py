@@ -385,6 +385,11 @@ class AuditActions:
     PRESET_SPACE_RENAMED = 'preset_space.renamed'
     PRESET_SPACE_EDITOR_ADDED = 'preset_space.editor_added'
     PRESET_SPACE_EDITOR_REMOVED = 'preset_space.editor_removed'
+    # Hosted ROM patches (the generic patcher)
+    ROM_PATCH_CREATED = 'rom_patch.created'
+    ROM_PATCH_UPDATED = 'rom_patch.updated'
+    ROM_PATCH_REPLACED = 'rom_patch.replaced'
+    ROM_PATCH_DELETED = 'rom_patch.deleted'
     RANDOMIZER_CREDENTIAL_SET = 'randomizer_credential.set'
     RANDOMIZER_CREDENTIAL_CLEARED = 'randomizer_credential.cleared'
     AI_PROVIDER_SET = 'ai_provider.set'

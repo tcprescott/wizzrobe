@@ -14,6 +14,8 @@ x-backend: &backend
     - production.env
   extra_hosts:
     - "host.docker.internal:host-gateway"
+  volumes:
+    - door_seeds:/data/door-seeds
   networks: [prod]
   restart: unless-stopped
   # Room for uvicorn's graceful window plus the lifespan shutdown (queue drain,
@@ -32,11 +34,15 @@ services:
       SEPARATE_BOTS: "on"
       DB_HOST: host.docker.internal
       NICEGUI_REDIS_URL: redis://redis:6379/0
+      DOOR_RANDO_URL: http://door-rando:8080
+      DOOR_SEED_DIR: /data/door-seeds
     ports:
       - "127.0.0.1:${WIZZROBE_API_PORT:-8000}:8000"
     depends_on:
       redis:
         condition: service_healthy
+      door-rando:
+        condition: service_started
 
   # The Discord gateway (buttons, member updates, slash commands) and the
   # racetime room bot. An API restart doesn't drop them, and the other way round.
@@ -47,10 +53,23 @@ services:
     environment:
       SEPARATE_BOTS: "on"
       DB_HOST: host.docker.internal
+      DOOR_RANDO_URL: http://door-rando:8080
+      DOOR_SEED_DIR: /data/door-seeds
     depends_on:
       # The API runs the migrations; the bots start on the schema it leaves.
       api:
         condition: service_healthy
+
+  # Aerinon's ALttP Door Randomizer behind a small HTTP API. It holds no ROM and
+  # no other secret: only DOOR_RANDO_TOKEN, from door-rando.env, which must match
+  # production.env's. No port is published.
+  door-rando:
+    image: ghcr.io/tcprescott/wizzrobe-door-rando:${WIZZROBE_TAG:-prod}
+    env_file:
+      - path: door-rando.env
+        required: false
+    networks: [prod]
+    restart: unless-stopped
 
   # The new app (web/). Off until the cutover: `docker compose --profile app up -d`.
   app:
@@ -84,3 +103,6 @@ networks:
 
 volumes:
   redis_data:
+  # Door Randomizer seeds and the ROM patches staff host. Back it up with the
+  # database: a link stops patching if its files go.
+  door_seeds:

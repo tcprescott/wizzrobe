@@ -1,0 +1,6 @@
+description: "Basic door shuffle: each dungeon shuffles its own doors. Spoiler for staff only."
+settings:
+  spoiler: staff
+  settings:
+    door_shuffle: basic
+    intensity: 2
