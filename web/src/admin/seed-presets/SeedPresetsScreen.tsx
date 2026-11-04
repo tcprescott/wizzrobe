@@ -4,6 +4,7 @@ import { api, unwrap, type Schemas } from '../../api/client'
 import { ActionsMenu, Banner, Button, Chip, EmptyState, FormDialog, PageHeader, Spinner, type MenuItem } from '../../components'
 import { usePhone } from '../../lib/usePhone'
 import { message } from '../../me/data'
+import { useCommunity } from '../../community/CommunityProvider'
 import { SideList, useAdmin, useAdminQuery } from '../kit'
 import { PresetDetail } from './PresetDetail'
 
@@ -24,6 +25,7 @@ export function SeedPresetsScreen() {
 function PresetsBoard() {
   const { id } = useParams()
   const { adminBase } = useAdmin()
+  const { base: communityBase } = useCommunity()
   const phone = usePhone()
   const navigate = useNavigate()
   const presets = useAdminQuery('presets', () => api.GET('/api/presets').then(unwrap))
@@ -74,6 +76,7 @@ function PresetsBoard() {
     }
   }
   const actions: MenuItem[] = [
+    { label: 'Browse the preset library', icon: 'public', onSelect: () => navigate(`${communityBase}/presets`) },
     { label: 'Import built-in presets', icon: 'add', onSelect: () => void importBuiltins() },
     ...editor.data.randomizers
       .filter((r) => r.offers_remote_presets && r.available)
@@ -160,7 +163,7 @@ function PresetsBoard() {
         }
         empty={
           <EmptyState icon="tune" title={presets.data.length ? 'Nothing matches' : 'No presets yet'}>
-            {presets.data.length ? 'Try another randomizer or search.' : 'Add one, or import the built-in presets from Actions.'}
+            {presets.data.length ? 'Try another randomizer or search.' : 'Add one, import the built-in presets, or copy one from the preset library (all under Actions).'}
           </EmptyState>
         }
       />

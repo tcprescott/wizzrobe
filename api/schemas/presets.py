@@ -25,6 +25,7 @@ class PresetResponse(BaseModel):
     randomizer: str = Field(..., description=_RANDOMIZER)
     settings: Dict[str, Any] = Field(..., description=_SETTINGS)
     description: Optional[str] = Field(None, description="Optional note shown next to the preset.")
+    listed: bool = Field(True, description="Whether the preset shows in the public preset library.")
     created_at: datetime = Field(..., description="When the preset was created (UTC).")
     updated_at: datetime = Field(..., description="When the preset was last changed (UTC).")
 
@@ -44,4 +45,7 @@ class PresetUpdateRequest(BaseModel):
     )
     description: Optional[str] = Field(
         None, description="New note. An empty string clears it; omit to keep the current one."
+    )
+    listed: Optional[bool] = Field(
+        None, description="Show the preset in the public preset library. Omit to keep the current value."
     )

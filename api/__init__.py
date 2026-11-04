@@ -60,6 +60,7 @@ from api.routers import (
     payouts,
     platform,
     player_availability,
+    preset_library,
     presets,
     race_room_profiles,
     race_rooms,
@@ -209,6 +210,7 @@ router.include_router(webhooks.router)
 router.include_router(graphql.router)
 
 router.include_router(presets.router)
+router.include_router(preset_library.router)
 router.include_router(
     race_room_profiles.router,
     dependencies=[Depends(require_feature(FeatureFlag.RACETIME_ROOMS))],

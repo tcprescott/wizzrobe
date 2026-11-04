@@ -28,6 +28,7 @@ const APP_SECTIONS = [{ key: 'appearance', title: 'Appearance and sign out', sum
 
 /** The reading pages, which open in their own screens rather than beside the list. */
 const HELP_LINKS: { path: string; icon: IconName; title: string; summary: string }[] = [
+  { path: 'presets', icon: 'casino', title: 'Presets', summary: 'Roll a seed from any shared preset' },
   { path: 'help', icon: 'help', title: 'Help', summary: 'How the app works' },
   { path: 'changelog', icon: 'release_alert', title: "What's new", summary: 'The bigger changes, week by week' },
   { path: 'about', icon: 'info', title: 'About Wizzrobe', summary: 'Privacy policy, notices, version' },

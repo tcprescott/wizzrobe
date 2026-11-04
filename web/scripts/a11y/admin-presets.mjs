@@ -12,6 +12,7 @@ export const fixtures = {
       "name": "sgl2026",
       "randomizer": "alttpr",
       "description": "SGL 2026 standard",
+      "listed": true,
       "settings": {
         "goal": "ganon",
         "mode": "open"
@@ -23,6 +24,7 @@ export const fixtures = {
       "id": 6,
       "name": "sgl2026",
       "randomizer": "ffr",
+      "listed": false,
       "settings": {
         "flags": "HACAAAAAAAAAAAA"
       },

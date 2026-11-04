@@ -160,6 +160,7 @@ from .personal_webhook_service import PersonalWebhookService
 from .platform_admin_service import AccountOverview, CommunityOverview, PlatformAdminService
 from .player_availability_service import PlayerAvailabilityService
 from .player_home_service import PlayerHomeService
+from .preset_library_service import LibraryPreset, LibraryRoll, PresetLibraryService
 from .preset_service import PresetService
 from .proctor_station_service import ProctorStationService
 from .profile_nudge_service import ProfileNudgeService
@@ -318,6 +319,8 @@ __all__ = [
     'IdentityLinkService',
     'IntegrationSettingsService',
     'ItemTrackerService',
+    'LibraryPreset',
+    'LibraryRoll',
     'LogLevelService',
     'LoggerLevelRow',
     'MatchCommentService',
@@ -361,6 +364,7 @@ __all__ = [
     'PlayerAvailabilityService',
     'PlayerHomeService',
     'PlayerLateService',
+    'PresetLibraryService',
     'PresetService',
     'ProbeResult',
     'ProctorStationService',
