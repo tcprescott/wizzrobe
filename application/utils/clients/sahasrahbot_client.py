@@ -11,10 +11,10 @@ public and read-only:
   ``{}`` when there's no such preset.
 
 The YAML holds ``settings`` plus flags saying how SahasrahBot rolled it. Wizzrobe
-can't reproduce two of them (``doors``, which needs the Door Randomizer, and
-``forced_locations``, which SahasrahBot applied itself), so :func:`to_wizzrobe`
-refuses those with the reason, and maps ``avianart`` ones to the AVIANART
-randomizer.
+can't reproduce ``forced_locations`` (SahasrahBot placed those items itself), so
+:func:`to_wizzrobe` refuses those with the reason. It maps ``doors`` presets to the
+Door Randomizer (spoiler for staff, its default) and ``avianart`` ones to the
+AVIANART randomizer.
 """
 
 from __future__ import annotations
@@ -97,12 +97,12 @@ def to_wizzrobe(randomizer: str, data: Dict[str, Any]) -> ImportablePreset:
     settings = data.get('settings')
     if not isinstance(settings, dict):
         raise ValueError('it has no settings')
-    if data.get('doors'):
-        raise ValueError('it rolls on the Door Randomizer, which Wizzrobe can\'t roll yet')
     if data.get('forced_locations'):
         raise ValueError('it places items itself (forced_locations), which Wizzrobe can\'t do')
     description = data.get('description') or data.get('goal_name')
     description = str(description).strip() if description else None
+    if randomizer == 'alttpr' and data.get('doors'):
+        return ImportablePreset('alttprdr', {'settings': settings, 'spoiler': 'staff'}, description)
     if randomizer == 'alttpr' and data.get('avianart'):
         return ImportablePreset('avianart', {'preset': settings.get('preset')}, description)
     if randomizer in ('sm', 'smz3'):

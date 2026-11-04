@@ -56,10 +56,11 @@ async def test_sync_is_idempotent_and_follows_the_files(db):
     assert not await Preset.exists(space_id=space.id, name='gone')
 
 
-async def test_doors_and_forced_location_presets_are_not_built_in(db):
+async def test_door_presets_are_built_in_and_forced_locations_are_not(db):
     await BuiltinPresetService().ensure_synced()
-    names = set(await Preset.filter(space__kind=PresetSpaceKind.BUILTIN).values_list('name', flat=True))
-    assert 'crossdoors' not in names and 'invrosia' not in names
+    rows = await Preset.filter(space__kind=PresetSpaceKind.BUILTIN).values_list('randomizer', 'name')
+    assert ('alttprdr', 'crossdoors') in rows
+    assert 'invrosia' not in {name for _, name in rows}
 
 
 def _fake_sahasrahbot(monkeypatch, presets):
@@ -79,7 +80,8 @@ def _fake_sahasrahbot(monkeypatch, presets):
 async def test_import_a_sahasrahbot_namespace(db, app, monkeypatch):
     _fake_sahasrahbot(monkeypatch, {
         ('alttpr', 'tom', 'FastBoots'): {'description': 'Fast', 'settings': {'mode': 'open'}},
-        ('alttpr', 'tom', 'doorsy'): {'doors': True, 'settings': {'mode': 'open'}},
+        ('alttpr', 'tom', 'doorsy'): {'doors': True, 'settings': {'door_shuffle': 'basic'}},
+        ('alttpr', 'tom', 'forced'): {'forced_locations': [{'item': 'Hammer'}], 'settings': {'mode': 'open'}},
         ('alttpr', 'tom', 'avi'): {'avianart': True, 'settings': {'preset': 'crosskeys'}},
         ('smz3', 'tom', 'normal'): {'settings': {'smlogic': 'normal', 'goal': 'defeatboth'}},
         ('alttpr', 'ann', 'other'): {'settings': {}},
@@ -88,21 +90,22 @@ async def test_import_a_sahasrahbot_namespace(db, app, monkeypatch):
     async with client_for(app, raw) as c:
         listed = (await c.get('/api/preset-library/sahasrahbot/tom')).json()
         assert {(r['randomizer'], r['name']) for r in listed} == {
-            ('alttpr', 'FastBoots'), ('alttpr', 'doorsy'), ('alttpr', 'avi'), ('smz3', 'normal'),
+            ('alttpr', 'FastBoots'), ('alttpr', 'doorsy'), ('alttpr', 'forced'), ('alttpr', 'avi'), ('smz3', 'normal'),
         }
         picks = [{'randomizer': r['randomizer'], 'name': r['name']} for r in listed]
         resp = await c.post('/api/preset-library/sahasrahbot/tom/import', json={'presets': picks})
         assert resp.status_code == 200, resp.text
         results = {r['name']: r for r in resp.json()}
-        assert results['doorsy']['problem'] and results['doorsy']['preset_id'] is None
-        for name in ('FastBoots', 'avi', 'normal'):
+        assert results['forced']['problem'] and results['forced']['preset_id'] is None
+        for name in ('FastBoots', 'doorsy', 'avi', 'normal'):
             assert results[name]['preset_id'] and results[name]['problem'] is None
         refs = {p['reference']: p for p in (await c.get('/api/preset-library')).json()}
         again = (await c.get('/api/preset-library/sahasrahbot/tom')).json()
     assert refs['tom/fastboots']['randomizer'] == 'alttpr'
     assert refs['tom/avi']['randomizer'] == 'avianart'
     assert refs['tom/normal']['randomizer'] == 'smz3'
-    assert {r['name'] for r in again if r['exists']} == {'FastBoots', 'avi', 'normal'}
+    assert refs['tom/doorsy']['randomizer'] == 'alttprdr'
+    assert {r['name'] for r in again if r['exists']} == {'FastBoots', 'doorsy', 'avi', 'normal'}
 
 
 async def test_import_rejects_bad_input(db, app, monkeypatch):
