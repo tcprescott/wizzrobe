@@ -91,7 +91,7 @@ async def list_group_races(
 async def list_series(actor: User = Depends(require_api_actor)):
     return [
         SeriesPickResponse(
-            kind=s.kind, id=s.id, name=s.name,  # type: ignore[arg-type]
+            kind=s.kind, id=s.id, name=s.name,
             permalinks=[PickOption(id=str(pid), name=label) for pid, label in s.permalinks],
         )
         for s in await GroupRaceBoardService().series(actor)

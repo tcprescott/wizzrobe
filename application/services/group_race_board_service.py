@@ -112,7 +112,7 @@ def _with_room(view: GroupRaceView, room: Optional[RacetimeRoom]) -> GroupRaceVi
 def match_view(match: Match) -> GroupRaceView:
     tournament = match.tournament
     room: Optional[RacetimeRoom] = getattr(match, 'racetime_room', None)
-    finishers = sum(1 for p in match.players if p.finish_rank is not None)  # type: ignore[attr-defined]
+    finishers = sum(1 for p in match.players if p.finish_rank is not None)  # type: ignore[attr-defined,misc]
     finishers += sum(1 for e in (room.unmatched_entrants or []) if e.get('place')) if room else 0
     state = 'finished' if match.finished_at else (_room_state(room) or 'scheduled')
     view = GroupRaceView(
@@ -147,7 +147,7 @@ def live_race_view(live_race: AsyncQualifierLiveRace, room: Optional[RacetimeRoo
         kind='qualifier', id=live_race.id,
         title=live_race.match_title,
         series=qualifier.name, series_id=qualifier.id,
-        from_speedgaming=live_race.episode_id is not None,
+        from_speedgaming=live_race.episode_id is not None,  # type: ignore[attr-defined]
         scheduled_at=live_race.scheduled_at,
         opens_at=_minus(live_race.scheduled_at, qualifier.live_race_room_open_minutes),
         seed_at=_minus(live_race.scheduled_at, qualifier.live_race_seed_post_minutes),
@@ -248,9 +248,9 @@ class GroupRaceBoardService:
         else:
             from application.services.async_qualifier.async_qualifier_live_race_room import LiveRaceRoomService
 
-            live_race, room = await self._live_race(actor, race_id)
-            room = self._open_room_of(room)
-            if room.seed_posted_at is None and live_race.permalink_id is None:  # type: ignore[attr-defined]
+            live_race, maybe_room = await self._live_race(actor, race_id)
+            room = self._open_room_of(maybe_room)
+            if room.seed_posted_at is None and live_race.permalink_id is None:
                 raise ValueError('Pick the permalink for this race first.')
             await LiveRaceRoomService().post_seed_if_due(room, live_race, live_race.pool.qualifier, force=True)
         return await self.get_race(actor, kind, race_id)
@@ -270,8 +270,8 @@ class GroupRaceBoardService:
         else:
             from application.services.async_qualifier.async_qualifier_live_race_room import LiveRaceRoomService
 
-            live_race, room = await self._live_race(actor, race_id)
-            room = self._open_room_of(room)
+            live_race, maybe_room = await self._live_race(actor, race_id)
+            room = self._open_room_of(maybe_room)
             qualifier = live_race.pool.qualifier
             if not qualifier.live_race_announce_channel_id:
                 raise ValueError("This qualifier doesn't post its live races in Discord. Pick a channel in its settings.")
@@ -287,14 +287,14 @@ class GroupRaceBoardService:
         if kind == 'match':
             room = self._open_room_of(getattr(await self._match(actor, race_id), 'racetime_room', None))
         else:
-            _live_race, room = await self._live_race(actor, race_id)
-            room = self._open_room_of(room)
+            _live_race, maybe_room = await self._live_race(actor, race_id)
+            room = self._open_room_of(maybe_room)
         if room.locked_at is not None:
             raise ValueError('The room is already locked.')
         if not await lock_room(room):
             raise ValueError("racetime didn't take the lock. Try again in a moment.")
         await self.audit_service.write_and_publish(
-            actor, AuditActions.RACE_ROOM_LOCKED,  # type: ignore[arg-type]
+            actor, AuditActions.RACE_ROOM_LOCKED,
             {'room_id': room.id, 'slug': room.slug, 'category': room.category, 'kind': kind, 'race_id': race_id},
             EventType.RACE_ROOM_LOCKED,
         )
@@ -345,7 +345,7 @@ class GroupRaceBoardService:
             tournament = await TournamentService().get_tournament_by_id(tournament_id)
             if tournament is None or not tournament.racetime_group_race:
                 raise ValueError("That tournament isn't a group race series. Switch it on its Racetime tab.")
-            local = to_local(when)
+            local = to_local(when) or when
             match = await MatchService().create_match(
                 tournament_id=tournament_id,
                 scheduled_date=local.strftime('%Y-%m-%d'),
@@ -358,7 +358,7 @@ class GroupRaceBoardService:
         )
 
         live_race = await AsyncQualifierLiveRaceService().create_live_race(
-            actor, pool_id,  # type: ignore[arg-type]
+            actor, pool_id,
             match_title=title, permalink_id=permalink_id, scheduled_at=when,
         )
         return await self.get_race(actor, 'qualifier', live_race.id)
@@ -439,7 +439,7 @@ class GroupRaceBoardService:
         if view.state == 'finished':
             linked = [
                 GroupRaceEntrant(
-                    name=p.user.preferred_name, linked=True,  # type: ignore[attr-defined]
+                    name=p.user.preferred_name, linked=True,
                     place=p.finish_rank, finish_seconds=p.finish_time,
                 )
                 for p in match.players  # type: ignore[attr-defined]
