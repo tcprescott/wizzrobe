@@ -1,7 +1,7 @@
 """The per-viewer fields a match board stamps on its rows, and the ADA popup.
 
 What the shared display rows can't carry because it depends on who is looking:
-watched and stream-offered matches, reschedule and harder-preset state, comment
+watched and stream-offered matches, reschedule state, comment
 counts and late notes on staff boards, and arranged accommodations. Each is one
 bulk lookup per refresh, skipped on a board that doesn't draw it.
 ``_restamp_shared_state`` redoes the ones other people's actions change for a
@@ -16,7 +16,6 @@ from nicegui import app, ui
 
 from application.services import MatchCommentService, get_user_from_session
 from theme.dialog._helpers import form_dialog
-from theme.tables.hard_preset_rows import apply_hard_preset_state
 from theme.tables.match_player_run_sheet import keep_own_late_only
 from theme.tables.match_slots import MY_ACTIONS_COLUMN
 
@@ -30,7 +29,6 @@ class MatchRowStampsMixin:
     watcher_service: Any
     stream_volunteer_service: Any
     accommodation_service: Any
-    hard_preset_service: Any
     reschedule_service: Any
 
     async def _fetch_watched_ids(self) -> set:
@@ -119,21 +117,6 @@ class MatchRowStampsMixin:
         names = {c.get('name') for c in self.columns}
         return name in names or MY_ACTIONS_COLUMN in names
 
-    async def _fetch_hard_preset_states(self, rows) -> dict:
-        """This viewer's own hard-preset state for every visible row, in bulk.
-
-        Skipped entirely on a board with no ``hard_preset`` column — the admin
-        schedule and the proctor station render matches nobody is choosing
-        settings on, so the queries would buy nothing.
-        """
-        if not self._shows_column('hard_preset'):
-            return {}
-        user = await get_user_from_session(app.storage.user)
-        if not user:
-            return {}
-        match_ids = [row.get('id') for row in rows if row.get('id') is not None]
-        return await self.hard_preset_service.board_states(user, match_ids)
-
     async def _fetch_reschedule_state(self) -> tuple:
         """``(requestable ids, already-asked ids)`` for this viewer, in bulk.
 
@@ -157,14 +140,10 @@ class MatchRowStampsMixin:
     async def _restamp_shared_state(self, row) -> None:
         """Recompute the per-viewer fields other people's actions change.
 
-        The reschedule pair and the harder-preset fields (``RESTAMPED_ROW_FIELDS``)
-        for this one row, through the same bulk lookups ``refresh`` uses: staff
+        The reschedule pair (``RESTAMPED_ROW_FIELDS``) for this one row, through the same bulk lookups ``refresh`` uses: staff
         approving a move is exactly the ``match_live`` push that lands here.
         """
         if self._shows_column('reschedule'):
             requestable_ids, asked_ids = await self._fetch_reschedule_state()
             row['_can_reschedule'] = row.get('id') in requestable_ids
             row['_reschedule_pending'] = row.get('id') in asked_ids
-        if self._shows_column('hard_preset'):
-            states = await self._fetch_hard_preset_states([row])
-            apply_hard_preset_state(row, states.get(row.get('id')))

@@ -33,7 +33,7 @@ Tournaments tab.
 |---|---|
 | Scheduling | Average and maximum match length, players per match, the signup window, and per-day match hours |
 | Entry & administration | Whether players may request matches, the rules link, format and randomizer notes shown to players, how many commentators and trackers a streamed match needs, and the stage reminder |
-| Seeds & randomizer | The seed preset, an optional harder preset, and the triforce text access message |
+| Seeds & randomizer | The seed preset and the triforce text access message |
 | Integrations | The bracket link, Challonge, and racetime.gg room settings |
 | Danger zone | Deleting the tournament. Staff only |
 

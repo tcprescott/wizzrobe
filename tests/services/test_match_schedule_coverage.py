@@ -14,7 +14,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from application.services import MatchHardPresetService
+from application.services import MatchPresetOverrideService
 from application.utils.shared_lock import shared_lock
 from models import (
     AuditLog,
@@ -22,7 +22,6 @@ from models import (
     Match,
     MatchPlayers,
     Preset,
-    PresetOverride,
     Tournament,
     TriforceText,
 )
@@ -134,7 +133,20 @@ class TestTriforceTextAtRollTime:
 
 
 class TestHardPresetAtRollTime:
-    """Which preset the roll actually uses — the one moment the opt-in matters."""
+    """Which preset the roll actually uses: hard mode is the form's hidden question plus its rule."""
+
+    async def _hard_mode_form(self, tournament, staff, hard):
+        from application.services import MatchFormService, SeedRuleService
+
+        form = await MatchFormService().save_form(tournament.id, [
+            {'kind': 'yes_no', 'prompt': 'Play Hard mode?', 'visibility': 'never'},
+        ], staff)
+        key = form[0]['key']
+        await SeedRuleService().save_rules(tournament.id, [
+            {'name': 'Hard mode', 'when': {'answer': [{'q': key, 'who': 'every', 'is': ['yes']}]},
+             'then': {'preset': hard.id}},
+        ], staff)
+        return key
 
     async def _tournament_with_both_presets(self):
         standard = await Preset.create(
@@ -144,7 +156,7 @@ class TestHardPresetAtRollTime:
             name='Hard Mode', randomizer='alttpr', settings={'pool': 'hard'},
         )
         return await Tournament.create(
-            name='T', seed_generator='alttpr', preset=standard, hard_preset=hard,
+            name='T', seed_generator='alttpr', preset=standard,
         ), standard, hard
 
     async def _match_with_players(self, tournament, count=2):
@@ -159,14 +171,17 @@ class TestHardPresetAtRollTime:
         await match.fetch_related('players')
         return match, players
 
-    async def test_unanimous_opt_in_rolls_the_hard_preset(
+    async def test_everyone_saying_yes_rolls_the_hard_preset(
         self, service, db, stub_discord_queue,
     ):
+        from application.services import MatchFormService
+
         t, _, hard = await self._tournament_with_both_presets()
         m, players = await self._match_with_players(t)
         staff = await make_staff()
+        key = await self._hard_mode_form(t, staff, hard)
         for player in players:
-            await MatchHardPresetService().opt_in(m.id, player)
+            await MatchFormService().answer(m.id, player, key, 'yes')
         service.seedgen_service.generate_seed_call = AsyncMock(
             return_value=_rolled('https://alttpr.com/h/hard'),
         )
@@ -177,14 +192,17 @@ class TestHardPresetAtRollTime:
         seed = await GeneratedSeeds.all().first()
         assert seed.preset_id == hard.id
 
-    async def test_a_lone_opt_in_rolls_the_standard_preset(
+    async def test_a_lone_yes_rolls_the_standard_preset(
         self, service, db, stub_discord_queue,
     ):
         """The half-agreed match is the one that must not quietly get harder."""
-        t, standard, _ = await self._tournament_with_both_presets()
+        from application.services import MatchFormService
+
+        t, standard, hard = await self._tournament_with_both_presets()
         m, players = await self._match_with_players(t)
         staff = await make_staff()
-        await MatchHardPresetService().opt_in(m.id, players[0])
+        key = await self._hard_mode_form(t, staff, hard)
+        await MatchFormService().answer(m.id, players[0], key, 'yes')
         service.seedgen_service.generate_seed_call = AsyncMock(
             return_value=_rolled('https://alttpr.com/h/std'),
         )
@@ -195,16 +213,18 @@ class TestHardPresetAtRollTime:
         seed = await GeneratedSeeds.all().first()
         assert seed.preset_id == standard.id
 
-    async def test_a_staff_override_beats_a_unanimous_agreement(
+    async def test_a_staff_override_beats_everyone_saying_yes(
         self, service, db, stub_discord_queue,
     ):
-        t, standard, _ = await self._tournament_with_both_presets()
+        from application.services import MatchFormService
+
+        t, standard, hard = await self._tournament_with_both_presets()
         m, players = await self._match_with_players(t)
         staff = await make_staff()
-        hp = MatchHardPresetService()
+        key = await self._hard_mode_form(t, staff, hard)
         for player in players:
-            await hp.opt_in(m.id, player)
-        await hp.set_override(m.id, PresetOverride.STANDARD, staff)
+            await MatchFormService().answer(m.id, player, key, 'yes')
+        await MatchPresetOverrideService().set_override(m.id, standard.id, staff)
         service.seedgen_service.generate_seed_call = AsyncMock(
             return_value=_rolled('https://alttpr.com/h/forced'),
         )

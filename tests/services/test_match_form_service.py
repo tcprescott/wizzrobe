@@ -203,3 +203,29 @@ class TestBeforeYourMatchDm:
     async def test_no_form_no_dm(self, db, stub_discord_queue, monkeypatch):
         _t, match, *_ = await _setup()
         assert await self._sent(monkeypatch, match) == []
+
+
+class TestRosterChanges:
+    """Answers belong to the match as it stood: a dropped player's go, and a move clears them all."""
+
+    async def test_a_dropped_player_loses_their_answers(self, db, stub_discord_queue):
+        from application.services import MatchService
+
+        tournament, match, players, *_ = await _setup()
+        key = (await _form(tournament, [_hard_question()]))[0]['key']
+        for user in players:
+            await MatchFormService().answer(match.id, user, key, 'yes')
+        await MatchService().update_match(match.id, player_ids=[players[0].id], actor=await _staff())
+        left = await MatchFormAnswer.filter(match_id=match.id).values_list('user_id', flat=True)
+        assert list(left) == [players[0].id]
+
+    async def test_moving_the_match_clears_every_answer(self, db, stub_discord_queue):
+        from application.services import MatchService
+        from models import Tournament
+
+        tournament, match, players, *_ = await _setup()
+        key = (await _form(tournament, [_hard_question()]))[0]['key']
+        await MatchFormService().answer(match.id, players[0], key, 'yes')
+        elsewhere = await Tournament.create(name='Elsewhere')
+        await MatchService().update_match(match.id, tournament_id=elsewhere.id, actor=await _staff())
+        assert await MatchFormAnswer.filter(match_id=match.id).count() == 0

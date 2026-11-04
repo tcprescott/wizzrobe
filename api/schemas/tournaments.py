@@ -95,9 +95,6 @@ class TournamentResponse(BaseModel):
         True, description="Whether its off-stream matches are played in, and count toward, the tournament room.",
     )
     preset_id: Optional[int] = Field(None, description="ID of the seed preset matches roll from, if any.")
-    hard_preset_id: Optional[int] = Field(
-        None, description="ID of the harder preset players can opt into instead, if any.",
-    )
     stage_reminder_minutes: int = Field(
         30, description="Minutes before a match that the stage reminder DM goes out. 0 means off.",
     )

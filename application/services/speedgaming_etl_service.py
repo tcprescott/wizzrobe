@@ -366,21 +366,18 @@ class SpeedGamingETLService:
         assigned. Reconciling preserves the answers already given, which is what
         lets a poll that runs every few minutes do this at all.
 
-        Hard-preset opt-ins are reconciled on the same footing: these are the
+        Match form answers are reconciled on the same footing: these are the
         matches whose rosters change without anybody in the app touching them,
-        so a player dropped upstream would otherwise keep counting toward an
-        agreement, and one dropped and re-added would come back already opted
-        in to a roster they never saw.
+        so a player dropped and re-added would otherwise come back with answers
+        given about a roster they never saw.
         """
-        from application.services.match import MatchHardPresetService
+        from application.services.match_form_service import MatchFormService
 
         participants = self._participants()
-        hard_preset_service = MatchHardPresetService()
         user_ids = [user.id for user in users]
-        before = await hard_preset_service.snapshot(match)
-        await participants.sync_players(match, user_ids, tournament_id)
+        removed = await participants.sync_players(match, user_ids, tournament_id)
         await participants.reconcile_acknowledgments(match, user_ids)
-        await hard_preset_service.reconcile_edit(match, before, actor)
+        await MatchFormService().reconcile_answers(match.id, removed_user_ids=[u.id for u in removed], moved=False)
 
     async def _skip_reason(self, match: Match) -> Optional[str]:
         """Why a re-sync must not overwrite this match, or None if it may."""

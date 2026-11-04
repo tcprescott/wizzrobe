@@ -2,7 +2,7 @@
 
 The rules are tried in order at roll time and the first that fits decides;
 when none fits the tournament's own preset rolls. Staff's per-match override
-and a unanimous hard-mode opt-in still come first.
+still comes first. Hard mode is one of the rules (it reads the match form).
 """
 
 from typing import List, Optional
@@ -68,7 +68,7 @@ async def save_seed_rules(tournament_id: int, body: SeedRulesUpdate, actor: User
     summary='Try the seed rules on a match',
     description=(
         "Which rule a real or made-up match would fire and what it would roll, without rolling. Pass "
-        "`rules` to try an unsaved draft. Staff's override and hard mode aren't consulted.\n\n" + _WHO
+        "`rules` to try an unsaved draft. Staff's override isn't consulted.\n\n" + _WHO
     ),
 )
 async def preview_seed_rules(

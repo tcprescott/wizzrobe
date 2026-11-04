@@ -2,7 +2,7 @@
 
 ``MatchTableView.refresh`` stamps each row with fields that belong to the viewer
 rather than the match: ``_watching``, ``_stream_volunteer``, ``_can_reschedule``,
-``_reschedule_pending``, the ``_hard_*`` family. ``update_row_by_id`` rebuilds
+and ``_reschedule_pending``. ``update_row_by_id`` rebuilds
 one row from the display service, which knows nothing of them, so every field it
 does not carry is silently dropped from that row until the next full refresh.
 
@@ -11,24 +11,18 @@ match, or any ``match_live`` flash, removed the row's Ask to change button. The
 convention is now the contract: a leading underscore marks a viewer-stamped
 field, and every one is carried unless the fresh row already sets it.
 
-Two families are *not* carried, because someone other than the viewer changes
-them: the reschedule pair (staff approving a move clears "Change requested" and
-brings Ask to change back) and the harder-preset fields (staff override, the
-seed rolling, the other player opting in). ``update_row_by_id`` recomputes those
-for the one match instead; carrying them showed a moved match still "waiting on
+The reschedule pair is *not* carried, because someone other than the viewer
+changes it (staff approving a move clears "Change requested" and brings Ask to
+change back). ``update_row_by_id`` recomputes it for the one match instead; carrying them showed a moved match still "waiting on
 staff" until a reload.
 """
 
 from typing import Any, Dict
 
-from theme.tables.hard_preset_rows import HARD_PRESET_ROW_FIELDS
-
 # Not carried across updates: carrying one would replay it.
 TRANSIENT_ROW_FIELDS = frozenset({'_flash'})
 
-RESTAMPED_ROW_FIELDS = frozenset(
-    {'_can_reschedule', '_reschedule_pending', *HARD_PRESET_ROW_FIELDS}
-)
+RESTAMPED_ROW_FIELDS = frozenset({'_can_reschedule', '_reschedule_pending'})
 
 
 def carry_viewer_row_state(target: Dict[str, Any], source: Dict[str, Any]) -> None:

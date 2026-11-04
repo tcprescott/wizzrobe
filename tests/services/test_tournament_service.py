@@ -53,7 +53,6 @@ def make_tournament(tournament_id=1, **overrides):
         name='Tournament',
         is_active=True,
         preset_id=None,
-        hard_preset_id=None,
         admins=admins,
         crew_coordinators=coordinators,
         delete=AsyncMock(),
@@ -295,72 +294,6 @@ class TestTournamentConfig:
         t = make_tournament()
         await service.update_tournament(t, name='Renamed', actor=make_user())
         assert 'config' not in service.repository.update.await_args.kwargs
-
-
-class TestHardPreset:
-    """The opt-in harder preset, and the two rules that keep a roll coherent."""
-
-    async def test_create_with_a_matching_hard_preset_passes_the_id(self, service):
-        service.preset_repository.get_by_id.side_effect = [
-            SimpleNamespace(id=7, randomizer='alttpr'),
-            SimpleNamespace(id=8, randomizer='alttpr'),
-        ]
-        await service.create_tournament(
-            name='X', preset_id=7, hard_preset_id=8, actor=make_user(),
-        )
-        assert service.repository.create.await_args.kwargs['hard_preset_id'] == 8
-
-    async def test_a_hard_preset_without_a_standard_one_is_refused(self, service):
-        """There would be nothing to fall back to, and no randomizer to roll."""
-        service.preset_repository.get_by_id.return_value = SimpleNamespace(
-            id=8, randomizer='alttpr')
-        with pytest.raises(ValueError, match='Set a seed preset before'):
-            await service.create_tournament(
-                name='X', hard_preset_id=8, actor=make_user(),
-            )
-        service.repository.create.assert_not_awaited()
-
-    async def test_a_mismatched_randomizer_is_refused(self, service):
-        """Otherwise agreeing to harder settings would change the game."""
-        service.preset_repository.get_by_id.side_effect = [
-            SimpleNamespace(id=7, randomizer='alttpr'),
-            SimpleNamespace(id=8, randomizer='ootr'),
-        ]
-        with pytest.raises(ValueError, match='same randomizer'):
-            await service.create_tournament(
-                name='X', preset_id=7, hard_preset_id=8, actor=make_user(),
-            )
-        service.repository.create.assert_not_awaited()
-
-    async def test_the_same_preset_twice_is_refused(self, service):
-        service.preset_repository.get_by_id.side_effect = [
-            SimpleNamespace(id=7, randomizer='alttpr'),
-            SimpleNamespace(id=7, randomizer='alttpr'),
-        ]
-        with pytest.raises(ValueError, match='different preset'):
-            await service.create_tournament(
-                name='X', preset_id=7, hard_preset_id=7, actor=make_user(),
-            )
-
-    async def test_update_can_clear_the_hard_preset(self, service):
-        t = make_tournament(hard_preset_id=8)
-        await service.update_tournament(t, hard_preset_id=None, actor=make_user())
-        assert service.repository.update.await_args.kwargs['hard_preset_id'] is None
-
-    async def test_moving_the_standard_preset_under_a_hard_one_is_refused(self, service):
-        """The pair must stay coherent even when only one side is being edited."""
-        t = make_tournament(preset_id=7, hard_preset_id=8)
-        service.preset_repository.get_by_id.side_effect = [
-            SimpleNamespace(id=9, randomizer='ootr'),
-            SimpleNamespace(id=8, randomizer='alttpr'),
-        ]
-        with pytest.raises(ValueError, match='no longer matches'):
-            await service.update_tournament(t, preset_id=9, actor=make_user())
-
-    async def test_update_without_either_leaves_them_untouched(self, service):
-        t = make_tournament(preset_id=7, hard_preset_id=8)
-        await service.update_tournament(t, name='Renamed', actor=make_user())
-        assert 'hard_preset_id' not in service.repository.update.await_args.kwargs
 
 
 class TestTournamentPreset:

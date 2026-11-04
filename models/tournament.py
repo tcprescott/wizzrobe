@@ -46,10 +46,6 @@ class Tournament(Model):
     preset = fields.ForeignKeyField(
         'models.Preset', related_name='tournaments', null=True, on_delete=fields.SET_NULL
     )
-    # Keep the annotation: an untyped new field adds a mypy-ratchet error.
-    hard_preset: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
-        'models.Preset', related_name='hard_tournaments', null=True, on_delete=fields.SET_NULL
-    )
     # Ordered rule list; shape and checks in application/services/seed_rules.py.
     seed_rules = fields.JSONField(null=True)  # type: ignore[var-annotated]
     racetime_bot = fields.ForeignKeyField(

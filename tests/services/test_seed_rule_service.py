@@ -12,10 +12,10 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from application.services import MatchHardPresetService, SeedRuleService
+from application.services import SeedRuleService
 from application.services.round_schedule_service import RoundScheduleService
 from application.services.seed_rules import MatchFacts
-from models import AuditLog, GeneratedSeeds, Match, MatchPlayers, Preset, PresetOverride, Tournament, User
+from models import AuditLog, GeneratedSeeds, Match, MatchPlayers, Preset, Tournament, User
 from tests.factories import make_user, utc
 from tests.services._match_schedule_setup import build_service, make_dm_user, make_staff
 
@@ -39,7 +39,7 @@ async def _setup(*, rules=None, hard=False, game=None, best_of=None, title=None)
     other = await Preset.create(name='Standard', randomizer='alttpr', settings={'mode': 'standard', 'item': {'pool': 'normal'}})
     hard_preset = await Preset.create(name='Hard', randomizer='alttpr', settings={'pool': 'hard'}) if hard else None
     tournament = await Tournament.create(
-        name='T', seed_generator='alttpr', preset=standard, hard_preset=hard_preset,
+        name='T', seed_generator='alttpr', preset=standard,
     )
     if rules is not None:
         await SeedRuleService().save_rules(tournament.id, rules(standard, other), await _staff())
@@ -114,20 +114,10 @@ class TestRolling:
 
         assert seed.preset_id == standard.id
 
-    async def test_unanimous_hard_mode_beats_the_rules(self, db, stub_discord_queue):
-        _, match, players, _, _, hard = await _setup(rules=_game2, hard=True, game=2, best_of=3)
-        for p in players:
-            await MatchHardPresetService().opt_in(match.id, p)
-
-        seed, _ = await _roll(match)
-
-        assert seed.preset_id == hard.id
-        assert seed.resolution['source'] == 'hard_mode'
-
     async def test_staff_override_beats_the_rules(self, db, stub_discord_queue):
         _, match, _, standard, _, _ = await _setup(rules=_game2, hard=True, game=2, best_of=3)
-        match.preset_override = PresetOverride.STANDARD
-        await match.save(update_fields=['preset_override'])
+        match.forced_preset = standard
+        await match.save(update_fields=['forced_preset_id'])
 
         seed, _ = await _roll(match)
 
@@ -159,7 +149,7 @@ class TestRolling:
                 {'preset': standard.id, 'weight': 1}, {'preset': other.id, 'weight': 3}]}}]
 
         tournament, match, _, standard, other, _ = await _setup(rules=rules)
-        await match.fetch_related('tournament', 'tournament__preset', 'tournament__hard_preset', 'players')
+        await match.fetch_related('tournament', 'tournament__preset', 'players')
 
         resolution = await SeedRuleService().resolve(match, rng=random.Random(3))
 

@@ -655,19 +655,18 @@ class TestYourActionsCell:
 
     def test_every_button_is_labelled(self):
         cell = self._cell()
-        for label in ('Ask to change', 'Offer for stream', 'Harder settings', "'Watch'"):
+        for label in ('Ask to change', 'Offer for stream', "'Watch'"):
             assert label in cell, label
 
     def test_the_board_still_fetches_the_state_its_controls_read(self):
-        """The bulk reschedule and hard-preset fetches were gated on their own
-        column names, so folding them into one cell silently emptied both."""
+        """The bulk reschedule fetch was gated on its own column name, so
+        folding it into one cell silently emptied it."""
         from types import SimpleNamespace
 
         from theme.tables.match import MatchTableView
 
         board = SimpleNamespace(columns=[{'name': 'players'}, {'name': 'my_actions'}])
         assert MatchTableView._shows_column(board, 'reschedule')
-        assert MatchTableView._shows_column(board, 'hard_preset')
         admin = SimpleNamespace(columns=[{'name': 'players'}, {'name': 'watch'}])
         assert not MatchTableView._shows_column(admin, 'reschedule')
 
@@ -680,8 +679,7 @@ class TestYourActionsCell:
             has_edit=False,
         )
         tpl = grid.slots['item']
-        for emit in ('request_reschedule', 'toggle_stream_volunteer',
-                     'open_hard_preset', 'toggle_watch'):
+        for emit in ('request_reschedule', 'toggle_stream_volunteer', 'toggle_watch'):
             assert not _guard_on(tpl, f"$parent.$emit('{emit}'").startswith('false'), emit
 
 

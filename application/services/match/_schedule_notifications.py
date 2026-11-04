@@ -27,7 +27,6 @@ from application.services.match._match_recipients import (
     collect_match_audience,
     collect_match_recipients,
 )
-from application.services.match.match_hard_preset_service import MatchHardPresetService
 from application.services.notification_catalog import (
     CREW,
     FOLLOWERS,
@@ -660,7 +659,6 @@ class MatchNotificationMixin:
             watcher_message=message_for(AUDIENCE_WATCHER),
             crew_message=lambda roles: message_for(AUDIENCE_CREW, roles),
         ))
-        discord_queue.enqueue(MatchHardPresetService().send_offer(match))
         discord_queue.enqueue(notify_match_form(match))
 
         notified_ids = await self._collect_notified_discord_ids(match)

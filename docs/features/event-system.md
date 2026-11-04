@@ -140,7 +140,7 @@ explicit eventless ledger (`_EVENT_CANDIDATES` / `_EXCLUDED_BY_DESIGN`). Adding 
 new `AuditAction` without triaging it fails the test, so audit/event drift cannot
 recur silently.
 
-Beyond the hard-preset opt-in and qualifier permalinks, the ledger keeps whole
+Beyond match form answers and qualifier permalinks, the ledger keeps whole
 classes audit-only by design:
 
 | Class | Why no event |

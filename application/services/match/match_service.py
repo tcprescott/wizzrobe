@@ -29,7 +29,6 @@ from application.services.event_service import NO_BROADCASTERS, EventService
 from application.services.match.match_acknowledgment import MatchAcknowledgmentMixin
 from application.services.match.match_cancellation import CancellationMixin
 from application.services.match.match_forfeit import ForfeitMixin
-from application.services.match.match_hard_preset_service import MatchHardPresetService
 from application.services.match.match_participants import MatchParticipants
 from application.services.match.match_placeholders import PlaceholderBookingMixin
 from application.services.match.match_reads import MatchReadsMixin
@@ -76,7 +75,6 @@ class MatchService(
         self.ack_repository = MatchAcknowledgmentRepository()
         self.audit_service = AuditService()
         self.match_schedule_service = MatchScheduleService()
-        self.hard_preset_service = MatchHardPresetService()
 
     @property
     def participants(self) -> MatchParticipants:
@@ -423,8 +421,7 @@ class MatchService(
         if clear_seed:
             update_fields['generated_seed'] = None
 
-        # Snapshot before any write: the edit destroys what reconcile_edit needs.
-        hard_preset_before = await self.hard_preset_service.snapshot(match)
+        tournament_before = match.tournament_id  # type: ignore[attr-defined]
 
         if update_fields:
             # Kept out of ``update_fields`` so audit and event payloads list only what the caller changed.
@@ -445,8 +442,12 @@ class MatchService(
                 match, player_ids, tournament_id or match.tournament_id,
             )
 
-        # Must run after both the roster and tournament writes.
-        await self.hard_preset_service.reconcile_edit(match, hard_preset_before, actor)
+        from application.services.match_form_service import MatchFormService
+
+        await MatchFormService().reconcile_answers(
+            match.id, removed_user_ids=[u.id for u in removed_players],
+            moved=match.tournament_id != tournament_before,  # type: ignore[attr-defined]
+        )
 
         assigned_crew: list = []
         removed_crew: list = []

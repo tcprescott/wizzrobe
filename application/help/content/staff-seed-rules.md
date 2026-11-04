@@ -19,8 +19,10 @@ Rules are tried from the top, and the first one that fits the match decides. The
 **Otherwise** line at the bottom is the tournament's own preset, set on the
 Settings tab, and rolls whenever no rule fits.
 
-Two things still beat every rule. A preset staff force on one match wins, and so
-does the harder preset when every player in the match opted in.
+One thing still beats every rule: a preset staff force on one match. Hard mode
+is an ordinary rule now, reading a hidden question on the match form, so put it
+where you want it in the list. Tournaments that used to have a Harder Preset
+setting got it as their first rule.
 
 A rule whose preset has since been deleted is skipped, and the next one decides.
 Seeds that are already rolled keep what they rolled when you change the rules.
@@ -77,7 +79,8 @@ choices you list, and nothing is typed freely. Each question says:
 - **Ask on**: every match, or only matches where a rule reading the question
   could fit, so a Game 3 question doesn't show up on game 1.
 - **Opponent sees the answer**: right away, when the seed rolls, or never. Pick
-  Never for an opt-in like Hard mode, so nobody can be dared into it.
+  Never for an opt-in like Hard mode, so nobody can be dared into it. Pair it with
+  a rule on "every player answered Yes".
 
 Link a choice to a preset so a rule can roll **Players' answer**. Each question
 in the list shows which rules read it, and you can't delete one a rule still

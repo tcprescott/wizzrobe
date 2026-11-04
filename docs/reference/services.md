@@ -26,7 +26,7 @@ Services are the business-logic layer of the [three-layer architecture](../refac
 
 - **`PermissionError` for authorization failures.** Permission gates run through `AuthService.ensure(allowed, message)`, which raises `PermissionError`. UI handlers that call gate-protected services catch both it and `ValueError` (see `pages/admin_tabs/admin_schedule.py`).
 - **The `actor` parameter.** Mutating methods take the acting `User` as a trailing `actor` parameter (or `user` when the action is inherently self-service, e.g. `acknowledge_match`, `signup_crew`, `watch`). The same object feeds both the permission gate and the audit entry; callers resolve it once via `get_user_from_session(app.storage.user)`.
-- **Stateless instances.** Services hold only repository/service references; instantiate per request (`MatchService()`) or call static methods on the class (`AuthService`, `SystemConfigService`). The intentional pieces of module/class state are `MatchScheduleService._seed_locks` (per-match seed-generation locks) and `match_hard_preset_service._agreement_locks`, the `discord_queue` module's queue/worker, each worker module's background loop (`volunteer_reminder`, `stage_reminder`, the `*_worker` modules), the bot singleton and handler registries in `discord_service`, `application/pending_actions.py` (one-tap actions held behind Undo, flushed at shutdown), the in-process single-worker caches and stores (`TenantService`'s resolution caches, the `oauth_handoff_service` and `McpAuthService` pending stores, `ServiceHealthService`'s probe cache), and `FeatureFlagService`'s per-request flag cache (a contextvar).
+- **Stateless instances.** Services hold only repository/service references; instantiate per request (`MatchService()`) or call static methods on the class (`AuthService`, `SystemConfigService`). The intentional pieces of module/class state are `MatchScheduleService._seed_locks` (per-match seed-generation locks), the `discord_queue` module's queue/worker, each worker module's background loop (`volunteer_reminder`, `stage_reminder`, the `*_worker` modules), the bot singleton and handler registries in `discord_service`, `application/pending_actions.py` (one-tap actions held behind Undo, flushed at shutdown), the in-process single-worker caches and stores (`TenantService`'s resolution caches, the `oauth_handoff_service` and `McpAuthService` pending stores, `ServiceHealthService`'s probe cache), and `FeatureFlagService`'s per-request flag cache (a contextvar).
 - **`(ok, message)` tuple returns** are the exception, not the rule, and exist only where failure is routine and must not raise:
   - `DiscordService.send_dm*`, `add_role_to_user`, `remove_role_from_user` → `(bool, str)`
   - `DiscordService.list_guilds`, `list_guild_roles` → `(bool, data_or_error)`
@@ -98,7 +98,7 @@ Services are the business-logic layer of the [three-layer architecture](../refac
 | `MatchSuggestionService` | [match_suggestion_service.py](../../application/services/match/match_suggestion_service.py) | Suggest match start times that minimise venue occupancy | — |
 | `MatchWatcherService` | [match_watcher_service.py](../../application/services/match/match_watcher_service.py) | Watch/unwatch matches for DM updates | [match-participation.md](../features/match-participation.md) |
 | `MatchRescheduleService` | [match_reschedule_service.py](../../application/services/match_reschedule_service.py) | Players asking staff to move or call off their match; approving performs the change | [match-participation.md](../features/match-participation.md#reschedule-requests) |
-| `MatchHardPresetService` | [match_hard_preset_service.py](../../application/services/match/match_hard_preset_service.py) | Players privately opting into a match's harder preset; resolves which preset a roll uses | [match-participation.md](../features/match-participation.md#harder-settings-opt-in) |
+| `MatchPresetOverrideService` | [match_preset_override_service.py](../../application/services/match/match_preset_override_service.py) | Staff forcing one match's preset, which beats every seed rule | [match-participation.md](../features/match-participation.md#harder-settings) |
 | `MatchCommentService` | [match_comment_service.py](../../application/services/match/match_comment_service.py) | Signed comments on a match: player → staff, private staff notes, staff messages to players | [match-participation.md](../features/match-participation.md#match-comments) |
 | `MatchStreamVolunteerService` | [match_stream_volunteer_service.py](../../application/services/match/match_stream_volunteer_service.py) | Players offering their own match for stream (advisory) | [match-participation.md](../features/match-participation.md#stream-volunteering) |
 | `PlayerAvailabilityService` | [player_availability_service.py](../../application/services/player_availability_service.py) | Player-declared availability windows | — |
@@ -168,7 +168,7 @@ Services are the business-logic layer of the [three-layer architecture](../refac
 | `VolunteerScheduleService` | [volunteer_schedule_service.py](../../application/services/volunteer/volunteer_schedule_service.py) | Volunteer shifts, assignments, acknowledgment, coverage | — |
 | `VolunteerShiftMoveService` | [volunteer_shift_move_service.py](../../application/services/volunteer/volunteer_shift_move_service.py) | Moving a volunteer to another shift and swapping one person for another (Admin → Shift Board), checking first so a refusal changes nothing | `VOLUNTEERS` |
 
-Every service **class** is re-exported from [`application/services/__init__.py`](../../application/services/__init__.py), along with `get_user_from_discord_id` and `NotFoundError` / `require_found` (from [`application/errors.py`](../../application/errors.py)). The helper and worker modules — `active_users_metrics`, `availability_windows`, `async_qualifier_access`, `async_qualifier_scoring`, `check_in_dm`, `check_in_sync_worker`, `discord_queue`, `discord_event_worker`, `dm_outbox_worker`, `notification_catalog`, `notification_links`, `oauth_handoff_service`, `race_room_worker`, `reporting_shared`, `seed_roll_worker`, `service_health_worker`, `sglive_pool_worker`, `speedgaming_sync_worker`, `telemetry_retention`, `volunteer_reminder`, `webhook_outbox_worker` — are exported as modules (`from application.services import discord_queue`); `stage_reminder` is exported the same way from its own package (`from application.services.match import stage_reminder`), as are the remaining `async_qualifier_*` modules from `application.services.async_qualifier`. A few value types and validators ride along: `BracketConfig`/`validate_bracket_config`, `TournamentConfig`/`validate_tournament_config`, `AsyncQualifierConfig`/`validate_async_qualifier_config`/`validate_counts`/`validate_window`, `AsyncQualifierDraw`, `DraftPolicy`, `HoursSummary`, `HardPresetState`, `MatchParticipants`, `CancellationMixin`, `assert_sg_fields_unchanged`, `IdentityLinkProvider`, `ProbeResult`/`ServiceStatus`, `SetupStep`. The exceptions to "every class" are `MockDiscordService` (reached through the `DiscordService` rebind under `MOCK_DISCORD`) and the internal mixins. Non-class members (`AuditActions`, `MatchStatus`, `TelemetryCategory`) import from their own module (`MatchStatus` also from `application.services.match`).
+Every service **class** is re-exported from [`application/services/__init__.py`](../../application/services/__init__.py), along with `get_user_from_discord_id` and `NotFoundError` / `require_found` (from [`application/errors.py`](../../application/errors.py)). The helper and worker modules — `active_users_metrics`, `availability_windows`, `async_qualifier_access`, `async_qualifier_scoring`, `check_in_dm`, `check_in_sync_worker`, `discord_queue`, `discord_event_worker`, `dm_outbox_worker`, `notification_catalog`, `notification_links`, `oauth_handoff_service`, `race_room_worker`, `reporting_shared`, `seed_roll_worker`, `service_health_worker`, `sglive_pool_worker`, `speedgaming_sync_worker`, `telemetry_retention`, `volunteer_reminder`, `webhook_outbox_worker` — are exported as modules (`from application.services import discord_queue`); `stage_reminder` is exported the same way from its own package (`from application.services.match import stage_reminder`), as are the remaining `async_qualifier_*` modules from `application.services.async_qualifier`. A few value types and validators ride along: `BracketConfig`/`validate_bracket_config`, `TournamentConfig`/`validate_tournament_config`, `AsyncQualifierConfig`/`validate_async_qualifier_config`/`validate_counts`/`validate_window`, `AsyncQualifierDraw`, `DraftPolicy`, `HoursSummary`, `PresetOverrideState`, `MatchParticipants`, `CancellationMixin`, `assert_sg_fields_unchanged`, `IdentityLinkProvider`, `ProbeResult`/`ServiceStatus`, `SetupStep`. The exceptions to "every class" are `MockDiscordService` (reached through the `DiscordService` rebind under `MOCK_DISCORD`) and the internal mixins. Non-class members (`AuditActions`, `MatchStatus`, `TelemetryCategory`) import from their own module (`MatchStatus` also from `application.services.match`).
 
 ### api_token_service.py — ApiTokenService
 
@@ -340,7 +340,6 @@ One module rather than a private `_url` helper per service, because three mistak
 | `link_for_tenant(tenant, label, path)` | `DMLink \| None` | The same for a caller holding the tenant row already (the qualifier worker). Synchronous. |
 | `player_schedule(bracket_match_id, *, label='Pick a time')` | `DMLink \| None` | `/home/player?schedule=<id>` — the schedule dialog, open. The entrant's only route to booking a bracket game. |
 | `player_reschedule(match_id, *, label='Ask again')` | `DMLink \| None` | `/home/player?reschedule=<id>` — the reschedule-request form, open (the declined-request DM). |
-| `player_hard_preset(match_id, *, label='Choose your settings')` | `DMLink \| None` | `/home/player?hard=<id>` — the hard-preset opt-in dialog, open. |
 | `player_match(match_id, *, label='View your match')` | `DMLink \| None` | `/home/player?match=<id>` — the Player tab narrowed to one match (the stage DMs, whose recipients can't open the admin board). |
 | `player_agree(request_id, *, label='Open the request')` | `DMLink \| None` | `/home/player?agree=<id>` — the opponent's reschedule request, open with its Agree button. |
 | `crew_match(match_id, *, label='View your crew slot')` | `DMLink \| None` | `/home/my-crew?match=<id>` — a crew member's own card for that match. |
@@ -562,7 +561,6 @@ Thin wrapper around the shared discord.py bot: DM sending (plain and with intera
 | `send_dm_with_crew_acknowledgment_button(user_id, message, crew_type, crew_id)` | `(bool, str)` | DM with a crew-assignment Acknowledge button. |
 | `send_dm_with_volunteer_acknowledgment_button(user_id, message, assignment_id)` | `(bool, str)` | DM with a volunteer-shift Acknowledge button. |
 | `send_dm_with_reschedule_agree_button(user_id, message, request_id)` | `(bool, str)` | DM asking the opponent to agree to a reschedule request. |
-| `send_dm_with_hard_preset_buttons(user_id, message, match_id, opted_in)` | `(bool, str)` | DM with the hard-preset opt-in/out buttons. |
 | `send_dm_with_unwatch_button(user_id, message, match_id)` | `(bool, str)` | DM with an Unwatch button for match watchers. |
 
 Every `send_dm_with_*` also takes the optional `embed=None, link=None, notice=None` and passes them through to `send_dm`.
@@ -854,7 +852,7 @@ Match lifecycle transitions (seat → start → finish → confirm), seed rollin
 | `start_match(match, actor=None)` | `None` | Set `started_at` (requires seated, rejects restart); audits `match.started`; silently DMs crew and watchers (not players). |
 | `finish_match(match, actor=None)` | `None` | Set `finished_at` (requires started, rejects re-finish); audits `match.finished`; silently DMs crew and watchers (not players). |
 | `confirm_match(match, actor=None)` | `None` | Set `confirmed_at` (requires finished, rejects re-confirm); audits `match.confirmed`; DMs participants. |
-| `generate_seed(match_id, actor=None)` | `(bool, str, str \| None)` | Roll a seed via `SeedGenerationService`, using the preset `MatchHardPresetService.resolve_preset` picks (the tournament's `preset`, or its `hard_preset` when every player opted in / staff overrode) when set, else the legacy `seed_generator` string. Per-match `asyncio.Lock` (class-level `_seed_locks` dict) rejects concurrent rolls; also fails softly when a seed already exists, no generator is configured, the generator is unknown, the match has no players yet, or permission is denied. A task-queue randomizer (`ASYNC_RANDOMIZERS`) is handed to `ProviderTaskService` + `SeedRollService` and returns with no URL (audits/emits `match.seed_roll_queued`; the worker finishes it). Otherwise it calls `complete_seed_roll` inline. `MissingCredentialError` / `SeedProviderError` messages are returned as-is; anything else is logged and returned as a generic `(False, error, None)`. |
+| `generate_seed(match_id, actor=None)` | `(bool, str, str \| None)` | Roll a seed via `SeedGenerationService`, using the preset `SeedRuleService.resolve` picks (staff's forced preset, else the first seed rule that fits, else the tournament's `preset`) when set, else the legacy `seed_generator` string. Per-match `asyncio.Lock` (class-level `_seed_locks` dict) rejects concurrent rolls; also fails softly when a seed already exists, no generator is configured, the generator is unknown, the match has no players yet, or permission is denied. A task-queue randomizer (`ASYNC_RANDOMIZERS`) is handed to `ProviderTaskService` + `SeedRollService` and returns with no URL (audits/emits `match.seed_roll_queued`; the worker finishes it). Otherwise it calls `complete_seed_roll` inline. `MissingCredentialError` / `SeedProviderError` messages are returned as-is; anything else is logged and returned as a generic `(False, error, None)`. |
 | `complete_seed_roll(match, randomizer, preset, actor, *, seed_url, settings, provider_meta)` | `str` | The single definition of "a seed roll completed", shared by the inline path and the seed-roll worker: creates the `GeneratedSeeds` row (settings snapshotted as sent), enqueues seed DMs to opted-in players (a link seed gets an "Open your seed" button; a pasted seed such as a WWR permalink gets a code block and a button to the match on the Player tab), audits `match.seed_rolled`. |
 | `notify_match_participants(match, message, embed=None)` | `None` | DM opted-in players, approved crew, and watchers — one DM per person; watchers get the Unwatch-button variant. Never raises; per-DM failures are printed. |
 | `notify_match_crew(match, message, embed=None)` | `None` | DM approved crew and watchers, excluding players (players get the acknowledgment DM instead). Never raises. |
@@ -975,43 +973,22 @@ writes `Match.is_stream_candidate`, which stays the decision of whoever
 
 Collaborators: `MatchStreamVolunteerRepository`, `MatchRepository`, `AuditService`.
 
-### match_hard_preset_service.py — MatchHardPresetService
+### match_preset_override_service.py — MatchPresetOverrideService
 
-Players privately opting into a tournament's harder preset. A match rolls
-`Tournament.hard_preset` only when **every** current player has opted in, and
-until then no player can learn whether anyone else did — the secrecy is the
-feature, not a detail of it. Feature doc:
-[match-participation.md](../features/match-participation.md#harder-settings-opt-in).
-
-Three consequences shape the surface below:
-
-- `my_state` / `board_states` are the **only** reads a page, router or bot may
-  call, and both answer about the caller alone. `everyone_in` is computed only
-  for a caller who opted in themselves, so it can never become a way to ask
-  about the opponent.
-- The individual opt-in is **audited but not published**. A webhook subscriber
-  is an arbitrary outside listener; the audit log is staff reading their own
-  community's history. Only the unanimous result reaches the event bus.
-- Agreement is **derived**, never stored, so a roster change re-answers it.
+Staff forcing one match's preset over every seed rule, or handing it back
+(`Match.forced_preset`). Any preset of the community that fits the tournament's
+randomizer. Players choosing hard mode is a seed rule reading a hidden match form
+question (migration 170). Feature doc:
+[match-participation.md](../features/match-participation.md#harder-settings).
 
 | Method | Returns | Description |
 |---|---|---|
-| `opt_in(match_id, user)` / `withdraw(match_id, user)` | `HardPresetState` | The player's own choice (idempotent). `ValueError` for a non-player, a tournament with no hard preset, a rolled seed, or a match staff have overridden. Audits `match.hard_preset_opted_in` / `_withdrawn`; publishes nothing. |
-| `my_state(match, user)` | `HardPresetState` | What this viewer may know about one match. A non-player (staff, spectator) gets the tournament's shape and the override, never anybody's opt-in. |
-| `board_states(user, match_ids)` | `dict[int, HardPresetState]` | The same answer for a whole board in three queries. Omits matches this viewer does not play in, and matches whose tournament offers no hard preset. |
-| `resolve_preset(match)` | `Preset \| None` | Which preset this match rolls: staff's override, else the hard preset when everyone opted in, else the tournament's standard one. Called by `generate_seed` at roll time — the one moment the answer matters, and the moment the window shuts. |
-| `set_override(match_id, override, actor)` | `Match` | Staff choosing the match's preset themselves, or handing it back (`None`). Refused after the seed is rolled. Keeps existing opt-ins, so clearing restores what the players chose. Audits + emits `match.preset_override_set` / `_cleared`, and DMs the players. |
-| `send_offer(match)` | `None` | The invitation DM, enqueued from the scheduling fan-out. Each recipient's button carries their own next move, so nothing about anyone else's answer can be read off it. Skipped once the seed exists. |
-| `snapshot(match)` | `HardPresetSnapshot` | The opt-in situation as it stands, captured *before* an edit. Must be taken before the write: afterwards a swapped-in player has no row and a reassigned match no longer knows which tournament's preset was agreed to. |
-| `reconcile_edit(match, before, actor)` | `None` | Re-answers the agreement after the write. A roster change drops departing players' rows and announces a crossing of the unanimity line in either direction; a move to another tournament (or a changed `hard_preset`) discards every opt-in, telling any agreement's players in the old tournament's words. |
+| `state(match)` | `PresetOverrideState` | The override control's facts: whether the seed is rolled, the forced preset id and the `(id, name)` choices. |
+| `decided_preset(match)` | `Preset \| None` | The forced preset, or `None` so the seed rules decide. `SeedRuleService.resolve` asks it first. |
+| `set_override(match_id, preset_id, actor)` | `Match` | Staff forcing a preset, or handing it back (`None`). Refused after the seed is rolled and for another randomizer's preset. Leaves the players' form answers alone. Audits + emits `match.preset_override_set` / `_cleared` (`preset_id`, `preset_name`), and DMs the players. |
 
-`HardPresetState` is a frozen dataclass projection (`offered`, `opted_in`,
-`everyone_in`, `locked`, `override`, `preset_name`, `standard_preset_name`),
-deliberately not a model or queryset — a surface handed rows could render
-somebody else's, and the leak would be one template edit away.
-
-Collaborators: `MatchHardPresetRepository`, `MatchRepository`, `AuditService`,
-`_hard_preset_notifications`.
+Collaborators: `MatchRepository`, `PresetRepository`, `AuditService`,
+`_preset_override_notifications`.
 
 ### match_reschedule_service.py — MatchRescheduleService
 
@@ -1468,7 +1445,7 @@ Tournament CRUD plus Tournament Admin / Crew Coordinator membership. Creation an
 
 | Method | Returns | Description |
 |---|---|---|
-| `create_tournament(name, description=None, seed_generator=None, ..., config=None, actor=None)` | `Tournament` | Create; trims strings; treats the literal string `"None"` as no seed generator; non-empty name required; validates `config`. The keyword set covers every tournament setting: links and format text (`bracket_url`, `rules_url`, `tournament_format`, `triforce_access_message`, `randomizer_notes`), durations, `is_active`, `players_per_match`, crew requirements (`required_commentators`/`required_trackers`, default 1), `allow_player_match_requests`, presets (`preset_id`, `hard_preset_id`), racetime (`racetime_bot_id`, `race_room_profile_id`, `racetime_auto_create_rooms`, `room_open_minutes_before=30`, `require_racetime_link`, `racetime_default_goal`), `stage_reminder_minutes=30`, the per-tournament event window and hours (`event_start_date`, `event_end_date`, `tournament_hours`, validated by `SystemConfigService.validate_hours_mapping`), and the signup window (`signups_open_at`, `signups_close_at`). |
+| `create_tournament(name, description=None, seed_generator=None, ..., config=None, actor=None)` | `Tournament` | Create; trims strings; treats the literal string `"None"` as no seed generator; non-empty name required; validates `config`. The keyword set covers every tournament setting: links and format text (`bracket_url`, `rules_url`, `tournament_format`, `triforce_access_message`, `randomizer_notes`), durations, `is_active`, `players_per_match`, crew requirements (`required_commentators`/`required_trackers`, default 1), `allow_player_match_requests`, the preset (`preset_id`), racetime (`racetime_bot_id`, `race_room_profile_id`, `racetime_auto_create_rooms`, `room_open_minutes_before=30`, `require_racetime_link`, `racetime_default_goal`), `stage_reminder_minutes=30`, the per-tournament event window and hours (`event_start_date`, `event_end_date`, `tournament_hours`, validated by `SystemConfigService.validate_hours_mapping`), and the signup window (`signups_open_at`, `signups_close_at`). |
 | `update_tournament(tournament, ...same optional fields..., config=None, actor=None)` | `Tournament` | Partial update of any subset of the same fields; validates `config` when provided; audits the changed-field list. The nullable FK/date/hours fields default to an `_UNSET` sentinel so an explicit `None` clears them. |
 | `delete_tournament(tournament, actor=None, confirmation=None)` | `None` | Staff-only **permanent** delete — the row and everything that cascades from it (matches, entrants, brackets, triforce texts). Two gates on top of the role check, both enforced here rather than in the dialog: `tournament.is_active` must already be `False`, and `confirmation` must equal `permanently delete` (stripped, case-insensitive). Either miss raises `ValueError` and writes nothing. Audits `tournament.deleted` with the name and the cascade counts. |
 | `deletion_preview(tournament)` | `dict[str, int]` | The cascade counts (`matches`, `players`, `brackets`, `triforce_texts`) the confirmation dialog states before anyone types the phrase. Read-only, ungated. |
@@ -2250,7 +2227,7 @@ Notable members:
 
 - **Shared constants:** `MSG_NO_ACCOUNT`, `MSG_UNEXPECTED_ERROR`, and the builder `msg_unexpected_error(action='finish this')` for an action-specific variant.
 - **Match scheduling DMs** (sent by `MatchScheduleService`/`MatchService`): `scheduled_dm`, `rescheduled_dm`, `acknowledgment_request_dm`, `checked_in_dm`, `state_changed_dm`, `cancelled_dm`, `stream_candidate_dm`, `seed_dm`; plus `matchup_ready_dm` (bracket matchups, `BracketService.notify_matchup_ready`).
-- **Hard-preset opt-in** (`MatchHardPresetService`, `discordbot/`): `hard_preset_invite_dm`, `hard_preset_agreed_dm`, `hard_preset_broken_dm`, `hard_preset_override_dm`, `hard_preset_opt_in_confirmation`, `hard_preset_withdraw_confirmation`.
+- **Staff preset override** (`MatchPresetOverrideService`): `preset_override_dm`.
 - **Stage DMs** (`MatchService.assign_stage`, `stage_reminder`): `stage_assigned_dm`, `stage_cleared_dm`, `stage_reminder_dm`.
 - **Ephemeral button replies** (`discordbot/`): `match_ack_confirmation`, `unwatch_confirmation`.
 - **`DMLink(label, url)`** — a DM's call-to-action route, rendered by `send_dm` as a Discord link button and used as the web-push mirror's tap target. Built by [`notification_links.py`](#notification_linkspy--module-functions), never inline: the URL must be absolute, since a DM is read outside any request context.

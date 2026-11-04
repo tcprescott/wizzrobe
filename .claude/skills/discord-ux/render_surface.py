@@ -74,22 +74,10 @@ NOTIFICATIONS = [
      mv.volunteer_assignment_dm(*SHIFT)),
     ("Volunteer shift reminder", "[Acknowledge]",
      mv.volunteer_reminder_dm(*SHIFT)),
-    ("Harder settings offered (player who is OUT)", "[Play the harder preset] [Choose your settings]",
-     m.hard_preset_invite_dm(T, HARD)),
-    ("Harder settings offered (player who is IN)", "[Back out] [Choose your settings]",
-     m.hard_preset_invite_dm(T, HARD)),
-    ("Harder settings agreed", "[View your match] (link only)",
-     m.hard_preset_agreed_dm(T, HARD)),
-    ("Harder settings broken — a player backed out", "[View your match] (link only)",
-     m.hard_preset_broken_dm(T, HARD, STANDARD, "Player Two")),
-    ("Harder settings broken — staff edited the roster", "[View your match] (link only)",
-     m.hard_preset_broken_dm(T, HARD, STANDARD, "")),
-    ("Harder settings broken — no standard preset named", "[View your match] (link only)",
-     m.hard_preset_broken_dm(T, HARD, "", "Player Two")),
     ("Settings set by staff", "[View your match] (link only)",
-     m.hard_preset_override_dm(T, HARD, forced=True)),
-    ("Settings handed back by staff", "[Choose your settings]",
-     m.hard_preset_override_dm(T, HARD, forced=False)),
+     m.preset_override_dm(T, HARD, forced=True)),
+    ("Settings handed back by staff", "[Answer the questions]",
+     m.preset_override_dm(T, HARD, forced=False)),
 ]
 
 EPHEMERAL = [
@@ -100,11 +88,6 @@ EPHEMERAL = [
     ("unwatch (was watching)", m.unwatch_confirmation("Player One vs Player Two", True)),
     ("unwatch (was not)", m.unwatch_confirmation("Player One vs Player Two", False)),
     ("no account", m.MSG_NO_ACCOUNT),
-    ("hard preset opt in (alone so far)",
-     m.hard_preset_opt_in_confirmation(HARD, everyone_in=False)),
-    ("hard preset opt in (completed the set)",
-     m.hard_preset_opt_in_confirmation(HARD, everyone_in=True)),
-    ("hard preset withdraw", m.hard_preset_withdraw_confirmation(HARD)),
 ]
 
 # The embed *card* the bot actually sends (the plain text above rides along only
@@ -158,26 +141,14 @@ EMBEDS = [
         title="⏰ Volunteer shift reminder", position="Race Proctor", community_name=COMMUNITY,
         starts=SHIFT_START_UTC, ends=SHIFT_END_UTC,
         description="**Shift 1**\nYour shift is coming up. Tap **Acknowledge** to confirm you are covering it.")),
-    ("Harder settings available", e.match_embed(
-        title="⚡ Harder settings available", color=e.COLOR_SEED, tournament=T,
-        community_name=COMMUNITY, player_names=P,
-        when=WHEN_UTC, description=m.hard_preset_invite_dm(T, HARD))),
-    ("Harder settings agreed", e.match_embed(
-        title="🔒 Harder settings agreed", color=e.COLOR_SEED, tournament=T,
-        community_name=COMMUNITY, player_names=P,
-        when=WHEN_UTC, description=m.hard_preset_agreed_dm(T, HARD))),
-    ("Back to the standard settings", e.match_embed(
-        title="↩️ Back to the standard settings", color=e.COLOR_RESCHEDULED, tournament=T,
-        community_name=COMMUNITY, player_names=P,
-        when=WHEN_UTC, description=m.hard_preset_broken_dm(T, HARD, STANDARD, "Player Two"))),
     ("Settings set by staff", e.match_embed(
         title="⚙️ Settings set by staff", color=e.COLOR_SEED, tournament=T,
         community_name=COMMUNITY, player_names=P,
-        when=WHEN_UTC, description=m.hard_preset_override_dm(T, HARD, forced=True))),
+        when=WHEN_UTC, description=m.preset_override_dm(T, HARD, forced=True))),
     ("Settings back in your hands", e.match_embed(
         title="⚙️ Settings back in your hands", color=e.COLOR_SEED, tournament=T,
         community_name=COMMUNITY, player_names=P,
-        when=WHEN_UTC, description=m.hard_preset_override_dm(T, HARD, forced=False))),
+        when=WHEN_UTC, description=m.preset_override_dm(T, HARD, forced=False))),
 ]
 
 

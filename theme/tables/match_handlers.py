@@ -13,7 +13,6 @@ from application.services import get_user_from_session
 from application.utils.match_labels import match_row_label
 from theme.dialog import ConfirmationDialog, UserDialog
 from theme.notify import notify_error
-from theme.tables.hard_preset_rows import apply_hard_preset_state
 from theme.undo_toast import undo_toast
 
 
@@ -615,50 +614,6 @@ class MatchTableHandlersMixin:
             ui.notify(str(e), color='warning')
             return
         ui.notify(result.message, color='positive' if result.ok else 'warning')
-
-    async def _handle_open_hard_preset(self, event):
-        """A player opening their private harder-settings choice.
-
-        Opens the dialog rather than toggling: the choice depends on an answer
-        the player is not allowed to see, so it needs the explanation that comes
-        with it. The refreshed row afterwards is the viewer's own state only —
-        ``board_states`` never returns anybody else's.
-        """
-        row = event.args if isinstance(event.args, dict) else {}
-        match_id = row.get('id')
-        if match_id is None:
-            return
-
-        user = await get_user_from_session(app.storage.user)
-        if not user:
-            ui.notify('You must be logged in to choose your settings.', color='warning')
-            return
-
-        match = await self.service.get_by_id(match_id)
-        if match is None:
-            ui.notify('That match is no longer around.', color='warning')
-            return
-
-        states = await self.hard_preset_service.board_states(user, [match_id])
-        state = states.get(match_id)
-        if state is None:
-            ui.notify(
-                'This match does not offer a harder preset any more.', color='warning',
-            )
-            return
-
-        async def after():
-            refreshed = await self.hard_preset_service.board_states(user, [match_id])
-            idx = next(
-                (i for i, r in enumerate(self.table.rows) if r.get('id') == match_id), None
-            )
-            if idx is not None:
-                apply_hard_preset_state(self.table.rows[idx], refreshed.get(match_id))
-                self.table.update()
-
-        from theme.dialog.hard_preset_dialog import HardPresetDialog
-
-        await HardPresetDialog(match, user, state, on_change=after).open()
 
 
 def _signed_up_copy(role: str, row: dict) -> str:

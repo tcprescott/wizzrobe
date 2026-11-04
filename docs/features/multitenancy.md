@@ -423,7 +423,7 @@ them (an unknown guild resolves to an empty list and is ignored):
   mappings stay separated and the same Discord role can grant different app roles
   per community.
 - **Interaction handlers** (`crew_signup`, `crew_acknowledgment`,
-  `match_acknowledgment`, `match_hard_preset`, `reschedule_agreement`,
+  `match_acknowledgment`, `match_hard_preset` (legacy), `reschedule_agreement`,
   `volunteer_acknowledgment`, `watch_buttons`) resolve the tenant from the
   referenced entity's `tenant_id` (helpers in `discordbot/_tenant.py`) and wrap DB
   work in `tenant_scope`.

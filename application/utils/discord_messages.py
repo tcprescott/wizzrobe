@@ -625,57 +625,7 @@ def unwatch_confirmation(player_names: str, was_watching: bool) -> str:
     return f'You were not watching the match{match_ref}.'
 
 
-def hard_preset_invite_dm(tournament_name: str, preset_name: str) -> str:
-    """The offer, sent with the match's scheduling DM.
-
-    Says the one thing a player needs to decide and the one thing that makes
-    deciding safe: nobody hears about it unless everyone agrees.
-    """
-    return (
-        f"**{tournament_name}** offers a harder preset for this match: "
-        f"**{preset_name}**.\n\n"
-        "You'll only play it if everyone in the match opts in. Your choice stays "
-        "private either way — nobody is told you opted in unless all of you did, "
-        "and nobody is told if you don't. You can change your mind until the seed "
-        "is rolled."
-    )
-
-
-def hard_preset_agreed_dm(tournament_name: str, preset_name: str) -> str:
-    """Everyone opted in. The moment the choice stops being private."""
-    return (
-        f"Everyone in your **{tournament_name}** match opted in, so you're playing "
-        f"**{preset_name}**.\n\n"
-        "Anyone can still back out until the seed is rolled."
-    )
-
-
-def hard_preset_broken_dm(
-    tournament_name: str, preset_name: str, standard_preset_name: str, actor_name: str,
-) -> str:
-    """A complete set broke. Sent only to players who were told it was complete.
-
-    An empty ``actor_name`` means the roster changed rather than someone backing
-    out — nobody in this conversation did anything, and saying a name would
-    accuse one of them of it.
-    """
-    falling_back = (
-        f"**{standard_preset_name}**" if standard_preset_name else "the standard settings"
-    )
-    if actor_name:
-        opening = (
-            f"{actor_name} backed out of **{preset_name}** for your "
-            f"**{tournament_name}** match, so it's back to {falling_back}."
-        )
-    else:
-        opening = (
-            f"Your **{tournament_name}** match changed players, so **{preset_name}** "
-            f"is off. It's back to {falling_back}."
-        )
-    return f"{opening}\n\nOpt in again any time before the seed is rolled."
-
-
-def hard_preset_override_dm(
+def preset_override_dm(
     tournament_name: str, preset_name: str, *, forced: bool,
 ) -> str:
     """Staff chose the match's settings, or handed the choice back."""
@@ -687,34 +637,9 @@ def hard_preset_override_dm(
         )
         return f"{opening}\n\nThat decides the settings for this match."
     return (
-        f"Staff handed the settings for your **{tournament_name}** match back to "
-        "the players.\n\n"
-        "It's yours to choose again until the seed is rolled."
-    )
-
-
-def hard_preset_opt_in_confirmation(preset_name: str, *, everyone_in: bool) -> str:
-    """Ephemeral reply after a player opts in from a DM button.
-
-    The wording never describes the other players' state, only the caller's own,
-    with one exception: once everyone is in there is nothing left to protect.
-    """
-    if everyone_in:
-        return (
-            f"You're in, and so is everyone else — this match is playing "
-            f"**{preset_name}**."
-        )
-    return (
-        f"You're in for **{preset_name}**. Nobody will be told unless everyone "
-        "opts in. You can change your mind until the seed is rolled."
-    )
-
-
-def hard_preset_withdraw_confirmation(preset_name: str) -> str:
-    """Ephemeral reply after a player takes their opt-in back from a DM button."""
-    return (
-        f"You're out of **{preset_name}**. This match will use the standard "
-        "settings unless you opt back in before the seed is rolled."
+        f"Staff handed the settings for your **{tournament_name}** match back.\n\n"
+        "Your answers to the match's questions and the tournament's seed rules "
+        "decide them again. You can change your answers until the seed is rolled."
     )
 
 

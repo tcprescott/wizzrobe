@@ -696,25 +696,6 @@ class ForfeitReason(str, Enum):
         return {'no_show': 'No-show', 'withdrew': 'Withdrew', 'disqualified': 'Disqualified'}[self.value]
 
 
-class PresetOverride(str, Enum):
-    """Staff's per-match answer to "which preset does this match roll with".
-
-    ``NULL`` on ``Match.preset_override`` means "whatever the players decided"
-    — the hard preset when every player opted in, the tournament's standard one
-    otherwise. These two members are staff overruling that, in either direction:
-    ``HARD`` rolls the hard preset with no opt-ins at all, ``STANDARD`` rolls the
-    standard one even when everybody opted in.
-
-    Deliberately a two-value enum rather than an FK to any preset: the override
-    answers the same question the opt-in answers, so it has the same two answers,
-    and it can never name a preset from a different randomizer than the
-    tournament's own.
-    """
-
-    HARD = 'hard'
-    STANDARD = 'standard'
-
-
 class NotificationMode(str, Enum):
     """How one kind of recipient gets one notification.
 

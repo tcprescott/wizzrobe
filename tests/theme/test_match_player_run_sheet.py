@@ -209,7 +209,7 @@ class TestMyScheduleMenu:
         assert "props.row._can_reschedule && props.row.state === 'Scheduled'" in _MENU
         assert 'v-else-if="props.row._reschedule_pending" disable' in _MENU
         assert f'v-if="{STREAM_VOLUNTEER_ACTIONABLE}"' in _MENU
-        for event in ('request_reschedule', 'open_hard_preset', 'toggle_stream_volunteer'):
+        for event in ('request_reschedule', 'toggle_stream_volunteer'):
             assert f"$parent.$emit('{event}'" in _MENU
 
     def test_my_schedule_uses_the_run_sheet_with_the_menu(self):

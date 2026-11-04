@@ -249,21 +249,21 @@ async def test_a_player_dropped_upstream_loses_their_acknowledgment_row(db):
     assert await MatchAcknowledgment.filter(match=match).count() == 1
 
 
-async def test_a_player_dropped_upstream_loses_their_hard_preset_opt_in(db):
+async def test_a_player_dropped_upstream_loses_their_match_form_answers(db):
     """These are the rosters that change with nobody in the app touching them.
 
-    A row left behind would keep counting toward the harder-preset agreement
-    for a player who is no longer in the match, and would come back already
-    opted in if SG re-added them to a roster they never saw.
+    An answer left behind would keep counting toward an "every player" rule
+    (hard mode) for a player who is no longer in the match, and would come back
+    already answered if SG re-added them to a roster they never saw.
     """
-    from models import MatchHardPresetOptIn, Preset
+    from models import MatchFormAnswer, MatchFormQuestion
 
     system, tourn, link, etl = await _setup(db)
-    standard = await Preset.create(name='Std', randomizer='alttpr', settings={})
-    hard = await Preset.create(name='Hard', randomizer='alttpr', settings={})
-    tourn.preset = standard
-    tourn.hard_preset = hard
-    await tourn.save()
+    question = await MatchFormQuestion.create(
+        tournament=tourn, key='hardmode', kind='yes_no', prompt='Play Hard mode?',
+        choices=[{'value': 'yes', 'label': 'Yes'}, {'value': 'no', 'label': 'No'}], config={},
+        visibility='never',
+    )
 
     await User.create(discord_id=111, username='playerone')
     two = _episode(63, '2026-07-20T18:00:00+00:00', [
@@ -274,17 +274,15 @@ async def test_a_player_dropped_upstream_loses_their_hard_preset_opt_in(db):
     match = await Match.filter(speedgaming_episode__sg_episode_id='63').first()
     await match.fetch_related('players')
     for player in match.players:
-        await MatchHardPresetOptIn.create(match=match, user_id=player.user_id)
-    assert await MatchHardPresetOptIn.filter(match=match).count() == 2
+        await MatchFormAnswer.create(match=match, user_id=player.user_id, question=question, value={'v': 'yes'})
+    assert await MatchFormAnswer.filter(match=match).count() == 2
 
     one = _episode(63, '2026-07-20T18:00:00+00:00', [
         {'id': 1, 'displayName': 'PlayerOne', 'discordId': '111', 'discordTag': 'playerone'},
     ])
     await etl.import_episode(link, one, actor=system)
 
-    remaining = await MatchHardPresetOptIn.filter(match=match).values_list(
-        'user_id', flat=True,
-    )
+    remaining = await MatchFormAnswer.filter(match=match).values_list('user_id', flat=True)
     survivors = await MatchPlayers.filter(match=match).values_list('user_id', flat=True)
     assert set(remaining) == set(survivors)
     assert len(survivors) == 1

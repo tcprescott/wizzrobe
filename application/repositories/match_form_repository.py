@@ -5,7 +5,7 @@ show another player. ``MatchFormService`` is the only caller and decides what
 each viewer sees.
 """
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from application.event_writes import guarded_delete, guarded_update
 from application.repositories._tenant import current_tenant_id, scoped
@@ -60,6 +60,13 @@ class MatchFormRepository:
         await guarded_delete(scoped(
             MatchFormAnswer.filter(match_id=match_id, user_id=user_id, question_id=question_id)
         ))
+
+    @staticmethod
+    async def clear_answers(match_id: int, user_ids: Optional[List[int]] = None) -> None:
+        qs = MatchFormAnswer.filter(match_id=match_id)
+        if user_ids is not None:
+            qs = qs.filter(user_id__in=user_ids)
+        await guarded_delete(scoped(qs))
 
     @staticmethod
     async def players(match_id: int) -> List[MatchPlayers]:

@@ -6,7 +6,6 @@ from .enums import (
     CommentaryInviteStatus,
     ForfeitReason,
     MatchCommentKind,
-    PresetOverride,
     RescheduleRequestKind,
     RescheduleRequestStatus,
     StationSide,
@@ -37,9 +36,9 @@ class Match(Model):
     generated_seed = fields.ForeignKeyField(
         'models.GeneratedSeeds', related_name='matches', null=True, on_delete=fields.SET_NULL
     )
-    # Only set while the seed is unrolled; afterwards generated_seed.preset is the record.
-    preset_override = fields.CharEnumField(
-        PresetOverride, max_length=16, null=True,
+    # Staff forcing this match's preset over every seed rule; afterwards generated_seed.preset is the record.
+    forced_preset: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
+        'models.Preset', related_name='forced_matches', null=True, on_delete=fields.SET_NULL
     )
     # Non-null makes the ETL-owned fields read-only (guard in MatchService.update_match).
     speedgaming_episode = fields.OneToOneField(
@@ -418,42 +417,3 @@ class MatchRescheduleRequest(Model):
         table = 'matchreschedulerequest'
         # No unique key on purpose: "one open request" applies to PENDING rows only and a key would block retry after a decline.
         indexes = (('match', 'status'), ('status',))
-
-
-class MatchHardPresetOptIn(Model):
-    """One player privately agreeing to play their match on the harder preset.
-
-    The match rolls ``Tournament.hard_preset`` only when *every* one of its
-    current players has a row here. One player opting in alone changes nothing
-    and, crucially, tells nobody: the opt-in is secret until it is unanimous, so
-    that choosing the harder settings can never be read as a challenge, and
-    declining can never be read as backing down. Nothing outside
-    ``MatchHardPresetService`` may report who holds a row.
-
-    One row per player rather than a flag on the match, for the same reason
-    ``MatchStreamVolunteer`` is: the question is per person. Agreement is
-    *derived* (the opt-in set equals the player set) rather than stored, so a
-    roster change re-answers it instead of leaving a stale yes behind.
-
-    Rows stop mattering the moment the seed is rolled — ``GeneratedSeeds.preset``
-    is then the record of what was actually played — so the service refuses both
-    opting in and withdrawing from that point on.
-    """
-
-    id = fields.IntField(pk=True)
-    # Keep these annotations: an untyped FK on a new model adds mypy-ratchet errors.
-    tenant: fields.ForeignKeyRelation = fields.ForeignKeyField(
-        'models.Tenant', related_name='match_hard_preset_opt_ins', on_delete=fields.CASCADE
-    )
-    match: fields.ForeignKeyRelation = fields.ForeignKeyField(
-        'models.Match', related_name='hard_preset_opt_ins', on_delete=fields.CASCADE
-    )
-    user: fields.ForeignKeyRelation = fields.ForeignKeyField(
-        'models.User', related_name='hard_preset_opt_ins', on_delete=fields.CASCADE
-    )
-    created_at = fields.DatetimeField(auto_now_add=True)
-    updated_at = fields.DatetimeField(auto_now=True)
-
-    class Meta:
-        unique_together = (('match', 'user'),)
-        table = 'matchhardpresetoptin'

@@ -367,6 +367,15 @@ class MatchFormService:
         )
         return await self.player_form(match.id, user)
 
+    async def reconcile_answers(self, match_id: int, *, removed_user_ids: List[int], moved: bool) -> None:
+        """Drop answers a match edit made stale: a removed player's, or every one when the
+        match moved tournament. Answers are about one roster and one tournament's questions,
+        so a player dropped and re-added starts over rather than coming back already opted in."""
+        if moved:
+            await self.repository.clear_answers(match_id)
+        elif removed_user_ids:
+            await self.repository.clear_answers(match_id, user_ids=removed_user_ids)
+
     async def question_count_for(self, match: Match, user_id: int) -> int:
         """How many questions ``match`` asks ``user_id`` (``match.tournament`` loaded)."""
         questions = await self.repository.list_questions(match.tournament_id)  # type: ignore[attr-defined]

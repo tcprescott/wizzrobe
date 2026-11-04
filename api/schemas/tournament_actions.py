@@ -45,10 +45,6 @@ _PRESET_DESC = (
     'ID of the seed preset matches roll from. Attaching one also sets '
     '`seed_generator` to the preset\'s randomizer.'
 )
-_HARD_PRESET_DESC = (
-    'ID of a harder preset for the same randomizer, offered as an alternative '
-    'roll. Needs a standard preset.'
-)
 _BOT_DESC = 'ID of the racetime bot that opens race rooms (online tournaments).'
 _PROFILE_DESC = 'ID of the race room profile new rooms use (online tournaments).'
 _AUTO_ROOMS_DESC = 'Open racetime rooms automatically before each match. Needs a racetime bot.'
@@ -109,7 +105,6 @@ class TournamentCreateRequest(BaseModel):
     uses_tournament_room: bool = Field(True, description=_ROOM_DESC)
     allow_player_match_requests: bool = Field(True, description=_REQUESTS_DESC)
     preset_id: Optional[int] = Field(None, description=_PRESET_DESC)
-    hard_preset_id: Optional[int] = Field(None, description=_HARD_PRESET_DESC)
     racetime_bot_id: Optional[int] = Field(None, description=_BOT_DESC)
     race_room_profile_id: Optional[int] = Field(None, description=_PROFILE_DESC)
     racetime_auto_create_rooms: bool = Field(False, description=_AUTO_ROOMS_DESC)
@@ -172,7 +167,6 @@ class TournamentUpdateRequest(BaseModel):
     uses_tournament_room: Optional[bool] = Field(None, description=_ROOM_DESC + _UPDATE_NOTE)
     allow_player_match_requests: Optional[bool] = Field(None, description=_REQUESTS_DESC + _UPDATE_NOTE)
     preset_id: Optional[int] = Field(None, description=_PRESET_DESC + _CLEAR_NOTE)
-    hard_preset_id: Optional[int] = Field(None, description=_HARD_PRESET_DESC + _CLEAR_NOTE)
     racetime_bot_id: Optional[int] = Field(None, description=_BOT_DESC + _CLEAR_NOTE)
     race_room_profile_id: Optional[int] = Field(None, description=_PROFILE_DESC + _CLEAR_NOTE)
     racetime_auto_create_rooms: Optional[bool] = Field(None, description=_AUTO_ROOMS_DESC + _UPDATE_NOTE)

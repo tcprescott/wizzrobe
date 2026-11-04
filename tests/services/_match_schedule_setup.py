@@ -13,7 +13,6 @@ from unittest.mock import AsyncMock, MagicMock
 
 from application.repositories import MatchAcknowledgmentRepository, MatchRepository
 from application.services.audit_service import AuditService
-from application.services.match.match_hard_preset_service import MatchHardPresetService
 from application.services.match.match_schedule_service import MatchScheduleService
 from application.services.seedgen_service import SeedGenerationService
 from models import MatchPlayers, Role, User, UserRole
@@ -29,7 +28,6 @@ def build_service() -> MatchScheduleService:
     svc.acknowledgment_repository = MatchAcknowledgmentRepository()
     svc.seedgen_service = SeedGenerationService()
     svc.audit_service = AuditService()
-    svc.hard_preset_service = MatchHardPresetService()
     discord = MagicMock()
     discord.send_dm = AsyncMock(return_value=(True, "ok"))
     discord.send_dm_with_unwatch_button = AsyncMock(return_value=(True, "ok"))
