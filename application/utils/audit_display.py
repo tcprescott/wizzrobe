@@ -29,7 +29,7 @@ class AuditArea:
 AREAS: tuple[AuditArea, ...] = (
     AuditArea('matches', 'Matches', ('match.', 'crew.', 'race_room.')),
     AuditArea('tournaments', 'Tournaments', (
-        'tournament.', 'bracket.', 'preset.', 'async_qualifier.', 'randomizer_credential.',
+        'tournament.', 'bracket.', 'preset.', 'preset_space.', 'async_qualifier.', 'randomizer_credential.',
         'triforce_text.', 'player.',
     )),
     AuditArea('people', 'People', (
@@ -175,6 +175,10 @@ ACTION_LABELS: dict[str, str] = {
     'preset.rolled': 'Rolled a seed from the preset library',
     'preset.copied': 'Copied a preset from the library',
     'preset.copy_updated': 'Updated a copied preset from its original',
+    'preset_space.created': 'Started a personal preset space',
+    'preset_space.renamed': 'Renamed a personal preset space',
+    'preset_space.editor_added': 'Added a co-editor to a preset space',
+    'preset_space.editor_removed': 'Removed a co-editor from a preset space',
     'randomizer_credential.set': 'Saved a randomizer login',
     'randomizer_credential.cleared': 'Removed a randomizer login',
     'ai_provider.set': 'Saved the AI provider',

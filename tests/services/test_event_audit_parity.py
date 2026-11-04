@@ -116,6 +116,10 @@ _EXCLUDED_BY_DESIGN = frozenset({
     AuditActions.PRESET_ROLLED,
     AuditActions.PRESET_COPIED,
     AuditActions.PRESET_COPY_UPDATED,
+    AuditActions.PRESET_SPACE_CREATED,
+    AuditActions.PRESET_SPACE_RENAMED,
+    AuditActions.PRESET_SPACE_EDITOR_ADDED,
+    AuditActions.PRESET_SPACE_EDITOR_REMOVED,
     # Secrets — leaking these to arbitrary receivers is a risk.
     AuditActions.TICKET_STORE_CONNECTED,
     AuditActions.TICKET_STORE_DISCONNECTED,
