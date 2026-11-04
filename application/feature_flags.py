@@ -95,7 +95,10 @@ FEATURE_FLAG_REGISTRY: Dict[FeatureFlag, FeatureFlagSpec] = {
             '(open, attach seed, finish, record results).',
             'Online tournaments',
             # The auto-open worker deliberately has no check: auto_open_if_eligible enforces the flag.
-            service_modules=('application/services/race_room_service.py',),
+            service_modules=(
+                'application/services/race_room_service.py',
+                'application/services/group_race_board_service.py',
+            ),
         ),
         FeatureFlagSpec(
             FeatureFlag.SPEEDGAMING_ETL,

@@ -225,3 +225,26 @@ def build_rooms_client() -> RacetimeRoomsClient:
     if is_mock_racetime():
         return MockRacetimeRoomsClient()
     return RacetimeRoomsClient()
+
+
+async def race_data(slug: str) -> dict:
+    """A room's public ``/data`` (status, entrants). ``{}`` under ``MOCK_RACETIME``.
+
+    Raises :class:`RacetimeAPIError` when racetime can't be reached or answers
+    with an error.
+    """
+    import aiohttp
+
+    from application.utils.mocks.mock_racetime import is_mock_racetime
+
+    if is_mock_racetime() or '/mock-room-' in slug:
+        return {}
+    try:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=_TIMEOUT_SECONDS)) as session:
+            async with session.get(f'{RACETIME_BASE}/{slug}/data') as resp:
+                if resp.status >= 400:
+                    raise RacetimeAPIError(f'racetime answered {resp.status} for {slug}')
+                payload = await resp.json()
+    except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
+        raise RacetimeAPIError("racetime.gg isn't answering") from exc
+    return payload if isinstance(payload, dict) else {}

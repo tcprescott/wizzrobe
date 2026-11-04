@@ -92,6 +92,11 @@ class TournamentRepository(EventScopedRepository[Tournament]):
         return await query
 
     @staticmethod
+    async def group_race_series() -> List[Tournament]:
+        """This event's group race tournaments, by name."""
+        return await event_scoped(Tournament.filter(racetime_group_race=True)).order_by('name')
+
+    @staticmethod
     async def list_with_player_counts(only_ids: Optional[List[int]] = None) -> List[Tournament]:
         """This event's tournaments by name, each with ``player_count`` annotated."""
         query = event_scoped(Tournament.all())
