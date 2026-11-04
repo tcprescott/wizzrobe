@@ -53,8 +53,9 @@ and type your SahasrahBot namespace (usually your Discord name). Wizzrobe lists
 your ALTTPR, Super Metroid and SMZ3 presets. Tick the ones you want, up to 25 at
 a time, and they land in your own space. Ones you already have are marked.
 
-Two kinds can't come over yet: Door Randomizer presets, and presets that place
-items themselves (`forced_locations`). Those show the reason instead of importing.
+Door presets come over as Door Randomizer presets, with the spoiler for staff
+only. Presets that place items themselves (`forced_locations`) can't come over
+yet, so those show the reason instead of importing.
 
 ## Letting friends edit
 

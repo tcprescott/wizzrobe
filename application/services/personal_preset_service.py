@@ -200,8 +200,8 @@ class PersonalPresetService:
 
     @staticmethod
     def _landing_randomizers(randomizer: str) -> tuple:
-        """Where an import of this game can land: SahasrahBot kept AVIANART presets under ALTTPR."""
-        return (randomizer, 'avianart') if randomizer == 'alttpr' else (randomizer,)
+        """Where an import of this game can land: SahasrahBot kept AVIANART and door presets under ALTTPR."""
+        return (randomizer, 'avianart', 'alttprdr') if randomizer == 'alttpr' else (randomizer,)
 
     async def import_from_sahasrahbot(
         self, actor: User, namespace: str, picks: List[Tuple[str, str]], *, space_id: Optional[int] = None,
