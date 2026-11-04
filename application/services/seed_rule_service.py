@@ -70,7 +70,7 @@ class SeedRuleService:
         """Replace the whole rule list. Raises ``ValueError`` naming the bad rule."""
         tournament = await self._tournament(tournament_id)
         await self._ensure_can_edit(actor, tournament)
-        cleaned = self._clean(tournament, rules, await self._presets())
+        cleaned = self._clean(tournament, rules, await self._presets(), await self._questions(tournament.id))
         await self.tournament_repository.update(tournament, seed_rules=cleaned or None)
         await self.audit_service.write_and_publish(
             actor, AuditActions.TOURNAMENT_SEED_RULES_UPDATED,
@@ -80,9 +80,18 @@ class SeedRuleService:
         return cleaned
 
     @staticmethod
-    def _clean(tournament: Tournament, rules: Any, presets: Dict[int, Preset]) -> List[dict]:
+    async def _questions(tournament_id: int) -> Dict[str, seed_rules.FormQuestion]:
+        from application.services.match_form_service import MatchFormService
+
+        return await MatchFormService().engine_questions(tournament_id)
+
+    @staticmethod
+    def _clean(
+        tournament: Tournament, rules: Any, presets: Dict[int, Preset],
+        questions: Optional[Dict[str, seed_rules.FormQuestion]] = None,
+    ) -> List[dict]:
         """:func:`seed_rules.clean_rules`, plus: every preset rolls on this tournament's randomizer."""
-        cleaned = seed_rules.clean_rules(rules, presets)
+        cleaned = seed_rules.clean_rules(rules, presets, questions or {})
         randomizer = tournament.seed_generator
         if randomizer:
             for n, rule in enumerate(cleaned, start=1):
@@ -109,7 +118,9 @@ class SeedRuleService:
                 by_name.setdefault(p.name, pid)
         for pid, p in sorted(presets.items()):
             by_name.setdefault(p.name, pid)
-        return self._clean(tournament, seed_rules.from_yaml(text, by_name), presets)
+        return self._clean(
+            tournament, seed_rules.from_yaml(text, by_name), presets, await self._questions(tournament.id),
+        )
 
     async def editor(self, tournament_id: int, actor: Optional[User]) -> Dict[str, Any]:
         """Everything the Seed rules tab needs: the rules, the presets a rule may
@@ -134,7 +145,15 @@ class SeedRuleService:
                 for m in matches
             ],
             'max_rules': seed_rules.MAX_RULES,
+            'questions': await self._form(tournament),
         }
+
+    @staticmethod
+    async def _form(tournament: Tournament) -> List[dict]:
+        from application.services.match_form_service import MatchFormService, rules_reading
+
+        rules = list(tournament.seed_rules or [])
+        return [dict(q, used_by=rules_reading(rules, q['key'])) for q in await MatchFormService().questions(tournament.id)]
 
     async def _rounds(self, tournament: Tournament) -> List[Dict[str, str]]:
         try:
@@ -163,7 +182,11 @@ class SeedRuleService:
         await self._ensure_can_edit(actor, tournament)
         await tournament.fetch_related('preset')
         presets = await self._presets()
-        draft = self._clean(tournament, rules, presets) if rules is not None else list(tournament.seed_rules or [])
+        draft = (
+            self._clean(tournament, rules, presets, await self._questions(tournament.id))
+            if rules is not None
+            else list(tournament.seed_rules or [])
+        )
         label = None
         if match_id is not None:
             match = require_found(await self.match_repository.get_by_id(match_id), 'Match')
@@ -214,8 +237,14 @@ class SeedRuleService:
             return None
         return seed_rules.describe(record, {pid: p.name for pid, p in (await self._presets()).items()})
 
-    async def facts_for(self, match: Match) -> seed_rules.MatchFacts:
+    async def facts_for(self, match: Match, *, with_answers: bool = True) -> seed_rules.MatchFacts:
+        answers: Dict[str, seed_rules.Answers] = {}
+        if with_answers:
+            from application.services.match_form_service import MatchFormService
+
+            answers = await MatchFormService().answers_for(match)
         return seed_rules.MatchFacts(
+            answers=answers,
             round=await self.round_schedule_service.round_key_for_match(match),
             game=(await BracketSetService().game_numbers_for([match])).get(match.id),
             best_of=match.set_best_of,

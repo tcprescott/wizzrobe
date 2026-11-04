@@ -48,6 +48,7 @@ from api.routers import (
     integration_settings,
     match_actions,
     match_comments,
+    match_form,
     matches,
     me,
     memberships,
@@ -129,6 +130,7 @@ router.include_router(event_settings.router)
 router.include_router(my_profile.router)
 router.include_router(admin_tournaments.router)
 router.include_router(admin_seed_rules.router)
+router.include_router(match_form.router)
 router.include_router(
     admin_brackets.router,
     dependencies=[Depends(require_feature(FeatureFlag.BRACKETS))],

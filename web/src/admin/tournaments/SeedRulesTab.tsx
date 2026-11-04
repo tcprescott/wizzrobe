@@ -252,7 +252,7 @@ export function SeedRulesTab({ row, board, zone, base }: Props) {
 }
 
 function RuleSummary({ rule, data }: { rule: Rule; data: SeedEditor }) {
-  const when = whenPhrases(rule, data.rounds)
+  const when = whenPhrases(rule, data.rounds, data.questions)
   const tweaks = Object.entries(rule.tweaks ?? {})
   return (
     <span className="sr-summary">
@@ -260,7 +260,7 @@ function RuleSummary({ rule, data }: { rule: Rule; data: SeedEditor }) {
         <span className="sr-k">When</span> {when.length ? when.join(' · ') : 'Every match'}
       </span>
       <span>
-        <span className="sr-k">Then</span> {thenPhrase(rule, data.presets)}
+        <span className="sr-k">Then</span> {thenPhrase(rule, data.presets, data.questions)}
         {rule.then?.weighted?.length ? <Icon name="shuffle" size={16} className="sr-inline-icon" /> : null}
       </span>
       {tweaks.length > 0 && (

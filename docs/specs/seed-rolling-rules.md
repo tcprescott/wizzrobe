@@ -122,24 +122,25 @@ B, side list: on desktop the rule list sits beside the open rule's editor with a
 2. New app staff screen (side list editor, preview, text view) + REST + MCP
    read + help article + changelog + seed row.
 3. Match form: question builder tab, player "Before your match" card, REST,
-   DM, answer conditions in the engine, replacing the hard-preset opt-in
-   surfaces, and the hard-preset migration (hidden question + rule).
+   DM, answer conditions in the engine.
+4. Hard mode onto the form: the hard-preset migration (hidden question + rule),
+   replacing the hard-preset opt-in surfaces.
 
 ## Acceptance
 
-- [ ] A tournament with no rules rolls exactly what it rolls today.
+- [x] A tournament with no rules rolls exactly what it rolls today.
 - [ ] A migrated hard-mode tournament behaves the same: unanimous, private, staff override wins.
-- [ ] Rule order decides; the first match wins; "Otherwise" is the preset.
-- [ ] A weighted outcome draws by weight (test over many draws) and records the draw.
-- [ ] Tweaks reach the settings sent upstream and land in `settings_snapshot`.
-- [ ] Rules ↔ YAML round-trips without loss; bad YAML shows the line that's wrong.
-- [ ] Preview names the rule that fires for a chosen match.
-- [ ] A player never sees another player's hidden answer or the rule list.
-- [ ] A Pick one answer linked to a preset rolls that preset when its rule fires.
-- [ ] An unanswered question makes its rule skip; the next rule decides.
-- [ ] Answers lock once the seed rolls (REST refuses a change).
-- [ ] On a phone, the rule list opens a rule full screen and back returns to the list.
-- [ ] On desktop, the list and the editor sit side by side.
+- [x] Rule order decides; the first match wins; "Otherwise" is the preset.
+- [x] A weighted outcome draws by weight (test over many draws) and records the draw.
+- [x] Tweaks reach the settings sent upstream and land in `settings_snapshot`.
+- [x] Rules ↔ YAML round-trips without loss; bad YAML shows the line that's wrong.
+- [x] Preview names the rule that fires for a chosen match.
+- [x] A player never sees another player's hidden answer or the rule list.
+- [x] A Pick one answer linked to a preset rolls that preset when its rule fires.
+- [x] An unanswered question makes its rule skip; the next rule decides.
+- [x] Answers lock once the seed rolls (REST refuses a change).
+- [x] On a phone, the rule list opens a rule full screen and back returns to the list.
+- [x] On desktop, the list and the editor sit side by side.
 
 ## Open questions
 
@@ -155,3 +156,5 @@ B, side list: on desktop the rule list sits beside the open rule's editor with a
 - 2026-11-04 — Thomas picked a match form, choices only, built from the survey question types; opt-ins and picks become questions.
 - 2026-11-04 — Thomas picked layout B (side list); spec approved.
 - 2026-11-04 — Build: rules live on `Tournament.seed_rules` (JSON) rather than a separate table; the hard-mode migration moves to PR 3 with the match form, so PR 1 keeps hard mode as a step before the rules (same behaviour).
+- 2026-11-04 — Build: the hard-mode migration moves again, to its own PR 4, so the match form ships and can be tried before hard mode's agreement DMs and secrecy move onto it. Until then hard mode stays a step before the rules. The match form is `MatchFormQuestion`/`MatchFormAnswer` beside `MatchHardPresetOptIn`, which PR 4 retires. Preview on a made-up match has no answers, so answer rules show only on a real match's preview.
+- 2026-11-04 — Thomas picked removing the old app's hard-mode toggle (website and Discord buttons) when hard mode moves onto the match form in PR 4; players answer in the new app only.

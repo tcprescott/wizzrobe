@@ -143,6 +143,7 @@ TAG_GROUPS: List[tuple[str, List[tuple[str, str]]]] = [
         ('Crew', 'Commentator, tracker and broadcaster signups, approval and acknowledgement.'),
         ('Reschedule requests', 'Players asking to move or call off a match, and staff answering.'),
         ('Match comments', 'Notes on a match: players to staff, staff notes, and staff to players.'),
+        ('Match form', "The questions a tournament asks players before a match, and their answers."),
         ('Volunteers', 'Volunteer positions, shifts, assignments, availability and hours.'),
         ('Check-in', 'The event check-in desk: roster, check-in, walk-ups and account matching.'),
         ('Equipment', 'Lending equipment out and getting it back.'),

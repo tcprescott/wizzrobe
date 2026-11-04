@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Banner, Button, CountBadge, EmptyState, PageHeader, Panel, Spinner } from '../components'
 import { useCommunity } from '../community/CommunityProvider'
 import { effectiveZone } from '../lib/time'
 import { useMe } from '../screens/useMe'
 import { useHome, useNow } from './data'
+import { MatchFormCard } from './MatchFormCard'
 import { NeedCard, NextUpCard, ScheduleRow } from './parts'
 import './player.css'
 
@@ -28,6 +29,8 @@ export function HomeScreen() {
   const { me } = useMe()
   const { data, error, loading, reload } = useHome()
   const now = useNow()
+  const [params] = useSearchParams()
+  const linked = Number(params.get('form')) || null
   const [flash, setFlash] = useFlash()
   const done = useCallback(
     (message: string) => {
@@ -55,8 +58,14 @@ export function HomeScreen() {
       {data && (
         <div className="home-grid">
           <div className="home-grid__next">
+            {linked != null && linked !== data.next_up?.match_id && <MatchFormCard matchId={linked} explain focus />}
             {data.next_up ? (
-              <NextUpCard entry={data.next_up} zone={zone} now={now} onDone={done} />
+              <>
+                <NextUpCard entry={data.next_up} zone={zone} now={now} onDone={done} />
+                {data.next_up.kind === 'match' && data.next_up.match_id != null && (
+                  <MatchFormCard matchId={data.next_up.match_id} explain={linked === data.next_up.match_id} focus={linked === data.next_up.match_id} />
+                )}
+              </>
             ) : (
               <Panel>
                 <EmptyState icon="event_available" title="No matches coming up">

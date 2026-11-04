@@ -179,6 +179,18 @@ You can change your mind until the seed is rolled. After that, or if staff have
 picked the match's settings themselves, there's nothing left to choose.
 :::
 
+### Before your match
+
+Some tournaments ask you a question or two before a match, such as whether you
+want Hard mode or which settings to play in game 3. The bot DMs you a *📝 Before
+your match* message with an **Answer the questions** button, and the questions
+sit under your next match on Home.
+
+Each question says whether your opponent sees your answer: right away, once the
+seed rolls, or never. You can change your answers until the seed is rolled. A
+question you leave blank doesn't count, so the tournament rolls what it would
+have rolled anyway.
+
 ## Your race room
 
 If your match is online, it's played in a racetime.gg room. When the room opens,

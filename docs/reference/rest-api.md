@@ -54,7 +54,6 @@ Third-party apps signed in through OAuth call this same API with tokens of `orig
 - **Personal access tokens are unscoped** and skip the check entirely; a read-only PAT is still limited by `require_write_actor` as before.
 - **The vocabulary** (eight area scopes: `profile`, `profile:write`, `schedule:read`, `play`, `crew`, `volunteer`, `staff:read`, `staff:write`, with their consent wording) lives in [`application/api_scopes.py`](../../application/api_scopes.py), shared with the authorization server.
 - **The route table** in [`api/scopes.py`](../../api/scopes.py) lists every route exactly once: under the scope an app needs, under `PAT_ONLY` (tokens, webhooks, config, Discord role mappings, service health, racetime bots, `/platform`), or under `PUBLIC` (the two tokenless routes). A route missing from the table is refused for apps. `tests/api/test_scopes.py` fails when a route is unmapped, when a staff-gated route sits under a non-staff scope, when a super-admin route isn't `PAT_ONLY`, or when a read lands on a write-only scope (or the reverse). **Adding an endpoint means adding a line there.**
-- **Placing a route:** by who it serves, not by HTTP verb (a player acknowledging their match is `play`, a proctor starting it is `staff:write`). A route that acts on *any* user by id ("yourself or Staff") is a staff route, since the `/me` routes already serve the self case. A read every member may make is `schedule:read` even where Staff see a little more in the response. Anything that mints or reveals credentials, or is platform-wide, is `PAT_ONLY`.
 - **Scopes only narrow.** The service's own role checks still run, so `staff:read` on a player's grant reaches nothing.
 - `/api/docs` shows each endpoint's scope (or "Apps: can't call this") and declares a `WizzrobeApps` OAuth 2 security scheme with the scope list.
 
@@ -221,6 +220,12 @@ A tournament's seed rules, as the app's Seed rules tab edits them ([seed-generat
 - `GET` — the rules, the presets a rule may name (the tournament's randomizer only), the bracket's round keys, `default_preset` and unseeded `matches` to preview. `PUT {rules}` replaces the whole list and returns the same shape; a bad rule is `400` naming it (`Rule 2: …`), including a preset of another randomizer.
 - `POST /preview {rules?, match_id?, facts?}` — which rule a real or made-up match fires and what it would roll (outcomes with percentages, tweaks, the settings for a single preset), without rolling. `rules` tries an unsaved draft. Override and hard mode aren't consulted.
 - `GET /text` → `{text}` (YAML, presets by name) · `POST /text {text}` → `{rules}` checked, not saved. Bad YAML is `400` naming the line.
+- The `GET`/`PUT` payload also carries `questions`, the tournament's match form, which `when.answer` and `then.from_answer` read.
+
+### Match form · `match_form.py`
+The questions a tournament asks players before a match ([seed-generation.md](seed-generation.md#match-form)), built by `MatchFormService`.
+- `GET /admin/tournaments/{id}/match-form` · `PUT {questions}` — the whole form, each question with `used_by` (the rules reading it). A bad question is `400` naming it; so is removing one a rule reads. Staff, a preset manager or the tournament's admin.
+- `GET /matches/{id}/form` — the questions this match asks the caller, their `answer`, and `others` (other players' answers the question's visibility allows). `PUT /matches/{id}/form/{key} {value}` saves, changes or (null) clears an answer; `400` once the seed is rolled. The match's players only (scope `play`).
 
 ### Admin Match Schedule (`/api/admin/match-schedule`) · `admin_match_schedule.py`
 The app's admin run sheet, built by `AdminScheduleService` from `MatchDisplayService` rows and the shared run-sheet logic in `application/run_sheet.py` (the same functions the website's board draws from). Event-bound (`?event=`, a match path binds its own event), scope `staff:read`. Who may open it mirrors the website: staff and Broadcast Tech see every match; a tournament admin or crew coordinator sees only their tournaments (`scoped_tournaments`); anyone else is `403`.

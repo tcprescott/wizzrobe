@@ -67,6 +67,8 @@ _EXCLUDED_BY_DESIGN = frozenset({
     # Never emit: a lone opt-in must reach nobody, and a webhook subscriber is an outside listener.
     AuditActions.MATCH_HARD_PRESET_OPTED_IN,
     AuditActions.MATCH_HARD_PRESET_WITHDRAWN,
+    # A match form answer can be a hidden opt-in (hard mode), so it never leaves the audit log either.
+    AuditActions.MATCH_FORM_ANSWERED,
     AuditActions.MATCH_WATCHER_ADDED,
     AuditActions.MATCH_WATCHER_REMOVED,
     AuditActions.TOURNAMENT_ADMIN_GRANTED,

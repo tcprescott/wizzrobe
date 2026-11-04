@@ -71,7 +71,7 @@ class TestSeedRules:
             text = (await c.get(f'{url}/text')).json()['text']
             assert 'preset: Standard' in text
             parsed = (await c.post(f'{url}/text', json={'text': text})).json()
-            assert parsed['rules'][0]['then'] == {'preset': std.id, 'weighted': None}
+            assert parsed['rules'][0]['then'] == {'preset': std.id, 'weighted': None, 'from_answer': None}
             broken = await c.post(f'{url}/text', json={'text': 'rules:\n  - name: a\n   then: x\n'})
             assert broken.status_code == 400 and 'Line 3' in broken.text
 

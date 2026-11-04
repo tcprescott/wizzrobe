@@ -5,8 +5,10 @@ export type RuleWhen = Schemas['SeedRuleWhen']
 export type SeedEditor = Schemas['SeedRulesEditorResponse']
 export type Preview = Schemas['SeedRulesPreviewResponse']
 export type PresetRef = Schemas['PresetRef']
+export type FormQuestion = Schemas['MatchFormQuestionOut']
+export type AnswerCond = Schemas['SeedRuleAnswer']
 
-export type ConditionKey = 'round' | 'game' | 'title' | 'on_stage' | 'dates'
+export type ConditionKey = 'round' | 'game' | 'title' | 'on_stage' | 'dates' | 'answer'
 
 export const CONDITION_LABEL: Record<ConditionKey, string> = {
   round: 'Round',
@@ -14,6 +16,7 @@ export const CONDITION_LABEL: Record<ConditionKey, string> = {
   title: 'Title contains',
   on_stage: 'Stage',
   dates: 'Date range',
+  answer: 'Form answer',
 }
 
 const ID_CHARS = 'abcdefghijkmnpqrstuvwxyz23456789'
@@ -35,6 +38,7 @@ export function conditionsOf(when: RuleWhen | undefined): ConditionKey[] {
   if (w.title != null) out.push('title')
   if (w.on_stage != null) out.push('on_stage')
   if (w.from != null || w.to != null) out.push('dates')
+  if (w.answer != null) out.push('answer')
   return out
 }
 
@@ -51,8 +55,21 @@ function shortDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
+/** A choice's label by its value, or the value itself for a number. */
+export function answerLabel(q: FormQuestion | undefined, value: string | number): string {
+  return q?.choices.find((c) => c.value === value)?.label ?? String(value)
+}
+
+function answerPhrase(cond: AnswerCond, questions: FormQuestion[]): string {
+  const q = questions.find((x) => x.key === cond.q)
+  const who = cond.who === 'any' ? 'Any player' : 'Every player'
+  const prompt = q ? `“${q.prompt}”` : 'a removed question'
+  if (!cond.is?.length) return `${who} answered ${prompt}`
+  return `${who} answered ${orList(cond.is.map((v) => answerLabel(q, v)))} to ${prompt}`
+}
+
 /** The rule's conditions as short phrases, for the list and the preview. */
-export function whenPhrases(rule: Rule, rounds: SeedEditor['rounds']): string[] {
+export function whenPhrases(rule: Rule, rounds: SeedEditor['rounds'], questions: FormQuestion[] = []): string[] {
   const w = rule.when ?? {}
   const label = (key: string) => rounds.find((r) => r.key === key)?.label ?? key
   const out: string[] = []
@@ -63,13 +80,18 @@ export function whenPhrases(rule: Rule, rounds: SeedEditor['rounds']): string[] 
   if (w.from && w.to) out.push(`${shortDate(w.from)} to ${shortDate(w.to)}`)
   else if (w.from) out.push(`From ${shortDate(w.from)}`)
   else if (w.to) out.push(`Before ${shortDate(w.to)}`)
+  for (const c of w.answer ?? []) out.push(answerPhrase(c, questions))
   return out
 }
 
 /** What the rule rolls, in a few words. */
-export function thenPhrase(rule: Rule, presets: PresetRef[]): string {
+export function thenPhrase(rule: Rule, presets: PresetRef[], questions: FormQuestion[] = []): string {
   const name = (id: number) => presets.find((p) => p.id === id)?.name ?? 'A missing preset'
   const then = rule.then ?? {}
+  if (then.from_answer) {
+    const q = questions.find((x) => x.key === then.from_answer)
+    return `The players' answer to ${q ? `“${q.prompt}”` : 'a removed question'}`
+  }
   if (then.weighted?.length) return then.weighted.map((e) => `${name(e.preset)} ${e.weight}`).join(' · ')
   if (then.preset != null) return name(then.preset)
   return 'No preset picked'
@@ -100,6 +122,11 @@ export function tidy(rule: Rule): Rule {
   if (src.on_stage != null) w.on_stage = src.on_stage
   if (src.from) w.from = src.from
   if (src.to) w.to = src.to
-  const then = rule.then?.weighted != null ? { weighted: rule.then.weighted } : { preset: rule.then?.preset ?? null }
+  if (src.answer?.length) w.answer = src.answer.map((c) => (c.is?.length ? { q: c.q, who: c.who, is: c.is } : { q: c.q, who: c.who }))
+  const then = rule.then?.from_answer
+    ? { from_answer: rule.then.from_answer }
+    : rule.then?.weighted != null
+      ? { weighted: rule.then.weighted }
+      : { preset: rule.then?.preset ?? null }
   return { id: rule.id, name: rule.name, when: w, then, tweaks: rule.tweaks ?? {} }
 }

@@ -143,6 +143,7 @@ from .match import (
     SeedReadyService,
     assert_sg_fields_unchanged,
 )
+from .match_form_service import MatchFormService
 from .match_reschedule_service import MatchRescheduleService
 from .matcherino_login_service import MatcherinoLoginService, MatcherinoLoginStatus
 from .mcp_auth_service import McpAuthService
@@ -337,6 +338,7 @@ __all__ = [
     'LoggerLevelRow',
     'MatchCommentService',
     'MatchDisplayService',
+    'MatchFormService',
     'MatchHardPresetService',
     'MatchParticipants',
     'MatchReportService',

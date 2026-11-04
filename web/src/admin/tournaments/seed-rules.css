@@ -192,3 +192,36 @@
     display: none;
   }
 }
+
+.mf-choices {
+  display: grid;
+  gap: var(--space-2, 8px);
+}
+.mf-choice {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 12rem) auto;
+  gap: var(--space-2, 8px);
+  align-items: center;
+}
+@media (max-width: 599px) {
+  .mf-choice {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .mf-choice select {
+    grid-column: 1;
+  }
+}
+.sr-answers {
+  display: grid;
+  gap: var(--space-3, 12px);
+  width: 100%;
+}
+.sr-answer {
+  display: grid;
+  gap: var(--space-2, 8px);
+}
+.mf-choices > .btn,
+.sr-answers > .btn,
+.sr-answer > .btn {
+  justify-self: start;
+}
