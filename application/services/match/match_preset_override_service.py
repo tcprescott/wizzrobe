@@ -108,7 +108,7 @@ class MatchPresetOverrideService:
             return match
 
         await self.match_repository.update(match, forced_preset_id=preset_id)
-        match.forced_preset = preset  # type: ignore[assignment]
+        match.forced_preset = preset
 
         action = (
             AuditActions.MATCH_PRESET_OVERRIDE_SET if preset is not None
