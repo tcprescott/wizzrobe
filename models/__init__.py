@@ -170,12 +170,14 @@ from .tenant import (
 )
 from .ticket import Ticket, TicketOrder, TicketStore, TicketType
 from .tournament import (
+    DoorSeed,
     GeneratedSeeds,
     Preset,
     PresetSpace,
     PresetSpaceEditor,
     ProviderTask,
     RandomizerCredential,
+    RomPatch,
     Tournament,
     TournamentNotificationPreference,
     TournamentPayout,
@@ -274,6 +276,7 @@ __all__ = [
     'DiscordRoleSyncState',
     'DiscordScheduledEvent',
     'DiscordTournamentGrant',
+    'DoorSeed',
     'EmergencyContact',
     'Equipment',
     'EquipmentLoan',
@@ -344,6 +347,7 @@ __all__ = [
     'RescheduleRequestStatus',
     'Role',
     'RoleSource',
+    'RomPatch',
     'RoomToken',
     'SentMessage',
     'SentMessageStatus',

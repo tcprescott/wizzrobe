@@ -1,0 +1,186 @@
+/* Door seed, hosted patch and open patcher pages: one centred card. Phone is below 768px. */
+
+.patcher {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: 560px;
+  margin: 0 auto;
+  width: 100%;
+}
+.patcher-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  overflow: visible;
+}
+.patcher-label {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-secondary);
+}
+.patcher-code {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.patcher-code li {
+  padding: 4px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken, var(--surface));
+  font-weight: 700;
+}
+.patcher-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.patcher-primary {
+  width: 100%;
+  justify-content: center;
+}
+.patcher-hint {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+}
+.patcher-summary__main {
+  margin: 0;
+  font-weight: 700;
+}
+.patcher-rom,
+.patcher-summary,
+.patcher-sprite {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.patcher-rom__text,
+.patcher-summary > div,
+.patcher-sprite > div {
+  flex: 1;
+  min-width: 0;
+}
+.patcher-rom {
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+.patcher-summary {
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+.patcher-customize {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.patcher-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+.patcher-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 44px;
+  cursor: pointer;
+}
+.patcher-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.patcher-sprite__blank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 48px;
+  flex: none;
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken, var(--border-subtle));
+  color: var(--fg-muted);
+}
+.patcher-sprite img,
+.sprite-choice img {
+  image-rendering: pixelated;
+  flex: none;
+}
+.patcher-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.patcher-description {
+  margin: 0;
+  white-space: pre-line;
+}
+
+.sprite-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.sprite-choice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 64px;
+  padding: var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.sprite-choice:hover {
+  border-color: var(--border-strong);
+}
+.sprite-choice.is-picked {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.sprite-choice:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.sprite-choice__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.sprite-choice__name {
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 767px) {
+  .patcher-card {
+    padding: var(--space-3);
+  }
+  .patcher-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .sprite-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

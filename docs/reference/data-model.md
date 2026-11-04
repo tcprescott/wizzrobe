@@ -1234,6 +1234,39 @@ Carries the seed's **provenance**: a `Preset` is an editable row, so without a s
 | `provider_meta` | `JSONField` | null | `{provider, operation, attempts, latency_ms, surface}` from the seed-provider envelope |
 | `seed_code` | `JSONField` | null | The file-select code players compare before a race, as a list of names (`["Bow", "Hookshot", …]`); null when the randomizer returns none. See [seed codes](seed-generation.md#seed-codes) |
 
+#### `DoorSeed`
+
+One Door Randomizer seed whose patch Wizzrobe hosts for its built-in patcher (see [seed-generation.md](seed-generation.md#alttprdr)). Created by `DoorRandoBackend._generate_alttprdr` through `DoorSeedRepository`; read by `DoorSeedService`. The patch and spoiler themselves are files under `DOOR_SEED_DIR` (`DoorSeedStore`), named by `token`. Tenant-scoped.
+
+| Field | Type | Null / default | Notes |
+|---|---|---|---|
+| `tenant` | FK → `Tenant` | not null, `CASCADE` | `related_name='door_seeds'` |
+| `token` | `CharField(32)` | unique | The unguessable name in the seed's link (`/door/<token>`) and its files |
+| `version` | `CharField(40)` | not null | Randomizer build that rolled it; its base patch is `GET /api/door-seeds/base/<version>` |
+| `seed_code` | `JSONField` | null | The five file-select items |
+| `spoiler_access` | `CharField(10)` | `'staff'` | `public`, `staff` (this community's staff) or `none` (never kept) |
+| `created_at` | `DatetimeField` | auto | |
+
+#### `RomPatch`
+
+A ROM patch a community hosts for its players (the generic patcher, see [rom-patcher.md](../features/rom-patcher.md)). Managed by `RomPatchService` from the app's Admin → Patches; players reach it at the app's `/t/<slug>/patch/<token>`. The file itself is on disk under `ROM_PATCH_DIR` (`RomPatchStore`), named `<token>.<format>`. Tenant-scoped.
+
+| Field | Type | Null / default | Notes |
+|---|---|---|---|
+| `tenant` | FK → `Tenant` | not null, `CASCADE` | `related_name='rom_patches'` |
+| `token` | `CharField(32)` | unique | The unguessable name in the patch's link and its file; kept when the file is replaced |
+| `title` | `CharField(120)` | not null | |
+| `game` | `CharField(120)` | not null | The ROM it needs, in words ("Super Metroid (Japan, USA)") |
+| `description` | `TextField` | null | Plain text |
+| `format` | `CharField(4)` | not null | `bps`, `ips` or `ups`, read from the file |
+| `filename` | `CharField(200)` | not null | The uploaded name, for staff |
+| `size` | `IntField` | not null | Bytes |
+| `source_crc` | `CharField(8)` | null | CRC32 of the ROM it was made for, upper-case hex. Read from a BPS/UPS; typed by staff for an IPS |
+| `tournament` | FK → `Tournament` | null, `SET_NULL` | Optional label for staff and the page byline |
+| `uploaded_by` | FK → `User` | null, `SET_NULL` | |
+| `download_count` | `IntField` | `0` | Patched ROMs downloaded from its page |
+| `created_at` / `updated_at` | `DatetimeField` | auto | `updated_at` versions the file URL |
+
 #### `ProviderTask`
 
 One long-running call to an upstream provider, tracked across restarts. Created by `ProviderTaskService`; polled to completion by the `seed_roll_worker`. See [seed-generation.md](seed-generation.md#asynchronous-rolls).
@@ -2737,6 +2770,8 @@ Consult the source for full signatures.
 | `WebhookRepository` | [`webhook_repository.py`](../../application/repositories/webhook_repository.py) | `Webhook` | `get_by_id`, `list_all`, `list_active`, `create`, `update`, `delete` |
 | `WebhookDeliveryRepository` | [`webhook_delivery_repository.py`](../../application/repositories/webhook_delivery_repository.py) | `WebhookDelivery` | `create`, `get`, `claim`, `finish`, `list_stale_pending`, `tenants_with_pending` (global worker scan), `list_for_webhook`, `outcome_counts_since`, `prune_older_than` |
 | `PresetRepository` | [`preset_repository.py`](../../application/repositories/preset_repository.py) | `Preset` | `get_by_id`, `get_by_natural_key`, `list_all`, `list_by_randomizer`, `create`, `update`, `delete` |
+| `RomPatchRepository` | [`rom_patch_repository.py`](../../application/repositories/rom_patch_repository.py) | `RomPatch` | `list_all` (tournament and uploader prefetched), `get_by_token` (scoped), `count_download`, plus the `TenantScopedRepository` CRUD quartet |
+| `DoorSeedRepository` | [`door_seed_repository.py`](../../application/repositories/door_seed_repository.py) | `DoorSeed` | `get_by_token` (scoped), plus the `TenantScopedRepository` CRUD quartet |
 | `MatcherinoLoginRepository` | [`matcherino_login_repository.py`](../../application/repositories/matcherino_login_repository.py) | `MatcherinoLogin` | `get_current` (the tenant's one row, `updated_by`/`alert_user` prefetched), `upsert` (also re-arms the alert), `delete_current`, `set_alert_user`, `claim_alert(now)` (one conditional `UPDATE`; the login only for the caller that won), `clear_alert` |
 | `RandomizerCredentialRepository` | [`randomizer_credential_repository.py`](../../application/repositories/randomizer_credential_repository.py) | `RandomizerCredential` | `list_all`, `get_by_natural_key`, `upsert`, `delete_by_natural_key`, `configured_pairs` |
 | `AsyncQualifierRepository`, `AsyncQualifierPoolRepository`, `AsyncQualifierPermalinkRepository`, `AsyncQualifierRunRepository`, `AsyncQualifierLiveRaceRepository`, `AsyncQualifierReviewNoteRepository` (one module) | [`async_qualifier_repository.py`](../../application/repositories/async_qualifier_repository.py) | `AsyncQualifier`, `AsyncQualifierPool`, `AsyncQualifierPermalink`, `AsyncQualifierRun`, `AsyncQualifierLiveRace`, `AsyncQualifierReviewNote` | Qualifier/pool/permalink/run CRUD + `list_active`, `get_with_permalinks`, `list_for_pool`, `list_for_user`; **unscoped** worker scans `list_active_all`, `list_in_progress_all`, `list_stale_claims_all`; draw support `lock_user_for_draw` (SELECT … FOR UPDATE), `get_active_for_user`, `played_permalink_ids_for_user_in_pool`, `valid_run_counts_by_permalink_for_pool` (a `GROUP BY`), `count_valid_runs_for_user_in_pool`; the availability read's batched pair `played_permalink_ids_for_user_by_pool` / `valid_run_counts_for_user_by_pool` (keyed by pool, one query each whatever the pool count) and `count_self_spent_reattempts`; scoring/review `list_scored_for_leaderboard` (the board's projected read — scoring finishers *and* spent-but-unscoreable slots), `list_valid_for_qualifier`, `list_approved_finished_for_permalink`, `list_pending_review`, `pending_review_backlog`, `settle_review`, `outcome_tally_for_users`, `list_for_qualifier(limit=, offset=)` + `count_for_qualifier` (the API's paged runs read); live races `get_by_racetime_slug`, `list_for_live_race`, **unscoped** `due_to_open`; review notes `list_for_run`, `create` |

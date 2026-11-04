@@ -2,6 +2,7 @@ import asyncio
 import functools
 import os
 import sqlite3
+import tempfile
 from typing import Any, Optional
 
 import pytest
@@ -22,6 +23,8 @@ DEFAULT_TEST_EVENT_ID = 1
 TEST_DB_URL = os.environ.get('WIZZROBE_TEST_DB_URL', 'sqlite://:memory:')
 
 os.environ.setdefault('MOCK_DK64_SECONDS', '0')
+# The seeded-DB template writes a dev Door Randomizer patch; keep it out of the repo.
+os.environ.setdefault('DOOR_SEED_DIR', os.path.join(tempfile.gettempdir(), 'wizzrobe-test-door-seeds'))
 ON_POSTGRES = TEST_DB_URL.startswith(('postgres://', 'postgresql://', 'asyncpg://'))
 
 
@@ -101,6 +104,12 @@ def stub_discord_queue(monkeypatch):
     yield captured
     for coro in captured:
         coro.close()
+
+
+@pytest.fixture(autouse=True)
+def _door_seed_dir(monkeypatch, tmp_path):
+    """Hosted Door Randomizer patches go to a per-test directory, never the repo."""
+    monkeypatch.setenv('DOOR_SEED_DIR', str(tmp_path / 'door-seeds'))
 
 
 @pytest.fixture(autouse=True)

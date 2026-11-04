@@ -1,0 +1,10 @@
+description: "Crossed doors at full intensity, with keys, big keys, maps and compasses shuffled anywhere. Spoiler for staff only."
+settings:
+  spoiler: staff
+  settings:
+    door_shuffle: crossed
+    intensity: 3
+    keyshuffle: wild
+    bigkeyshuffle: true
+    mapshuffle: true
+    compassshuffle: true

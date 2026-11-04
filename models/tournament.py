@@ -229,6 +229,68 @@ class GeneratedSeeds(Model):
     updated_at = fields.DatetimeField(auto_now=True)
 
 
+class DoorSeed(Model):
+    """One Door Randomizer seed, whose patch Wizzrobe hosts for the built-in patcher.
+
+    The randomizer runs in its own container with no ROM. It hands back byte
+    writes on top of its base patch, which live on disk under ``token`` (see
+    ``DoorSeedStore``); this row is what the patcher page and the spoiler gate
+    need to know about them. ``token`` is the unguessable name in the seed's
+    link, so a seed is reachable only by someone it was shared with.
+    """
+
+    id = fields.IntField(pk=True)
+    tenant = fields.ForeignKeyField('models.Tenant', related_name='door_seeds', on_delete=fields.CASCADE)  # type: ignore[var-annotated]
+    token = fields.CharField(max_length=32, unique=True)
+    # The randomizer build that rolled it; its base patch must be the same build's.
+    version = fields.CharField(max_length=40)
+    seed_code = fields.JSONField(null=True)  # type: ignore[var-annotated]
+    # 'public' (anyone with the link), 'staff' (this community's staff) or 'none'.
+    spoiler_access = fields.CharField(max_length=10, default='staff')
+    created_at = fields.DatetimeField(auto_now_add=True)
+
+    class Meta:
+        table = 'doorseed'
+
+
+class RomPatch(Model):
+    """A ROM patch staff host for players to apply in their browser.
+
+    The patch file lives on disk under ``token`` (``RomPatchStore``); players
+    reach it at ``/patch/<token>``, where their own ROM is patched on their
+    device. ``source_crc`` is the CRC32 of the ROM the patch was made for: BPS
+    and UPS patches carry it, and staff may type it for an IPS, which doesn't.
+    """
+
+    id = fields.IntField(pk=True)
+    tenant = fields.ForeignKeyField('models.Tenant', related_name='rom_patches', on_delete=fields.CASCADE)  # type: ignore[var-annotated]
+    token = fields.CharField(max_length=32, unique=True)
+    title = fields.CharField(max_length=120)
+    # What a player needs, in words: "Super Metroid (Japan, USA)".
+    game = fields.CharField(max_length=120)
+    description = fields.TextField(null=True)
+    # 'bps', 'ips' or 'ups', read from the file itself.
+    format = fields.CharField(max_length=4)
+    filename = fields.CharField(max_length=200)
+    size = fields.IntField()
+    source_crc = fields.CharField(max_length=8, null=True)
+    tournament = fields.ForeignKeyField(  # type: ignore[var-annotated]
+        'models.Tournament', related_name='rom_patches', null=True, on_delete=fields.SET_NULL,
+    )
+    uploaded_by = fields.ForeignKeyField(  # type: ignore[var-annotated]
+        'models.User', related_name='rom_patches', null=True, on_delete=fields.SET_NULL,
+    )
+    tenant_id: int
+    tournament_id: Optional[int]
+    uploaded_by_id: Optional[int]
+    download_count = fields.IntField(default=0)
+    created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True)
+
+    class Meta:
+        table = 'rompatch'
+
+
 class ProviderTask(Model):
     """One long-running call to an upstream provider, tracked across restarts.
 

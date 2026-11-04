@@ -31,6 +31,16 @@ services:
       timeout: 5s
       retries: 10
 
+  # Aerinon's ALttP Door Randomizer behind a small HTTP API. No ROM lives
+  # here: it returns patches the player's browser applies to their own ROM.
+  # Reachable only on the compose network; DOOR_RANDO_TOKEN guards it anyway.
+  door-rando:
+    build: ./sidecars/door_rando
+    image: wizzrobe-door-rando:latest
+    environment:
+      DOOR_RANDO_TOKEN: ${DOOR_RANDO_TOKEN:-}
+    restart: unless-stopped
+
   wizzrobe:
     build: .
     image: wizzrobe:latest
@@ -40,6 +50,10 @@ services:
       DB_HOST: postgres
       DB_PORT: 5432
       NICEGUI_REDIS_URL: redis://redis:6379/0
+      DOOR_RANDO_URL: http://door-rando:8080
+      DOOR_SEED_DIR: /data/door-seeds
+    volumes:
+      - door_seeds:/data/door-seeds
     ports:
       - "8000:8000"
     depends_on:
@@ -47,6 +61,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      door-rando:
+        condition: service_started
     restart: unless-stopped
     # Room for uvicorn's graceful window plus the lifespan shutdown (queue
     # drain, Sentry flush) before Docker falls back to SIGKILL.
@@ -61,3 +77,4 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  door_seeds:

@@ -24,7 +24,7 @@ SYSTEM = 'System'
 ADMIN_GROUP_ORDER = [RUN_THE_EVENT, ONLINE_PLAY, PEOPLE, COMMUNITY, CONFIGURATION, SYSTEM]
 EVENT_GROUPS = frozenset({RUN_THE_EVENT, ONLINE_PLAY, PEOPLE})
 # Areas built only in the new app; the website's admin drawer never gets them.
-APP_ONLY_AREAS = frozenset({'tickets'})
+APP_ONLY_AREAS = frozenset({'tickets', 'patches'})
 
 
 @dataclass(frozen=True)
@@ -123,6 +123,7 @@ def admin_areas(access: AdminAccess, live: set, setup_ready: bool = True) -> lis
     add(staff and FeatureFlag.SURVEYS in live, 'surveys', 'Surveys', 'rate_review', PEOPLE)
     add(staff, 'events', 'Events', 'calendar_month', CONFIGURATION)
     add(staff or access.is_preset_manager, 'seed-presets', 'Seed Presets', 'tune', CONFIGURATION, 'presets')
+    add(staff or access.is_preset_manager, 'patches', 'Patches', 'difference', CONFIGURATION)
     add(staff, 'notifications', 'Notifications', 'notifications', CONFIGURATION)
     add(bool(settings_panes(access, live)), 'settings', 'Settings', 'settings', CONFIGURATION)
     add(staff or ta or cc or (vc and FeatureFlag.VOLUNTEERS in live), 'reports', 'Reports', 'analytics', SYSTEM)

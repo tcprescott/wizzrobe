@@ -226,7 +226,7 @@ _MOCK_ENEMIES = ('GEEMER', 'RIPPER', 'VIOLA', 'WAVER', 'SOVA', 'ZOA', 'BULL', 'S
 
 def mock_code(randomizer: str) -> Optional[list[str]]:
     """A believable code for ``MOCK_SEEDGEN``, so dev shows the line."""
-    if randomizer in ('alttpr', 'ootr', 'avianart'):
+    if randomizer in ('alttpr', 'alttprdr', 'ootr', 'avianart'):
         return random.choices(ALTTPR_CODE_NAMES, k=5)
     if randomizer in ('smmap', 'smdash', 'sm', 'smz3', 'smvaria'):
         return random.choices(_MOCK_ENEMIES, k=4)

@@ -452,6 +452,11 @@ External-dependency health board (the HTTP dep is the only authz; the service do
 - **Asynchronous randomizers** (`dk64r`) answer **202** with `{task_id, randomizer, status}` instead of a permalink: their upstream is a task queue and a roll takes minutes, so there is no url yet. Poll `GET /seeds/tasks/{id}` until `status` is terminal (`succeeded` / `failed` / `abandoned`); `url` is filled in only for a task that rolled for a match. Synchronous randomizers are unchanged (**200** + `url`).
 - `GET /seeds/tasks/{id}` — where a queued roll has got to. A task another community owns → **404**.
 - `POST /matches/{id}/seed` keeps its shape for both: an asynchronous roll returns `seed_url: null` with a message saying it is under way, and the players are DMed when it lands.
+### Door seeds, ROM patches and Admin → Patches · `rom_patches.py`
+The app's door seed and patch pages, and Admin → Patches ([rom-patcher.md](../features/rom-patcher.md)). The player routes are `require_reader`: they work signed out, name the community in `X-Wizzrobe-Community`, and 404 for a token from another community. No ROM is ever sent.
+- `GET /door-seeds/{token}` (build, code, `spoiler` = may the caller have it) · `/{token}/patch` (JSON writes) · `/base/{version}` (BPS, immutable cache) · `/{token}/spoiler` (404 unless public, or staff for a staff-only one) · `/sprites` (alttpr.com's list, cached).
+- `GET /patches/{token}` · `/{token}/file` · `POST /{token}/downloaded` (204, the count staff see).
+- `GET /admin/patches` → `{patches, tournaments}`; `POST /admin/patches` and `PUT /admin/patches/{id}/file` take the file as the **raw body** (up to 16 MB) with `title`, `game`, `filename`, `description`, `tournament_id`, `source_crc` (IPS only) in the query, and 400 on a file that isn't a patch; `PUT /admin/patches/{id}` (JSON) edits; `DELETE /admin/patches/{id}` (204). Staff or Preset managers.
 ### Async qualifiers (`/api/async-qualifiers`) · `async_qualifiers.py`
 Self-paced permalink-pool qualifiers (mixed auth: admin reads/writes gate
 `can_admin_qualifier`; player run methods enforce ownership; `/open` and `/{id}/public`

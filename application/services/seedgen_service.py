@@ -2,8 +2,8 @@
 Seed Generation Service - Business Logic Layer
 
 Handles random seed generation for various randomizers.
-Supports: ALTTPR, AVIANART, FF1R, Z1R, Z2R, SMB3R, AoSR, SM, SMZ3, SMMAP, OOTR,
-DK64R, DASH, VARIA, WWR, and Test.
+Supports: ALTTPR, ALTTPR Door Randomizer, AVIANART, FF1R, Z1R, Z2R, SMB3R, AoSR,
+SM, SMZ3, SMMAP, OOTR, DK64R, DASH, VARIA, WWR, and Test.
 """
 
 import asyncio
@@ -26,6 +26,12 @@ import application.services._seedgen_local as local_rolls
 import application.services._seedgen_wwr as wwr_permalinks
 from application.errors import MissingCredentialError
 from application.randomizer_credentials import credentials_for, spec_for
+from application.services._seedgen_alttprdr import (
+    DOOR_RANDO_TIMEOUT,
+    DoorRandoBackend,
+    door_preset_settings,
+    door_rando_configured,
+)
 from application.services._seedgen_avianart import (
     AVIANART_MAX_POLLS,
     AVIANART_POLL_INTERVAL,
@@ -83,11 +89,12 @@ async def _read_bundled_preset(path: str) -> str:
 _DASH_BASE_URL = 'https://www.dashrando.net'
 
 
-class SeedGenerationService(DK64RBackend):
+class SeedGenerationService(DK64RBackend, DoorRandoBackend):
     """Service for generating seeds for various randomizers."""
 
     AVAILABLE_RANDOMIZERS: ClassVar[List[str]] = [
         'alttpr',
+        'alttprdr',
         'avianart',
         'ff1r',
         'z1r',
@@ -107,6 +114,7 @@ class SeedGenerationService(DK64RBackend):
 
     RANDOMIZER_NAMES: ClassVar[Dict[str, str]] = {
         'alttpr': 'A Link to the Past',
+        'alttprdr': 'ALttP Door Randomizer',
         'avianart': 'A Link to the Past (AVIANART)',
         'ff1r': 'Final Fantasy',
         'z1r': 'Zelda 1',
@@ -127,8 +135,8 @@ class SeedGenerationService(DK64RBackend):
     STUB_RANDOMIZERS: ClassVar[Set[str]] = set()
 
     PRESET_AWARE_RANDOMIZERS: ClassVar[Set[str]] = {
-        'alttpr', 'aosr', 'avianart', 'dk64r', 'ff1r', 'sm', 'smb3r', 'smdash', 'smvaria', 'smz3', 'wwr',
-        'z1r', 'z2r',
+        'alttpr', 'alttprdr', 'aosr', 'avianart', 'dk64r', 'ff1r', 'sm', 'smb3r', 'smdash', 'smvaria', 'smz3',
+        'wwr', 'z1r', 'z2r',
     }
 
     MOCK_EXEMPT_RANDOMIZERS: ClassVar[Set[str]] = {'aosr', 'dk64r', 'smb3r', 'wwr', 'z1r', 'z2r'}
@@ -145,11 +153,15 @@ class SeedGenerationService(DK64RBackend):
 
     # DK64R: the outer budget must exceed its poll deadline, and one attempt only (a retry submits a second task).
     PROVIDER_TIMEOUTS: ClassVar[dict] = {
+        'alttprdr': DOOR_RANDO_TIMEOUT,
         'avianart': AVIANART_MAX_POLLS * AVIANART_POLL_INTERVAL + 30.0,
         'dk64r': DK64R_GENERATION_TIMEOUT + 60.0,
         'smvaria': VARIA_GENERATION_TIMEOUT + 10.0,
     }
     PROVIDER_ATTEMPTS: ClassVar[dict] = {
+        # The sidecar already retries a layout that fails to generate; a second
+        # attempt here only covers it being busy or briefly unreachable.
+        'alttprdr': 2,
         # AVIANART builds a game per generate call; its polls run inside the attempt.
         'avianart': 1,
         'dk64r': 1,
@@ -172,6 +184,9 @@ class SeedGenerationService(DK64RBackend):
         """
         if randomizer == 'ff1r':
             return {'url': local_rolls.ff1r_reference_url(settings)}
+        if randomizer == 'alttprdr':
+            inner, spoiler = door_preset_settings(settings)
+            return {'settings': inner, 'spoiler': spoiler}
         if randomizer == 'aosr':
             return {'url': local_rolls.aosr_reference_url(settings)}
         if randomizer in local_rolls.FLAG_GAMES:
@@ -270,7 +285,8 @@ class SeedGenerationService(DK64RBackend):
         """
         return [
             r for r in cls.AVAILABLE_RANDOMIZERS
-            if not credentials_for(r) or r in configured
+            if (not credentials_for(r) or r in configured)
+            and (r != 'alttprdr' or door_rando_configured() or is_mock_seedgen())
         ]
 
     async def _credential(self, randomizer: str, key: str) -> str:
@@ -338,6 +354,7 @@ class SeedGenerationService(DK64RBackend):
         """
         generator_map = {
             'alttpr': self._generate_alttpr,
+            'alttprdr': self._generate_alttprdr,
             'avianart': self._generate_avianart,
             'ff1r': self._generate_ff1r,
             'z1r': self._generate_z1r,
@@ -359,7 +376,11 @@ class SeedGenerationService(DK64RBackend):
             raise ValueError(f"Unsupported randomizer: {randomizer}")
 
         # DK64R mocks at its HTTP session instead, so the waiting state still gets exercised.
-        if is_mock_seedgen() and randomizer not in self.MOCK_EXEMPT_RANDOMIZERS:
+        # The Door Randomizer service is ours, so a dev box that runs one rolls for real.
+        mock_exempt = randomizer in self.MOCK_EXEMPT_RANDOMIZERS or (
+            randomizer == 'alttprdr' and door_rando_configured()
+        )
+        if is_mock_seedgen() and not mock_exempt:
             return ProviderCall(
                 value=RolledSeed(
                     url=self._mock_seed_url(randomizer), code=seed_codes.mock_code(randomizer),

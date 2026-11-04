@@ -227,6 +227,14 @@ export const fixtures = {
         "aliases": [
           "presets"
         ]
+      },
+      {
+        "slug": "patches",
+        "label": "Patches",
+        "icon": "difference",
+        "group": "Configuration",
+        "half": "community",
+        "aliases": []
       }
     ],
     "settings_panes": [
