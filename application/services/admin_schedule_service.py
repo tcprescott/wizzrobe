@@ -32,6 +32,7 @@ from application.services.match.match_service import MatchService
 from application.services.match.match_suggestion_service import MatchSuggestionService
 from application.services.match_reschedule_service import MatchRescheduleService
 from application.services.player_home_service import PlayerHomeService
+from application.services.seed_rule_service import SeedRuleService
 from application.services.system_config_service import SystemConfigService
 from application.services.timezone_service import TimezoneService
 from application.timezone_context import is_valid_timezone, tz_scope
@@ -378,6 +379,7 @@ class AdminScheduleService:
             ],
             'rewind_to': [{'step': s, 'explanation': e} for s, e in rewind],
             'seed_dm_blocked': list(row.get('seed_dm_blocked') or []),
+            'seed_rule': await SeedRuleService().why(match.generated_seed) if match is not None else None,
             'stage_url': row.get('stage_url') or None,
             'ada_notes': {
                 str(p.get('user_id')): p.get('ada_note')

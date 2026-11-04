@@ -85,6 +85,13 @@ class MatchRepository:
         ).prefetch_related('tournament', 'players', 'players__user').first()
 
     @staticmethod
+    async def list_unseeded_for_tournament(tournament_id: int, limit: int = 60) -> List[Match]:
+        """A tournament's matches without a seed yet, soonest first, with players and stage."""
+        return await event_scoped(Match.filter(
+            tournament_id=tournament_id, generated_seed_id__isnull=True, finished_at__isnull=True,
+        )).order_by('scheduled_at', 'id').limit(limit).prefetch_related('players__user', 'stage')
+
+    @staticmethod
     async def list_sourced_stale(cutoff: datetime, tournament_id: int) -> List[Match]:
         """SG-sourced, unfinished matches for a tournament scheduled before ``cutoff``.
 

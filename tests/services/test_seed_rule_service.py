@@ -14,6 +14,7 @@ import pytest
 
 from application.services import MatchHardPresetService, SeedRuleService
 from application.services.round_schedule_service import RoundScheduleService
+from application.services.seed_rules import MatchFacts
 from models import AuditLog, GeneratedSeeds, Match, MatchPlayers, Preset, PresetOverride, Tournament, User
 from tests.factories import make_user, utc
 from tests.services._match_schedule_setup import build_service, make_dm_user, make_staff
@@ -99,6 +100,13 @@ class TestRolling:
         audit = await AuditLog.filter(action='match.seed_rolled').first()
         assert json.loads(audit.details)['seed_rule'] == 'Game 2'
 
+    async def test_why_names_the_rule_for_staff(self, db, stub_discord_queue):
+        _, match, _, _, _, _ = await _setup(rules=_game2, game=2, best_of=3)
+
+        seed, _ = await _roll(match)
+
+        assert await SeedRuleService().why(seed) == 'Rule 1: Game 2 → Standard + tweaks'
+
     async def test_a_rule_that_does_not_fit_leaves_the_default(self, db, stub_discord_queue):
         _, match, _, standard, _, _ = await _setup(rules=_game2, game=1, best_of=3)
 
@@ -159,6 +167,37 @@ class TestRolling:
         assert resolution.record['draw']['picked'] == resolution.preset.id
 
 
+class TestPreview:
+    async def test_a_draft_names_the_rule_without_rolling(self, db):
+        tournament, match, _, standard, other, _ = await _setup(game=2, best_of=3)
+        staff = await _staff()
+
+        out = await SeedRuleService().preview(
+            tournament.id, staff, rules=_game2(standard, other), match_id=match.id,
+        )
+
+        assert (out['source'], out['rule_number']) == ('rule', 1)
+        assert out['settings'] == {'mode': 'standard', 'item': {'pool': 'normal', 'swords': 'assured'}}
+        assert not await GeneratedSeeds.exists()
+
+    async def test_no_rule_is_the_tournament_preset(self, db):
+        tournament, *_ = await _setup()
+
+        out = await SeedRuleService().preview(tournament.id, await _staff(), facts=MatchFacts(game=1))
+
+        assert out['source'] == 'default'
+        assert out['outcomes'][0]['name'] == 'Open'
+
+    async def test_editor_lists_only_this_randomizers_presets(self, db):
+        tournament, *_ = await _setup()
+        await Preset.create(name='Other game', randomizer='smz3', settings={})
+
+        data = await SeedRuleService().editor(tournament.id, await _staff())
+
+        assert {p['name'] for p in data['presets']} == {'Open', 'Standard'}
+        assert data['default_preset']['name'] == 'Open'
+
+
 class TestEditing:
     async def test_staff_save_and_read_back(self, db):
         tournament, *_ = await _setup()
@@ -186,6 +225,13 @@ class TestEditing:
             await SeedRuleService().save_rules(
                 tournament.id, [{'then': {'preset': 999999}}], await _staff(),
             )
+
+    async def test_a_preset_of_another_randomizer_is_refused(self, db):
+        tournament, *_ = await _setup()
+        smz3 = await Preset.create(name='Other game', randomizer='smz3', settings={})
+
+        with pytest.raises(ValueError, match='smz3 preset'):
+            await SeedRuleService().save_rules(tournament.id, [{'then': {'preset': smz3.id}}], await _staff())
 
     async def test_text_view_round_trips(self, db):
         tournament, _, _, standard, other, _ = await _setup(rules=_game2)

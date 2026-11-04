@@ -180,6 +180,7 @@ class MatchPaneResponse(BoardRow):
     checklist: List[ChecklistItem]
     rewind_to: List[RewindTarget]
     seed_dm_blocked: List[str]
+    seed_rule: Optional[str] = Field(None, description="Why the seed rolled what it did, such as `Rule 3: Top 8 → Open Hard`.")
     stage_url: Optional[str] = None
     ada_notes: Dict[str, str] = Field(default_factory=dict, description="Staff ADA notes by user id; withheld from proctors.")
 

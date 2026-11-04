@@ -23,6 +23,7 @@ from api.routers import (
     admin_presets,
     admin_qualifiers,
     admin_reports,
+    admin_seed_rules,
     admin_stream_layouts,
     admin_tournaments,
     async_qualifier_live_races,
@@ -127,6 +128,7 @@ router.include_router(integration_settings.router)
 router.include_router(event_settings.router)
 router.include_router(my_profile.router)
 router.include_router(admin_tournaments.router)
+router.include_router(admin_seed_rules.router)
 router.include_router(
     admin_brackets.router,
     dependencies=[Depends(require_feature(FeatureFlag.BRACKETS))],

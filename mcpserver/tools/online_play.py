@@ -15,6 +15,7 @@ from typing import List, Optional
 
 from mcp.server.mcpserver import MCPServer
 
+from api.schemas.seed_rules import SeedRulesEditorResponse
 from application.api_scopes import ApiScope
 from application.errors import require_found
 from application.services import (
@@ -24,6 +25,7 @@ from application.services import (
     RacetimeRoomService,
     RandomizerCredentialService,
     SeedGenerationService,
+    SeedRuleService,
     SpeedGamingSyncService,
     TriforceTextService,
 )
@@ -85,6 +87,22 @@ async def get_preset(
     detail = PresetDetail.model_validate(preset, from_attributes=True)
     detail.settings = preset.settings
     return detail
+
+
+async def get_seed_rules(
+    tournament_id: int,
+    tenant: TenantArg = None,
+) -> SeedRulesEditorResponse:
+    """Get a tournament's seed rules: which preset each match rolls. Staff, preset managers or that tournament's admins.
+
+    Rules are tried in order and the first whose `when` conditions all hold
+    decides; with none fitting, `default_preset` rolls. `then` is one preset id
+    or a weighted draw; `tweaks` set dotted settings paths on top. `presets`
+    names the ids, `rounds` the round keys. Staff's per-match override and a
+    unanimous hard-mode opt-in still beat every rule.
+    """
+    data = await SeedRuleService().editor(tournament_id, current_actor().user)
+    return SeedRulesEditorResponse.model_validate(data)
 
 
 async def list_race_room_profiles(
@@ -227,6 +245,7 @@ async def list_triforce_texts(
 def register_tools(mcp: MCPServer) -> None:
     register(mcp, list_presets, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ, title='List presets')
     register(mcp, get_preset, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ, title='Get preset')
+    register(mcp, get_seed_rules, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ, title='Get seed rules', event=True)
     register(mcp, list_randomizers, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ, title='List randomizers')
     register(
         mcp, list_triforce_texts, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ,

@@ -200,6 +200,7 @@ export function MatchPane({ matchId, board, onChanged, onGone, onEdit, closeTo, 
             {m.seed_code && <span className="ms-seed__code">{m.seed_code}</span>}
           </p>
         )}
+        {m.seed_url && m.seed_rule && <p className="ms-note">Why this seed: {m.seed_rule}</p>}
         {m.seed_dm_blocked.length > 0 && m.seed_url && (
           <p className="ms-note">Couldn't DM {m.seed_dm_blocked.join(', ')}. Hand them the seed.</p>
         )}

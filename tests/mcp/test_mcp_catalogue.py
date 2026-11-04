@@ -66,6 +66,7 @@ READ_TOOLS = {
     'get_member_details',
     'get_player_availability',
     'get_preset',
+    'get_seed_rules',
     'get_race_room',
     'get_schedule',
     'get_stage',

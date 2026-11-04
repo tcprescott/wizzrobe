@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom'
+import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { api, unwrap, type Schemas } from '../../api/client'
-import { ActionsMenu, Banner, Button, Chip, EmptyState, FormDialog, PageHeader, Spinner } from '../../components'
+import { ActionsMenu, Banner, Button, Chip, EmptyState, FormDialog, Icon, PageHeader, Spinner } from '../../components'
 import { usePhone } from '../../lib/usePhone'
 import { message } from '../../me/data'
 import { SideList } from '../kit'
@@ -30,6 +30,7 @@ function TournamentsBoard() {
   const { adminBase } = useAdmin()
   const phone = usePhone()
   const navigate = useNavigate()
+  const { pathname } = useLocation()
   const { data, error, loading, reload } = useBoard()
   const [filter, setFilter] = useState<Filter>('active')
   const [query, setQuery] = useState('')
@@ -64,6 +65,18 @@ function TournamentsBoard() {
     .filter((r) => !q || r.name.toLowerCase().includes(q) || (r.tournament_format ?? '').toLowerCase().includes(q))
 
   if (!phone && openId == null && shown[0]) return <Navigate to={`${base}/${shown[0].id}`} replace />
+  // Seed rules has its own list beside the open rule, so on desktop it takes the whole width.
+  if (!phone && open && pathname.startsWith(`${base}/${open.id}/seed-rules`)) {
+    return (
+      <>
+        <Link to={`${base}/${open.id}`} className="admin-back">
+          <Icon name="chevron_left" />
+          Tournaments
+        </Link>
+        <TournamentDetail key={open.id} row={open} board={data} reloadBoard={reload} base={`${base}/${open.id}`} standalone />
+      </>
+    )
+  }
 
   async function syncAll() {
     setSyncing(true)
