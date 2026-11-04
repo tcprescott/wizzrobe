@@ -47,7 +47,8 @@ Go 1.27 on the machine, everything on localhost.
 
 ## Still to prove on a real machine
 
-1. Agent against real OBS on a Mac (Windows passed, above).
+1. Agent against real OBS on a Mac, when Mac support is picked up (Windows
+   first, per Thomas 2026-11-04).
 2. Commentator stream end to end from OBS over the internet, with the clock.
 3. A connection held for hours through Cloud Run (it caps one websocket at
    the request timeout, so expect a clean reconnect at most every hour).
