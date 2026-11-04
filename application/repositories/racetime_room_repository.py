@@ -93,6 +93,19 @@ class RacetimeRoomRepository(TenantScopedRepository[RacetimeRoom]):
         """Stamp the start-time broadcaster nudge as sent; ``False`` when it was."""
         return await self._claim(room, 'broadcaster_nudged_at', at)
 
+    async def claim_announcement(self, room: RacetimeRoom, at: datetime) -> bool:
+        """Stamp the group race announcement as posted; ``False`` when it was."""
+        return await self._claim(room, 'announced_at', at)
+
+    async def release_announcement(self, room: RacetimeRoom) -> None:
+        """Undo :meth:`claim_announcement` after a post that didn't go out, so it can retry."""
+        await scoped(RacetimeRoom.filter(id=room.id)).update(announced_at=None)
+        room.announced_at = None  # type: ignore[assignment]
+
+    async def claim_lock(self, room: RacetimeRoom, at: datetime) -> bool:
+        """Stamp the room as locked; ``False`` when it already was."""
+        return await self._claim(room, 'locked_at', at)
+
     async def _claim(self, room: RacetimeRoom, field: str, at: datetime) -> bool:
         claimed = await scoped(
             RacetimeRoom.filter(id=room.id, **{f'{field}__isnull': True})
@@ -111,6 +124,19 @@ class RacetimeRoomRepository(TenantScopedRepository[RacetimeRoom]):
             status__in=[RaceRoomStatus.OPEN, RaceRoomStatus.IN_PROGRESS],
             seed_posted_at__isnull=True,
             match__tournament__racetime_bot_runs_room=True,
+        ).prefetch_related('match', 'match__tournament').order_by('id')
+
+    async def group_race_awaiting_announcement(self) -> List[RacetimeRoom]:
+        """Open group race rooms not yet posted in Discord — **unscoped** cross-tenant.
+
+        The worker's retry for an announcement Discord didn't take the first time;
+        each room is handled inside its own community's scope.
+        """
+        return await RacetimeRoom.filter(
+            status=RaceRoomStatus.OPEN,
+            announced_at__isnull=True,
+            match__tournament__racetime_group_race=True,
+            match__tournament__racetime_announce_channel_id__isnull=False,
         ).prefetch_related('match', 'match__tournament').order_by('id')
 
     async def matches_due_for_auto_open(self, window_start: Any, window_end: Any) -> List[Match]:

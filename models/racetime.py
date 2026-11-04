@@ -121,6 +121,9 @@ class RacetimeRoom(Model):
     held_reason = fields.CharEnumField(RaceRoomHoldReason, max_length=20, null=True)
     held_detail = fields.TextField(null=True)
     held_entrants = fields.JSONField(null=True)  # type: ignore[var-annotated]
+    announced_at = fields.DatetimeField(null=True)
+    locked_at = fields.DatetimeField(null=True)
+    unmatched_entrants = fields.JSONField(null=True)  # type: ignore[var-annotated]
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 

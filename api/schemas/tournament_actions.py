@@ -60,6 +60,18 @@ _SHORT_NAME_DESC = (
 )
 _GOAL_DESC = 'Racetime goal new rooms use.'
 _STAGE_REMINDER_DESC = 'How many minutes before a match the stage reminder DM goes out. 0 turns it off.'
+_BOT_RUNS_DESC = (
+    'The racetime bot sits in each room: it greets, posts the seed, takes !seed / !fpa and '
+    'records the result. Always on for a group race.'
+)
+_SEED_POST_DESC = 'How many minutes before the start the bot posts the seed in a room it runs.'
+_GROUP_RACE_DESC = (
+    'Group race: each match has no player list and its room is open to anyone. Turning it '
+    'on also turns on automatic rooms and the bot running them.'
+)
+_LOCK_DESC = 'Turn a group race room invite-only as the seed posts, so nobody joins late.'
+_CHANNEL_DESC = 'Discord channel id (in the community\'s server) where the bot announces an opened group race room.'
+_ROLE_DESC = 'Discord role id the group race announcement pings.'
 
 
 class TournamentCreateRequest(BaseModel):
@@ -104,6 +116,12 @@ class TournamentCreateRequest(BaseModel):
     room_open_minutes_before: int = Field(30, ge=0, description=_ROOM_OPEN_DESC)
     require_racetime_link: bool = Field(False, description=_REQUIRE_LINK_DESC)
     racetime_default_goal: Optional[str] = Field(None, description=_GOAL_DESC)
+    racetime_bot_runs_room: bool = Field(False, description=_BOT_RUNS_DESC)
+    racetime_seed_post_minutes: int = Field(10, ge=0, description=_SEED_POST_DESC)
+    racetime_group_race: bool = Field(False, description=_GROUP_RACE_DESC)
+    racetime_lock_at_seed: bool = Field(False, description=_LOCK_DESC)
+    racetime_announce_channel_id: Optional[str] = Field(None, description=_CHANNEL_DESC)
+    racetime_announce_role_id: Optional[str] = Field(None, description=_ROLE_DESC)
     stage_reminder_minutes: int = Field(30, ge=0, description=_STAGE_REMINDER_DESC)
 
 
@@ -161,6 +179,12 @@ class TournamentUpdateRequest(BaseModel):
     room_open_minutes_before: Optional[int] = Field(None, ge=0, description=_ROOM_OPEN_DESC + _UPDATE_NOTE)
     require_racetime_link: Optional[bool] = Field(None, description=_REQUIRE_LINK_DESC + _UPDATE_NOTE)
     racetime_default_goal: Optional[str] = Field(None, description=_GOAL_DESC + _CLEAR_NOTE)
+    racetime_bot_runs_room: Optional[bool] = Field(None, description=_BOT_RUNS_DESC + _UPDATE_NOTE)
+    racetime_seed_post_minutes: Optional[int] = Field(None, ge=0, description=_SEED_POST_DESC + _UPDATE_NOTE)
+    racetime_group_race: Optional[bool] = Field(None, description=_GROUP_RACE_DESC + _UPDATE_NOTE)
+    racetime_lock_at_seed: Optional[bool] = Field(None, description=_LOCK_DESC + _UPDATE_NOTE)
+    racetime_announce_channel_id: Optional[str] = Field(None, description=_CHANNEL_DESC + _CLEAR_NOTE)
+    racetime_announce_role_id: Optional[str] = Field(None, description=_ROLE_DESC + _CLEAR_NOTE)
     stage_reminder_minutes: Optional[int] = Field(None, ge=0, description=_STAGE_REMINDER_DESC + _UPDATE_NOTE)
 
 

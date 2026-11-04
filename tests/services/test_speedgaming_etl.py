@@ -438,3 +438,18 @@ async def test_a_malformed_discord_id_degrades_instead_of_failing_the_episode(db
     match = await Match.filter(speedgaming_episode__sg_episode_id='250').first()
     players = await MatchPlayers.filter(match=match)
     assert [p.user_id for p in players] == [existing.id]
+
+
+async def test_a_group_race_episode_imports_with_no_players(db):
+    system, tourn, link, etl = await _setup(db)
+    tourn.racetime_group_race = True
+    await tourn.save()
+    raw = _episode(77, '2026-07-20T18:00:00+00:00', [
+        {'id': 3, 'displayName': 'Host', 'discordId': None, 'discordTag': 'host'},
+    ], title='ALTTPR Daily (Co-op)')
+
+    assert await etl.import_episode(link, raw, actor=system) == 'imported'
+
+    match = await Match.filter(speedgaming_episode__sg_episode_id='77').first()
+    assert match is not None and match.title == 'ALTTPR Daily (Co-op)'
+    assert await MatchPlayers.filter(match=match).count() == 0

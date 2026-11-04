@@ -88,6 +88,10 @@ class RaceRoomBotService:
             await self.post_seed_if_due(room, match)
 
     def _greeting(self, match: Match, gated: bool) -> str:
+        if match.tournament.racetime_group_race:
+            from application.services.group_race_service import greeting
+
+            return greeting(match.tournament, match.scheduled_at is not None)
         minutes = match.tournament.racetime_seed_post_minutes
         when = (
             f'{minutes} minutes before the start' if minutes > 0 else 'at the start'
@@ -190,6 +194,10 @@ class RaceRoomBotService:
             return 'posted'
         _forced_ids.discard(match.id)
         await racetime_room_actions.say(room.slug, await self._seed_text(match))
+        if match.tournament.racetime_group_race:
+            from application.services.group_race_service import GroupRaceService
+
+            await GroupRaceService().lock_if_set(room, match)
         return 'posted'
 
     async def _seed_text(self, match: Match) -> str:
@@ -343,9 +351,9 @@ class RaceRoomBotService:
         room.fpa_calls = calls
         await save_fields(room, 'fpa_calls')
         race_time = format_hms(race_seconds)
+        held = '' if match.tournament.racetime_group_race else ', and this result will wait for them'
         await racetime_room_actions.say(
-            room.slug,
-            f'FPA noted at {race_time}. Staff have been told, and this result will wait for them.',
+            room.slug, f'FPA noted at {race_time}. Staff have been told{held}.',
         )
         system_user = await UserService().get_system_user()
         await self.audit_service.write_and_publish(
