@@ -19,6 +19,7 @@ from tortoise.signals import pre_save
 
 from application.repositories._save import save_fields
 from application.repositories._tenant import current_tenant_id
+from application.repositories.preset_repository import PresetRepository
 from models import Preset, PresetSpace, PresetSpaceEditor, PresetSpaceKind, Tenant
 
 
@@ -164,11 +165,8 @@ class PresetSpaceRepository:
 
     @staticmethod
     async def update_preset(preset: Preset, **changes) -> Preset:
-        for key, value in changes.items():
-            setattr(preset, key, value)
-        await save_fields(preset, *changes.keys())
-        return preset
+        return await PresetRepository.update(preset, **changes)
 
     @staticmethod
     async def delete_preset(preset: Preset) -> None:
-        await preset.delete()
+        await PresetRepository.delete(preset)
