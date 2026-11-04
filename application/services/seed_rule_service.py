@@ -19,6 +19,7 @@ from application.repositories.tournament_repository import TournamentRepository
 from application.services import seed_rules
 from application.services.audit_service import AuditActions, AuditService
 from application.services.auth_service import AuthService
+from application.services.bracket_set_service import BracketSetService
 from application.services.match.match_hard_preset_service import MatchHardPresetService
 from application.services.round_schedule_service import RoundScheduleService
 from models import Match, Preset, Tournament, User
@@ -90,7 +91,7 @@ class SeedRuleService:
     async def facts_for(self, match: Match) -> seed_rules.MatchFacts:
         return seed_rules.MatchFacts(
             round=await self.round_schedule_service.round_key_for_match(match),
-            game=match.set_game,
+            game=(await BracketSetService().game_numbers_for([match])).get(match.id),
             best_of=match.set_best_of,
             title=match.title,
             on_stage=match.stage_id is not None,  # type: ignore[attr-defined]

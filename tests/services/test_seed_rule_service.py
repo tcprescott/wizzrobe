@@ -42,9 +42,16 @@ async def _setup(*, rules=None, hard=False, game=None, best_of=None, title=None)
     )
     if rules is not None:
         await SeedRuleService().save_rules(tournament.id, rules(standard, other), await _staff())
+    first = None
+    for n in range(1, game or 1):
+        earlier = await Match.create(
+            tournament=tournament, scheduled_at=utc(2025, 1, 15, 17 + n, 0),
+            set_best_of=best_of, set_first=first,
+        )
+        first = first or earlier
     match = await Match.create(
-        tournament=tournament, scheduled_at=utc(2025, 1, 15, 19, 30),
-        set_game=game, set_best_of=best_of, title=title,
+        tournament=tournament, scheduled_at=utc(2025, 1, 15, 21, 30),
+        set_best_of=best_of, set_first=first, title=title,
     )
     players = []
     for i in range(2):
