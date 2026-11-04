@@ -1196,6 +1196,38 @@ One player privately agreeing to play their match on `Tournament.hard_preset`. T
 
 The opt-in time is the row's `created_at`; there is no separate column. Constraint: `unique_together ('match', 'user')`. Table `matchhardpresetoptin`.
 
+#### `MatchFormQuestion`
+
+One question on a tournament's match form, which players answer before a match and seed rules read ([seed-generation.md](seed-generation.md#match-form)). Migration 169.
+
+| Field | Type | Null / default | Notes |
+|---|---|---|---|
+| `tournament` | FK → `Tournament` | not null, `CASCADE` | `related_name='form_questions'` |
+| `key` | char(16) | not null | kept across saves; rules name the question by it |
+| `position` | int | `0` | list order |
+| `kind` | `MatchFormKind` | not null | `yes_no`, `choice_one`, `choice_many`, `number` |
+| `prompt` / `help` | char(200) / text | `help` null | |
+| `choices` | JSON | `[]` | `[{value, label, preset?}]` |
+| `config` | JSON | `{}` | `{min, max}` for a number |
+| `who` | `MatchFormWho` | `each_player` | also `higher_seed`, `previous_loser` |
+| `ask_on` | `MatchFormAskOn` | `every_match` | or `when_used` |
+| `visibility` | `MatchFormVisibility` | `right_away` | also `at_roll`, `never` |
+
+Constraint: `unique_together ('tournament', 'key')`. Table `matchformquestion`.
+
+#### `MatchFormAnswer`
+
+One player's answer to one question on one match. Nothing outside `MatchFormService` decides who may see it.
+
+| Field | Type | Null / default | Notes |
+|---|---|---|---|
+| `match` | FK → `Match` | not null, `CASCADE` | `related_name='form_answers'` |
+| `user` | FK → `User` | not null, `CASCADE` | |
+| `question` | FK → `MatchFormQuestion` | not null, `CASCADE` | |
+| `value` | JSON | not null | stored as `{"v": answer}` (Tortoise reads a bare string as encoded JSON); `MatchFormRepository` unwraps it |
+
+Constraint: `unique_together ('match', 'user', 'question')`. Table `matchformanswer`.
+
 #### `MatchRescheduleRequest`
 
 A player asking staff to move or call off a match they are playing in. Players never change their own match; approving a request runs the *existing* `MatchService.update_match` / `cancel_match`, so there is one implementation of "move a match" and no authority here that `can_crud_match` did not already grant. Unlike `MatchStreamVolunteer`, which is advisory and needs no answer, this exists to be decided. See [match-participation.md](../features/match-participation.md#reschedule-requests).
