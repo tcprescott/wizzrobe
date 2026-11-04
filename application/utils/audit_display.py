@@ -146,6 +146,7 @@ ACTION_LABELS: dict[str, str] = {
     'tournament.payout_updated': 'Updated a payout',
     'tournament.sglive_link_updated': 'Linked a prize pool to sglive',
     'tournament.round_schedule_updated': 'Changed a round schedule',
+    'tournament.seed_rules_updated': 'Changed seed rules',
     'bracket.created': 'Created a bracket',
     'bracket.updated': 'Edited a bracket',
     'bracket.deleted': 'Deleted a bracket',
