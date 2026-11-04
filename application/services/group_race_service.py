@@ -63,6 +63,81 @@ def greeting(tournament: Tournament, scheduled: bool) -> str:
     )
 
 
+async def announce_room(
+    room: RacetimeRoom, *, channel_id: str, role_id: Optional[str], title: str,
+    starts_at: Optional[datetime], seed_minutes: int, locks: bool,
+) -> bool:
+    """Post an open group race room in a Discord channel, once per room. Never raises.
+
+    Shared by tournament group races and qualifier live races. ``True`` when
+    the post went out; a failed post releases the claim so the worker retries.
+    """
+    repository = RacetimeRoomRepository()
+    try:
+        from application.services.tenant_service import TenantService
+
+        tenant = await TenantService.get_by_id(room.tenant_id)  # type: ignore[attr-defined]
+        if tenant is None or tenant.discord_guild_id is None:
+            logger.debug('group race room %s not announced: no Discord server linked', room.slug)
+            return False
+        if not await repository.claim_announcement(room, datetime.now(timezone.utc)):
+            return False
+        ok, why = await _post(
+            int(tenant.discord_guild_id), room, channel_id=channel_id, role_id=role_id,
+            title=title, starts_at=starts_at, seed_minutes=seed_minutes, locks=locks,
+        )
+        if not ok:
+            logger.warning('group race room %s announcement failed: %s', room.slug, why)
+            await repository.release_announcement(room)
+            return False
+        return True
+    except Exception:
+        logger.exception('group race room %s announcement crashed', room.slug)
+        return False
+
+
+async def _post(
+    guild_id: int, room: RacetimeRoom, *, channel_id: str, role_id: Optional[str], title: str,
+    starts_at: Optional[datetime], seed_minutes: int, locks: bool,
+):
+    from application.services import notification_links
+    from application.services.discord import DiscordService
+    from application.services.tenant_service import TenantService
+    from application.utils.discord_embeds import COLOR_STARTED, notification_embed, time_field
+
+    lines = []
+    if starts_at:
+        lines.append(f'Starts {time_field(starts_at)}')
+        seed_at = starts_at - timedelta(minutes=seed_minutes)
+        lock_note = ', and the room locks then' if locks else ''
+        lines.append(f'Seed posts <t:{int(seed_at.timestamp())}:t>{lock_note}')
+    embed = notification_embed(
+        title=f'🏁 {title}', color=COLOR_STARTED, url=room.url,
+        description='\n'.join(lines) or None,
+        community_name=await TenantService.current_community_name(),
+    )
+    ping = f'<@&{role_id}> ' if role_id else ''
+    message = f'{ping}The race room for {title} is open. Anyone can join.'
+    return await DiscordService().post_to_channel(
+        guild_id, int(channel_id), message,
+        embed=embed, link=notification_links.race_room(room.url),
+        ping_role_id=int(role_id) if role_id else None,
+    )
+
+
+async def lock_room(room: RacetimeRoom) -> bool:
+    """Turn an open room invite-only, once, and say so in the room. Never raises."""
+    try:
+        if not await RacetimeRoomRepository().claim_lock(room, datetime.now(timezone.utc)):
+            return False
+        await racetime_room_actions.send(room.slug, make_invitational_action())
+        await racetime_room_actions.say(room.slug, LOCKED_MESSAGE)
+        return True
+    except Exception:
+        logger.exception('locking group race room %s failed', room.slug)
+        return False
+
+
 class GroupRaceService:
     """What a group race does beyond a match room: announce, lock, record everyone."""
 
@@ -76,58 +151,18 @@ class GroupRaceService:
         tournament = await tournament_of(match)
         if not is_group_race(tournament) or not tournament.racetime_announce_channel_id:
             return False
-        try:
-            from application.services.tenant_service import TenantService
-
-            tenant = await TenantService.get_by_id(room.tenant_id)  # type: ignore[attr-defined]
-            if tenant is None or tenant.discord_guild_id is None:
-                logger.debug('group race %s not announced: no Discord server linked', match.id)
-                return False
-            if not await self.room_repository.claim_announcement(room, datetime.now(timezone.utc)):
-                return False
-            ok, why = await self._post(int(tenant.discord_guild_id), tournament, match, room)
-            if not ok:
-                logger.warning('group race %s announcement failed: %s', match.id, why)
-                await self.room_repository.release_announcement(room)
-                return False
+        sent = await announce_room(
+            room, channel_id=tournament.racetime_announce_channel_id,
+            role_id=tournament.racetime_announce_role_id,
+            title=match.title or tournament.name, starts_at=match.scheduled_at,
+            seed_minutes=tournament.racetime_seed_post_minutes,
+            locks=tournament.racetime_lock_at_seed,
+        )
+        if sent:
             await self._audit(actor, AuditActions.RACE_ROOM_ANNOUNCED, EventType.RACE_ROOM_ANNOUNCED, room, match, {
                 'channel_id': tournament.racetime_announce_channel_id,
             })
-            return True
-        except Exception:
-            logger.exception('group race %s announcement crashed', match.id)
-            return False
-
-    async def _post(self, guild_id: int, tournament: Tournament, match: Match, room: RacetimeRoom):
-        from application.services import notification_links
-        from application.services.discord import DiscordService
-        from application.services.tenant_service import TenantService
-        from application.utils.discord_embeds import COLOR_STARTED, notification_embed, time_field
-
-        title = match.title or tournament.name
-        seed_at = (
-            match.scheduled_at - timedelta(minutes=tournament.racetime_seed_post_minutes)
-            if match.scheduled_at else None
-        )
-        lines = []
-        if match.scheduled_at:
-            lines.append(f'Starts {time_field(match.scheduled_at)}')
-        if seed_at:
-            locks = ', and the room locks then' if tournament.racetime_lock_at_seed else ''
-            lines.append(f'Seed posts <t:{int(seed_at.timestamp())}:t>{locks}')
-        embed = notification_embed(
-            title=f'🏁 {title}', color=COLOR_STARTED, url=room.url,
-            description='\n'.join(lines) or None,
-            community_name=await TenantService.current_community_name(),
-        )
-        role_id = tournament.racetime_announce_role_id
-        ping = f'<@&{role_id}> ' if role_id else ''
-        message = f'{ping}The race room for {title} is open. Anyone can join.'
-        return await DiscordService().post_to_channel(
-            guild_id, int(tournament.racetime_announce_channel_id), message,
-            embed=embed, link=notification_links.race_room(room.url),
-            ping_role_id=int(role_id) if role_id else None,
-        )
+        return sent
 
     # feature-gate: exempt — a worker step over already-open rooms; skips, never raises.
     async def announce_pending(self) -> None:
@@ -156,17 +191,11 @@ class GroupRaceService:
         tournament = await tournament_of(match)
         if not is_group_race(tournament) or not tournament.racetime_lock_at_seed:
             return False
-        try:
-            if not await self.room_repository.claim_lock(room, datetime.now(timezone.utc)):
-                return False
-            await racetime_room_actions.send(room.slug, make_invitational_action())
-            await racetime_room_actions.say(room.slug, LOCKED_MESSAGE)
-            actor = await UserService().get_system_user()
-            await self._audit(actor, AuditActions.RACE_ROOM_LOCKED, EventType.RACE_ROOM_LOCKED, room, match, None)
-            return True
-        except Exception:
-            logger.exception('locking group race room %s failed', room.slug)
+        if not await lock_room(room):
             return False
+        actor = await UserService().get_system_user()
+        await self._audit(actor, AuditActions.RACE_ROOM_LOCKED, EventType.RACE_ROOM_LOCKED, room, match, None)
+        return True
 
     # feature-gate: exempt — lifecycle of an already-open room (see module docstring).
     async def add_linked_entrants(self, match: Match, entrants: List[RaceEntrant]) -> List[dict]:

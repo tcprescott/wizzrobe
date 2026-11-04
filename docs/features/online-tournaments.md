@@ -193,6 +193,24 @@ only the bot can open and run a room with nobody to invite.
 The greeting tells the room anyone can join, when the seed posts and whether the
 room locks then. Gated by `RACETIME_ROOMS` like every match room.
 
+### Qualifier live races as group races
+
+A qualifier live race with a `scheduled_at` is run the same way by
+`LiveRaceRoomService` ([async_qualifier_live_race_room.py](../../application/services/async_qualifier/async_qualifier_live_race_room.py)),
+with its settings on the `AsyncQualifier` (`live_race_*`, REST on the qualifier
+create/update calls):
+
+| Step | What happens |
+|---|---|
+| `live_race_room_open_minutes` (default 60) before the start | The race-room worker opens the room through `auto_open`, as `live_race_bot` (else the community's first bot), open to anyone; "co-op" in the title makes it a team race. Skipped for an inactive qualifier, or a community with `ASYNC_QUALIFIERS` or `RACETIME_ROOMS` off |
+| Room opens | Posted once in `live_race_announce_channel_id` with the `live_race_announce_role_id` ping, through the same `announce_room` helper as tournament group races; retried by the worker |
+| Bot joins | The bot sits in every live race room (`list_bot_run_open` includes rooms with no match), greets once, and answers `!seed` |
+| `live_race_seed_post_minutes` (default 10) before the start | The bot posts the race's pool permalink once (`seed_posted_at`). With `live_race_lock_at_seed` (**on** by default) the room then locks, as for a tournament group race |
+| Finish | Unchanged: `record_finish` captures runs, par and unmatched handles |
+
+A live race without `scheduled_at` is opened by hand as before; the bot still
+greets it but posts nothing, since there's no start time to post against.
+
 ## Migrating a community off SahasrahBot
 
 These are one-way doors:

@@ -51,6 +51,13 @@ async def _tick() -> None:
     except Exception:
         logger.exception('retrying group race announcements failed')
 
+    from application.services.async_qualifier.async_qualifier_live_race_room import LiveRaceRoomService
+    live_races = LiveRaceRoomService()
+    try:
+        await live_races.step_open_rooms(now)
+        await live_races.open_due_races(now, MAX_LEAD_MINUTES)
+    except Exception:
+        logger.exception('running qualifier live race rooms failed')
     repo = RacetimeRoomRepository()
     bracket_service = BracketService()
     candidates = await repo.matches_due_for_auto_open(window_start, window_end)

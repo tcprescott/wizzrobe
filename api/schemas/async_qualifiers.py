@@ -54,6 +54,25 @@ class AsyncQualifierResponse(BaseModel):
             'results public.'
         ),
     )
+    live_race_bot_id: Optional[int] = Field(
+        None,
+        description="The racetime bot that opens this qualifier's live race rooms, or null for the community's first one.",
+    )
+    live_race_room_open_minutes: int = Field(
+        60, description='How many minutes before a scheduled live race its room opens.',
+    )
+    live_race_seed_post_minutes: int = Field(
+        10, description='How many minutes before a scheduled live race the bot posts its permalink.',
+    )
+    live_race_lock_at_seed: bool = Field(
+        True, description='Whether the bot turns a live race room invite-only as the permalink posts.',
+    )
+    live_race_announce_channel_id: Optional[str] = Field(
+        None, description='The Discord channel id an opening live race room is posted in, or null for none.',
+    )
+    live_race_announce_role_id: Optional[str] = Field(
+        None, description='The Discord role id that post pings, or null for no ping.',
+    )
     created_at: datetime = Field(..., description='When the qualifier was created (UTC).')
     updated_at: datetime = Field(..., description='When the qualifier was last changed (UTC).')
 
@@ -143,6 +162,36 @@ class QualifierCreateRequest(BaseModel):
             '`expiry_warning_minutes` and `messaging_templates`. Any other key is refused.'
         ),
     )
+    live_race_bot_id: Optional[int] = Field(
+        None,
+        description=(
+            "The racetime bot that opens live race rooms. Must be one this community may use; "
+            "null uses the community's first one."
+        ),
+    )
+    live_race_room_open_minutes: Optional[int] = Field(
+        None, description='Minutes before a scheduled live race its room opens, 0 to 1440. Default 60.',
+    )
+    live_race_seed_post_minutes: Optional[int] = Field(
+        None,
+        description=(
+            'Minutes before a scheduled live race the bot posts its permalink, 0 to 1440 and '
+            'no more than the room-open minutes. Default 10.'
+        ),
+    )
+    live_race_lock_at_seed: Optional[bool] = Field(
+        None, description='Turn the room invite-only as the permalink posts. Default true.',
+    )
+    live_race_announce_channel_id: Optional[str] = Field(
+        None,
+        description=(
+            "Discord channel id to post an opening live race room in; digits only. An empty "
+            'string or null clears it.'
+        ),
+    )
+    live_race_announce_role_id: Optional[str] = Field(
+        None, description='Discord role id that post pings; digits only. An empty string or null clears it.',
+    )
 
 
 class QualifierUpdateRequest(BaseModel):
@@ -179,6 +228,36 @@ class QualifierUpdateRequest(BaseModel):
             'Set true to remove the window. Times you send alongside it are kept and any '
             'you leave out are cleared.'
         ),
+    )
+    live_race_bot_id: Optional[int] = Field(
+        None,
+        description=(
+            "The racetime bot that opens live race rooms. Must be one this community may use; "
+            "null uses the community's first one."
+        ),
+    )
+    live_race_room_open_minutes: Optional[int] = Field(
+        None, description='Minutes before a scheduled live race its room opens, 0 to 1440. Default 60.',
+    )
+    live_race_seed_post_minutes: Optional[int] = Field(
+        None,
+        description=(
+            'Minutes before a scheduled live race the bot posts its permalink, 0 to 1440 and '
+            'no more than the room-open minutes. Default 10.'
+        ),
+    )
+    live_race_lock_at_seed: Optional[bool] = Field(
+        None, description='Turn the room invite-only as the permalink posts. Default true.',
+    )
+    live_race_announce_channel_id: Optional[str] = Field(
+        None,
+        description=(
+            "Discord channel id to post an opening live race room in; digits only. An empty "
+            'string or null clears it.'
+        ),
+    )
+    live_race_announce_role_id: Optional[str] = Field(
+        None, description='Discord role id that post pings; digits only. An empty string or null clears it.',
     )
 
 

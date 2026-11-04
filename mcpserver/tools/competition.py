@@ -311,6 +311,7 @@ async def list_async_qualifier_live_races(
             status=getattr(race.status, 'value', race.status),
             pool=race.pool.name if race.pool else None,
             racetime_slug=race.racetime_slug,
+            scheduled_at=race.scheduled_at,
         )
         for race in races
     ]

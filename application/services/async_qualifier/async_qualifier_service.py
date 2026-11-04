@@ -26,7 +26,7 @@ best-effort and never block a state change.
 
 import logging
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from tortoise.transactions import in_transaction
 
@@ -47,6 +47,7 @@ from application.services.async_qualifier import async_qualifier_rules as rules
 from application.services.async_qualifier.async_qualifier_config import validate_async_qualifier_config
 from application.services.async_qualifier.async_qualifier_draw import AsyncQualifierDraw
 from application.services.async_qualifier.async_qualifier_expiry import RunExpiryMixin
+from application.services.async_qualifier.async_qualifier_live_race_settings import live_race_updates
 from application.services.async_qualifier.async_qualifier_pools import PoolManagementMixin
 from application.services.async_qualifier.async_qualifier_reads import PlayerReadsMixin
 from application.services.async_qualifier.async_qualifier_review import RunReviewMixin
@@ -137,6 +138,7 @@ class AsyncQualifierService(
         allowed_reattempts: int = 0,
         is_active: bool = True,
         config: Optional[dict] = None,
+        **live_race: Any,
     ) -> AsyncQualifier:
         await access.ensure_qualifier_admin(actor, message="Cannot administer qualifiers")
         name = (name or '').strip()
@@ -145,6 +147,7 @@ class AsyncQualifierService(
         runs_per_pool, allowed_reattempts = rules.validate_counts(runs_per_pool, allowed_reattempts)
         rules.validate_window(opens_at, closes_at)
         config = validate_async_qualifier_config(config)
+        live_race_fields = await live_race_updates(live_race)
         qualifier = await self.repository.create(
             name=name,
             description=(description or '').strip() or None,
@@ -155,6 +158,7 @@ class AsyncQualifierService(
             allowed_reattempts=allowed_reattempts,
             is_active=is_active,
             config=config,
+            **live_race_fields,
         )
         await self.audit_service.write_log(
             actor, AuditActions.ASYNC_QUALIFIER_CREATED,
@@ -180,6 +184,7 @@ class AsyncQualifierService(
         is_active: Optional[bool] = None,
         config: Optional[dict] = None,
         clear_window: bool = False,
+        **live_race: Any,
     ) -> AsyncQualifier:
         qualifier = await self._require_qualifier(qualifier_id)
         await access.ensure_qualifier_admin(actor, qualifier)
@@ -209,6 +214,7 @@ class AsyncQualifierService(
             changes['is_active'] = is_active
         if config is not None:
             changes['config'] = validate_async_qualifier_config(config)
+        changes.update(await live_race_updates(live_race, qualifier))
         qualifier = await self.repository.update(qualifier, **changes)
         await self.audit_service.write_log(
             actor, AuditActions.ASYNC_QUALIFIER_UPDATED,
