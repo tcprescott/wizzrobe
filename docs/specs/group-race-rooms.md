@@ -1,6 +1,6 @@
 # Group race rooms
 
-Status: Building · Size: full · PRs: PR 1 (backend for dailies) · Requested: 2026-11-03, Thomas
+Status: Building · Size: full · PRs: #817 (backend for dailies, merged), PR 2 (qualifier live races) · Requested: 2026-11-03, Thomas
 
 ## Problem
 
@@ -101,9 +101,11 @@ room now, Re-post announcement, Cancel race.
 - **Models:** `Tournament` gains `racetime_group_race` (bool, worker-scanned),
   `racetime_lock_at_seed` (bool), `racetime_announce_channel_id` and
   `racetime_announce_role_id` (typed columns, digits only, so the worker can
-  filter on them). `AsyncQualifier` gains the same group race fields
-  (bot, profile, channel, role, lock, room-open and seed-post minutes);
-  `AsyncQualifierLiveRace` gains `scheduled_at` and `announced_at`.
+  filter on them). `AsyncQualifier` gains `live_race_*` group race fields
+  (bot, channel, role, lock, room-open and seed-post minutes; no profile, since
+  live race rooms open with racetime's defaults today);
+  `AsyncQualifierLiveRace` gains `scheduled_at` (the post and lock stamps live
+  on the room, as for dailies).
   `RacetimeRoom` gains `announced_at`, `locked_at` and `unmatched_entrants`
   (JSON, racetime names + rank/time; on the room, since it's what racetime
   reported). Tournaments and

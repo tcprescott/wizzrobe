@@ -604,6 +604,7 @@ class LiveRaceInfo(BaseModel):
     status: str
     pool: Optional[str] = None
     racetime_slug: Optional[str] = None
+    scheduled_at: Optional[datetime] = None
 
 
 class ServiceHealthProbe(BaseModel):

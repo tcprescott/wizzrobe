@@ -20,6 +20,14 @@ class LiveRaceResponse(BaseModel):
         ...,
         description="The race's title, also used as the racetime room's info line.",
     )
+    scheduled_at: Optional[datetime] = Field(
+        None,
+        description=(
+            'When the race starts (UTC), or null for a race staff open by hand. A race '
+            "with a start time opens its room on its own, before the start by the qualifier's "
+            '`live_race_room_open_minutes`.'
+        ),
+    )
     racetime_slug: Optional[str] = Field(
         None,
         description="The racetime.gg room's slug, or null until a room is opened.",
@@ -61,6 +69,14 @@ class LiveRaceCreateRequest(BaseModel):
     episode_id: Optional[int] = Field(
         None,
         description='A SpeedGaming episode this race stands in for.',
+    )
+    scheduled_at: Optional[datetime] = Field(
+        None,
+        description=(
+            'When the race starts (UTC). With one, the room opens on its own, the bot posts '
+            'the permalink before the start and, if the qualifier says so, locks the room. '
+            'Leave out to open the room by hand.'
+        ),
     )
 
 

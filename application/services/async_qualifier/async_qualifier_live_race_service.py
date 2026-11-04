@@ -50,6 +50,7 @@ from application.services.user_service import UserService
 from application.tenant_context import require_tenant_id
 from application.utils.clients.racetime_rooms_client import RaceRoomSettings
 from application.utils.racetime_entrants import is_scored_finish, unmatched_handle
+from application.utils.timezone import to_utc_aware
 from models import (
     AsyncQualifier,
     AsyncQualifierLiveRace,
@@ -165,6 +166,7 @@ class AsyncQualifierLiveRaceService:
         match_title: str,
         permalink_id: Optional[int] = None,
         episode_id: Optional[int] = None,
+        scheduled_at: Optional[datetime] = None,
     ) -> AsyncQualifierLiveRace:
         pool = await self._require_pool(pool_id)
         qualifier = await self._require_qualifier(pool.qualifier_id)
@@ -181,6 +183,7 @@ class AsyncQualifierLiveRaceService:
             permalink_id=permalink_id,
             match_title=match_title,
             episode_id=episode_id,
+            scheduled_at=to_utc_aware(scheduled_at) if scheduled_at else None,
             status=AsyncQualifierLiveRaceStatus.SCHEDULED,
         )
         await self.audit_service.write_log(
@@ -228,37 +231,55 @@ class AsyncQualifierLiveRaceService:
     async def open_room(self, actor: Optional[User], live_race_id: int) -> AsyncQualifierLiveRace:
         """Open a racetime room for the live race, reusing the shared subsystem.
 
-        Opens the room on racetime.gg as one of the tenant's authorized bots
-        (racetime's defaults, the qualifier's name as the goal), then records a
-        :class:`~models.RacetimeRoom` (``match=None``) under racetime's slug and
-        mirrors that slug onto the live race so inbound room events route back
-        here. Idempotent — a race that already has a slug is returned unchanged.
+        Opens the room on racetime.gg as the qualifier's live race bot (else the
+        community's first authorized one), open to anyone, with the qualifier's
+        name as the goal, then records a :class:`~models.RacetimeRoom`
+        (``match=None``) under racetime's slug and mirrors that slug onto the
+        live race so inbound room events route back here. Posts the room in the
+        qualifier's Discord channel when one is set. Idempotent — a race that
+        already has a slug is returned unchanged.
         """
+        # ASYNC_QUALIFIERS alone, deliberately: RACETIME_ROOMS gates only match-driven rooms.
+        live_race, qualifier = await self._require_live_race_admin(actor, live_race_id)
+        return await self._open(actor, live_race, qualifier)  # type: ignore[arg-type]
+
+    @requires_feature(FeatureFlag.ASYNC_QUALIFIERS)
+    async def auto_open(self, live_race_id: int, *, actor: User) -> Optional[AsyncQualifierLiveRace]:
+        """The worker's open: no admin check, and only a scheduled race that has no room yet."""
+        live_race = await self.repository.get_by_id(live_race_id)
+        if (
+            live_race is None or live_race.racetime_slug
+            or live_race.status != AsyncQualifierLiveRaceStatus.SCHEDULED
+        ):
+            return None
+        qualifier = await self._require_qualifier(await self._qualifier_id_of(live_race))
+        return await self._open(actor, live_race, qualifier)
+
+    async def _open(
+        self, actor: User, live_race: AsyncQualifierLiveRace, qualifier: AsyncQualifier,
+    ) -> AsyncQualifierLiveRace:
         from application.services.race_room_service import (
             room_open_lock,
             start_racetime_room,
         )
 
-        # ASYNC_QUALIFIERS alone, deliberately: RACETIME_ROOMS gates only match-driven rooms.
-        live_race, qualifier = await self._require_live_race_admin(actor, live_race_id)
         async with room_open_lock(f'qualifier-live:{live_race.id}'):
             live_race = require_found(
                 await self.repository.get_by_id(live_race.id), 'Live race',
             )
             if live_race.racetime_slug:
                 return live_race
-            bots = await self.bot_service.list_authorized_for_tenant(require_tenant_id())
-            if not bots:
-                raise ValueError("No racetime bot is authorized for this community")
-            bot = bots[0]
+            bot = await self._bot_for(qualifier)
+            title = live_race.match_title
             slug = await start_racetime_room(bot, RaceRoomSettings(
-                goal=qualifier.name, info_user=live_race.match_title,
+                goal=qualifier.name, info_user=title,
+                team_race='co-op' in title.lower(),
             ))
-            await self.room_repository.create(
+            room = await self.room_repository.create(
                 bot_id=bot.id,
                 slug=slug,
                 category=bot.category,
-                room_name=live_race.match_title,
+                room_name=title,
                 status=RaceRoomStatus.OPEN,
                 match_id=None,
                 opened_at=datetime.now(timezone.utc),
@@ -270,7 +291,17 @@ class AsyncQualifierLiveRaceService:
             actor, AuditActions.ASYNC_QUALIFIER_LIVE_RACE_OPENED,
             {'live_race_id': live_race.id, 'slug': slug, 'category': bot.category},
         )
+        from application.services.async_qualifier.async_qualifier_live_race_room import LiveRaceRoomService
+
+        await LiveRaceRoomService().announce(room, live_race, qualifier, actor=actor)
         return live_race
+
+    async def _bot_for(self, qualifier: AsyncQualifier):
+        bots = await self.bot_service.list_authorized_for_tenant(require_tenant_id())
+        if not bots:
+            raise ValueError("No racetime bot is authorized for this community")
+        chosen = qualifier.live_race_bot_id  # type: ignore[attr-defined]
+        return next((b for b in bots if b.id == chosen), bots[0])
 
     @requires_feature(FeatureFlag.ASYNC_QUALIFIERS)
     async def cancel_live_race(self, actor: Optional[User], live_race_id: int) -> None:

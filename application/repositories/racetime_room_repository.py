@@ -11,6 +11,8 @@ method never calls the ``_tenant`` helpers and says so; the scoped reads/writes
 from datetime import datetime, timezone
 from typing import Any, List, Optional
 
+from tortoise.expressions import Q
+
 from application.repositories._base import TenantScopedRepository
 from application.repositories._tenant import scoped
 from models import Match, RaceRoomStatus, RacetimeRoom
@@ -42,15 +44,17 @@ class RacetimeRoomRepository(TenantScopedRepository[RacetimeRoom]):
         ).prefetch_related('tenant').order_by('id')
 
     async def list_bot_run_open(self, category: str) -> List[RacetimeRoom]:
-        """Open match rooms in ``category`` whose tournament has the bot run them — **unscoped**.
+        """Open rooms in ``category`` the bot runs — **unscoped**.
 
-        The bot's connection asks for these every few seconds to know which rooms
-        to sit in, across every community that shares the category's bot.
+        Match rooms whose tournament has the bot run them, plus every qualifier
+        live race room (``match`` null). The bot's connection asks for these every
+        few seconds to know which rooms to sit in, across every community that
+        shares the category's bot.
         """
         return await RacetimeRoom.filter(
+            Q(match__tournament__racetime_bot_runs_room=True) | Q(match_id__isnull=True),
             category=category,
             status__in=[RaceRoomStatus.OPEN, RaceRoomStatus.IN_PROGRESS],
-            match__tournament__racetime_bot_runs_room=True,
         ).order_by('id')
 
     async def claim_hold(self, room: RacetimeRoom) -> bool:
@@ -138,6 +142,16 @@ class RacetimeRoomRepository(TenantScopedRepository[RacetimeRoom]):
             match__tournament__racetime_group_race=True,
             match__tournament__racetime_announce_channel_id__isnull=False,
         ).prefetch_related('match', 'match__tournament').order_by('id')
+
+    async def open_without_match(self) -> List[RacetimeRoom]:
+        """Open rooms with no match (qualifier live races) still owed a seed or a post — **unscoped**.
+
+        The worker's scan; each room is handled inside its own community's scope.
+        """
+        return await RacetimeRoom.filter(
+            Q(seed_posted_at__isnull=True) | Q(announced_at__isnull=True),
+            status=RaceRoomStatus.OPEN, match_id__isnull=True,
+        ).order_by('id')
 
     async def matches_due_for_auto_open(self, window_start: Any, window_end: Any) -> List[Match]:
         """Candidate matches for the auto-open worker — **unscoped** cross-tenant.

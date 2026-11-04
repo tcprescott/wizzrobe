@@ -267,7 +267,25 @@ async def seed_qualifiers_for_tenant(tenant: Tenant, preset: Preset) -> None:
                 review_status=AsyncQualifierReviewStatus.PENDING,
             )
 
+    await _seed_scheduled_live_race(tenant, qualifier, live_pool)
     await _seed_closed_qualifier(tenant)
+
+
+async def _seed_scheduled_live_race(tenant: Tenant, qualifier: AsyncQualifier, pool: AsyncQualifierPool) -> None:
+    """A live race with a start time: the bot opens, posts, seeds and locks it on its own."""
+    if qualifier.live_race_announce_channel_id is None:
+        qualifier.live_race_announce_channel_id = "100000000000000003"
+        await qualifier.save(update_fields=["live_race_announce_channel_id"])
+    permalink, _ = await AsyncQualifierPermalink.get_or_create(
+        pool=pool, url=f"https://alttpr.com/en/h/dev-{tenant.slug}-live-weekly",
+        tenant=tenant, defaults={"live_race": True},
+    )
+    start = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0) + timedelta(days=1)
+    await AsyncQualifierLiveRace.get_or_create(
+        pool=pool, match_title="Dev Live Race — Weekly (scheduled)", tenant=tenant,
+        defaults={"permalink": permalink, "status": AsyncQualifierLiveRaceStatus.SCHEDULED,
+                  "scheduled_at": start},
+    )
 
 
 async def _seed_closed_qualifier(tenant: Tenant) -> None:
