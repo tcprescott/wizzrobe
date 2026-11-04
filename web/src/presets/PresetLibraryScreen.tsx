@@ -133,7 +133,9 @@ export function PresetLibraryScreen() {
 
   return (
     <>
-      {!(phone && openId !== null) && (
+      {phone && openId !== null ? (
+        <h1 className="visually-hidden">Presets</h1>
+      ) : (
         <PageHeader
           title="Presets"
           lede="Roll or copy any preset a community has shared. Tournaments use presets copied into their community."
