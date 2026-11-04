@@ -367,14 +367,18 @@ class MatchFormService:
         )
         return await self.player_form(match.id, user)
 
-    async def has_questions_for(self, match: Match, user_id: int) -> bool:
-        """Whether ``user_id`` has anything to answer on ``match`` (``match.tournament`` loaded)."""
+    async def question_count_for(self, match: Match, user_id: int) -> int:
+        """How many questions ``match`` asks ``user_id`` (``match.tournament`` loaded)."""
+        questions = await self.repository.list_questions(match.tournament_id)  # type: ignore[attr-defined]
+        if not questions:
+            return 0
         rules = list(match.tournament.seed_rules or [])
         players = [p.user_id for p in await self.repository.players(match.id)]  # type: ignore[attr-defined]
-        for q in await self.repository.list_questions(match.tournament_id):  # type: ignore[attr-defined]
+        count = 0
+        for q in questions:
             if user_id in await self._asked(match, q, players) and await self._shown_on(match, q, rules):
-                return True
-        return False
+                count += 1
+        return count
 
 
 def _check_answer(q: MatchFormQuestion, value: Any) -> Any:

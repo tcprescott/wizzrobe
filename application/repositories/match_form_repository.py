@@ -5,7 +5,7 @@ show another player. ``MatchFormService`` is the only caller and decides what
 each viewer sees.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from application.event_writes import guarded_delete
 from application.repositories._tenant import current_tenant_id, scoped

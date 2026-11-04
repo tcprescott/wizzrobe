@@ -254,6 +254,10 @@ STREAM_OFFER = _notice(
     {ON_DUTY: _opted_in("Whoever's on a shift with staff alerts on and can schedule streams"),
      ADMINS: _opted_in("The tournament's admins and Broadcast Techs"), STAFF: _opted_in(_FALLBACK)},
 )
+MATCH_FORM_ASKED = _notice(
+    'match_form_asked', 'Matches', 'Before your match',
+    "A match is scheduled and its tournament's match form has questions for you", {PLAYERS: PING},
+)
 HARDER_SETTINGS_OFFER = _notice(
     'harder_settings_offer', 'Matches', 'Harder settings available',
     'A match is scheduled in a tournament with a harder preset', {PLAYERS: PING},
@@ -581,7 +585,7 @@ SECTIONS: Dict[str, Tuple[Tuple[str, Tuple[Notice, ...]], ...]] = {
             STREAM_OFFER, SEED_FAILED,
         )),
         ('Seed settings', (
-            HARDER_SETTINGS_OFFER, HARDER_SETTINGS_AGREED, HARDER_SETTINGS_DROPPED,
+            MATCH_FORM_ASKED, HARDER_SETTINGS_OFFER, HARDER_SETTINGS_AGREED, HARDER_SETTINGS_DROPPED,
             SETTINGS_SET_BY_STAFF, SETTINGS_RELEASED,
         )),
     ),

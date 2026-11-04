@@ -70,7 +70,7 @@ class MatchFormQuestion(Model):
     class Meta:
         table = 'matchformquestion'
         unique_together = (('tournament', 'key'),)
-        ordering = ['position', 'id']
+        ordering = ('position', 'id')
 
 
 class MatchFormAnswer(Model):

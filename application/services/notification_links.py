@@ -47,6 +47,7 @@ from application.utils.app_links import (
     community_event_url,
     crew_match_url,
     home_url,
+    match_form_url,
     my_message_url,
     player_agree_url,
     player_challonge_schedule_url,
@@ -198,6 +199,11 @@ async def player_hard_preset(
     is a single cell on a nine-column board.
     """
     return await link_for(label, player_hard_preset_url(match_id))
+
+
+async def player_match_form(match_id: int, *, label: str = 'Answer the questions') -> Optional[DMLink]:
+    """The match's "Before your match" card, open on its questions."""
+    return await link_for(label, match_form_url(match_id))
 
 
 async def player_match(

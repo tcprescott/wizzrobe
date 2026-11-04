@@ -7,10 +7,17 @@ can't be removed, and a rule on "every player answered Yes" decides the roll.
 
 import pytest
 
-from application.services import MatchFormService, SeedRuleService
-from application.services import seed_rules
-from models import AuditLog, BracketEntrant, BracketEntry, GeneratedSeeds, MatchFormAnswer, Preset
-from models import Bracket, BracketFormat
+from application.services import MatchFormService, SeedRuleService, seed_rules
+from models import (
+    AuditLog,
+    Bracket,
+    BracketEntrant,
+    BracketEntry,
+    BracketFormat,
+    GeneratedSeeds,
+    MatchFormAnswer,
+    Preset,
+)
 from tests.services.test_seed_rule_service import _roll, _setup, _staff
 
 
@@ -37,7 +44,7 @@ class TestBuildingTheForm:
         tournament, *_ = await _setup()
         with pytest.raises(ValueError, match='Question 1'):
             await _form(tournament, [{'kind': 'choice_one', 'prompt': 'Pick', 'choices': [{'label': 'Only'}]}])
-        with pytest.raises(ValueError, match='bounds|below'):
+        with pytest.raises(ValueError, match=r'bounds|below'):
             await _form(tournament, [{'kind': 'number', 'prompt': 'How many', 'config': {'min': 5, 'max': 2}}])
 
     async def test_linked_preset_must_match_the_randomizer(self, db, stub_discord_queue):
@@ -113,7 +120,7 @@ class TestAnswering:
         await _form(tournament, [_hard_question(who='higher_seed', visibility='right_away')])
         assert (await MatchFormService().player_form(match.id, players[0]))['questions'] == []
         bracket = await Bracket.create(tournament=tournament, name='Main', format=BracketFormat.SINGLE_ELIM)
-        for seed, user in zip((4, 1), players):
+        for seed, user in zip((4, 1), players, strict=True):
             entrant = await BracketEntrant.create(tournament=tournament, display_name=user.username, user=user)
             await BracketEntry.create(bracket=bracket, entrant=entrant, seed=seed)
         assert (await MatchFormService().player_form(match.id, players[0]))['questions'] == []
@@ -168,3 +175,31 @@ class TestRolling:
         assert preset.id == standard.id
         assert seed.resolution['source'] == 'default'
         assert await GeneratedSeeds.all().count() == 1
+
+
+class TestBeforeYourMatchDm:
+    async def _sent(self, monkeypatch, match):
+        from application.services.match import _match_form_notifications as notif
+
+        sent = []
+
+        async def fake_send(self, user_id, message, **kwargs):
+            sent.append((user_id, message, kwargs))
+            return True, ''
+
+        monkeypatch.setattr(notif.DiscordService, 'send_dm', fake_send)
+        await notif.notify_match_form(match)
+        return sent
+
+    async def test_each_asked_player_gets_one_with_the_link(self, db, stub_discord_queue, monkeypatch):
+        tournament, match, players, *_ = await _setup()
+        await _form(tournament, [_hard_question()])
+        sent = await self._sent(monkeypatch, match)
+        assert sorted(s[0] for s in sent) == sorted(p.discord_id for p in players)
+        assert 'a question for you' in sent[0][1]
+        assert f'form={match.id}' in sent[0][2]['link'].url
+        assert sent[0][2]['notice'].key == 'match_form_asked'
+
+    async def test_no_form_no_dm(self, db, stub_discord_queue, monkeypatch):
+        _t, match, *_ = await _setup()
+        assert await self._sent(monkeypatch, match) == []
