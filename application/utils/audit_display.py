@@ -29,7 +29,7 @@ class AuditArea:
 AREAS: tuple[AuditArea, ...] = (
     AuditArea('matches', 'Matches', ('match.', 'crew.', 'race_room.')),
     AuditArea('tournaments', 'Tournaments', (
-        'tournament.', 'bracket.', 'preset.', 'async_qualifier.', 'randomizer_credential.',
+        'tournament.', 'bracket.', 'preset.', 'preset_space.', 'async_qualifier.', 'randomizer_credential.',
         'triforce_text.', 'player.',
     )),
     AuditArea('people', 'People', (
