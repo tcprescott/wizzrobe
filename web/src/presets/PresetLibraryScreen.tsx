@@ -5,19 +5,25 @@ import { useQuery } from '../api/useQuery'
 import { ActionsMenu, Banner, Button, Chip, EmptyState, FormDialog, Icon, PageHeader, SearchField, Spinner, type MenuItem } from '../components'
 import { Detail, DetailEmpty, DetailSection, SideListCard, SideListLayout, SideListRow } from '../admin/kit/SideList'
 import { useCommunity } from '../community/CommunityProvider'
-import { message } from '../me/data'
+import { done, message } from '../me/data'
 import { usePhone } from '../lib/usePhone'
+import { CopyToMineDialog, PresetFormDialog, SpaceDialog } from './PersonalDialogs'
 import './presets.css'
 
 type Row = Schemas['LibraryPresetResponse']
 type Roll = Schemas['LibraryRollResponse']
-type Scope = 'community' | 'everything'
+type Space = Schemas['PresetSpaceResponse']
+type Scope = 'yours' | 'community' | 'everything'
+
+function useSpaces() {
+  return useQuery('preset-library/spaces', () => api.GET('/api/preset-library/spaces').then(unwrap))
+}
 
 /**
  * Presets, layout A: every preset anyone listed, in one side list grouped by
- * this community and everyone else, with the open preset beside it. Anyone can
- * roll one; the community's preset managers copy one in before a tournament
- * can use it.
+ * your own, this community's and everyone else's, with the open preset beside
+ * it. Anyone can roll one or keep presets of their own; the community's preset
+ * managers copy one in before a tournament can use it.
  */
 export function PresetLibraryScreen() {
   const { id } = useParams()
@@ -25,7 +31,10 @@ export function PresetLibraryScreen() {
   const navigate = useNavigate()
   const phone = usePhone()
   const presets = useQuery('preset-library', () => api.GET('/api/preset-library').then(unwrap))
+  const spaces = useSpaces()
   const [scope, setScope] = useState<Scope>('everything')
+  const [creating, setCreating] = useState(false)
+  const [spaceOpen, setSpaceOpen] = useState<Space | null>(null)
   const [game, setGame] = useState('')
   const [query, setQuery] = useState('')
   const libraryBase = `${base}/presets`
@@ -52,12 +61,26 @@ export function PresetLibraryScreen() {
 
   const q = query.trim().toLowerCase()
   const shown = rows
-    .filter((r) => scope === 'everything' || r.mine)
+    .filter((r) => scope === 'everything' || (scope === 'yours' ? r.can_edit : r.mine))
     .filter((r) => !game || r.randomizer === game)
     .filter((r) => !q || [r.reference, r.description ?? '', r.space_name].some((t) => t.toLowerCase().includes(q)))
-  const ours = shown.filter((r) => r.mine)
-  const others = shown.filter((r) => !r.mine)
+  const yours = shown.filter((r) => r.can_edit)
+  const ours = shown.filter((r) => r.mine && !r.can_edit)
+  const others = shown.filter((r) => !r.mine && !r.can_edit)
   const manages = rows.some((r) => r.can_manage)
+  const mySpaces = spaces.data ?? []
+  const reloadAll = () => {
+    presets.reload()
+    spaces.reload()
+  }
+  const headerActions: MenuItem[] = mySpaces.map((s) => ({
+    label: s.is_owner ? 'My preset space…' : `${s.slug} (co-editor)…`,
+    icon: s.is_owner ? 'manage_accounts' : 'group_add',
+    onSelect: () => setSpaceOpen(s),
+  }))
+  if (manages) {
+    headerActions.push({ label: 'Manage this community’s presets', icon: 'tune', onSelect: () => navigate(`${base}/admin/seed-presets`) })
+  }
 
   const row = (r: Row) => (
     <SideListRow
@@ -89,6 +112,7 @@ export function PresetLibraryScreen() {
         <div className="segmented" role="radiogroup" aria-label="Whose presets">
           {(
             [
+              ['yours', 'Yours'],
               ['community', community.name],
               ['everything', 'Everything'],
             ] as const
@@ -111,11 +135,22 @@ export function PresetLibraryScreen() {
         </div>
       </div>
       {shown.length === 0 ? (
-        <EmptyState icon="tune" title={rows.length ? 'Nothing matches' : 'No presets yet'}>
-          {rows.length ? 'Try another game or search.' : 'Presets a community lists show up here.'}
-        </EmptyState>
+        scope === 'yours' && !q && !game ? (
+          <EmptyState icon="casino" title="No presets of your own yet">
+            Press New preset, or open anyone's preset and copy it to your presets.
+          </EmptyState>
+        ) : (
+          <EmptyState icon="tune" title={rows.length ? 'Nothing matches' : 'No presets yet'}>
+            {rows.length ? 'Try another game or search.' : 'Presets a community lists show up here.'}
+          </EmptyState>
+        )
       ) : (
         <>
+          {yours.length > 0 && (
+            <SideListCard label="Yours" title="Yours">
+              {yours.map(row)}
+            </SideListCard>
+          )}
           {ours.length > 0 && (
             <SideListCard label={community.name} title={community.name}>
               {ours.map(row)}
@@ -138,13 +173,14 @@ export function PresetLibraryScreen() {
       ) : (
         <PageHeader
           title="Presets"
-          lede="Roll or copy any preset a community has shared. Tournaments use presets copied into their community."
+          lede="Roll any shared preset, or keep your own. Tournaments use presets copied into their community."
           actions={
-            manages ? (
-              <ActionsMenu
-                items={[{ label: 'Manage this community’s presets', icon: 'tune', onSelect: () => navigate(`${base}/admin/seed-presets`) }]}
-              />
-            ) : undefined
+            <>
+              <Button icon="add" onClick={() => setCreating(true)}>
+                New preset
+              </Button>
+              {headerActions.length > 0 && <ActionsMenu items={headerActions} />}
+            </>
           }
         />
       )}
@@ -155,17 +191,29 @@ export function PresetLibraryScreen() {
         list={list}
         detail={
           openId !== null ? (
-            <PresetView key={openId} id={openId} onChange={presets.reload} />
+            <PresetView key={openId} id={openId} spaces={mySpaces} onChange={reloadAll} />
           ) : (
             <DetailEmpty>Pick a preset to see its settings and roll a seed.</DetailEmpty>
           )
         }
       />
+      {creating && (
+        <PresetFormDialog
+          spaces={mySpaces}
+          onClose={() => setCreating(false)}
+          onSaved={(p) => {
+            setCreating(false)
+            reloadAll()
+            navigate(`${libraryBase}/${p.id}`)
+          }}
+        />
+      )}
+      {spaceOpen && <SpaceDialog space={spaceOpen} onClose={() => setSpaceOpen(null)} onChange={reloadAll} />}
     </>
   )
 }
 
-function PresetView({ id, onChange }: { id: number; onChange: () => void }) {
+function PresetView({ id, spaces, onChange }: { id: number; spaces: Space[]; onChange: () => void }) {
   const { community, base } = useCommunity()
   const navigate = useNavigate()
   const preset = useQuery(`preset-library/${id}`, () =>
@@ -175,6 +223,9 @@ function PresetView({ id, onChange }: { id: number; onChange: () => void }) {
   const [busy, setBusy] = useState<string | null>(null)
   const [note, setNote] = useState<{ tone: 'info' | 'error'; text: string } | null>(null)
   const [copying, setCopying] = useState(false)
+  const [copyingToMine, setCopyingToMine] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   if (preset.error && !preset.data) {
     return (
@@ -215,6 +266,11 @@ function PresetView({ id, onChange }: { id: number; onChange: () => void }) {
   }
 
   const items: MenuItem[] = []
+  if (p.can_edit) {
+    items.push({ label: 'Edit…', icon: 'edit', onSelect: () => setEditing(true) })
+  } else {
+    items.push({ label: 'Copy to my presets…', icon: 'content_copy', onSelect: () => setCopyingToMine(true) })
+  }
   if (p.can_manage && !p.mine) {
     items.push({ label: `Copy to ${community.name}…`, icon: 'content_copy', onSelect: () => setCopying(true) })
   }
@@ -226,6 +282,10 @@ function PresetView({ id, onChange }: { id: number; onChange: () => void }) {
     icon: 'link',
     onSelect: () => void navigator.clipboard?.writeText(p.reference),
   })
+  if (p.can_edit) {
+    items.push({ label: 'Delete preset…', icon: 'delete', destructive: true, onSelect: () => setDeleting(true) })
+  }
+  const canUpdateCopy = p.can_edit || (p.can_manage && p.mine)
 
   return (
     <Detail
@@ -252,7 +312,7 @@ function PresetView({ id, onChange }: { id: number; onChange: () => void }) {
             {p.randomizer_name}
           </span>
           <span>
-            <Icon name="groups" size={18} />
+            <Icon name={p.space_kind === 'user' ? 'person' : 'groups'} size={18} />
             {p.space_name}
           </span>
           <span>
@@ -279,7 +339,7 @@ function PresetView({ id, onChange }: { id: number; onChange: () => void }) {
             </span>
           </p>
         )}
-        {p.changed_since_copy && p.can_manage && (
+        {p.changed_since_copy && canUpdateCopy && (
           <Banner
             tone="info"
             action={
@@ -288,7 +348,9 @@ function PresetView({ id, onChange }: { id: number; onChange: () => void }) {
               </Button>
             }
           >
-            The original's settings changed since this copy was made. Tournaments keep rolling this copy until you update it.
+            {p.can_edit
+              ? "The original's settings changed since you copied it. Yours stays as it is until you update it."
+              : "The original's settings changed since this copy was made. Tournaments keep rolling this copy until you update it."}
           </Banner>
         )}
         {note && <Banner tone={note.tone}>{note.text}</Banner>}
@@ -307,6 +369,59 @@ function PresetView({ id, onChange }: { id: number; onChange: () => void }) {
       <DetailSection title="Settings">
         <Settings value={p.settings} />
       </DetailSection>
+      {copyingToMine && (
+        <CopyToMineDialog
+          preset={p}
+          spaces={spaces}
+          onClose={() => setCopyingToMine(false)}
+          onCopied={(made) => {
+            setCopyingToMine(false)
+            onChange()
+            navigate(`${base}/presets/${made.id}`)
+          }}
+        />
+      )}
+      {editing && (
+        <PresetFormDialog
+          preset={p}
+          spaces={spaces}
+          onClose={() => setEditing(false)}
+          onSaved={() => {
+            setEditing(false)
+            preset.reload()
+            onChange()
+          }}
+        />
+      )}
+      {deleting && (
+        <FormDialog
+          open
+          onOpenChange={(o) => !o && setDeleting(false)}
+          title={`Delete ${p.reference}?`}
+          size="sm"
+          description="Copies other people made keep their settings. This can't be undone."
+          primaryLabel="Delete preset"
+          destructive
+          busy={busy === 'delete'}
+          busyLabel="Deleting…"
+          onPrimary={async () => {
+            setBusy('delete')
+            try {
+              done(await api.DELETE('/api/preset-library/personal/{preset_id}', { params: { path: { preset_id: p.id } } }))
+              setDeleting(false)
+              onChange()
+              navigate(`${base}/presets`)
+            } catch (err) {
+              setNote({ tone: 'error', text: message(err) })
+              setDeleting(false)
+            } finally {
+              setBusy(null)
+            }
+          }}
+        >
+          {null}
+        </FormDialog>
+      )}
       {copying && (
         <CopyDialog
           preset={p}

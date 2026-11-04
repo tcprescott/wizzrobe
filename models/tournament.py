@@ -309,6 +309,7 @@ class PresetSpace(Model):
     created_at = fields.DatetimeField(auto_now_add=True)
 
     presets = fields.ReverseRelation["Preset"]
+    editors = fields.ReverseRelation["PresetSpaceEditor"]
 
     class Meta:
         table = 'preset_space'
@@ -324,10 +325,10 @@ class Preset(Model):
     handed to the randomizer backend (for ALTTPR, the customizer settings dict).
     """
     id = fields.IntField(pk=True)
-    tenant: fields.ForeignKeyRelation = fields.ForeignKeyField(
-        'models.Tenant', related_name='presets', on_delete=fields.CASCADE,
+    tenant: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
+        'models.Tenant', related_name='presets', null=True, on_delete=fields.CASCADE,
     )
-    tenant_id: int
+    tenant_id: Optional[int]
     name = fields.CharField(max_length=255)
     randomizer = fields.CharField(max_length=32)
     settings = fields.JSONField()
@@ -350,7 +351,25 @@ class Preset(Model):
 
     class Meta:
         table = 'preset'
-        unique_together = (('tenant', 'randomizer', 'name'),)
+        unique_together = (('tenant', 'randomizer', 'name'), ('space', 'randomizer', 'name'))
+
+
+class PresetSpaceEditor(Model):
+    """A player the owner of a personal preset space lets edit its presets."""
+    id = fields.IntField(pk=True)
+    space: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.PresetSpace', related_name='editors', on_delete=fields.CASCADE,
+    )
+    space_id: int
+    user: fields.ForeignKeyRelation = fields.ForeignKeyField(
+        'models.User', related_name='preset_space_edits', on_delete=fields.CASCADE,
+    )
+    user_id: int
+    created_at = fields.DatetimeField(auto_now_add=True)
+
+    class Meta:
+        table = 'preset_space_editor'
+        unique_together = (('space', 'user'),)
 
 
 class RandomizerCredential(Model):

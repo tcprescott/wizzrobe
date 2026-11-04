@@ -83,3 +83,32 @@
   color: var(--fg-muted);
   margin: 0;
 }
+
+.preset-editors {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.preset-editors li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 40px;
+  padding: 2px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.preset-fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.preset-fieldset > legend {
+  padding: 0;
+}

@@ -260,6 +260,14 @@ class UserRepository(TenantScopedRepository[User]):
         ).limit(limit)
 
     @staticmethod
+    async def search_members(search_term: str, tenant_id: int, limit: int = 10) -> List[User]:
+        """Active members of one community whose name contains the term."""
+        return await User.filter(
+            Q(username__icontains=search_term) | Q(display_name__icontains=search_term),
+            tenant_memberships__tenant_id=tenant_id, is_active=True,
+        ).distinct().order_by('username').limit(limit)
+
+    @staticmethod
     async def create(
         username: str,
         discord_id: Optional[int] = None,

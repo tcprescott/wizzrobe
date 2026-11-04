@@ -899,11 +899,20 @@ async def seed_preset_library(users: dict[str, User]) -> None:
     """Preset spaces of every kind, and a library copy whose original has changed since."""
     from datetime import datetime, timedelta, timezone
 
-    from models import Preset, PresetSpace, PresetSpaceKind
+    from models import Preset, PresetSpace, PresetSpaceEditor, PresetSpaceKind
     await PresetSpace.get_or_create(slug='wizzrobe', defaults={'kind': PresetSpaceKind.BUILTIN, 'tenant': None})
-    await PresetSpace.get_or_create(
+    personal, _ = await PresetSpace.get_or_create(
         slug='player_one', defaults={'kind': PresetSpaceKind.USER, 'owner': users['player_one'], 'tenant': None},
     )
+    await Preset.get_or_create(
+        space=personal, randomizer='alttpr', name='fastboots',
+        defaults={
+            'tenant': None, 'listed': True, 'roll_count': 7,
+            'settings': {'mode': 'open', 'goal': 'fast_ganon', 'pseudoboots': True},
+            'description': 'Open, fast Ganon, pseudoboots. What I race on weeknights.',
+        },
+    )
+    await PresetSpaceEditor.get_or_create(space=personal, user=users['player_two'])
     original = await Preset.get_or_none(tenant__slug='second', randomizer='alttpr', name='ALTTPR Open')
     default = await Tenant.get_or_none(slug='default')
     if original is None or default is None:
