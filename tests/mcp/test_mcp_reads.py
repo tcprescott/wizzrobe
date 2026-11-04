@@ -169,6 +169,26 @@ class TestOnlinePlay:
         assert not is_error, detail
         assert detail['settings'] == {'glitches': 'none'}
 
+    async def test_library_presets_list_by_reference_and_read_with_odds(self, db):
+        _, raw = await _staff()
+        await Preset.create(name='Open Standard', randomizer='alttpr', settings={'glitches': 'none'})
+        mystery = await Preset.create(
+            name='Weekly Chaos', randomizer='alttprmystery',
+            settings={'world_state': {'open': 3, 'inverted': 1}, 'glitches_required': {'none': 1}},
+        )
+
+        async with mcp_session() as client:
+            _, listing = await call_tool(
+                client, raw, 'list_library_presets', tenant=TENANT, search='weekly chaos',
+            )
+            is_error, detail = await call_tool(
+                client, raw, 'get_library_preset', tenant=TENANT, preset_id=mystery.id,
+            )
+        assert [p['reference'] for p in listing['result']] == ['default/Weekly Chaos']
+        assert not is_error, detail
+        odds = {row['setting']: {o['value']: o['percent'] for o in row['options']} for row in detail['odds']}
+        assert odds['world_state'] == {'open': 75.0, 'inverted': 25.0}
+
     async def test_race_rooms_list_open_and_resolve_by_match(self, db):
         _, raw = await _staff()
         tournament = await _tournament()

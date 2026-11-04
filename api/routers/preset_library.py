@@ -6,11 +6,11 @@ or Preset manager there. Any member keeps presets of their own in a personal
 space, which they and their co-editors change.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
-import yaml
 from fastapi import APIRouter, Depends, Query
 
+from api._preset_library_view import library_detail, library_row, odds_rows
 from api.dependencies import ServiceErrorRoute, require_api_actor, require_write_actor
 from api.schemas.preset_library import (
     LibraryCopyRequest,
@@ -32,7 +32,7 @@ from api.schemas.preset_library import (
     SahasrahBotPresetResponse,
 )
 from api.schemas.presets import PresetResponse
-from application.services import LibraryPreset, PersonalPresetService, PresetLibraryService, SpaceView
+from application.services import PersonalPresetService, PresetLibraryService, SpaceView
 from application.services.personal_preset_service import MAX_EDITORS_PER_SPACE, MAX_PRESETS_PER_SPACE
 from models import User
 
@@ -40,32 +40,6 @@ _SPACE_WHO = "**Who can call this:** The space's owner or a co-editor."
 _OWNER_WHO = "**Who can call this:** The space's owner."
 
 router = APIRouter(prefix="/preset-library", tags=["Preset library"], route_class=ServiceErrorRoute)
-
-
-def _row(view: LibraryPreset) -> dict:
-    p = view.preset
-    original = p.copied_from
-    return {
-        'id': p.id,
-        'reference': view.reference,
-        'name': p.name,
-        'randomizer': p.randomizer,
-        'randomizer_name': view.randomizer_name,
-        'rollable': view.rollable,
-        'can_manage': view.can_manage,
-        'can_edit': view.can_edit,
-        'description': p.description,
-        'space': view.space_slug,
-        'space_kind': view.space_kind.value,
-        'space_name': view.space_name,
-        'mine': view.mine,
-        'listed': p.listed,
-        'roll_count': p.roll_count,
-        'updated_at': p.updated_at,
-        'copied_from': f"{original.space.slug}/{original.name}" if original is not None and original.space else None,
-        'copied_from_id': original.id if original is not None else None,
-        'changed_since_copy': view.changed_since_copy,
-    }
 
 
 @router.get(
@@ -83,7 +57,7 @@ async def list_library(
     randomizer: Optional[str] = Query(None, description="Return only this randomizer's presets."),
     actor: User = Depends(require_api_actor),
 ):
-    return [_row(v) for v in await PresetLibraryService().list_presets(actor, randomizer=randomizer)]
+    return [library_row(v) for v in await PresetLibraryService().list_presets(actor, randomizer=randomizer)]
 
 
 def _space(view: SpaceView) -> dict:
@@ -100,20 +74,8 @@ def _space(view: SpaceView) -> dict:
     }
 
 
-def _odds(rows: list) -> List[Dict[str, Any]]:
-    return [
-        {'setting': r.setting, 'options': [{'value': v, 'percent': p} for v, p in r.options]} for r in rows
-    ]
-
-
 async def _detail(actor: User, preset_id: int) -> dict:
-    view = await PresetLibraryService().get_preset(actor, preset_id)
-    detail = {**_row(view), 'settings': view.preset.settings}
-    mystery = PresetLibraryService.describe_mystery(view.preset)
-    if mystery is not None:
-        detail['odds'] = _odds(mystery.odds)
-        detail['settings_yaml'] = yaml.safe_dump(view.preset.settings, sort_keys=False, allow_unicode=True)
-    return detail
+    return library_detail(await PresetLibraryService().get_preset(actor, preset_id))
 
 
 @router.get(
@@ -141,7 +103,7 @@ async def list_randomizers(actor: User = Depends(require_api_actor)):
 )
 async def check_mystery(body: MysteryCheckRequest, actor: User = Depends(require_api_actor)):
     checked = PresetLibraryService.check_mystery(body.weightset)
-    return {'settings': checked.settings, 'odds': _odds(checked.odds)}
+    return {'settings': checked.settings, 'odds': odds_rows(checked.odds)}
 
 
 @router.get(

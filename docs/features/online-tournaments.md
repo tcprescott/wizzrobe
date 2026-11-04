@@ -133,6 +133,7 @@ changed), and `chat`. `RaceRoomLifecycle` sends the first and last to
 | `!seed` | Shows the seed again, or how long until it posts. Once per 20s per room |
 | `!forceroll` | Room monitors, or a linked account that `can_run_match`: posts the seed now, past the restream gate too |
 | `!ready` | An approved broadcaster on the match (by their linked racetime account): releases a seed the restream gate is holding (`broadcaster_ready_at`); posts it now if due, otherwise says when |
+| `!roll space/preset` | Any linked account, in any room the bot is in (a match room only when the bot runs it): rolls a listed library preset with this community's keys and posts the link, code and any mystery instructions. A bare name rolls from the community's own space. The library's per-person limit applies (10 per 10 minutes). See [seed-presets.md](seed-presets.md) |
 | `!fpa [note]` | Runners only, mid-race, once a minute each, ten per race: logged in `fpa_calls`, acknowledged with the race time, audited (`race_room.fpa_called`), and on-duty staff DMed (`racetime_fpa` notice, button into the room) |
 
 A bot-run room opens for players who haven't linked racetime (auto-open's

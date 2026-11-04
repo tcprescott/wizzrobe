@@ -51,6 +51,7 @@ How each shipped subsystem behaves.
 | [features/discord.md](features/discord.md) | Match DMs and fan-out, guild-role → app-role sync, notification preferences, `MOCK_DISCORD` |
 | [features/rom-patcher.md](features/rom-patcher.md) | The generic ROM patcher: hosted patches (Admin → Patches, `/patch/<token>`) and the open `/patcher` page |
 | [features/online-tournaments.md](features/online-tournaments.md) | SahasrahBot succession, user-definable tournament config, racetime/SpeedGaming/Discord-Events design rules |
+| [features/seed-presets.md](features/seed-presets.md) | Preset spaces, the public library, copies, SahasrahBot import, ALTTPR mystery weightsets, racetime `!roll` |
 | [features/multitenancy.md](features/multitenancy.md) | `/t/<slug>` and custom-domain addressing, tenant context, query scoping, per-tenant roles, `/platform` |
 | [features/events.md](features/events.md) | Events inside a community: the `Event` model, event context, default event, which rows carry `event_id`, the events migration |
 | [features/feature-flags.md](features/feature-flags.md) | Two-tier per-tenant flags: super-admin availability + tenant enable, and how to gate a subsystem |

@@ -1328,18 +1328,48 @@ Table `provider_task` (snake_case, unlike the other models). Index on `(status, 
 
 **`ProviderTaskStatus`**: `QUEUED` (written before submission, no upstream handle yet), `RUNNING` (the provider accepted it; the poller owns it), then three terminal states kept apart because they answer different questions — `SUCCEEDED` (completed and its consumer updated), `FAILED` (the provider reported the work itself as broken), `ABANDONED` (Wizzrobe gave up on a task that outlived its budget; the provider may well have finished it).
 
-#### `Preset`
+#### `PresetSpace`
 
-Tenant-authored seed-rolling preset: a named `randomizer` + `settings` blob that seed generation resolves instead of a hard-coded `presets/*` file. CRUD via `PresetService` (gated by `AuthService.can_manage_presets`); the built-in files import as starting rows. Referenced by `Tournament.preset`. See [seed-generation.md](seed-generation.md).
+A namespace presets live in, named in `space/preset` references. **Global** (no tenant scoping): the slug is unique across the platform so a reference means the same preset in every community. See [features/seed-presets.md](../features/seed-presets.md).
 
 | Field | Type | Null / default | Notes |
 |---|---|---|---|
-| `name` | `CharField(255)` | not null | Unique per `(tenant, randomizer)` |
-| `randomizer` | `CharField(32)` | not null | One of `SeedGenerationService.AVAILABLE_RANDOMIZERS` |
-| `settings` | `JSONField` | not null | Raw settings payload handed to the randomizer backend |
-| `description` | `TextField` | null | |
+| `slug` | `CharField(64)` | unique | `[a-z0-9_-]`, 2–32 chars for personal spaces; `wizzrobe` is reserved for the built-ins |
+| `kind` | `CharEnumField(PresetSpaceKind)` | not null | `community` / `user` / `builtin` |
+| `tenant` | 1:1 → `Tenant` | null, `CASCADE` | Set on a community space (one per community). `related_name='preset_space'` |
+| `owner` | 1:1 → `User` | null, `CASCADE` | Set on a personal space. `related_name='preset_space'` |
+| `created_at` | `DatetimeField` | auto | |
 
-Constraint: `unique (tenant, randomizer, name)`. Reverse accessor `tournaments`.
+Table `preset_space`. Reverse accessors `presets`, `editors`.
+
+#### `PresetSpaceEditor`
+
+A co-editor of a personal space: can edit its presets, can't rename it or change its editors. Table `presetspaceeditor`.
+
+| Field | Type | Null / default | Notes |
+|---|---|---|---|
+| `space` | FK → `PresetSpace` | not null, `CASCADE` | `related_name='editors'` |
+| `user` | FK → `User` | not null, `CASCADE` | `related_name='preset_space_edits'` |
+
+#### `Preset`
+
+A seed-rolling preset: a named `randomizer` + `settings` blob that seed generation resolves instead of a hard-coded `presets/*` file. Every preset sits in a `PresetSpace`. Community presets carry their `tenant` and stay tenant-scoped for every tournament path (CRUD via `PresetService`, gated by `AuthService.can_manage_presets`); personal and built-in presets have `tenant=NULL` and are read across communities only through `PresetLibraryService`. Referenced by `Tournament.preset`. An ALTTPR mystery weightset is the randomizer `alttprmystery`, its `settings` the weightset. See [seed-generation.md](seed-generation.md) and [features/seed-presets.md](../features/seed-presets.md).
+
+| Field | Type | Null / default | Notes |
+|---|---|---|---|
+| `tenant` | FK → `Tenant` | null, `CASCADE` | Set for community presets only |
+| `name` | `CharField(255)` | not null | Unique per `(space, randomizer)` |
+| `randomizer` | `CharField(32)` | not null | One of `SeedGenerationService.AVAILABLE_RANDOMIZERS` |
+| `settings` | `JSONField` | not null | Raw settings payload handed to the randomizer backend (the weightset for `alttprmystery`) |
+| `description` | `TextField` | null | Player markdown for personal presets |
+| `space` | FK → `PresetSpace` | null, `CASCADE` | `related_name='presets'`; filled for every row since the spaces migration |
+| `listed` | `BooleanField` | `True` | Shown in the public library. Community presets that existed before the library started hidden |
+| `copied_from` | FK → `Preset` | null, `SET_NULL` | The library preset this one was copied from; drives "Changed since you copied". `related_name='copies'` |
+| `copied_at` | `DatetimeField` | null | When the copy was taken or last updated |
+| `roll_count` | `IntField` | `0` | Library rolls (app and racetime `!roll`) |
+| `created_at` / `updated_at` | `DatetimeField` | auto | |
+
+Constraints: `unique (tenant, randomizer, name)` and `unique (space, randomizer, name)`. Reverse accessors `tournaments`, `copies`.
 
 #### `RandomizerCredential`
 
@@ -2805,6 +2835,7 @@ Consult the source for full signatures.
 | `WebhookRepository` | [`webhook_repository.py`](../../application/repositories/webhook_repository.py) | `Webhook` | `get_by_id`, `list_all`, `list_active`, `create`, `update`, `delete` |
 | `WebhookDeliveryRepository` | [`webhook_delivery_repository.py`](../../application/repositories/webhook_delivery_repository.py) | `WebhookDelivery` | `create`, `get`, `claim`, `finish`, `list_stale_pending`, `tenants_with_pending` (global worker scan), `list_for_webhook`, `outcome_counts_since`, `prune_older_than` |
 | `PresetRepository` | [`preset_repository.py`](../../application/repositories/preset_repository.py) | `Preset` | `get_by_id`, `get_by_natural_key`, `list_all`, `list_by_randomizer`, `create`, `update`, `delete` |
+| `PresetLibraryRepository`, `PresetSpaceRepository` | [`preset_library_repository.py`](../../application/repositories/preset_library_repository.py) | `Preset`, `PresetSpace`, `PresetSpaceEditor` | Cross-community library reads (`list_library`, `by_reference`), copies, roll counts; personal spaces, co-editors and personal presets |
 | `RomPatchRepository` | [`rom_patch_repository.py`](../../application/repositories/rom_patch_repository.py) | `RomPatch` | `list_all` (tournament and uploader prefetched), `get_by_token` (scoped), `count_download`, plus the `TenantScopedRepository` CRUD quartet |
 | `DoorSeedRepository` | [`door_seed_repository.py`](../../application/repositories/door_seed_repository.py) | `DoorSeed` | `get_by_token` (scoped), plus the `TenantScopedRepository` CRUD quartet |
 | `MatcherinoLoginRepository` | [`matcherino_login_repository.py`](../../application/repositories/matcherino_login_repository.py) | `MatcherinoLogin` | `get_current` (the tenant's one row, `updated_by`/`alert_user` prefetched), `upsert` (also re-arms the alert), `delete_current`, `set_alert_user`, `claim_alert(now)` (one conditional `UPDATE`; the login only for the caller that won), `clear_alert` |

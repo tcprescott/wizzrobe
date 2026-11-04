@@ -15,12 +15,15 @@ from typing import List, Optional
 
 from mcp.server.mcpserver import MCPServer
 
+from api._preset_library_view import library_detail, library_row
+from api.schemas.preset_library import LibraryPresetDetailResponse, LibraryPresetResponse
 from api.schemas.seed_rules import SeedRulesEditorResponse
 from application.api_scopes import ApiScope
 from application.errors import require_found
 from application.services import (
     GroupRaceBoardService,
     MatchService,
+    PresetLibraryService,
     PresetService,
     RaceRoomProfileService,
     RacetimeRoomService,
@@ -89,6 +92,37 @@ async def get_preset(
     detail = PresetDetail.model_validate(preset, from_attributes=True)
     detail.settings = preset.settings
     return detail
+
+
+async def list_library_presets(
+    tenant: TenantArg = None,
+    randomizer: Optional[str] = None,
+    search: Optional[str] = None,
+) -> List[LibraryPresetResponse]:
+    """List the preset library: every shared preset from every community, player and the built-in `wizzrobe` space.
+
+    Any member. Each row's `reference` (`space/preset`) is what `!roll` takes in a
+    racetime room; `rollable` says whether this community has the keys to roll
+    it. `search` matches the reference or description; most rolled first.
+    """
+    views = await PresetLibraryService().list_presets(current_actor().user, randomizer=randomizer or None)
+    wanted = (search or '').strip().lower()
+    rows = [library_row(v) for v in views]
+    if wanted:
+        rows = [r for r in rows if wanted in r['reference'].lower() or wanted in (r['description'] or '').lower()]
+    return [LibraryPresetResponse.model_validate(r) for r in rows]
+
+
+async def get_library_preset(
+    preset_id: int,
+    tenant: TenantArg = None,
+) -> LibraryPresetDetailResponse:
+    """Get one library preset with its settings; a mystery weightset also comes with its odds per setting.
+
+    Any member, for a preset shown in the library.
+    """
+    view = await PresetLibraryService().get_preset(current_actor().user, preset_id)
+    return LibraryPresetDetailResponse.model_validate(library_detail(view))
 
 
 async def get_seed_rules(
@@ -271,6 +305,8 @@ async def list_triforce_texts(
 def register_tools(mcp: MCPServer) -> None:
     register(mcp, list_presets, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ, title='List presets')
     register(mcp, get_preset, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ, title='Get preset')
+    register(mcp, list_library_presets, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ, title='List library presets')
+    register(mcp, get_library_preset, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ, title='Get library preset')
     register(mcp, get_seed_rules, gate=Gate.ACTOR, scope=ApiScope.STAFF_READ, title='Get seed rules', event=True)
     register(mcp, list_randomizers, gate=Gate.ACTOR, scope=ApiScope.SCHEDULE_READ, title='List randomizers')
     register(

@@ -71,6 +71,16 @@ class PresetLibraryRepository:
         return await Preset.get_or_none(id=preset_id).prefetch_related(*_RELATED)
 
     @staticmethod
+    async def by_reference(space_slug: str, name: str) -> List[Preset]:
+        """Presets named ``space_slug/name`` (one per game at most), cross-tenant like the library."""
+        return await Preset.filter(space__slug=space_slug, name=name).prefetch_related(*_RELATED).order_by('randomizer')
+
+    @staticmethod
+    async def community_slug(tenant_id: int) -> str:
+        """The slug of a community's preset space (cross-tenant by id)."""
+        return (await PresetSpace.get(id=await community_space_id(tenant_id))).slug
+
+    @staticmethod
     async def find_in_community(name: str, randomizer: str) -> Optional[Preset]:
         return await Preset.get_or_none(tenant_id=current_tenant_id(), randomizer=randomizer, name=name)
 
