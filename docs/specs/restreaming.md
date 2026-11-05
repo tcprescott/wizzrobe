@@ -63,6 +63,8 @@ In:
 Out:
 - Wizzrobe encoding or compositing video itself.
 - Linux agent builds.
+- Mac support for now: the agent ships for Windows first; Mac (build,
+  signing/notarization, real-OBS test) comes later.
 - Building any of the UI in the NiceGUI app (new UI goes in `web/`).
 
 ## Flow
@@ -117,9 +119,10 @@ stage's OBS beside it, tap-in on phone) before any screen is built.
 ## Acceptance
 
 Phase 0 (spike):
-- [ ] The agent authenticates to a real OBS 30+ on Windows and on Mac and runs
-      scene list, scene switch, screenshot, crop, volume and record commands
-      sent from the spike console.
+- [x] The agent authenticates to a real OBS 30+ on Windows and runs scene
+      list, scene switch, screenshot, crop, volume and record commands sent
+      from the spike console. *Passed 2026-11-04 (OBS 33.0.1, see
+      agent/SPIKE.md). Mac moved to later.*
 - [ ] The agent refuses a non-allowlisted request, a local file path and a
       non-https browser source (unit tests).
 - [ ] The agent reconnects to the relay after the relay drops it, and to OBS
@@ -148,6 +151,7 @@ Later phases get their acceptance items with their mockups.
 - 2026-11-02 — Thomas picked "Spike now, build later": build phases 1 to 5
   after the app rebuild's admin screens land.
 - 2026-11-02 — Thomas picked Windows and Mac for the agent.
+- 2026-11-04 — Thomas: Mac support comes later; Windows first.
 - 2026-11-02 — Thomas picked "Connect Twitch, push key" for stream keys: the
   agent sets the key at go-live and clears it after.
 - 2026-11-02 — Thomas asked for a Twitch bot. Picked: shared Wizzrobe bot

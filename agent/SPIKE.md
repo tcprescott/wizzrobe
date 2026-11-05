@@ -30,10 +30,25 @@ stream that comes from that machine.
   pacing drifts by about that much, so this only shows the server side adds
   well under a second. The real number needs OBS and the internet (below).
 
+## Real OBS on Windows (2026-11-04, NotMinime)
+
+OBS 33.0.1, obs-websocket 5.7.6, Windows 11 25H2, agent and relay built with
+Go 1.27 on the machine, everything on localhost.
+
+- Auth from the OBS config password worked first time.
+- Every command passed: GetVersion, GetStats, GetSceneList, CreateScene,
+  CreateInput (`color_source_v3`), SetCurrentProgramScene, GetSourceScreenshot
+  (960 px JPEG, ~10 KB, 7 ms), GetSceneItemList, SetSceneItemTransform crop
+  (the second screenshot showed it), GetInputList, Get/SetInputVolume,
+  SetInputMute, StartRecord/StopRecord. Round trips were 1–16 ms.
+- Refused by the agent, never reaching OBS: SetStreamServiceSettings,
+  CreateInput `image_source`, SetInputSettings with an http URL.
+- Killing and restarting the relay: the agent was back 3.1 s after the kill.
+
 ## Still to prove on a real machine
 
-1. Agent against real OBS 30+ on Windows and on Mac (scene switch,
-   screenshot, crop, volume, mute, record).
+1. Agent against real OBS on a Mac, when Mac support is picked up (Windows
+   first, per Thomas 2026-11-04).
 2. Commentator stream end to end from OBS over the internet, with the clock.
 3. A connection held for hours through Cloud Run (it caps one websocket at
    the request timeout, so expect a clean reconnect at most every hour).
