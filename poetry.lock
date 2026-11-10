@@ -2312,21 +2312,21 @@ files = [
 
 [[package]]
 name = "nicegui"
-version = "3.18.0"
+version = "3.19.0"
 description = "Create web-based user interfaces with Python. The nice way."
 optional = false
 python-versions = "<4,>=3.10"
 groups = ["main"]
 files = [
-    {file = "nicegui-3.18.0-py3-none-any.whl", hash = "sha256:a2bd51642312d98aab6d8b641245d796ff1b89da5829777170bcc488140c3dcd"},
-    {file = "nicegui-3.18.0.tar.gz", hash = "sha256:74cf67c57d2a0dbcdc329d9b35d0396d25dc961550765276daef4de244eaf15b"},
+    {file = "nicegui-3.19.0-py3-none-any.whl", hash = "sha256:f0d0ed7485805051d7d039372615a18f08122aeaa30cf030e01471cb9e63725f"},
+    {file = "nicegui-3.19.0.tar.gz", hash = "sha256:d19c7eb181610fa9c8e3ee8e452261fcbcd9c495c9d66467c99d05f9d3229484"},
 ]
 
 [package.dependencies]
 aiofiles = ">=23.1.0"
-aiohttp = ">=3.14.3"
+aiohttp = ">=3.14.4"
 anyio = ">=4.14.2"
-certifi = ">=2024.7.4"
+certifi = ">=2026.10.19"
 docutils = ">=0.19.0"
 fastapi = ">=0.109.1,!=0.123.5"
 h11 = ">=0.16.0"
