@@ -91,3 +91,18 @@ async def test_syncs_only_brackets_that_are_due(staff, synced):
     await _linked('Done', state='complete', last=now - timedelta(days=1))
     assert await service.sync_due_brackets(staff) == 2
     assert sorted(calls) == sorted([stale.id, never.id])
+
+
+def test_banner_goes_red_when_auto_sync_outruns_the_monthly_allowance():
+    from application.services._challonge_auto_sync import AutoSyncEstimate
+    from pages.admin_tabs.admin_challonge import auto_sync_banner
+
+    over = auto_sync_banner('Every 15 minutes', AutoSyncEstimate(3, 576))
+    assert over['tone'] == 'danger'
+    assert over['title'] == "This won't fit Challonge's monthly limit"
+    assert 'roughly 17,280 a month' in over['message']
+
+    fits = auto_sync_banner('Every 6 hours', AutoSyncEstimate(1, 8))
+    assert fits['tone'] == 'info'
+    assert 'title' not in fits
+    assert "inside Challonge's 500 a month" in fits['message']

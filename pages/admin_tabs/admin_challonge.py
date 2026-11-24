@@ -8,6 +8,7 @@ row ⋮ on Admin → Tournaments.
 from nicegui import app, ui
 
 from application.services import AuthService, ChallongeService, get_user_from_session
+from application.services._challonge_auto_sync import MONTHLY_REQUEST_ALLOWANCE, AutoSyncEstimate
 from application.tenant_context import require_tenant_id
 from application.utils.timezone import format_local_display
 from models import Tournament
@@ -23,6 +24,28 @@ _AUTO_SYNC_LABELS = {
     0: 'Off', 15: 'Every 15 minutes', 30: 'Every 30 minutes',
     60: 'Every hour', 120: 'Every 2 hours', 360: 'Every 6 hours',
 }
+
+
+def auto_sync_banner(interval: str, estimate: AutoSyncEstimate) -> dict:
+    """The words and tone of the auto-sync cost banner, held against Challonge's monthly allowance."""
+    noun = 'bracket' if estimate.tournaments == 1 else 'brackets'
+    usage = (
+        f'{interval} with {estimate.tournaments} unfinished {noun} is about '
+        f'{estimate.requests_per_day:,} requests a day, roughly {estimate.requests_per_month:,} a month.'
+    )
+    if estimate.fits_allowance:
+        return {
+            'message': f"{usage} That's inside Challonge's {MONTHLY_REQUEST_ALLOWANCE:,} a month.",
+            'tone': 'info',
+        }
+    return {
+        'title': "This won't fit Challonge's monthly limit",
+        'message': (
+            f'{usage} Challonge allows {MONTHLY_REQUEST_ALLOWANCE:,} a month across every community, '
+            'so syncs and result pushes will stop partway through the month.'
+        ),
+        'tone': 'danger',
+    }
 
 
 async def admin_challonge_connection_page(tournaments_url: str = '/admin/tournaments') -> None:
@@ -115,14 +138,7 @@ async def admin_challonge_connection_page(tournaments_url: str = '/admin/tournam
                 ).classes('text-caption text-muted')
                 if minutes:
                     estimate = await service.auto_sync_estimate(minutes)
-                    noun = 'bracket' if estimate.tournaments == 1 else 'brackets'
-                    with banner(
-                        f'Each sync uses about 2 API requests per bracket. '
-                        f'{_AUTO_SYNC_LABELS[minutes]} with {estimate.tournaments} '
-                        f'unfinished {noun} is about {estimate.requests_per_day:,} '
-                        f'requests a day.',
-                        tone='warning',
-                    ):
+                    with banner(**auto_sync_banner(_AUTO_SYNC_LABELS[minutes], estimate)):
                         pass
 
         async def communities_row() -> None:

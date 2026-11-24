@@ -23,6 +23,8 @@ from models import FeatureFlag, Tournament, User
 AUTO_SYNC_CONFIG_KEY = 'challonge_auto_sync_minutes'
 AUTO_SYNC_CHOICES: Tuple[int, ...] = (0, 15, 30, 60, 120, 360)
 REQUESTS_PER_SYNC = 2
+# Challonge's plan for the Wizzrobe app: one allowance shared by every community.
+MONTHLY_REQUEST_ALLOWANCE = 500
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +33,14 @@ logger = logging.getLogger(__name__)
 class AutoSyncEstimate:
     tournaments: int
     requests_per_day: int
+
+    @property
+    def requests_per_month(self) -> int:
+        return self.requests_per_day * 30
+
+    @property
+    def fits_allowance(self) -> bool:
+        return self.requests_per_month <= MONTHLY_REQUEST_ALLOWANCE
 
 
 def _as_utc(dt: Optional[datetime]) -> Optional[datetime]:
