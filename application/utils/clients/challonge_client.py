@@ -29,6 +29,7 @@ from __future__ import annotations
 import asyncio
 import os
 import re
+import time
 from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator, Awaitable, Callable, Dict, List, Optional
 from urllib.parse import quote
@@ -56,6 +57,40 @@ class ChallongeAPIError(Exception):
         super().__init__(message)
         self.status = status
         self.retry_after = retry_after
+
+
+class ChallongeQuotaError(ChallongeAPIError):
+    """Challonge refused because the app's monthly request allowance is used up."""
+
+
+QUOTA_MESSAGE = (
+    "Challonge's monthly API limit is used up, so Wizzrobe can't reach Challonge "
+    "right now. Try again in a few hours."
+)
+_QUOTA_PAUSE_SECONDS = 6 * 60 * 60
+# Process-wide on purpose: the allowance belongs to the Challonge app, shared by every community.
+_quota_paused_until = 0.0
+
+
+def quota_paused() -> bool:
+    """Whether a recent monthly-limit refusal has paused Challonge calls."""
+    return time.monotonic() < _quota_paused_until
+
+
+def _pause_for_quota() -> None:
+    global _quota_paused_until
+    _quota_paused_until = time.monotonic() + _QUOTA_PAUSE_SECONDS
+
+
+def reset_quota_pause() -> None:
+    """Lift the pause (tests, or after the plan is upgraded and the app restarted)."""
+    global _quota_paused_until
+    _quota_paused_until = 0.0
+
+
+def _check_quota() -> None:
+    if quota_paused():
+        raise ChallongeQuotaError(QUOTA_MESSAGE, status=429)
 
 
 def _retry_after_seconds(value: Optional[str]) -> Optional[float]:
@@ -300,8 +335,13 @@ class ChallongeClient:
 
     async def get_tournament_full(
         self, tournament_id: str, community: Optional[str] = None,
+        known_user_ids: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
         """Fetch a tournament with its participants and matches, usually in one request.
+
+        ``known_user_ids`` (participant id → Challonge user id, from the last
+        sync) fills in the account an embedded participant leaves blank, so the
+        second request is only spent on entrants Wizzrobe hasn't seen yet.
 
         Challonge embeds the associated participant/match records via the
         ``include_participants`` / ``include_matches`` flags, collapsing what
@@ -326,6 +366,8 @@ class ChallongeClient:
                 participants.append(_normalize_participant(included))
             elif kind in ('match', 'matches'):
                 matches.append(_normalize_match(included))
+        for p in participants:
+            p['challonge_user_id'] = p['challonge_user_id'] or (known_user_ids or {}).get(p['participant_id'])
         # Embedded participants have an empty user relationship; only the participants endpoint fills it.
         if any(p['username'] and not p['challonge_user_id'] for p in participants):
             user_ids = {
@@ -421,6 +463,7 @@ class ChallongeClient:
         }
 
     async def _raw_get(self, path: str, token: str) -> Dict[str, Any]:
+        _check_quota()
         await self._count_request()
         async with _session() as session:
             async with session.get(BASE_URL + path, headers=self._headers(token)) as resp:
@@ -455,6 +498,7 @@ class ChallongeClient:
         self, token_provider: TokenProvider, method: str, path: str,
         json: Optional[Dict[str, Any]],
     ) -> Dict[str, Any]:
+        _check_quota()
         token = await token_provider()
         async with aiohttp.ClientSession(timeout=_TIMEOUT) as session:
             await self._count_request()
@@ -473,6 +517,9 @@ class ChallongeClient:
     @staticmethod
     async def _parse(resp: aiohttp.ClientResponse) -> Dict[str, Any]:
         text = await resp.text()
+        if resp.status == 429 and 'request limit' in text.lower():
+            _pause_for_quota()
+            raise ChallongeQuotaError(QUOTA_MESSAGE, status=429)
         if resp.status >= 400:
             raise ChallongeAPIError(
                 f"Challonge API error ({resp.status}): {text}", status=resp.status,
@@ -545,6 +592,7 @@ class MockChallongeClient(ChallongeClient):
 
     async def get_tournament_full(
         self, tournament_id: str, community: Optional[str] = None,
+        known_user_ids: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
         return {
             'tournament': await self.get_tournament(tournament_id),

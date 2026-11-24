@@ -18,7 +18,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Set, Tuple
 from urllib.parse import urlparse
 
-from application.errors import require_found
+from application.errors import UpstreamUnavailableError, require_found
 from application.feature_flags import requires_feature
 from application.repositories import ChallongeRepository, TournamentRepository, UserRepository
 from application.repositories._save import save_fields
@@ -38,6 +38,7 @@ from application.services.round_schedule_service import RoundScheduleService
 from application.utils.clients.challonge_client import (
     ChallongeAPIError,
     ChallongeClient,
+    ChallongeQuotaError,
     MockChallongeClient,
     build_authorize_url,
 )
@@ -441,7 +442,10 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
         access = payload.get('access_token')
         if not access:
             raise ChallongeAPIError(f"Challonge token response missing access_token: {payload}")
-        return await self._oauth_client().get_me(access)
+        try:
+            return await self._oauth_client().get_me(access)
+        except ChallongeQuotaError as e:
+            raise UpstreamUnavailableError(str(e)) from e
 
     @requires_feature(FeatureFlag.CHALLONGE)
     async def exchange_service_code(self, code: str) -> Dict[str, Any]:
@@ -587,8 +591,13 @@ class ChallongeService(ChallongeParticipantAssignmentMixin, ChallongeStageMixin,
                 'skipped': True,
             }
 
+        known = {
+            p.challonge_participant_id: p.challonge_user_id
+            for p in await self.repository.list_participants(tournament) if p.challonge_user_id
+        }
         full = await self._api_client().get_tournament_full(
             tournament.challonge_tournament_id, community=tournament.challonge_community,
+            known_user_ids=known,
         )
         refuse_empty_started_bracket(full, await self.repository.count_participants(tournament))
         result = await self._mirror_bracket(tournament, full['participants'], full['matches'], actor, full['tournament'])

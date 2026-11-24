@@ -39,6 +39,7 @@ from nicegui import Client, app, ui
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
 
+from application.errors import UpstreamUnavailableError
 from application.services import oauth_handoff_service as handoff_service
 from application.services.auth_service import get_user_from_session
 from application.services.tenant_service import TenantService
@@ -217,6 +218,7 @@ def _default_link_return() -> str:
 
 _HANDBACK_DENIED = 'denied'
 _HANDBACK_FAILED = 'failed'
+_HANDBACK_UNAVAILABLE = 'unavailable'
 
 
 def _handback_message(reason: Optional[str], provider_key: Optional[str]) -> str:
@@ -226,6 +228,8 @@ def _handback_message(reason: Optional[str], provider_key: Optional[str]) -> str
         return 'Could not complete the account link. Please try again.'
     if reason == _HANDBACK_DENIED:
         return f'{provider.label} linking was cancelled or failed.'
+    if reason == _HANDBACK_UNAVAILABLE:
+        return f"{provider.label} isn't taking requests from Wizzrobe right now. Try again in a few hours."
     return f'Could not link {provider.label}. Please try again.'
 
 
@@ -319,6 +323,10 @@ async def handle_link_handoff_callback(url: str) -> bool:
     try:
         with tenant_scope(keys['tenant']):
             data = await provider.exchange(code)
+    except UpstreamUnavailableError as e:
+        logger.warning('%s link handoff exchange refused: %s', provider.label, e)
+        ui.navigate.to(_link_handback_url(host, provider_key, _HANDBACK_UNAVAILABLE, next_path))
+        return True
     except Exception:
         logger.exception('%s link handoff exchange failed', provider.label)
         ui.navigate.to(_link_handback_url(host, provider_key, _HANDBACK_FAILED, next_path))
