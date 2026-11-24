@@ -18,6 +18,7 @@ from typing import Awaitable, Callable, Optional
 
 from nicegui import app, ui
 
+from application.event_context import event_scope, get_current_event_id
 from application.services import AuthService, get_user_from_session
 from application.table_preferences_context import current_table_prefs, table_prefs_scope
 from application.tenant_context import get_current_tenant_id, tenant_scope
@@ -270,8 +271,9 @@ async def admin_settings_page(
     can_edit = await AuthService.is_staff(
         await get_user_from_session(app.storage.user))
     # Captured now: a pane built later is built in a click handler, which has lost the tenant,
-    # the display zone and the table layouts.
+    # the event, the display zone and the table layouts.
     tenant_id = get_current_tenant_id()
+    event_id = get_current_event_id()
     tz = current_timezone_name()
     prefs = current_table_prefs()
 
@@ -286,7 +288,7 @@ async def admin_settings_page(
 
     async def build(p: SettingsPane) -> None:
         built.add(p.slug)
-        with containers[p.slug], tenant_scope(tenant_id), tz_scope(tz), table_prefs_scope(prefs), unsaved.collect():
+        with containers[p.slug], tenant_scope(tenant_id), event_scope(event_id), tz_scope(tz), table_prefs_scope(prefs), unsaved.collect():
             if has_home:
                 ui.button(f'All {title.lower()}', icon='chevron_left', on_click=leave_pane) \
                     .props('flat dense no-caps color=primary').classes('wiz-settings-back')
