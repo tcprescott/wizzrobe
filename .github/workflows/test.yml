@@ -182,7 +182,7 @@ jobs:
     # fixtures, so no backend is booted.
     needs: changes
     if: needs.changes.outputs.web == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # Playwright 1.56 has no build for ubuntu-latest (26.04)
     timeout-minutes: 45
     defaults:
       run:
@@ -351,7 +351,7 @@ jobs:
     # /ui-validation loop, which stays a local tool. The a11y scan runs in
     # `browser-a11y` against its own app: the app is single-worker, so the two
     # halves only overlap when each has one.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # Playwright 1.56 has no build for ubuntu-latest (26.04)
     timeout-minutes: 25
     services:
       postgres:
@@ -434,7 +434,7 @@ jobs:
     # (see `changes`). The smoke walk in `browser` still renders every page.
     needs: changes
     if: needs.changes.outputs.a11y == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # Playwright 1.56 has no build for ubuntu-latest (26.04)
     timeout-minutes: 25
     services:
       postgres:

@@ -45,6 +45,15 @@ class MissingCredentialError(ValueError):
     """
 
 
+class UpstreamUnavailableError(ValueError):
+    """Raised when an outside service refuses Wizzrobe for a while (a used-up API allowance).
+
+    A plain :class:`ValueError` (a UI notification, 400 over REST), and a
+    distinct type so the cross-host link handoff can tell the user to come back
+    later instead of handing back a bare "please try again".
+    """
+
+
 class AlreadyBookedError(ValueError):
     """Raised when the slot a caller tried to book was booked by someone else first.
 

@@ -202,7 +202,7 @@ class TestSyncBracket:
             'participants': [], 'matches': [],
         })
         await make_service(api=api).sync_bracket(tournament.id, actor)
-        api.get_tournament_full.assert_awaited_once_with('T1', community='speedgaming')
+        api.get_tournament_full.assert_awaited_once_with('T1', community='speedgaming', known_user_ids={})
 
     async def test_requires_linked_tournament(self, db):
         actor = await make_user(1, 'admin')
@@ -604,6 +604,15 @@ class TestClientParticipantIdentity:
         client = self._client([embedded])
         await client.get_tournament_full('1')
         assert client._authed_request.await_count == 1
+
+    async def test_full_fetch_skips_the_extra_call_for_entrants_already_known(self):
+        embedded = {'data': {'id': '1', 'attributes': {}}, 'included': [
+            _included_participant('305857241', 'The_Synack', {}),
+        ]}
+        client = self._client([embedded])
+        full = await client.get_tournament_full('1', known_user_ids={'305857241': '60661'})
+        assert client._authed_request.await_count == 1
+        assert full['participants'][0]['challonge_user_id'] == '60661'
 
 
 class TestManualParticipantAssignment:

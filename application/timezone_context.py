@@ -37,6 +37,7 @@ from typing import Iterator, Optional
 from urllib.parse import unquote
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from application.event_context import get_current_event_id, reset_event_id, set_event_id
 from application.tenant_context import (
     client_stash,
     get_current_tenant_id,
@@ -318,7 +319,7 @@ def tz_scope(name: Optional[str]) -> Iterator[None]:
 
 @contextmanager
 def pin_client_context() -> Iterator[None]:
-    """Bind the tenant, host mode, zones and clock the current UI handler resolves.
+    """Bind the tenant, event, host mode, zones and clock the current UI handler resolves.
 
     A websocket handler finds them through the NiceGUI client's slot stack, which
     is per asyncio task, so a child task (``asyncio.gather``) sees none of them
@@ -333,9 +334,11 @@ def pin_client_context() -> Iterator[None]:
         _hour12_var.set(_get_hour12()),
         _browser_hour_cycle_var.set(get_browser_hour_cycle()),
     )
+    event_token = set_event_id(get_current_event_id())
     try:
         yield
     finally:
+        reset_event_id(event_token)
         _browser_hour_cycle_var.reset(tokens[5])
         _hour12_var.reset(tokens[4])
         _browser_tz_var.reset(tokens[3])

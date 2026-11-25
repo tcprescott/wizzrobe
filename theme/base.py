@@ -4,6 +4,7 @@ import re
 
 from nicegui import app, context, ui
 
+from application.event_context import event_scope, get_current_event_id
 from application.table_preferences_context import table_prefs_scope
 from application.tenant_context import get_current_tenant_id, tenant_scope
 from application.utils.tenant_urls import login_path
@@ -116,8 +117,9 @@ class BaseLayout:
         self._section = section
         self._tab_containers: dict = {}
         self._pending_tabs: dict = {}
-        # Rebound around deferred tab builds, which run with no tenant contextvar.
+        # Rebound around deferred tab builds, which run with no tenant or event contextvar.
         self._tenant_id = get_current_tenant_id()
+        self._event_id = get_current_event_id()
         self._table_prefs: dict[str, dict] = {}
         self._base_path = base_path
 
@@ -590,7 +592,7 @@ class BaseLayout:
             container.classes(add=READ_ONLY_CLASS)
         try:
             with container:
-                with tenant_scope(self._tenant_id), table_prefs_scope(self._table_prefs), \
+                with tenant_scope(self._tenant_id), event_scope(self._event_id), table_prefs_scope(self._table_prefs), \
                         read_only_scope(view), heading_fallback(label):
                     await self._render_tab_content(tab)
                     if view is not None and not banner_shown():

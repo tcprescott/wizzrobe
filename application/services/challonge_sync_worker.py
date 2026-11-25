@@ -22,9 +22,10 @@ async def _tick() -> None:
     from application.services.challonge_service import ChallongeService
     from application.services.feature_flag_service import FeatureFlagService
     from application.services.user_service import UserService
+    from application.utils.clients.challonge_client import quota_paused
     from models import FeatureFlag
 
-    if not ChallongeService.is_configured():
+    if not ChallongeService.is_configured() or quota_paused():
         return
     tenant_ids = sorted(await ChallongeRepository.linked_tenant_ids())
     if not tenant_ids:
